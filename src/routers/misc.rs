@@ -210,8 +210,9 @@ impl MiscApi {
         })
     }
     async fn generate_thumbnail(&self, thumbnail_type: &ThumbnailType, filename: &str) -> Result<Vec<u8>, ThumbnailError> {
-        let filenames = filename.split("_");
-        let (game_type, filename) = (filenames[0], filenames[1]);
+        let mut filenames = filename.split("_");
+        let game_type = filenames.next().unwrap_or(GAME_TYPES[0]);
+        let filename = filenames.next().unwrap_or(filename);
         let image_url = format!("{BASE_URL}/{game_type}/{filename}");
 
         tracing::debug!("Fetching {image_url}");
