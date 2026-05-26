@@ -542,10 +542,10 @@ pub async fn fetch_map_images() -> reqwest::Result<Vec<MapImage>>{
                 .map(|map_name| MapImage {
                     map_name: map_name.clone(),
                     game_type: e.clone(),
-                    small: format!("/thumbnails/{}/{}_{}.jpg", ThumbnailType::Small, e, map_name),
-                    medium: format!("/thumbnails/{}/{}_{}.jpg", ThumbnailType::Medium, e, map_name),
-                    large: format!("/thumbnails/{}/{}_{}.jpg", ThumbnailType::Large, e, map_name),
-                    extra_large: format!("/thumbnails/{}/{}_{}.jpg", ThumbnailType::ExtraLarge, e, map_name),
+                    small: format!("/thumbnails/{}/{}--{}.jpg", ThumbnailType::Small, e, map_name),
+                    medium: format!("/thumbnails/{}/{}--{}.jpg", ThumbnailType::Medium, e, map_name),
+                    large: format!("/thumbnails/{}/{}--{}.jpg", ThumbnailType::Large, e, map_name),
+                    extra_large: format!("/thumbnails/{}/{}--{}.jpg", ThumbnailType::ExtraLarge, e, map_name),
                 }).collect::<Vec<MapImage>>()
         )
         .flatten()

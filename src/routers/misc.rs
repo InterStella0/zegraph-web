@@ -210,7 +210,7 @@ impl MiscApi {
         })
     }
     async fn generate_thumbnail(&self, thumbnail_type: &ThumbnailType, filename: &str) -> Result<Vec<u8>, ThumbnailError> {
-        let mut filenames = filename.split("_");
+        let mut filenames = filename.splitn(2, "--");
         let game_type = filenames.next().unwrap_or(GAME_TYPES[0]);
         let filename = filenames.next().unwrap_or(filename);
         let image_url = format!("{BASE_URL}/{game_type}/{filename}");
