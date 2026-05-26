@@ -4,7 +4,7 @@ use regex::Regex;
 use reqwest::{Client, StatusCode};
 use serde_json::json;
 use anyhow::Result;
-use poem_openapi::__private::serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
 #[async_trait]
@@ -45,6 +45,89 @@ impl Provider for SteamIdPro {
 
     fn name(&self) -> String {
         "SteamIdPro".to_string()
+    }
+}
+
+pub struct PlayerDb {
+    client: Client,
+}
+
+impl PlayerDb {
+    pub fn new(client: Client) -> Self {
+        Self { client }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct Meta {
+    pub steam2id: String,
+    pub steam2id_new: String,
+    pub steam3id: String,
+    pub steam64id: String,
+    pub steamid: String,
+    pub communityvisibilitystate: i64,
+    pub profilestate: i64,
+    pub personaname: String,
+    pub commentpermission: i64,
+    pub profileurl: String,
+    pub avatar: String,
+    pub avatarmedium: String,
+    pub avatarfull: String,
+    pub avatarhash: String,
+    pub personastate: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Player {
+    pub meta: Meta,
+    pub id: String,
+    pub avatar: String,
+    pub username: String,
+    pub cached_at: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Data {
+    pub player: Player,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PlayerDbResponse {
+    pub code: String,
+    pub message: String,
+    pub data: Option<Data>,
+    pub success: bool,
+}
+
+#[derive(Debug, thiserror::Error)]
+enum PlayerDbError{
+    #[error("not found")]
+    NotFound,
+    #[error("error: {0}")]
+    Error(String)
+}
+
+#[async_trait]
+impl Provider for PlayerDb {
+    async fn get_pfp(&self, uuid: u64) -> Result<String> {
+        let base_url = "https://playerdb.co/api/player/steam";
+        let url = format!("{}/{}", base_url, uuid);
+
+        let response: PlayerDbResponse = self.client.get(&url).send().await?.json().await?;
+        if !response.success{
+            if response.code == "steam.invalid_id"{
+                return Err(PlayerDbError::NotFound.into());
+            }
+            return Err(PlayerDbError::Error(response.message).into());
+        }
+        let Some(data) = response.data else {
+            return Err(PlayerDbError::Error(response.message).into());
+        };
+        Ok(data.player.meta.avatarfull)
+    }
+
+    fn name(&self) -> String {
+        "PlayerDb".to_string()
     }
 }
 

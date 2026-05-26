@@ -16,7 +16,7 @@ mod cache;
 
 use providers::{SteamIdPro, SteamIdXyz, TradeItProvider, Provider};
 use cache::RedisCache;
-use crate::providers::SteamOfficialApi;
+use crate::providers::{PlayerDb, SteamOfficialApi};
 
 #[derive(Debug, Error)]
 enum AppError {
@@ -95,7 +95,7 @@ impl Api {
                 Ok(url) if !url.is_empty() => {
                     let cache_value = format!("{}:{}", provider.name(), url);
                     if let Err(e) = self.state.cache.set(
-                        &uuid.0.to_string(), &cache_value, Duration::from_secs(60 * 60 * 24 * 7)).await {
+                        &uuid.0.to_string(), &cache_value, Duration::from_secs(60 * 60 * 24 * 3)).await {
                         tracing::warn!("Failed to cache result: {}", e);
                     }
 
@@ -134,11 +134,13 @@ async fn main(){
     let cache = RedisCache::new(&redis_url).await
         .expect("Failed to connect to redis");
     let http_client = reqwest::Client::builder()
+        .user_agent("ZEGraph-Pfp-Provider/0.3 (+https://zegraph.xyz)")
         .timeout(Duration::from_secs(10))
         .build()
         .expect("Failed to create HTTP client");
 
     let mut providers: Vec<Box<dyn Provider>> = vec![
+        Box::new(PlayerDb::new(http_client.clone())),
         Box::new(SteamIdPro::new(http_client.clone())),
         Box::new(SteamIdXyz::new(http_client.clone())),
         Box::new(TradeItProvider::new(http_client.clone())),
