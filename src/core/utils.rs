@@ -500,6 +500,7 @@ impl Display for ThumbnailType {
 #[derive(Object, Serialize, Deserialize)]
 pub struct MapImage{
     pub map_name: String,
+    game_type: String,
     small: String,
     medium: String,
     large: String,
@@ -528,25 +529,29 @@ pub fn get_map_image<'a>(map_name: &'a str, map_names: &'a Vec<String>) -> Optio
 }
 
 pub const GAME_TYPE: &str = "730_cs2";
+pub const GAME_TYPES: &[&str] = &["730_cs2", "240", "730_csgo"];
 pub const BASE_URL: &str = "https://vauff.com/mapimgs";
 pub async fn fetch_map_images() -> reqwest::Result<Vec<MapImage>>{
     let list_maps = format!("{BASE_URL}/list.php");
 
     let response: VauffResponseData = reqwest::get(&list_maps).await?.json().await?;
+    let data: Vec<MapImage> = response.maps.iter()
+        .filter(|(k, values)| GAME_TYPES.contains(&k.as_str()))
+        .map(|(e, values)|
+            values.into_iter()
+                .map(|map_name| MapImage {
+                    map_name: map_name.clone(),
+                    game_type: *e,
+                    small: format!("/thumbnails/{}/{}_{}.jpg", ThumbnailType::Small, e, map_name),
+                    medium: format!("/thumbnails/{}/{}_{}.jpg", ThumbnailType::Medium, e, map_name),
+                    large: format!("/thumbnails/{}/{}_{}.jpg", ThumbnailType::Large, e, map_name),
+                    extra_large: format!("/thumbnails/{}/{}_{}.jpg", ThumbnailType::ExtraLarge, e, map_name),
+                }).collect()
+        )
+        .flatten()
+        .collect::<Vec<_>>();
 
-    let Some(data) = response.maps.get(GAME_TYPE) else {
-        tracing::warn!("{} results in None", &list_maps);
-        return Ok(vec![])
-    };
-
-    let maps = data.into_iter().map(|e| MapImage {
-        map_name: e.clone(),
-        small: format!("/thumbnails/{}/{}.jpg", ThumbnailType::Small, e),
-        medium: format!("/thumbnails/{}/{}.jpg", ThumbnailType::Medium, e),
-        large: format!("/thumbnails/{}/{}.jpg", ThumbnailType::Large, e),
-        extra_large: format!("/thumbnails/{}/{}.jpg", ThumbnailType::ExtraLarge, e),
-    }).collect();
-    Ok(maps)
+    Ok(data)
 }
 
 pub struct CachedResult<T>{

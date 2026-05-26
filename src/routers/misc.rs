@@ -210,7 +210,9 @@ impl MiscApi {
         })
     }
     async fn generate_thumbnail(&self, thumbnail_type: &ThumbnailType, filename: &str) -> Result<Vec<u8>, ThumbnailError> {
-        let image_url = format!("{BASE_URL}/{GAME_TYPE}/{filename}");
+        let filenames = filename.split("_");
+        let (game_type, filename) = (filenames[0], filenames[1]);
+        let image_url = format!("{BASE_URL}/{game_type}/{filename}");
 
         tracing::debug!("Fetching {image_url}");
         let response = reqwest::get(&image_url).await
