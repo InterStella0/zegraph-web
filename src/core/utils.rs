@@ -528,7 +528,6 @@ pub fn get_map_image<'a>(map_name: &'a str, map_names: &'a Vec<String>) -> Optio
     Some(*map_image)
 }
 
-pub const GAME_TYPE: &str = "730_cs2";
 pub const GAME_TYPES: &[&str] = &["730_cs2", "240", "730_csgo"];
 pub const BASE_URL: &str = "https://vauff.com/mapimgs";
 pub async fn fetch_map_images() -> reqwest::Result<Vec<MapImage>>{
@@ -536,7 +535,7 @@ pub async fn fetch_map_images() -> reqwest::Result<Vec<MapImage>>{
 
     let response: VauffResponseData = reqwest::get(&list_maps).await?.json().await?;
     let data: Vec<MapImage> = response.maps.iter()
-        .filter(|(k, values)| GAME_TYPES.contains(&k.as_str()))
+        .filter(|(k, _values)| GAME_TYPES.contains(&k.as_str()))
         .map(|(e, values)|
             values.into_iter()
                 .map(|map_name| MapImage {
