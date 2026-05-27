@@ -332,10 +332,33 @@ export function addOrdinalSuffix(num: number): string {
     return num + suffix;
 }
 
+type FlagBitMap = ReadonlyArray<readonly [bigint, bigint]>;
+
+const DEFAULT_FLAG_MAP: FlagBitMap = Object.values(InfractionFlags).map(f => [f, f] as const);
+
+const NIDE_FLAG_MAP: FlagBitMap = [
+    [1n << 0n, InfractionFlags.BAN],
+    [1n << 1n, InfractionFlags.VOICE],
+    [1n << 2n, InfractionFlags.TEXT],
+];
+
+function flagMapForSource(source?: string): FlagBitMap {
+    if (source?.includes("bans.nide.gg")) return NIDE_FLAG_MAP;
+    return DEFAULT_FLAG_MAP;
+}
+
+function normalizeFlags(raw: bigint, map: FlagBitMap): bigint {
+    let out = 0n;
+    for (const [rawBit, canonicalBit] of map) {
+        if ((raw & rawBit) === rawBit) out |= canonicalBit;
+    }
+    return out;
+}
+
 export class InfractionInt {
     public value: bigint;
-    constructor(value: bigint) {
-        this.value = BigInt(value);
+    constructor(value: bigint | number, source?: string) {
+        this.value = normalizeFlags(BigInt(value), flagMapForSource(source));
     }
 
     hasFlag(flag: bigint): boolean {

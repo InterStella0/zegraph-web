@@ -19,7 +19,7 @@ use crate::core::workers::*;
 pub struct PlayerApi;
 
 pub const PLAYER_DEFAULT_KEY: &str = "first-time";
-
+pub const NIDE_SERVER_ID: &str = "7ae2ca188ebf8be21d4f42b2827153ac";
 #[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct PlayerInfractionUpdateData {
@@ -82,9 +82,9 @@ impl Display for PlayerTableMode{
 }
 
 struct PlayerExtractor{
-    server: DbServer,
-    player: DbPlayer,
-    key: CacheKey
+    pub server: DbServer,
+    pub player: DbPlayer,
+    pub key: CacheKey
 }
 impl From<PlayerExtractor> for PlayerContext {
     fn from(extract: PlayerExtractor) -> Self {
@@ -772,24 +772,41 @@ impl PlayerApi{
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<PlayerInfractionUpdate>{
         let pool = &*data.pool.clone();
-        let Ok(result) = sqlx::query_as!(DbPlayerInfraction, "
-            UPDATE public.server_infractions
-            SET pending_update = TRUE
-            WHERE payload->'player' ? 'gs_id'
-                AND payload->>'server_id' = $2
-                AND payload->'player'->>'gs_id' = $1
-            RETURNING
-                infraction_id,
-                \"source\",
-                payload->>'reason' AS reason,
-                payload->'admin'->>'admin_name' AS by,
-                payload->'admin'->>'avatar_id' AS admin_avatar,
-                (payload->>'flags')::bigint AS flags,
-                to_timestamp((payload->>'created')::double precision::bigint) AS infraction_time
-        ", player_id.0.to_string(), server.server_id).fetch_all(pool).await else {
+        let rows = if server.server_id == NIDE_SERVER_ID{
+            sqlx::query_as!(DbPlayerInfraction, "
+                UPDATE public.server_infractions
+                SET pending_update = TRUE
+                WHERE payload->>'server_id' = $2
+                    AND payload->>'steam64_id' = $1
+                RETURNING
+                    infraction_id,
+                    \"source\",
+                    payload->>'reason' AS reason,
+                    payload->>'admin' AS by,
+                    NULL AS admin_avatar,
+                    (payload->>'flags')::bigint AS flags,
+                    to_timestamp((payload->>'invoked_on')::double precision::bigint) AS infraction_time
+            ", player_id.0.to_string(), server.server_id).fetch_all(pool).await
+        }else{
+            sqlx::query_as!(DbPlayerInfraction, "
+                UPDATE public.server_infractions
+                SET pending_update = TRUE
+                WHERE payload->'player' ? 'gs_id'
+                    AND payload->>'server_id' = $2
+                    AND payload->'player'->>'gs_id' = $1
+                RETURNING
+                    infraction_id,
+                    \"source\",
+                    payload->>'reason' AS reason,
+                    payload->'admin'->>'admin_name' AS by,
+                    payload->'admin'->>'avatar_id' AS admin_avatar,
+                    (payload->>'flags')::bigint AS flags,
+                    to_timestamp((payload->>'created')::double precision::bigint) AS infraction_time
+            ", player_id.0.to_string(), server.server_id).fetch_all(pool).await
+        };
+        let Ok(result) = rows else {
             return response!(internal_server_error)
         };
-
 
         let mut tasks = vec![];
         for infraction in result {
@@ -823,22 +840,40 @@ impl PlayerApi{
     #[oai(path = "/servers/:server_id/players/:player_id/infractions", method = "get")]
     async fn get_player_infractions(&self, Data(data): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerInfraction>> {
         let pool = &*data.pool.clone();
-        let Ok(result) = sqlx::query_as!(DbPlayerInfraction, "
-            SELECT 
-                infraction_id,
-                source,
-                payload->>'reason' reason, 
-                payload->'admin'->>'admin_name' as by,
-				payload->'admin'->>'avatar_id' as admin_avatar,
-				(payload->>'flags')::bigint flags,
-                to_timestamp((payload->>'created')::double precision::bigint) infraction_time
-            FROM public.server_infractions
-            WHERE payload->'player' ? 'gs_id'
-                AND payload->>'server_id' = $2
-                AND payload->'player'->>'gs_id' = $1
-            ORDER BY infraction_time DESC
-        ", extract.player.player_id, extract.server.server_id).fetch_all(pool).await else {
-			return response!(internal_server_error)
+        let sql = if extract.server.server_id == NIDE_SERVER_ID{
+            sqlx::query_as!(DbPlayerInfraction, "
+                SELECT
+                    infraction_id,
+                    source,
+                    payload->>'reason' reason,
+                    payload->>'admin' as by,
+                    NULL as admin_avatar,
+                    (payload->>'flags')::bigint flags,
+                    to_timestamp((payload->>'invoked_on')::double precision::bigint) infraction_time
+                FROM public.server_infractions
+                WHERE payload->>'server_id' = $2
+                    AND payload->>'steam64_id' = $1
+                ORDER BY infraction_time DESC
+            ", extract.player.player_id, extract.server.server_id).fetch_all(pool).await
+        }else{
+            sqlx::query_as!(DbPlayerInfraction, "
+                SELECT
+                    infraction_id,
+                    source,
+                    payload->>'reason' reason,
+                    payload->'admin'->>'admin_name' as by,
+                    payload->'admin'->>'avatar_id' as admin_avatar,
+                    (payload->>'flags')::bigint flags,
+                    to_timestamp((payload->>'created')::double precision::bigint) infraction_time
+                FROM public.server_infractions
+                WHERE payload->'player' ? 'gs_id'
+                    AND payload->>'server_id' = $2
+                    AND payload->'player'->>'gs_id' = $1
+                ORDER BY infraction_time DESC
+            ", extract.player.player_id, extract.server.server_id).fetch_all(pool).await
+        };
+        let Ok(result) = sql else {
+            return response!(internal_server_error)
         };
         response!(ok result.iter_into())
     }

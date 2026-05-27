@@ -32,10 +32,12 @@ import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/ut
 import { useTheme } from "next-themes";
 
 function ModalInfraction({ infraction, onClose }){
+    const isEmpty = infraction === null
+    const iframeSource = `${infraction?.source}/infractions/${infraction?.id}/`
     return (
-        <Dialog open={infraction !== null} onOpenChange={() => onClose()}>
+        <Dialog open={!isEmpty} onOpenChange={() => onClose()}>
             <DialogContent className="w-full !max-w-none h-[100vh] p-0 left-0 bottom-0 translate-x-0 !translate-y-[-50%] [&_svg:not([class*='size-'])]:size-5 [&>button]:right-6 [&>button]:top-7 [&>button]:left-auto [&>button]:z-3">
-                {infraction !== null && (
+                {!isEmpty && (
                     <div className="w-[100vw] flex flex-col h-full relative">
                         <Alert className="absolute z-1 left-5 right-5 top-5 w-[86%]">
                             <AlertDescription>
@@ -45,7 +47,7 @@ function ModalInfraction({ infraction, onClose }){
                         <div className="flex-1 relative w-[100vw]">
                             <iframe
                                 className="w-full h-full"
-                                src={`${infraction.source}/infractions/${infraction?.id}/`}
+                                src={iframeSource}
                             />
                         </div>
                     </div>
@@ -70,7 +72,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
         fetchApiServerUrl(server_id, `/players/${playerId}/infractions`)
             .then((infras) => infras.map(e => {
                 if (!(e.flags instanceof InfractionInt))
-                    e.flags = new InfractionInt(e.flags);
+                    e.flags = new InfractionInt(e.flags, e.source);
                 return e;
             }))
             .then(e => setInfractions(e));
@@ -82,6 +84,12 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
     }, [updatedData]);
 
     const handleOnClick = (row) => {
+        const isNide = row.source?.includes("bans.nide.gg");
+        if (isNide) {
+            const url = `${row.source}&advSearch=${playerId}&advType=steamid`;
+            window.open(url, "_blank", "noopener,noreferrer");
+            return;
+        }
         setViewInfraction(row);
     };
 
@@ -168,7 +176,6 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: { serverPlayerPr
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const [updatedData, setUpdatedData] = useState<PlayerInfraction[] | null>(null);
     const [loading, setLoading] = useState(false);
-    const { theme } = useTheme();
     const server_id = server.id
     const updateData = () => {
         setLoading(true);
@@ -176,7 +183,7 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: { serverPlayerPr
             .then((resp: PlayerInfractionUpdate) => {
                 const infractions: PlayerInfraction[] = resp.infractions.map(e => {
                     if (!(e.flags instanceof InfractionInt))
-                        e.flags = new InfractionInt(e.flags);
+                        e.flags = new InfractionInt(e.flags, e.source);
                     return e;
                 });
                 infractions.sort((a, b) => dayjs(b.infraction_time).diff(dayjs(a.infraction_time)));
