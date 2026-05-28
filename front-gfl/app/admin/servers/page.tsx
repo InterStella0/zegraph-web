@@ -17,7 +17,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from 'components/ui/dropdown-menu';
-import { MoreVertical, Plus, Pencil, Trash2, Link2, Link2Off } from 'lucide-react';
+import { MoreVertical, Plus, Pencil, Trash2, Link2, Link2Off, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchApiUrl } from 'utils/generalUtils';
 
@@ -47,6 +47,12 @@ interface AdminServer {
   community_id: string | null;
   online: boolean | null;
   readable_link: string | null;
+  server_website: string | null;
+  server_discord_link: string | null;
+  server_source: string | null;
+  timezone: string | null;
+  game: string | null;
+  source_by_id: boolean | null;
 }
 
 const COOLDOWN_LABELS: Record<string, string> = {
@@ -54,6 +60,12 @@ const COOLDOWN_LABELS: Record<string, string> = {
   datetime: 'By Datetime',
   map_count: 'By Map Count',
 };
+
+const GAME_OPTIONS: { value: string; label: string }[] = [
+  { value: '730_cs2', label: 'CS2 (730)' },
+  { value: '730_csgo', label: 'CS:GO (730)' },
+  { value: '240', label: 'CS:S (240)' },
+];
 
 // ─── Community dialog ─────────────────────────────────────────────────────────
 
@@ -323,6 +335,111 @@ function EditServerNameDialog({
   );
 }
 
+// ─── Edit server metadata dialog ──────────────────────────────────────────────
+
+function EditMetadataDialog({
+  open, onOpenChange, server, onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  server: AdminServer | null;
+  onSuccess: () => void;
+}) {
+  const [website, setWebsite] = useState('');
+  const [discordLink, setDiscordLink] = useState('');
+  const [source, setSource] = useState('');
+  const [timezone, setTimezone] = useState('');
+  const [game, setGame] = useState('730_cs2');
+  const [sourceById, setSourceById] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setWebsite(server?.server_website ?? '');
+    setDiscordLink(server?.server_discord_link ?? '');
+    setSource(server?.server_source ?? '');
+    setTimezone(server?.timezone ?? '');
+    setGame(server?.game ?? '730_cs2');
+    setSourceById(server?.source_by_id ?? false);
+  }, [server, open]);
+
+  const handleSubmit = async () => {
+    if (!server) return;
+    setSubmitting(true);
+    try {
+      await fetchApiUrl(`/admin/servers/raw/${server.server_id}/metadata`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          server_website: website.trim() || null,
+          server_discord_link: discordLink.trim() || null,
+          server_source: source.trim() || null,
+          timezone: timezone.trim() || null,
+          game,
+          source_by_id: sourceById,
+        }),
+      });
+      toast.success('Server metadata updated');
+      onSuccess();
+      onOpenChange(false);
+    } catch {
+      toast.error('Failed to update metadata');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Server Metadata</DialogTitle>
+          <DialogDescription>{server?.server_fullname ?? server?.server_id}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Website</Label>
+            <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..." />
+          </div>
+          <div className="space-y-2">
+            <Label>Discord Link</Label>
+            <Input value={discordLink} onChange={e => setDiscordLink(e.target.value)} placeholder="https://discord.gg/..." />
+          </div>
+          <div className="space-y-2">
+            <Label>Source</Label>
+            <Input value={source} onChange={e => setSource(e.target.value)} placeholder="e.g. gameme" />
+          </div>
+          <div className="space-y-2">
+            <Label>Timezone</Label>
+            <Input value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="e.g. America/New_York" />
+          </div>
+          <div className="space-y-2">
+            <Label>Game</Label>
+            <Select value={game} onValueChange={setGame}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GAME_OPTIONS.map(g => (
+                  <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch checked={sourceById} onCheckedChange={setSourceById} id="source-by-id-toggle" />
+            <Label htmlFor="source-by-id-toggle">Source by ID</Label>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Saving...' : 'Update'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Set community dialog ─────────────────────────────────────────────────────
 
 function SetCommunityDialog({
@@ -412,6 +529,9 @@ export default function ServersAdminPage() {
 
   const [setCommunityDialog, setSetCommunityDialog] = useState(false);
   const [communityTargetServer, setCommunityTargetServer] = useState<AdminServer | null>(null);
+
+  const [metadataDialog, setMetadataDialog] = useState(false);
+  const [metadataServer, setMetadataServer] = useState<AdminServer | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -649,6 +769,9 @@ export default function ServersAdminPage() {
                           <DropdownMenuItem onClick={() => { setEditingServer(s); setEditNameDialog(true); }}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit Name
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setMetadataServer(s); setMetadataDialog(true); }}>
+                            <Settings className="mr-2 h-4 w-4" /> Edit Metadata
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { setCommunityTargetServer(s); setSetCommunityDialog(true); }}>
                             {s.community_id
                               ? <><Link2Off className="mr-2 h-4 w-4" /> Change Community</>
@@ -695,6 +818,12 @@ export default function ServersAdminPage() {
         onOpenChange={setSetCommunityDialog}
         server={communityTargetServer}
         communities={communities}
+        onSuccess={fetchAll}
+      />
+      <EditMetadataDialog
+        open={metadataDialog}
+        onOpenChange={setMetadataDialog}
+        server={metadataServer}
         onSuccess={fetchAll}
       />
     </div>

@@ -74,12 +74,67 @@ pub struct AdminServer {
     pub community_id: Option<String>,
     pub online: Option<bool>,
     pub readable_link: Option<String>,
+    pub server_website: Option<String>,
+    pub server_discord_link: Option<String>,
+    pub server_source: Option<String>,
+    pub timezone: Option<String>,
+    pub game: Option<String>,
+    pub source_by_id: Option<bool>,
+}
+
+/// Row shape shared by every endpoint that returns an `AdminServer`.
+struct AdminServerRow {
+    server_id: String,
+    server_name: Option<String>,
+    server_fullname: Option<String>,
+    server_ip: Option<String>,
+    server_port: Option<i32>,
+    community_id: Option<Uuid>,
+    online: Option<bool>,
+    readable_link: Option<String>,
+    server_website: Option<String>,
+    server_discord_link: Option<String>,
+    server_source: Option<String>,
+    timezone: Option<String>,
+    game: Option<String>,
+    source_by_id: Option<bool>,
+}
+
+impl From<AdminServerRow> for AdminServer {
+    fn from(r: AdminServerRow) -> Self {
+        AdminServer {
+            server_id: r.server_id,
+            server_name: r.server_name,
+            server_fullname: r.server_fullname,
+            server_ip: r.server_ip,
+            server_port: r.server_port,
+            community_id: r.community_id.map(|u| u.to_string()),
+            online: r.online,
+            readable_link: r.readable_link,
+            server_website: r.server_website,
+            server_discord_link: r.server_discord_link,
+            server_source: r.server_source,
+            timezone: r.timezone,
+            game: r.game,
+            source_by_id: r.source_by_id,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Object)]
 pub struct UpdateServerPayload {
     pub server_name: Option<String>,
     pub readable_link: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Object)]
+pub struct UpdateServerMetadataPayload {
+    pub server_website: Option<String>,
+    pub server_discord_link: Option<String>,
+    pub server_source: Option<String>,
+    pub timezone: Option<String>,
+    pub game: Option<String>,
+    pub source_by_id: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Object)]
@@ -472,24 +527,16 @@ impl AdminServersApi {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 
-        struct DbRow {
-            server_id: String,
-            server_name: Option<String>,
-            server_fullname: Option<String>,
-            server_ip: Option<String>,
-            server_port: Option<i32>,
-            community_id: Option<Uuid>,
-            online: Option<bool>,
-            readable_link: Option<String>,
-        }
-
         let rows = match sqlx::query_as!(
-            DbRow,
+            AdminServerRow,
             r#"
-            SELECT server_id, server_name, server_fullname, server_ip, server_port,
-                   community_id, online, readable_link
-            FROM server
-            ORDER BY server_fullname NULLS LAST, server_name NULLS LAST
+            SELECT s.server_id, s.server_name, s.server_fullname, s.server_ip, s.server_port,
+                   s.community_id, s.online, s.readable_link,
+                   sm.server_website, sm.server_discord_link, sm.server_source,
+                   sm.timezone, sm.game, sm.source_by_id
+            FROM server s
+            LEFT JOIN server_metadata sm ON sm.server_id = s.server_id
+            ORDER BY s.server_fullname NULLS LAST, s.server_name NULLS LAST
             "#
         )
         .fetch_all(&*data.pool)
@@ -502,16 +549,7 @@ impl AdminServersApi {
             }
         };
 
-        response!(ok rows.into_iter().map(|r| AdminServer {
-            server_id: r.server_id,
-            server_name: r.server_name,
-            server_fullname: r.server_fullname,
-            server_ip: r.server_ip,
-            server_port: r.server_port,
-            community_id: r.community_id.map(|u| u.to_string()),
-            online: r.online,
-            readable_link: r.readable_link,
-        }).collect())
+        response!(ok rows.into_iter().map(AdminServer::from).collect())
     }
 
     #[oai(path = "/admin/servers-list/:server_id", method = "put")]
@@ -526,26 +564,23 @@ impl AdminServersApi {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 
-        struct DbRow {
-            server_id: String,
-            server_name: Option<String>,
-            server_fullname: Option<String>,
-            server_ip: Option<String>,
-            server_port: Option<i32>,
-            community_id: Option<Uuid>,
-            online: Option<bool>,
-            readable_link: Option<String>,
-        }
-
         let row = match sqlx::query_as!(
-            DbRow,
+            AdminServerRow,
             r#"
-            UPDATE server SET
-                server_name   = COALESCE($2, server_name),
-                readable_link = CASE WHEN $3 THEN $4 ELSE readable_link END
-            WHERE server_id = $1
-            RETURNING server_id, server_name, server_fullname, server_ip, server_port,
-                      community_id, online, readable_link
+            WITH updated AS (
+                UPDATE server SET
+                    server_name   = COALESCE($2, server_name),
+                    readable_link = CASE WHEN $3 THEN $4 ELSE readable_link END
+                WHERE server_id = $1
+                RETURNING server_id, server_name, server_fullname, server_ip, server_port,
+                          community_id, online, readable_link
+            )
+            SELECT u.server_id AS "server_id!", u.server_name, u.server_fullname, u.server_ip, u.server_port,
+                   u.community_id, u.online, u.readable_link,
+                   sm.server_website, sm.server_discord_link, sm.server_source,
+                   sm.timezone, sm.game, sm.source_by_id
+            FROM updated u
+            LEFT JOIN server_metadata sm ON sm.server_id = u.server_id
             "#,
             server_id,
             payload.server_name,
@@ -563,16 +598,7 @@ impl AdminServersApi {
             }
         };
 
-        response!(ok AdminServer {
-            server_id: row.server_id,
-            server_name: row.server_name,
-            server_fullname: row.server_fullname,
-            server_ip: row.server_ip,
-            server_port: row.server_port,
-            community_id: row.community_id.map(|u| u.to_string()),
-            online: row.online,
-            readable_link: row.readable_link,
-        })
+        response!(ok AdminServer::from(row))
     }
 
     #[oai(path = "/admin/servers-list/:server_id/community", method = "put")]
@@ -595,24 +621,21 @@ impl AdminServersApi {
             _ => None,
         };
 
-        struct DbRow {
-            server_id: String,
-            server_name: Option<String>,
-            server_fullname: Option<String>,
-            server_ip: Option<String>,
-            server_port: Option<i32>,
-            community_id: Option<Uuid>,
-            online: Option<bool>,
-            readable_link: Option<String>,
-        }
-
         let row = match sqlx::query_as!(
-            DbRow,
+            AdminServerRow,
             r#"
-            UPDATE server SET community_id = $2
-            WHERE server_id = $1
-            RETURNING server_id, server_name, server_fullname, server_ip, server_port,
-                      community_id, online, readable_link
+            WITH updated AS (
+                UPDATE server SET community_id = $2
+                WHERE server_id = $1
+                RETURNING server_id, server_name, server_fullname, server_ip, server_port,
+                          community_id, online, readable_link
+            )
+            SELECT u.server_id AS "server_id!", u.server_name, u.server_fullname, u.server_ip, u.server_port,
+                   u.community_id, u.online, u.readable_link,
+                   sm.server_website, sm.server_discord_link, sm.server_source,
+                   sm.timezone, sm.game, sm.source_by_id
+            FROM updated u
+            LEFT JOIN server_metadata sm ON sm.server_id = u.server_id
             "#,
             server_id,
             community_id,
@@ -628,16 +651,137 @@ impl AdminServersApi {
             }
         };
 
-        response!(ok AdminServer {
-            server_id: row.server_id,
-            server_name: row.server_name,
-            server_fullname: row.server_fullname,
-            server_ip: row.server_ip,
-            server_port: row.server_port,
-            community_id: row.community_id.map(|u| u.to_string()),
-            online: row.online,
-            readable_link: row.readable_link,
-        })
+        response!(ok AdminServer::from(row))
+    }
+
+    #[oai(path = "/admin/servers-list/:server_id/metadata", method = "put")]
+    async fn update_server_metadata(
+        &self,
+        Data(data): Data<&AppData>,
+        TokenBearer(user_token): TokenBearer,
+        Path(server_id): Path<String>,
+        Json(payload): Json<UpdateServerMetadataPayload>,
+    ) -> Response<AdminServer> {
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
+        if let Some(ref g) = payload.game {
+            if !GAME_TYPES.contains(&g.as_str()) {
+                return response!(err "Invalid game type", ErrorCode::BadRequest);
+            }
+        }
+
+        let mut tx = match data.pool.begin().await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to start transaction: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+
+        let exists = match sqlx::query_scalar!(
+            "SELECT 1 FROM server WHERE server_id = $1",
+            server_id,
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        {
+            Ok(r) => r.is_some(),
+            Err(e) => {
+                tracing::error!("Failed to check server existence: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+        if !exists {
+            return response!(err "Server not found", ErrorCode::NotFound);
+        }
+
+        let updated = match sqlx::query!(
+            r#"
+            UPDATE server_metadata SET
+                server_website      = CASE WHEN $2 THEN $3 ELSE server_website END,
+                server_discord_link = CASE WHEN $4 THEN $5 ELSE server_discord_link END,
+                server_source       = CASE WHEN $6 THEN $7 ELSE server_source END,
+                timezone            = CASE WHEN $8 THEN $9 ELSE timezone END,
+                game                = COALESCE($10, game),
+                source_by_id        = COALESCE($11, source_by_id)
+            WHERE server_id = $1
+            "#,
+            server_id,
+            payload.server_website.is_some(),
+            payload.server_website,
+            payload.server_discord_link.is_some(),
+            payload.server_discord_link,
+            payload.server_source.is_some(),
+            payload.server_source,
+            payload.timezone.is_some(),
+            payload.timezone,
+            payload.game,
+            payload.source_by_id,
+        )
+        .execute(&mut *tx)
+        .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!("Failed to update server_metadata: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+
+        if updated.rows_affected() == 0 {
+            if let Err(e) = sqlx::query!(
+                r#"
+                INSERT INTO server_metadata
+                    (server_id, server_website, server_discord_link, server_source,
+                     timezone, game, source_by_id)
+                VALUES ($1, $2, $3, $4, $5, COALESCE($6, '730_cs2'), COALESCE($7, FALSE))
+                "#,
+                server_id,
+                payload.server_website,
+                payload.server_discord_link,
+                payload.server_source,
+                payload.timezone,
+                payload.game,
+                payload.source_by_id,
+            )
+            .execute(&mut *tx)
+            .await
+            {
+                tracing::error!("Failed to insert server_metadata: {}", e);
+                return response!(internal_server_error);
+            }
+        }
+
+        let row = match sqlx::query_as!(
+            AdminServerRow,
+            r#"
+            SELECT s.server_id, s.server_name, s.server_fullname, s.server_ip, s.server_port,
+                   s.community_id, s.online, s.readable_link,
+                   sm.server_website, sm.server_discord_link, sm.server_source,
+                   sm.timezone, sm.game, sm.source_by_id
+            FROM server s
+            LEFT JOIN server_metadata sm ON sm.server_id = s.server_id
+            WHERE s.server_id = $1
+            "#,
+            server_id,
+        )
+        .fetch_one(&mut *tx)
+        .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!("Failed to reload server: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+
+        if let Err(e) = tx.commit().await {
+            tracing::error!("Failed to commit metadata update: {}", e);
+            return response!(internal_server_error);
+        }
+
+        response!(ok AdminServer::from(row))
     }
 
     #[oai(path = "/admin/servers-list/:server_id", method = "delete")]
@@ -678,6 +822,7 @@ impl UriPatternExt for AdminServersApi {
             "/admin/servers-list",
             "/admin/servers-list/{server_id}",
             "/admin/servers-list/{server_id}/community",
+            "/admin/servers-list/{server_id}/metadata",
         ]
         .iter_into()
     }
