@@ -52,6 +52,7 @@ export async function getCommunity(): Promise<Community[]>{
                     source: s.source,
                     byId: s.by_id,
                     map: s.map,
+                    game: s.game,
                 }))
             })) as Community[];
 

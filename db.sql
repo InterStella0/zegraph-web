@@ -66,6 +66,8 @@ CREATE TABLE server_metadata(
     server_website VARCHAR(500),
     server_discord_link VARCHAR(100),
     server_source VARCHAR(100),
+    timezone VARCHAR(50),
+    game VARCHAR(15) DEFAULT '730_cs2',
     source_by_id BOOLEAN DEFAULT FALSE
 );
 CREATE TABLE player_admin(
@@ -860,6 +862,9 @@ CREATE TABLE server_map
     removed BOOLEAN NOT NULL DEFAULT FALSE,
     map_left INTEGER,
     map_left_last_update TIMESTAMP WITH TIME ZONE,
+    nom_available_from TIME,
+    nom_available_until TIME,
+    available BOOLEAN DEFAULT TRUE,
     PRIMARY KEY (server_id, map)
 );
 CREATE TABLE region_time (

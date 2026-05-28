@@ -44,6 +44,7 @@ impl ServerApi {
                 sm.server_website,
                 sm.server_discord_link,
                 sm.server_source,
+                sm.game,
                 COALESCE(sm.source_by_id, false) source_by_id,
                 COALESCE(smp.map, NULL) AS map
             FROM server s

@@ -106,7 +106,8 @@ pub struct Server{
     pub discord_link: Option<String>,
     pub source: Option<String>,
     pub by_id: bool,
-    pub map: Option<String>
+    pub map: Option<String>,
+    pub game: Option<String>
 }
 #[derive(Object)]
 pub struct BaseCommunity<T: Sync + Send + Type + ParseFromJSON + ToJSON>{
