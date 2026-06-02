@@ -217,8 +217,8 @@ function RegionDistribution() {
                                             <TableCell className="py-1.5">
                                                 <p className="text-sm font-medium">{region.region_name}</p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {dayjs(region.start_time.replace("-10000", "1980").replace("-9999", "1980")).format("LT")}<span> - </span>
-                                                    {dayjs(region.end_time.replace("-10000", "1980").replace("-9999", "1980")).format("LT")}
+                                                    {dayjs(region.start_time.replace("-10000", "2000").replace("-9999", "2000")).format("LT")}<span> - </span>
+                                                    {dayjs(region.end_time.replace("-10000", "2000").replace("-9999", "2000")).format("LT")}
                                                 </p>
                                             </TableCell>
                                         </TableRow>
