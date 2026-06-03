@@ -395,8 +395,11 @@ pub async fn get_server(pool: &sqlx::Pool<Postgres>, cache: &FastCache, server_i
     let key = format!("find_server_detail:{}", server_id_or_link);
     let func = ||
         sqlx::query_as!(DbServer, "
-            SELECT server_name, server_id, server_ip, server_port, max_players, server_fullname, readable_link
-            FROM server WHERE server_id=$1 OR readable_link=$1 LIMIT 1"
+            SELECT server_name, s.server_id, server_ip, server_port, max_players, server_fullname, readable_link,
+                   server_website, server_discord_link, server_source, game, source_by_id, timezone
+            FROM server s
+            LEFT JOIN server_metadata sm ON sm.server_id=s.server_id
+            WHERE s.server_id=$1 OR readable_link=$1 LIMIT 1"
             , server_id_or_link)
             .fetch_one(pool);
     let data = cached_response(&key, cache, 60 * 60, func).await.ok();
@@ -500,7 +503,7 @@ impl Display for ThumbnailType {
 #[derive(Object, Serialize, Deserialize)]
 pub struct MapImage{
     pub map_name: String,
-    game_type: String,
+    pub game_type: String,
     small: String,
     medium: String,
     large: String,

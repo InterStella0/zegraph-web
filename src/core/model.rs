@@ -18,6 +18,12 @@ pub struct DbServer{
     pub max_players: Option<i16>,
     pub server_fullname: Option<String>,
     pub readable_link: Option<String>,
+    pub server_website: Option<String>,
+    pub server_discord_link: Option<String>,
+    pub server_source: Option<String>,
+    pub game: Option<String>,
+    pub source_by_id: Option<bool>,
+    pub timezone: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

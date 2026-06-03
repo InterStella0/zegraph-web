@@ -308,11 +308,18 @@ impl MiscApi {
             .map(|c| c.collect::<Vec<_>>())
             .unwrap_or_default();
 
+        let default_game = String::from(GAME_TYPES[0]);
         match path_segments.as_slice() {
             [server_id, "maps", map_name] => {
-                let _ = server_id;
+                let game = match get_server(&app.pool, &app.cache, &server_id).await {
+                    Some(server) => server.game.unwrap_or(default_game),
+                    None => default_game
+                };
                 let maps = get_map_images(&app.cache).await;
-                let map_names: Vec<String> = maps.iter().map(|e| e.map_name.clone()).collect();
+                let map_names: Vec<String> = maps.iter()
+                    .filter(|e| e.game_type == game)
+                    .map(|e| e.map_name.clone())
+                    .collect();
                 let Some(map_image) = get_map_image(map_name, &map_names) else {
                     return Binary(vec![])
                 };
