@@ -912,9 +912,13 @@ impl MapApi{
         &self, Data(app): Data<&AppData>, extract: MapExtractor
     ) -> Response<MapImage>{
         let game = extract.server.game.unwrap_or(String::from(GAME_TYPES[0]));
-        let maps = get_map_images(&app.cache).await;
-        let map_names: Vec<String> = maps.iter()
+        let maps: Vec<MapImage> = get_map_images(&app.cache)
+            .await
+            .into_iter()
             .filter(|e| e.game_type == game)
+            .collect();
+        let map_names: Vec<String> = maps
+            .iter()
             .map(|e| e.map_name.clone())
             .collect();
         let map_name = extract.map.map;
