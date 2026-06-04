@@ -314,6 +314,7 @@ export const InfractionFlags = Object.freeze({
     ADMIN_CHAT: 1n << 11n,
     ITEM_BLOCK: 1n << 14n,
     AUTO_TIER: 1n << 16n,
+    KNOCKBACK: 1n << 20n,
 
     // Time
     PERMANENT: 1n << 3n,
@@ -340,10 +341,12 @@ const NIDE_FLAG_MAP: FlagBitMap = [
     [1n << 0n, InfractionFlags.BAN],
     [1n << 1n, InfractionFlags.VOICE],
     [1n << 2n, InfractionFlags.TEXT],
+    [1n << 3n, InfractionFlags.ITEM_BLOCK],
+    [1n << 4n, InfractionFlags.KNOCKBACK],
 ];
 
 function flagMapForSource(source?: string): FlagBitMap {
-    if (source?.includes("bans.nide.gg")) return NIDE_FLAG_MAP;
+    if (source?.includes("nide.gg")) return NIDE_FLAG_MAP;
     return DEFAULT_FLAG_MAP;
 }
 
@@ -372,7 +375,8 @@ export class InfractionInt {
             InfractionFlags.CALL_ADMIN,
             InfractionFlags.ADMIN_CHAT,
             InfractionFlags.ITEM_BLOCK,
-            InfractionFlags.AUTO_TIER
+            InfractionFlags.AUTO_TIER,
+            InfractionFlags.KNOCKBACK
         ];
         return Object.entries(InfractionFlags)
             .filter(([_, flag]) => this.hasFlag(flag) && restrictFlags.includes(flag))

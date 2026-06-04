@@ -84,9 +84,21 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
     }, [updatedData]);
 
     const handleOnClick = (row) => {
-        const isNide = row.source?.includes("bans.nide.gg");
+        const isNide = row.source?.includes("nide.gg");
         if (isNide) {
-            const url = `${row.source}&advSearch=${playerId}&advType=steamid`;
+            let url: string;
+            switch(row.source){
+                case "https://bans.nide.gg/index.php?p=banlist":
+                case "https://bans.nide.gg/index.php?p=commslist":
+                    url = `${row.source}&advSearch=${playerId}&advType=steamid`;
+                    break;
+                case "https://kbans.nide.gg/index.php?all":
+                case "https://ebans.nide.gg/index.php?all":
+                    url = `${row.source}=true&s=${playerId}&m=1`;
+                    break;
+                default:
+                    return
+            }
             window.open(url, "_blank", "noopener,noreferrer");
             return;
         }
