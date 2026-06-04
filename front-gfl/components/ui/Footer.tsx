@@ -33,7 +33,7 @@ export default function Footer() {
 
                             <div className="flex items-center">
                                 <IconLink
-                                    href="https://goes.prettymella.site/s/discord-zegraph"
+                                    href="https://goes.queeniemella.cc/s/discord-zegraph"
                                     ariaLabel="Discord"
                                     tooltip="Support Server"
                                     icon={<SiDiscord className="h-5 w-5 text-primary" />}

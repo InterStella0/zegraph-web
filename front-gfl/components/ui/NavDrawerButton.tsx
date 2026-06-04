@@ -79,7 +79,7 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
                             size="icon"
                             asChild
                         >
-                            <a href="https://goes.prettymella.site/s/discord-zegraph" target="_blank" rel="noopener noreferrer">
+                            <a href="https://goes.queeniemella.cc/s/discord-zegraph" target="_blank" rel="noopener noreferrer">
                                 <SiDiscord className="h-4 w-4 text-primary" />
                             </a>
                         </Button>
