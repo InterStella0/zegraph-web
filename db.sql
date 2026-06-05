@@ -36,7 +36,7 @@ CREATE TABLE server_browser(
 CREATE TABLE server(
     server_id VARCHAR(100) PRIMARY KEY,
     server_name TEXT,
-    server_ip VARCHAR(20),
+    server_ip VARCHAR(100),
     server_fullname TEXT,
     server_port INTEGER,
     max_players SMALLINT,
@@ -1044,6 +1044,28 @@ CREATE TABLE legacy_gfl.players (
     personaname TEXT DEFAULT '',
     avatarURL VARCHAR(255) DEFAULT '',
     timestamp TIMESTAMP DEFAULT NULL
+);
+
+CREATE SCHEMA external_data;
+CREATE TABLE external_data.nide_players (
+    user_id BIGINT PRIMARY KEY,
+    steam_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    points INTEGER DEFAULT NULL,
+    rank INTEGER DEFAULT NULL,
+    kills_per_minute DOUBLE PRECISION DEFAULT NULL,
+    kills_per_death DOUBLE PRECISION DEFAULT NULL,
+    headshots_per_kill DOUBLE PRECISION DEFAULT NULL,
+    shots_per_kill DOUBLE PRECISION DEFAULT NULL,
+    weapon_accuracy DOUBLE PRECISION DEFAULT NULL,
+    headshots INTEGER DEFAULT NULL,
+    kills INTEGER DEFAULT NULL,
+    deaths INTEGER DEFAULT NULL,
+    country VARCHAR(100) DEFAULT NULL,
+    longest_kill_streak INTEGER DEFAULT NULL,
+    longest_death_streak INTEGER DEFAULT NULL,
+    total_connection_time INTEGER DEFAULT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
 
 CREATE SCHEMA layers;
