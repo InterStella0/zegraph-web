@@ -20,7 +20,6 @@ services:
       - ${PUBLIC_FILES_PATH:-/front-gfl/public}:/var/www/public/any:ro
     networks:
       - default
-      - dokploy-network
     logging: *default-logging
     depends_on:
       backend:
@@ -63,7 +62,6 @@ services:
         condition: service_healthy
     networks:
       - default
-      - dokploy-network
   backend:
     image: interstella0/ze-graph:backend
     restart: always
@@ -174,5 +172,3 @@ volumes:
 
 networks:
   default:
-  dokploy-network:
-    external: true
