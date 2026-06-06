@@ -20,6 +20,8 @@ services:
       - ${PUBLIC_FILES_PATH:-/front-gfl/public}:/var/www/public/any:ro
     networks:
       - default
+    ports:
+      - "51020:80"
     logging: *default-logging
     depends_on:
       backend:
