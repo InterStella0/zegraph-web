@@ -1062,6 +1062,7 @@ CREATE TABLE external_data.nide_players (
     kills INTEGER DEFAULT NULL,
     deaths INTEGER DEFAULT NULL,
     country VARCHAR(100) DEFAULT NULL,
+    country_code VARCHAR(10) DEFAULT NULL,
     longest_kill_streak INTEGER DEFAULT NULL,
     longest_death_streak INTEGER DEFAULT NULL,
     total_connection_time INTEGER DEFAULT NULL,
