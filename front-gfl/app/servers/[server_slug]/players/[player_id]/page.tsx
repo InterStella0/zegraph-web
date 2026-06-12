@@ -105,12 +105,12 @@ export async function generateMetadata({ params}: {
             description,
             images: [image],
         },
-        twitter: {
-            card: "summary_large_image",
-            title,
-            description,
-            images: [image],
-        },
+        // twitter: {
+        //     card: "summary_large_image",
+        //     title,
+        //     description,
+        //     images: [image],
+        // },
         alternates: {
             canonical: `/servers/${server.gotoLink}/players/${player.id}`,
             types: {
