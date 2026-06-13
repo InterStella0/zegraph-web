@@ -113,9 +113,9 @@ export async function generateMetadata({ params}: {
         // },
         alternates: {
             canonical: `/servers/${server.gotoLink}/players/${player.id}`,
-            types: {
-                "application/json+oembed": `/api/oembed?url=${DOMAIN}/api/${server.id}/players/${player.id}`,
-            },
+            // types: {
+            //     "application/json+oembed": `/api/oembed?url=${DOMAIN}/api/${server.id}/players/${player.id}`,
+            // },
         },
     }
 }
