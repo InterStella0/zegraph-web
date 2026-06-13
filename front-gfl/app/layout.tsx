@@ -10,7 +10,7 @@ import {SakuraBackground} from "components/backgrounds/SakuraBackground";
 import {inter} from './fonts';
 import {PostHogProvider} from "./providers.tsx";
 import {AnnouncementsContainer} from "components/announcements/AnnouncementsContainer";
-import {NotificationBanner} from "components/notifications/NotificationBanner";
+import {NotificationBannerLoader} from "components/notifications/NotificationBannerLoader";
 import {DonorBanner} from "components/ui/DonorBanner";
 import getServerUser from "./getServerUser";
 
@@ -57,7 +57,7 @@ export default async function RootLayout({
                                     {children}
                                 </div>
                             </div>
-                            <NotificationBanner userPromise={user} />
+                            <NotificationBannerLoader userPromise={user} />
                             <Toaster />
                         </PostHogProvider>
                     </CommunityServerProvider>

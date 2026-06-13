@@ -23,9 +23,15 @@ export function usePushNotifications(isLogged: boolean) {
     error: null,
   });
 
-  const isSupported = typeof window !== 'undefined' &&
-    'serviceWorker' in navigator &&
-    'PushManager' in window && isLogged;
+  const [isSupported, setIsSupported] = useState(false);
+
+  useEffect(() => {
+    setIsSupported(
+      'serviceWorker' in navigator &&
+      'PushManager' in window &&
+      isLogged
+    );
+  }, [isLogged]);
 
   useEffect(() => {
     if (!isSupported) return;
