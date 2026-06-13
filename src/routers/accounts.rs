@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::core::api_models::*;
 use crate::core::model::*;
 use crate::core::utils::*;
-use crate::core::workers::PlayerContext;
+use crate::workers::PlayerContext;
 use crate::{response, AppData};
 use crate::core::push_service::NotificationType;
 use crate::routers::players::{get_player, get_player_cache_key};

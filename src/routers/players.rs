@@ -14,7 +14,7 @@ use crate::core::model::*;
 use crate::core::api_models::*;
 use crate::{response, AppData, FastCache};
 use crate::core::utils::*;
-use crate::core::workers::*;
+use crate::workers::*;
 
 pub struct PlayerApi;
 

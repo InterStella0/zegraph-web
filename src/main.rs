@@ -4,6 +4,7 @@ use poem_openapi::OpenApiService;
 mod routers;
 mod global_serializer;
 mod core;
+mod workers;
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Pool, Postgres};
@@ -30,7 +31,7 @@ use crate::routers::radars::RadarApi;
 use core::updater::*;
 use moka::future::Cache;
 use crate::core::utils::*;
-use crate::core::workers::*;
+use crate::workers::*;
 use crate::core::push_service::*;
 use crate::core::map_storage::{MapStorage, CharacterStorage};
 use crate::routers::accounts::AccountsApi;

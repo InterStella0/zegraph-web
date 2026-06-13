@@ -10,7 +10,7 @@ use crate::{response, AppData, FastCache};
 use crate::core::model::*;
 use crate::core::api_models::*;
 use crate::core::utils::*;
-use crate::core::workers::*;
+use crate::workers::*;
 
 #[derive(Enum)]
 enum MapLastSessionMode{
