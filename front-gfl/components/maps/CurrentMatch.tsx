@@ -232,7 +232,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
     };
 
     const duration = formatMatchDuration(currentMatch.started_at);
-    const timeUntilEnd = formatTimeUntilEnd(currentMatch.server_time_end, "Time left", "Last round");
+    const timeUntilEnd = currentMatch.server_time_end ? formatTimeUntilEnd(currentMatch.server_time_end, "Time left", "Last round"): null;
     const timeUntilEndEstimate = formatTimeUntilEnd(currentMatch.estimated_time_end, "Estimated end in", "Probably ending now~");
     const hasScores = currentMatch.human_score !== null && currentMatch.zombie_score !== null;
 
