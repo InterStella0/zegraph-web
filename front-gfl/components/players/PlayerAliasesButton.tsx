@@ -22,7 +22,7 @@ export default function PlayerAliasesButton({ aliases }) {
                 )}
             </Button>
             {expanded && (
-                <div className="absolute top-full left-0 z-10 mt-2 max-h-[200px] w-[220px] sm:w-[250px] overflow-y-auto bg-card border border-border rounded-lg shadow-lg">
+                <div className="absolute top-full left-0 z-10 mt-2 max-h-50 w-55 sm:w-62.5 overflow-y-auto bg-card card-solid border border-border rounded-lg shadow-lg">
                     <div className="divide-y divide-border">
                         {aliases.map((alias, i) => (
                             <div key={i} className="px-4 py-2">
