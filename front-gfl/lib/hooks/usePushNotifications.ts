@@ -160,7 +160,7 @@ export function usePushNotifications(isLogged: boolean) {
   };
 }
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   try {
     const cleanString = base64String.trim();
 
