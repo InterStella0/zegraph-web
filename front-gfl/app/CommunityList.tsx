@@ -48,8 +48,3 @@ export default function CommunityList({ communitiesDataPromise }: { communitiesD
         )}
     </>
 }
-export function CommunityListWrapper({ communitiesDataPromise }: { communitiesDataPromise: Promise<Community[]>}): ReactElement {
-    return <Suspense fallback={<CommunityListLoading />}>
-        <CommunityList communitiesDataPromise={communitiesDataPromise} />
-    </Suspense>
-}
