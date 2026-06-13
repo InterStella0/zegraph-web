@@ -544,7 +544,7 @@ impl PlayerApi{
                 RANK() OVER (ORDER BY boss_killed DESC) AS rank_boss_killed,
                 RANK() OVER (ORDER BY leader_count DESC) AS rank_leader_count,
                 RANK() OVER (ORDER BY td_count DESC) AS rank_td_count
-              FROM legacy_gfl.players
+              FROM external_data.gfl_csgo_players
             )
             SELECT *
             FROM ranked

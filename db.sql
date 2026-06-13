@@ -1028,8 +1028,8 @@ FROM player_server_session pss
     JOIN player p ON p.player_id::text = pss.player_id::text
 WHERE p.location IS NOT NULL;
 
-CREATE SCHEMA legacy_gfl;
-CREATE TABLE legacy_gfl.players (
+CREATE SCHEMA external_data;
+CREATE TABLE external_data.gfl_csgo_players (
     steamid64 VARCHAR(19) PRIMARY KEY,
     points DOUBLE PRECISION DEFAULT 0,
     human_time BIGINT DEFAULT 0,
@@ -1046,7 +1046,6 @@ CREATE TABLE legacy_gfl.players (
     timestamp TIMESTAMP DEFAULT NULL
 );
 
-CREATE SCHEMA external_data;
 CREATE TABLE external_data.nide_players (
     user_id BIGINT PRIMARY KEY,
     steam_id TEXT NOT NULL,
