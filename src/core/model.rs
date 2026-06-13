@@ -1,10 +1,9 @@
 use crate::core::api_models::*;
 use crate::core::utils::{format_pg_time_tz, PgIntervalNumber, TimeToChrono};
-use crate::core::api_models::{PushSubscription, NotificationPreferences, MapChangeSubscription, MapNotifySubscription};
 use crate::global_serializer::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_macros::auto_serde_with;
+use serde_macros::{auto_serde_with, DbInto};
 use sqlx::postgres::types::PgTimeTz;
 use sqlx::{postgres::types::PgInterval, types::time::OffsetDateTime};
 use std::fmt::{Display, Formatter};
@@ -27,80 +26,72 @@ pub struct DbServer{
     pub timezone: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, DbInto)]
+#[db_into(Server)]
 pub struct DbServerCommunity{
+    #[skip]
     pub community_id: String,
+    #[skip]
     pub community_name: Option<String>,
+    #[skip]
     pub community_shorten_name: Option<String>,
+    #[skip]
     pub community_icon_url: Option<String>,
+    #[rename(id)]
+    #[default("Unknown".into())]
     pub server_id: Option<String>,
+    #[rename(name)]
+    #[default("Unknown".into())]
     pub server_name: Option<String>,
+    #[rename(port)]
+    #[default(0)]
+    #[cast(u16)]
     pub server_port: Option<i32>,
+    #[rename(ip)]
+    #[default("No IP".into())]
     pub server_ip: Option<String>,
+    #[default(0)]
+    #[cast(u16)]
     pub max_players: Option<i16>,
+    #[rename(server_name)]
+    #[default("Unknown".into())]
     pub server_fullname: Option<String>,
+    #[default(0)]
+    #[cast(u16)]
     pub player_count: Option<i64>,
+    #[unwrap_default]
     pub online: Option<bool>,
     pub readable_link: Option<String>,
+    #[rename(website)]
     pub server_website: Option<String>,
+    #[rename(discord_link)]
     pub server_discord_link: Option<String>,
+    #[rename(source)]
     pub server_source: Option<String>,
     pub game: Option<String>,
+    #[rename(by_id)]
+    #[unwrap_default]
     pub source_by_id: Option<bool>,
     pub map: Option<String>
 }
 
-impl Into<Server> for DbServerCommunity{
-    fn into(self) -> Server{
-        Server {
-            name: self.server_name.unwrap_or("Unknown".into()),
-            server_name:  self.server_fullname.unwrap_or("Unknown".into()),
-            player_count: self.player_count.unwrap_or(0) as u16,
-            id: self.server_id.unwrap_or("Unknown".into()),
-            max_players: self.max_players.unwrap_or(0) as u16,
-            ip: self.server_ip.unwrap_or("No IP".into()),
-            port: self.server_port.unwrap_or(0) as u16,
-            online: self.online.unwrap_or(false),
-            readable_link: self.readable_link,
-            website: self.server_website,
-            discord_link: self.server_discord_link,
-            source: self.server_source,
-            by_id: self.source_by_id.unwrap_or(false),
-            map: self.map,
-            game: self.game
-        }
-    }
-}
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(FetchStatusEntry)]
 pub struct DbFetchStatus {
     pub fetch_id: i64,
     pub server_id: String,
+    #[default("Unknown".into())]
     pub server_name: Option<String>,
+    #[default("Unknown".into())]
     pub community_id: Option<String>,
+    #[default("Unknown".into())]
     pub community_name: Option<String>,
     pub op_name: String,
     pub source_name: String,
     pub fetched_at: OffsetDateTime,
     pub ok: bool,
     pub error: Option<String>,
-}
-
-impl Into<FetchStatusEntry> for DbFetchStatus{
-    fn into(self) -> FetchStatusEntry {
-        FetchStatusEntry{
-            fetch_id: self.fetch_id,
-            server_id: self.server_id,
-            server_name: self.server_name.unwrap_or_else(|| "Unknown".into()),
-            community_id: self.community_id.unwrap_or_else(|| "unknown".into()),
-            community_name: self.community_name.unwrap_or_else(|| "Unknown".into()),
-            op_name: self.op_name,
-            source_name: self.source_name,
-            fetched_at: self.fetched_at.to_utc_time(),
-            ok: self.ok,
-            error: self.error,
-        }
-    }
 }
 
 pub struct DbPlayerSitemap{
@@ -129,218 +120,172 @@ pub struct DbGuideSitemap{
     pub slug: String,
     pub updated_at: OffsetDateTime,
 }
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(PlayerSession)]
 pub struct DbPlayerSession{
     pub player_id: String,
+    #[rename(id)]
     pub session_id: String,
     pub server_id: String,
     pub started_at: OffsetDateTime,
     pub ended_at: Option<OffsetDateTime>,
     pub last_verified: Option<OffsetDateTime>,
+    #[skip]
     pub is_anonymous: Option<bool>
 }
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(PlayerDetailSession)]
 pub struct DbPlayerDetailSession{
+    #[rename(id)]
     pub player_id: String,
+    #[rename(name)]
+    #[default("Unknown".into())]
     pub player_name: Option<String>,
     pub session_id: String,
+    #[skip]
     pub server_id: String,
     pub started_at: OffsetDateTime,
     pub ended_at: Option<OffsetDateTime>,
     pub is_anonymous: bool
 }
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(PlayerSession)]
 pub struct DbPlayerSessionPage{
     pub last_verified: Option<OffsetDateTime>,
     pub player_id: String,
+    #[rename(id)]
     pub session_id: String,
     pub server_id: String,
     pub started_at: OffsetDateTime,
     pub ended_at: Option<OffsetDateTime>,
+    #[skip]
     pub total_rows: Option<i64>
 }
-impl Into<PlayerSession> for DbPlayerSessionPage{
-    fn into(self) -> PlayerSession{
-        PlayerSession{
-            id: self.session_id,
-            server_id: self.server_id,
-            player_id: self.player_id,
-            started_at: self.started_at.to_utc_time(),
-            ended_at: self.ended_at.to_utc_optional(),
-            last_verified: self.last_verified.to_utc_optional(),
-        }
-    }
-}
-impl Into<PlayerDetailSession> for DbPlayerDetailSession{
-    fn into(self) -> PlayerDetailSession{
-        PlayerDetailSession{
-            id: self.player_id,
-            session_id: self.session_id,
-            name: self.player_name.unwrap_or("Unknown".into()),
-            started_at: self.started_at.to_utc_time(),
-            ended_at: self.ended_at.to_utc_optional(),
-            is_anonymous: self.is_anonymous
-        }
-    }
-}
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, DbInto)]
+#[db_into(PlayerWithLegacyRanks)]
 pub struct DbPlayerWithLegacyRanks {
+    #[default("Invalid SteamID64".into())]
     pub steamid64: Option<String>,
+    #[unwrap_default]
     pub points: Option<f64>,
+    #[unwrap_default]
     pub human_time: Option<i64>,
+    #[unwrap_default]
     pub zombie_time: Option<i64>,
+    #[unwrap_default]
     pub zombie_killed: Option<i32>,
+    #[unwrap_default]
     pub headshot: Option<i32>,
+    #[unwrap_default]
     pub infected_time: Option<i32>,
+    #[unwrap_default]
     pub item_usage: Option<i32>,
+    #[unwrap_default]
     pub boss_killed: Option<i32>,
+    #[unwrap_default]
     pub leader_count: Option<i32>,
+    #[unwrap_default]
     pub td_count: Option<i32>,
+    #[unwrap_default]
     pub rank_total_playtime: Option<i64>,
+    #[unwrap_default]
     pub rank_points: Option<i64>,
+    #[unwrap_default]
     pub rank_human_time: Option<i64>,
+    #[unwrap_default]
     pub rank_zombie_time: Option<i64>,
+    #[unwrap_default]
     pub rank_zombie_killed: Option<i64>,
+    #[unwrap_default]
     pub rank_headshot: Option<i64>,
+    #[unwrap_default]
     pub rank_infected_time: Option<i64>,
+    #[unwrap_default]
     pub rank_item_usage: Option<i64>,
+    #[unwrap_default]
     pub rank_boss_killed: Option<i64>,
+    #[unwrap_default]
     pub rank_leader_count: Option<i64>,
+    #[unwrap_default]
     pub rank_td_count: Option<i64>,
 }
 
-impl Into<PlayerWithLegacyRanks> for DbPlayerWithLegacyRanks {
-    fn into(self) -> PlayerWithLegacyRanks {
-        PlayerWithLegacyRanks {
-            steamid64: self.steamid64.unwrap_or("Invalid SteamID64".into()),
-            points: self.points.unwrap_or_default(),
-            human_time: self.human_time.unwrap_or_default(),
-            zombie_time: self.zombie_time.unwrap_or_default(),
-            zombie_killed: self.zombie_killed.unwrap_or_default(),
-            headshot: self.headshot.unwrap_or_default(),
-            infected_time: self.infected_time.unwrap_or_default(),
-            item_usage: self.item_usage.unwrap_or_default(),
-            boss_killed: self.boss_killed.unwrap_or_default(),
-            leader_count: self.leader_count.unwrap_or_default(),
-            td_count: self.td_count.unwrap_or_default(),
-            rank_total_playtime: self.rank_total_playtime.unwrap_or_default(),
-            rank_points: self.rank_points.unwrap_or_default(),
-            rank_human_time: self.rank_human_time.unwrap_or_default(),
-            rank_zombie_time: self.rank_zombie_time.unwrap_or_default(),
-            rank_zombie_killed: self.rank_zombie_killed.unwrap_or_default(),
-            rank_headshot: self.rank_headshot.unwrap_or_default(),
-            rank_infected_time: self.rank_infected_time.unwrap_or_default(),
-            rank_item_usage: self.rank_item_usage.unwrap_or_default(),
-            rank_boss_killed: self.rank_boss_killed.unwrap_or_default(),
-            rank_leader_count: self.rank_leader_count.unwrap_or_default(),
-            rank_td_count: self.rank_td_count.unwrap_or_default(),
-        }
-    }
-}
-
-
-impl Into<PlayerSession> for DbPlayerSession {
-    fn into(self) -> PlayerSession {
-        PlayerSession{
-            id: self.session_id,
-            player_id: self.player_id,
-            server_id: self.server_id,
-            started_at: self.started_at.to_utc_time(),
-            ended_at: self.ended_at.to_utc_optional(),
-            last_verified: self.last_verified.to_utc_optional(),
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(PlayerSeen)]
 pub struct DbPlayerSeen{
+    #[rename(id)]
     pub player_id: String,
+    #[rename(name)]
     pub player_name: String,
     pub total_time_together: Option<PgInterval>,
+    #[method(to_utc_time)]
     pub last_seen: Option<OffsetDateTime>,
 }
-impl Into<PlayerSeen> for DbPlayerSeen{
-    fn into(self) -> PlayerSeen {
-        PlayerSeen{
-            id: self.player_id,
-            name: self.player_name,
-            total_time_together: self.total_time_together.to_f64(),
-            last_seen: self.last_seen.to_utc_time()
-        }
-    }
-}
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(SearchPlayer)]
+#[extra(is_anonymous = false)]
 pub struct DbPlayer{
+    #[rename(id)]
     pub player_id: String,
+    #[rename(name)]
     pub player_name: String,
+    #[skip]
     pub created_at: OffsetDateTime,
+    #[skip]
     pub associated_player_id: Option<String>
 }
 
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(SearchPlayer)]
 pub struct DbPlayerAnonymized{
+    #[rename(id)]
     pub player_id: String,
+    #[rename(name)]
     pub player_name: String,
     pub is_anonymous: bool
 }
 
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(UserAnonymization)]
 pub struct DbUserAnonymization {
+    #[method(to_string)]
     pub user_id: i64,
+    #[expr(self.community_id.map(|e| e.to_string()))]
     pub community_id: Option<uuid::Uuid>,
     pub anonymized: bool,
     pub hide_location: bool,
 }
-impl Into<UserAnonymization> for DbUserAnonymization {
-    fn into(self) -> UserAnonymization {
-        UserAnonymization{
-            user_id: self.user_id.to_string(), // Convert i64 to String for JS compatibility
-            community_id: self.community_id.map(|e| e.to_string()),
-            anonymized: self.anonymized,
-            hide_location: self.hide_location
-        }
-    }
-}
 
-impl Into<SearchPlayer> for DbPlayer {
-    fn into(self) -> SearchPlayer {
-        SearchPlayer{
-            name: self.player_name,
-            id: self.player_id,
-            is_anonymous: false
-        }
-    }
-}
-
-impl Into<SearchPlayer> for DbPlayerAnonymized {
-    fn into(self) -> SearchPlayer {
-        SearchPlayer{
-            name: self.player_name,
-            id: self.player_id,
-            is_anonymous: self.is_anonymous
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(DetailedPlayer)]
+#[extra(aliases=vec![], ranks=None)]
 pub struct DbPlayerDetail{
+    #[rename(id)]
     pub player_id: String,
+    #[rename(name)]
     pub player_name: String,
     pub created_at: OffsetDateTime,
     pub category: Option<String>,
     pub tryhard_playtime: Option<PgInterval>,
     pub casual_playtime: Option<PgInterval>,
     pub total_playtime: Option<PgInterval>,
+    #[default(-1)]
+    #[cast(i64)]
     pub rank: Option<i32>,
+    #[skip]
     pub online_since: Option<OffsetDateTime>,
+    #[skip]
     pub last_played: Option<OffsetDateTime>,
+    #[skip]
     pub last_played_duration: Option<PgInterval>,
     pub associated_player_id: Option<String>
 }
@@ -363,218 +308,131 @@ impl Into<DbPlayerBrief> for DbPlayerDetail{
 pub struct DbMapLastPlayed{
     pub last_played: Option<OffsetDateTime>,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, DbInto)]
+#[db_into(MapEventAverage)]
 pub struct DbEvent{
+    #[default("Unknown".to_string())]
     pub event_name: Option<String>,
+    #[unwrap_default]
     pub average: Option<f64>
 }
-impl Into<MapEventAverage> for DbEvent {
-    fn into(self) -> MapEventAverage {
-        MapEventAverage{
-            event_name: self.event_name.unwrap_or("Unknown".to_string()),
-            average: self.average.unwrap_or_default(),
-        }
-    }
-}
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, DbInto)]
+#[db_into(MapSessionDistribution)]
 pub struct DbMapSessionDistribution{
     pub session_range: String,
+    #[cast(i64)]
     pub session_count: i32,
 }
-impl Into<MapSessionDistribution> for DbMapSessionDistribution {
-    fn into(self) -> MapSessionDistribution {
-        MapSessionDistribution{
-            session_range: self.session_range,
-            session_count: self.session_count as i64,
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(MapRegion)]
 #[allow(dead_code)]
 pub struct DbMapRegion {
+    #[skip]
     pub map: Option<String>,
+    #[default("Unknown Region".to_string())]
     pub region_name: Option<String>,
     pub total_play_duration: Option<PgInterval>
 }
-impl Into<MapRegion> for DbMapRegion {
-    fn into(self) -> MapRegion {
-        MapRegion{
-            region_name: self.region_name.unwrap_or("Unknown Region".to_string()),
-            total_play_duration: self.total_play_duration.to_f64(),
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(MapRegionDate)]
 pub struct DbMapRegionDate {
     pub date: Option<OffsetDateTime>,
+    #[unwrap_default]
     pub region_name: Option<String>,
     pub total_play_duration: Option<PgInterval>
 }
+#[derive(DbInto)]
+#[db_into(Region)]
 pub struct DbRegion{
     pub region_name: String,
     pub region_id: i64,
+    #[expr(format_pg_time_tz(&self.start_time))]
     pub start_time: PgTimeTz,
+    #[expr(format_pg_time_tz(&self.end_time))]
     pub end_time: PgTimeTz,
 }
-
-impl Into<Region> for DbRegion {
-    fn into(self) -> Region {
-        Region {
-            region_name: self.region_name,
-            region_id: self.region_id,
-            start_time: format_pg_time_tz(&self.start_time),
-            end_time: format_pg_time_tz(&self.end_time),
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(PlayerRanks)]
+#[extra(highest_map_rank = None)]
 pub struct DbPlayerRank{
+    #[unwrap_default]
     pub global_playtime: Option<i64>,
+    #[rename(server_playtime)]
+    #[unwrap_default]
     pub total_playtime: Option<i64>,
+    #[unwrap_default]
     pub casual_playtime: Option<i64>,
+    #[unwrap_default]
     pub tryhard_playtime: Option<i64>,
 }
-impl Into<PlayerRanks> for DbPlayerRank {
-    fn into(self) -> PlayerRanks {
-        PlayerRanks {
-            global_playtime: self.global_playtime.unwrap_or_default(),
-            server_playtime: self.total_playtime.unwrap_or_default(),
-            tryhard_playtime: self.tryhard_playtime.unwrap_or_default(),
-            casual_playtime: self.casual_playtime.unwrap_or_default(),
-            highest_map_rank: None
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(MapRank)]
 pub struct DbMapRank{
+    #[unwrap_default]
     pub map: Option<String>,
+    #[unwrap_default]
     pub rank: Option<i64>,
     pub total_playtime: Option<PgInterval>,
 }
 
-impl Into<MapRank> for DbMapRank {
-    fn into(self) -> MapRank {
-        MapRank {
-            rank: self.rank.unwrap_or_default(),
-            map: self.map.unwrap_or_default(),
-            total_playtime: self.total_playtime.to_f64()
-        }
-    }
-}
-
-
+#[derive(DbInto)]
+#[db_into(MapRegion)]
 pub struct MapRegionDate{
     pub region_name: String,
     pub total_play_duration: f64,
+    #[skip]
     pub date: Option<DateTime<Utc>>
 }
-impl Into<MapRegionDate> for DbMapRegionDate {
-    fn into(self) -> MapRegionDate {
-        MapRegionDate{
-            region_name: self.region_name.unwrap_or_default(),
-            total_play_duration: self.total_play_duration.to_f64(),
-            date: self.date.to_utc_optional()
-        }
-    }
-}
-impl Into<MapRegion> for MapRegionDate{
-    fn into(self) -> MapRegion {
-        MapRegion {
-            region_name: self.region_name,
-            total_play_duration: self.total_play_duration,
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(PlayerTableRank)]
 pub struct DbPlayerTable{
+    #[rename(rank)]
+    #[default(-1)]
     pub ranked: Option<i64>,
+    #[rename(id)]
     pub player_id: String,
+    #[rename(name)]
+    #[default("Unknown Player".to_string())]
     pub player_name: Option<String>,
     pub total_playtime: PgInterval,
     pub casual_playtime: PgInterval,
     pub tryhard_playtime: PgInterval,
+    #[skip]
     pub total_players: Option<i64>,
     pub is_anonymous: bool
 }
-impl Into<PlayerTableRank> for DbPlayerTable{
-    fn into(self) -> PlayerTableRank {
-        PlayerTableRank {
-            rank: self.ranked.unwrap_or(-1),
-            id: self.player_id,
-            name: self.player_name.unwrap_or("Unknown Player".to_string()),
-            tryhard_playtime: self.tryhard_playtime.to_f64(),
-            casual_playtime: self.casual_playtime.to_f64(),
-            total_playtime: self.total_playtime.to_f64(),
-            is_anonymous: self.is_anonymous
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(PlayerBrief)]
 pub struct DbPlayerBrief{
+    #[rename(id)]
     pub player_id: String,
+    #[rename(name)]
     pub player_name: String,
     pub created_at: OffsetDateTime,
     pub total_playtime: Option<PgInterval>,
+    #[skip]
     pub total_players: Option<i64>,
+    #[default(-1)]
+    #[cast(i64)]
     pub rank: Option<i32>,
     pub online_since: Option<OffsetDateTime>,
+    #[method(to_utc_time)]
     pub last_played: Option<OffsetDateTime>,
     pub last_played_duration: Option<PgInterval>,
 }
 
-impl Into<PlayerBrief> for DbPlayerBrief {
-    fn into(self) -> PlayerBrief {
-        PlayerBrief{
-            id: self.player_id,
-            name: self.player_name,
-            created_at: self.created_at.to_utc_time(),
-            total_playtime: self.total_playtime.to_f64(),
-            rank: self.rank.unwrap_or(-1) as i64,
-            online_since: self.online_since.to_utc_optional(),
-            last_played: self.last_played.to_utc_time(),
-            last_played_duration: self.last_played_duration.to_f64(),
-        }
-    }
-}
-
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(PlayerAlias)]
 pub struct DbPlayerAlias{
     pub name: String,
     pub created_at: OffsetDateTime,
-}
-
-impl Into<PlayerAlias> for DbPlayerAlias {
-    fn into(self) -> PlayerAlias {
-        PlayerAlias{
-            name: self.name,
-            created_at: self.created_at.to_utc_time()
-        }
-    }
-}
-
-impl Into<DetailedPlayer> for DbPlayerDetail{
-    fn into(self) -> DetailedPlayer {
-        DetailedPlayer {
-            id: self.player_id,
-            name: self.player_name,
-            created_at: self.created_at.to_utc_time(),
-            category: self.category,
-            casual_playtime: self.casual_playtime.to_f64(),
-            tryhard_playtime: self.tryhard_playtime.to_f64(),
-            total_playtime: self.total_playtime.to_f64(),
-            aliases: vec![],
-            rank: self.rank.unwrap_or(-1) as i64,
-            associated_player_id: self.associated_player_id,
-            ranks: None,
-        }
-    }
 }
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type, Deserialize, Serialize)]
 #[sqlx(type_name = "announcement_type_enum", rename_all = "PascalCase")]
@@ -598,77 +456,62 @@ impl Into<AnnouncementType> for AnnouncementTypeState{
         }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
+#[db_into(Announcement)]
+#[extra(hidden = !self.show)]
 #[auto_serde_with]
-pub struct DbAnnouncement{
+pub struct DbAnnouncement {
     pub id: String,
+    #[method(into)]
     pub r#type: AnnouncementTypeState,
     pub title: Option<String>,
     pub text: String,
     pub created_at: OffsetDateTime,
     pub published_at: OffsetDateTime,
     pub expires_at: Option<OffsetDateTime>,
+    #[skip]
     pub show: bool,
 }
-impl Into<Announcement> for DbAnnouncement{
-    fn into(self) -> Announcement {
-        Announcement{
-            id: self.id,
-            r#type: self.r#type.into(),
-            title: self.title,
-            text: self.text,
-            created_at: self.created_at.to_utc_time(),
-            published_at: self.published_at.to_utc_time(),
-            expires_at: self.expires_at.to_utc_optional(),
-            hidden: !self.show
-        }
-    }
-}
 
-#[derive(Clone)]
+
+#[derive(Clone, DbInto)]
+#[db_into(PlayerMostPlayedMap)]
+#[extra(rank = 0)]
 #[auto_serde_with]
 #[allow(dead_code)]
-pub struct DbPlayerMapPlayed{
+pub struct DbPlayerMapPlayed {
+    #[skip]
     pub server_id: Option<String>,
+    #[unwrap_default]
     pub map: Option<String>,
-    pub played: Option<PgInterval>
+    #[rename(duration)]
+    pub played: Option<PgInterval>,
 }
-impl Into<PlayerMostPlayedMap> for DbPlayerMapPlayed{
-    fn into(self) -> PlayerMostPlayedMap {
-        PlayerMostPlayedMap{
-            map: self.map.unwrap_or_default(),
-            duration: self.played.to_f64(),
-            rank: 0,
-        }
-    }
-}
+
+#[derive(DbInto)]
+#[db_into(PlayerInfraction)]
 pub struct DbPlayerInfraction{
+    #[rename(id)]
     pub infraction_id: String,
     pub source: String,
+    #[default("Unknown".into())]
     pub by: Option<String>,
     pub reason: Option<String>,
     pub infraction_time: Option<OffsetDateTime>,
     pub admin_avatar: Option<String>,
+    #[unwrap_default]
     pub flags: Option<i64>
 }
-impl Into<PlayerInfraction> for DbPlayerInfraction{
-    fn into(self) -> PlayerInfraction {
-        PlayerInfraction{
-            id: self.infraction_id,
-            source: self.source,
-            by: self.by.unwrap_or("Unknown".into()),
-            reason: self.reason,
-            infraction_time: self.infraction_time.to_utc_optional(),
-            admin_avatar: self.admin_avatar,
-            flags: self.flags.unwrap_or(0)
-        }
-    }
-}
-#[derive(PartialEq, Clone)]
+
+#[derive(PartialEq, Clone, DbInto)]
+#[db_into(ServerCountData)]
 #[auto_serde_with]
 pub struct DbServerCountData{
+    #[skip]
 	pub server_id: Option<String>,
+    #[method(to_utc_time)]
     pub bucket_time: Option<OffsetDateTime>,
+    #[cast(i32)]
     pub player_count: Option<i64>
 }
 
@@ -677,51 +520,35 @@ pub struct DbMapIsPlaying{
     pub result: Option<bool>
 }
 
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
+#[db_into(PlayerRegionTime)]
 #[auto_serde_with]
 pub struct DbPlayerRegionTime{
+    #[rename(id)]
+    #[default(-1)]
     pub region_id: Option<i16>,
+    #[rename(name)]
+    #[default("Unknown".into())]
     pub region_name: Option<String>,
+    #[rename(duration)]
+    #[method(to_f64)]
     pub played_time: Option<PgInterval>,
 }
 
-impl Into<PlayerRegionTime> for DbPlayerRegionTime{
-    fn into(self) -> PlayerRegionTime {
-        PlayerRegionTime{
-            id: self.region_id.unwrap_or(-1),
-            name: self.region_name.unwrap_or("Unknown".into()),
-            duration: self.played_time.to_f64(),
-        }
-    }
-}
 
-
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, DbInto)]
+#[db_into(PlayerSessionTime)]
 #[auto_serde_with]
 pub struct DbPlayerSessionTime{
+    #[method(to_utc_time)]
     pub bucket_time: Option<OffsetDateTime>,
+    #[rename(hours)]
+    #[unwrap_default]
     pub hour_duration: Option<f64>
 }
-impl Into<PlayerSessionTime> for DbPlayerSessionTime{
-    fn into(self) -> PlayerSessionTime {
-        PlayerSessionTime{
-            bucket_time: self.bucket_time.to_utc_time(),
-            hours: self.hour_duration.unwrap_or(0.)
-        }
-    }
-}
 
-impl Into<ServerCountData> for DbServerCountData{
-    fn into(self) -> ServerCountData {
-        ServerCountData { 
-            bucket_time: self.bucket_time.to_utc_time(),
-            player_count: self.player_count.unwrap_or(0) as i32
-        }
-    }
-}
 #[derive(Clone)]
 #[auto_serde_with]
-#[allow(dead_code)]
 pub struct DbServerMapPartial{
     pub map: String,
     pub total_playtime: Option<PgInterval>,
@@ -770,28 +597,28 @@ impl Into<MatchData> for DbPlayerSessionMapPlayed{
         }
     }
 }
+#[derive(Clone, DbInto)]
+#[db_into(PlayersStatistic)]
 #[auto_serde_with]
 pub struct DbPlayersStatistic{
+    #[method(to_f64)]
     pub total_cum_playtime: Option<PgInterval>,
+    #[unwrap_default]
     pub total_players: Option<i64>,
+    #[unwrap_default]
     pub countries: Option<i64>
 }
-impl Into<PlayersStatistic> for DbPlayersStatistic{
-    fn into(self) -> PlayersStatistic{
-        PlayersStatistic{
-            total_cum_playtime: self.total_cum_playtime.to_f64(),
-            total_players: self.total_players.unwrap_or_default(),
-            countries: self.countries.unwrap_or_default(),
-        }
-    }
-}
-#[derive(Clone)]
+
+#[derive(Clone, DbInto)]
+#[db_into(ServerMapMatch)]
 #[auto_serde_with]
 pub struct DbServerMatch{
     pub time_id: i32,
     pub server_id: String,
     pub map: String,
+    #[method(to_utc_time)]
     pub started_at: OffsetDateTime,
+    #[cast(i16)]
     pub player_count: Option<i64>,
     pub zombie_score: Option<i16>,
     pub human_score: Option<i16>,
@@ -800,97 +627,55 @@ pub struct DbServerMatch{
     pub server_time_end: Option<OffsetDateTime>,
     pub extend_count: Option<i16>,
 }
-impl Into<ServerMapMatch> for DbServerMatch{
-    fn into(self) -> ServerMapMatch {
-        ServerMapMatch{
-            time_id: self.time_id,
-            server_id: self.server_id,
-            map: self.map,
-            player_count: self.player_count.unwrap_or_default() as i16,
-            started_at: self.started_at.to_utc_time(),
-            zombie_score: self.zombie_score,
-            human_score: self.human_score,
-            occurred_at: self.occurred_at.to_utc_optional(),
-            estimated_time_end: self.estimated_time_end.to_utc_optional(),
-            server_time_end: self.server_time_end.to_utc_optional(),
-            extend_count: self.extend_count,
-        }
-    }
-}
-#[derive(Clone)]
+
+#[derive(Clone, DbInto)]
+#[db_into(MapSessionMatch)]
 #[auto_serde_with]
 pub struct DbServerSessionMatch{
+    #[default(-1)]
     pub time_id: Option<i32>,
+    #[default("Unknown".into())]
     pub server_id: Option<String>,
+    #[unwrap_default]
     pub zombie_score: Option<i16>,
+    #[unwrap_default]
     pub human_score: Option<i16>,
-    pub occurred_at: Option<OffsetDateTime>
+    #[method(to_utc_time)]
+    pub occurred_at: Option<OffsetDateTime>,
 }
-impl Into<MapSessionMatch> for DbServerSessionMatch{
-    fn into(self) -> MapSessionMatch {
-        MapSessionMatch{
-            time_id: self.time_id.unwrap_or(-1),
-            server_id: self.server_id.unwrap_or("Unknown".into()),
-            zombie_score: self.zombie_score.unwrap_or_default(),
-            human_score: self.human_score.unwrap_or_default(),
-            occurred_at: self.occurred_at.to_utc_time(),
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(ServerMapPlayed)]
 pub struct DbServerMapPlayed{
+    #[skip]
     pub total_sessions: Option<i32>,
     pub time_id: i32,
     pub server_id: String,
+    #[unwrap_default]
     pub map: Option<String>,
     pub player_count: i32,
     pub started_at: OffsetDateTime,
     pub ended_at: Option<OffsetDateTime>,
 }
-impl Into<ServerMapPlayed> for DbServerMapPlayed{
-    fn into(self) -> ServerMapPlayed {
-        ServerMapPlayed {
-            started_at: self.started_at.to_utc_time(),
-            ended_at: self.ended_at.to_utc_optional(),
-            player_count: self.player_count,
-            time_id: self.time_id,
-            server_id: self.server_id,
-            map: self.map.unwrap_or_default(),
-        }
-    }
-}
 
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(MapAnalyze)]
 pub struct DbMapAnalyze{
     pub map: String,
     pub unique_players: i64,
     pub cum_player_hours: Option<PgInterval>,
     pub total_playtime: Option<PgInterval>,
+    #[cast(i64)]
     pub total_sessions: i32,
+    #[method(to_utc_time)]
     pub last_played: Option<OffsetDateTime>,
     pub last_played_ended: Option<OffsetDateTime>,
     pub avg_playtime_before_quitting: Option<PgInterval>,
+    #[unwrap_default]
     pub dropoff_rate: Option<f64>,
+    #[unwrap_default]
     pub avg_players_per_session: Option<f64>,
-}
-
-impl Into<MapAnalyze> for DbMapAnalyze{
-    fn into(self) -> MapAnalyze {
-        MapAnalyze{
-            map: self.map,
-            unique_players: self.unique_players,
-            cum_player_hours: self.cum_player_hours.to_f64(),
-            total_playtime: self.total_playtime.to_f64(),
-            total_sessions: self.total_sessions as i64,
-            avg_playtime_before_quitting: self.avg_playtime_before_quitting.to_f64(),
-            dropoff_rate: self.dropoff_rate.unwrap_or_default(),
-            avg_players_per_session: self.avg_players_per_session.unwrap_or_default(),
-            last_played: self.last_played.to_utc_time(),
-            last_played_ended: self.last_played_ended.to_utc_optional(),
-        }
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -913,77 +698,62 @@ pub struct DbMapBriefInfo{
     pub first_occurrence: OffsetDateTime,
 }
 
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(MapPlayerTypeTime)]
 pub struct DbMapPlayerTypeTime{
+    #[default("Unknown".into())]
     pub category: Option<String>,
     pub time_spent: Option<PgInterval>
 }
-
-impl Into<MapPlayerTypeTime> for DbMapPlayerTypeTime{
-    fn into(self) -> MapPlayerTypeTime {
-        MapPlayerTypeTime {
-            category: self.category.unwrap_or("Unknown".into()),
-            time_spent: self.time_spent.to_f64()
-        }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, DbInto)]
 #[auto_serde_with]
+#[db_into(MapInfo)]
+#[extra(creators = None, file_bytes = None)]
 pub struct DbMapInfo{
     pub name: String,
     pub first_occurrence: OffsetDateTime,
     pub cleared_at: Option<OffsetDateTime>,
+    #[unwrap_default]
     pub is_tryhard: Option<bool>,
+    #[unwrap_default]
     pub is_casual: Option<bool>,
+    #[unwrap_default]
     pub has_lasers: Option<bool>,
     pub current_cooldown: Option<OffsetDateTime>,
+    #[unwrap_default]
     pub pending_cooldown: Option<bool>,
     pub map_left: Option<i32>,
     pub map_left_last_update: Option<OffsetDateTime>,
     pub no_noms: bool,
+    #[default(0)]
     pub workshop_id: Option<i64>,
+    #[skip]
     pub resolved_workshop_id: Option<i64>,
     pub enabled: bool,
+    #[unwrap_default]
     pub min_players: Option<i16>,
+    #[unwrap_default]
     pub max_players: Option<i16>,
     pub removed: bool,
 }
 
-impl Into<MapInfo> for DbMapInfo{
-    fn into(self) -> MapInfo {
-        MapInfo {
-            name: self.name,
-            first_occurrence: self.first_occurrence.to_utc_time(),
-            cleared_at: self.cleared_at.to_utc_optional(),
-            is_tryhard: self.is_tryhard.unwrap_or_default(),
-            is_casual: self.is_casual.unwrap_or_default(),
-            has_lasers: self.has_lasers.unwrap_or_default(),
-            current_cooldown: self.current_cooldown.to_utc_optional(),
-            pending_cooldown: self.pending_cooldown.unwrap_or_default(),
-            map_left: self.map_left,
-            map_left_last_update: self.map_left_last_update.to_utc_optional(),
-            no_noms: self.no_noms,
-            enabled: self.enabled,
-            min_players: self.min_players.unwrap_or_default(),
-            max_players: self.max_players.unwrap_or_default(),
-            workshop_id: self.workshop_id.unwrap_or(0),
-            creators: None,
-            file_bytes: None,
-            removed: self.removed,
-        }
-    }
-}
+#[derive(DbInto)]
+#[db_into(MapPlayed)]
 pub struct DbServerMap{
+    #[skip]
     pub total_maps: Option<i64>,
+    #[skip]
     #[allow(dead_code)]
     pub server_id: String,
     pub map: String,
     pub first_occurrence: OffsetDateTime,
     pub cooldown: Option<OffsetDateTime>,
+    #[unwrap_default]
     pub pending_cooldown: Option<bool>,
     pub map_left: Option<i32>,
     pub map_left_last_update: Option<OffsetDateTime>,
+    #[unwrap_default]
     pub enabled: Option<bool>,
     pub is_tryhard: Option<bool>,
     pub is_casual: Option<bool>,
@@ -991,48 +761,24 @@ pub struct DbServerMap{
     pub is_favorite: Option<bool>,
     pub cleared_at: Option<OffsetDateTime>,
     pub total_time: Option<PgInterval>,
+    #[unwrap_default]
     pub total_sessions: Option<i32>,
-    pub unique_players: Option<i32>,
     pub last_played: Option<OffsetDateTime>,
     pub last_played_ended: Option<OffsetDateTime>,
+    #[unwrap_default]
     pub last_session_id: Option<i32>,
+    #[rename(total_cum_time)]
     pub cum_player_hours: Option<PgInterval>,
     pub removed: bool,
     pub no_noms: bool,
     pub min_players: Option<i16>,
     pub max_players: Option<i16>,
+    #[unwrap_default]
+    pub unique_players: Option<i32>,
 }
 
-impl Into<MapPlayed> for DbServerMap{
-    fn into(self) -> MapPlayed {
-        MapPlayed {
-            map: self.map,
-            first_occurrence: self.first_occurrence.to_utc_time(),
-            cooldown: self.cooldown.to_utc_optional(),
-            pending_cooldown: self.pending_cooldown.unwrap_or_default(),
-            map_left: self.map_left,
-            map_left_last_update: self.map_left_last_update.to_utc_optional(),
-            enabled: self.enabled.unwrap_or_default(),
-            is_tryhard: self.is_tryhard,
-            is_casual: self.is_casual,
-            has_lasers: self.has_lasers,
-            is_favorite: self.is_favorite,
-            cleared_at: self.cleared_at.to_utc_optional(),
-            total_time: self.total_time.to_f64(),
-            total_sessions: self.total_sessions.unwrap_or_default(),
-            last_played: self.last_played.to_utc_optional(),
-            last_played_ended: self.last_played_ended.to_utc_optional(),
-            last_session_id: self.last_session_id.unwrap_or_default(),
-            unique_players: self.unique_players.unwrap_or_default(),
-            total_cum_time: self.cum_player_hours.to_f64(),
-            removed: self.removed,
-            no_noms: self.no_noms,
-            min_players: self.min_players,
-            max_players: self.max_players,
-        }
-    }
-}
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, DbInto)]
+#[db_into(ServerMap)]
 pub struct DbMap{
     pub server_id: String,
     pub map: String
@@ -1041,64 +787,50 @@ pub struct DbMap{
 pub struct DbAnyMap{
     pub map: String
 }
-impl Into<ServerMap> for DbMap{
-    fn into(self) -> ServerMap {
-        ServerMap{
-            map: self.map,
-            server_id: self.server_id,
-        }
-    }
-}
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, DbInto)]
+#[db_into(CountryStatistic)]
 pub struct DbCountryStatistic{
+    #[rename(code)]
+    #[default("Unknown".into())]
     pub country_code: Option<String>,
+    #[rename(name)]
+    #[default("Unknown".into())]
     pub country_name: Option<String>,
+    #[rename(count)]
+    #[default(0)]
     pub players_per_country: Option<i64>,
+    #[skip]
     pub total_players: Option<i64>,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, DbInto)]
+#[db_into(ContinentStatistic)]
 pub struct DbContinentStatistic{
+    #[rename(name)]
+    #[default("Unknown".into())]
     pub continent: Option<String>,
+    #[rename(count)]
+    #[default(0)]
     pub players_per_continent: Option<i64>,
+    #[skip]
     pub total_players: Option<i64>,
 }
-impl Into<ContinentStatistic> for DbContinentStatistic{
-    fn into(self) -> ContinentStatistic {
-        ContinentStatistic{
-            name: self.continent.unwrap_or(String::from("Unknown")),
-            count: self.players_per_continent.unwrap_or(0),
-        }
-    }
-}
-impl Into<CountryStatistic> for DbCountryStatistic{
-    fn into(self) -> CountryStatistic {
-        CountryStatistic{
-            code: self.country_code.unwrap_or(String::from("Unknown")),
-            name: self.country_name.unwrap_or(String::from("Unknown")),
-            count: self.players_per_country.unwrap_or(0),
-        }
-    }
-}
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(CountryPlayer)]
 pub struct DbCountryPlayer{
+    #[rename(id)]
+    #[default("Unknown".into())]
     pub player_id: Option<String>,
+    #[rename(name)]
+    #[default("Unknown".into())]
     pub player_name: Option<String>,
+    #[default(0)]
     pub session_count: Option<i64>,
+    #[skip]
     pub location_country: Option<String>,
     pub total_playtime: Option<PgInterval>,
+    #[default(0)]
     pub total_player_count: Option<i64>,
-}
-
-impl Into<CountryPlayer> for DbCountryPlayer{
-    fn into(self) -> CountryPlayer {
-        CountryPlayer{
-            id: self.player_id.unwrap_or(String::from("Unknown")),
-            name: self.player_name.unwrap_or(String::from("Unknown")),
-            total_playtime: self.total_playtime.to_f64(),
-            total_player_count: self.total_player_count.unwrap_or(0),
-            session_count: self.session_count.unwrap_or(0),
-        }
-    }
 }
 #[derive(Serialize, Deserialize)]
 pub struct DbCountryGeometry{
@@ -1131,52 +863,54 @@ impl Into<(PlayerHourDay, PlayerHourDay)> for DbPlayerHourCount{
 }
 
 
+#[derive(DbInto)]
+#[db_into(SteamProfile)]
+#[extra(loccountrycode = Some("".to_string()), realname = None, gameid = None, gameextrainfo = None, gameserverip = None, locstatecode = None, loccityid = None, is_superuser = Some(false))]
 pub struct DbSteam{
+    #[rename(steamid)]
+    #[method(to_string)]
     pub user_id: i64,
+    #[rename(communityvisibilitystate)]
+    #[expr(Some(i32::try_from(self.community_visibility_state).unwrap_or_default() as i64))]
     pub community_visibility_state: CommunityVisibilityState,
+    #[rename(profilestate)]
+    #[expr(Some(self.profile_state as i32))]
     pub profile_state: i64,
+    #[rename(personaname)]
+    #[expr(Some(self.persona_name))]
     pub persona_name: String,
+    #[rename(profileurl)]
+    #[expr(Some(self.profile_url))]
     pub profile_url: String,
+    #[expr(Some(self.avatar))]
     pub avatar: String,
+    #[rename(avatarmedium)]
+    #[expr(Some(self.avatar_medium))]
     pub avatar_medium: String,
+    #[rename(avatarfull)]
+    #[expr(Some(self.avatar_full))]
     pub avatar_full: String,
+    #[rename(avatarhash)]
+    #[expr(Some(self.avatar_hash))]
     pub avatar_hash: String,
+    #[rename(lastlogoff)]
+    #[expr(if self.last_log_off == -1 { None } else { Some(self.last_log_off) })]
     pub last_log_off: i64,
+    #[rename(personastate)]
+    #[expr(Some(i32::try_from(self.persona_state).unwrap_or_default() as i64))]
     pub persona_state: PersonaState,
+    #[rename(primaryclanid)]
+    #[expr(Some(self.primary_clan_id))]
     pub primary_clan_id: String,
+    #[rename(timecreated)]
+    #[expr(Some(self.time_created))]
     pub time_created: i64,
+    #[rename(personastateflags)]
+    #[expr(Some(self.persona_state_flags as i32))]
     pub persona_state_flags: i64,
+    #[rename(commentpermission)]
+    #[expr(Some(if self.comment_permission { 1 } else { 0 }))]
     pub comment_permission: bool,
-}
-
-impl Into<SteamProfile> for DbSteam{
-    fn into(self) -> SteamProfile {
-        SteamProfile{
-            steamid: self.user_id.to_string(),
-            communityvisibilitystate: Some(i32::try_from(self.community_visibility_state).unwrap_or_default() as i64),
-            commentpermission: Some(if self.comment_permission { 1 } else { 0 }),
-            profilestate: Some(self.profile_state as i32),
-            personaname: Some(self.persona_name),
-            profileurl: Some(self.profile_url),
-            avatar: Some(self.avatar),
-            avatarmedium: Some(self.avatar_medium),
-            avatarfull: Some(self.avatar_full),
-            avatarhash: Some(self.avatar_hash),
-            lastlogoff: if self.last_log_off == -1 { None } else { Some(self.last_log_off) },
-            personastate: Some(i32::try_from(self.persona_state).unwrap_or_default() as i64),
-            primaryclanid: Some(self.primary_clan_id),
-            timecreated: Some(self.time_created),
-            personastateflags: Some(self.persona_state_flags as i32),
-            loccountrycode: Some("".to_string()),
-            realname: None,
-            gameid: None,
-            gameextrainfo: None,
-            gameserverip: None,
-            locstatecode: None,
-            loccityid: None,
-            is_superuser: Some(false),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type, Deserialize, Serialize)]
@@ -1270,37 +1004,28 @@ impl Display for PersonaState{
 }
 
 #[allow(dead_code)]
+#[derive(DbInto)]
+#[db_into(ServerMapMusic)]
 pub struct DbAssociatedMapMusic{
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[rename(name)]
     pub music_name: String,
+    #[unwrap_default]
     pub duration: Option<f64>,
     pub youtube_music: Option<String>,
+    #[default("Unknown".to_string())]
     pub source: Option<String>,
+    #[skip]
     pub map_name: Option<String>,
+    #[unwrap_default]
     pub other_maps: Option<Vec<String>>,
+    #[unwrap_default]
     pub tags: Option<Vec<String>>,
+    #[expr(self.yt_source.map(|v| v.to_string()))]
     pub yt_source: Option<i64>,
+    #[expr(Some(if self.yt_source == Some(0) { String::from("System") } else { self.yt_source_name.unwrap_or("Unknown".into()) }))]
     pub yt_source_name: Option<String>,
-}
-
-impl Into<ServerMapMusic> for DbAssociatedMapMusic{
-    fn into(self) -> ServerMapMusic {
-        ServerMapMusic {
-            id: self.id.to_string(),
-            name: self.music_name,
-            duration: self.duration.unwrap_or_default(),
-            youtube_music: self.youtube_music,
-            source: self.source.unwrap_or("Unknown".to_string()),
-            tags: self.tags.unwrap_or_default(),
-            other_maps: self.other_maps.unwrap_or_default(),
-            yt_source: self.yt_source.map(|v| v.to_string()),
-            yt_source_name: Some(if self.yt_source == Some(0) {
-                String::from("System")
-            } else {
-                self.yt_source_name.unwrap_or("Unknown".into())
-            })
-        }
-    }
 }
 #[derive(Clone, sqlx::Type, Deserialize, Serialize, Debug)]
 #[sqlx(type_name = "data_vote_type_enum")]
@@ -1334,9 +1059,12 @@ pub struct DbGuideBrief{
     pub server_id: Option<String>,
     pub author_id: i64
 }
-#[derive(Debug)]
+#[derive(Debug, DbInto)]
 #[auto_serde_with]
+#[db_into(Guide)]
+#[extra(author = GuideAuthor { id: self.author_id.to_string(), name: self.author_name.unwrap_or("Unknown".into()), avatar: self.author_avatar })]
 pub struct DbGuide {
+    #[method(to_string)]
     pub id: uuid::Uuid,
     pub map_name: String,
     pub server_id: Option<String>,
@@ -1348,75 +1076,44 @@ pub struct DbGuide {
     pub upvotes: i64,
     pub downvotes: i64,
     pub comment_count: i64,
+    #[expr(self.user_vote.map(Into::into))]
     pub user_vote: Option<DataVoteType>,
+    #[skip]
     pub author_id: i64,
+    #[skip]
     pub author_name: Option<String>,
+    #[skip]
     pub author_avatar: Option<String>,
     pub slug: String,
+    #[skip]
     pub total_guides: Option<i32>
 }
 
 
-impl Into<Guide> for DbGuide {
-    fn into(self) -> Guide {
-        println!("GUIDE DATA {self:?}");
-        Guide{
-            id: self.id.to_string(),
-            map_name: self.map_name,
-            server_id: self.server_id,
-            title: self.title,
-            content: self.content,
-            category: self.category,
-            author: GuideAuthor {
-                id: self.author_id.to_string(),
-                name: self.author_name.unwrap_or("Unknown".into()),
-                avatar: self.author_avatar
-            },
-            created_at: self.created_at.to_utc_time(),
-            updated_at: self.updated_at.to_utc_time(),
-            upvotes: self.upvotes,
-            downvotes: self.downvotes,
-            slug: self.slug,
-            comment_count: self.comment_count,
-            user_vote: self.user_vote.map(Into::into),
-        }
-    }
-}
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(GuideComment)]
+#[extra(author = GuideAuthor { id: self.author_id.to_string(), name: self.author_name.unwrap_or("Unknown".into()), avatar: self.author_avatar })]
 pub struct DbGuideComment {
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[method(to_string)]
     pub guide_id: uuid::Uuid,
+    #[skip]
     pub author_id: i64,
+    #[skip]
     pub author_name: Option<String>,
+    #[skip]
     pub author_avatar: Option<String>,
     pub content: String,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
     pub upvotes: i64,
     pub downvotes: i64,
+    #[expr(self.user_vote.map(Into::into))]
     pub user_vote: Option<DataVoteType>,
+    #[skip]
     pub total_comments: Option<i32>
-}
-
-impl Into<GuideComment> for DbGuideComment {
-    fn into(self) -> GuideComment {
-        GuideComment {
-            id: self.id.to_string(),
-            guide_id: self.guide_id.to_string(),
-            author: GuideAuthor {
-                id: self.author_id.to_string(),
-                name: self.author_name.unwrap_or("Unknown".into()),
-                avatar: self.author_avatar
-            },
-            content: self.content,
-            created_at: self.created_at.to_utc_time(),
-            updated_at: self.updated_at.to_utc_time(),
-            upvotes: self.upvotes,
-            downvotes: self.downvotes,
-            user_vote: self.user_vote.map(Into::into),
-        }
-    }
 }
 #[auto_serde_with]
 pub struct DbGuideCommentBrief{
@@ -1435,145 +1132,116 @@ pub struct DbReportGuide {
 }
 
 // Admin models for guide moderation
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(GuideReportAdmin)]
 pub struct DbGuideReportFull {
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[method(to_string)]
     pub guide_id: uuid::Uuid,
+    #[rename(reporter_id)]
+    #[method(to_string)]
     pub user_id: i64,
     pub reason: String,
     pub details: String,
     pub status: String,
+    #[expr(self.resolved_by.map(|id| id.to_string()))]
     pub resolved_by: Option<i64>,
     pub resolved_at: Option<OffsetDateTime>,
+    #[rename(created_at)]
     pub timestamp: OffsetDateTime,
     // Joined fields
     pub guide_title: Option<String>,
     pub guide_map_name: Option<String>,
+    #[expr(self.guide_author_id.map(|id| id.to_string()))]
     pub guide_author_id: Option<i64>,
     pub guide_author_name: Option<String>,
     pub reporter_name: Option<String>,
     pub resolver_name: Option<String>,
+    #[skip]
     pub total_reports: Option<i64>,
 }
 
-impl Into<GuideReportAdmin> for DbGuideReportFull {
-    fn into(self) -> GuideReportAdmin {
-        GuideReportAdmin {
-            id: self.id.to_string(),
-            guide_id: self.guide_id.to_string(),
-            guide_title: self.guide_title,
-            guide_map_name: self.guide_map_name,
-            guide_author_id: self.guide_author_id.map(|id| id.to_string()),
-            guide_author_name: self.guide_author_name,
-            reporter_id: self.user_id.to_string(),
-            reporter_name: self.reporter_name,
-            reason: self.reason,
-            details: self.details,
-            status: self.status,
-            resolved_by: self.resolved_by.map(|id| id.to_string()),
-            resolver_name: self.resolver_name,
-            resolved_at: self.resolved_at.to_utc_optional(),
-            created_at: self.timestamp.to_utc_time(),
-        }
-    }
-}
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(CommentReportAdmin)]
 pub struct DbCommentReportFull {
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[method(to_string)]
     pub comment_id: uuid::Uuid,
+    #[rename(reporter_id)]
+    #[method(to_string)]
     pub user_id: i64,
     pub reason: String,
     pub details: String,
     pub status: String,
+    #[expr(self.resolved_by.map(|id| id.to_string()))]
     pub resolved_by: Option<i64>,
     pub resolved_at: Option<OffsetDateTime>,
+    #[rename(created_at)]
     pub timestamp: OffsetDateTime,
     // Joined fields
     pub comment_content: Option<String>,
+    #[expr(self.comment_author_id.map(|id| id.to_string()))]
     pub comment_author_id: Option<i64>,
     pub comment_author_name: Option<String>,
+    #[expr(self.guide_id.map(|id| id.to_string()))]
     pub guide_id: Option<uuid::Uuid>,
     pub reporter_name: Option<String>,
     pub resolver_name: Option<String>,
+    #[skip]
     pub total_reports: Option<i64>,
 }
 
-impl Into<CommentReportAdmin> for DbCommentReportFull {
-    fn into(self) -> CommentReportAdmin {
-        CommentReportAdmin {
-            id: self.id.to_string(),
-            comment_id: self.comment_id.to_string(),
-            comment_content: self.comment_content,
-            comment_author_id: self.comment_author_id.map(|id| id.to_string()),
-            comment_author_name: self.comment_author_name,
-            guide_id: self.guide_id.map(|id| id.to_string()),
-            reporter_id: self.user_id.to_string(),
-            reporter_name: self.reporter_name,
-            reason: self.reason,
-            details: self.details,
-            status: self.status,
-            resolved_by: self.resolved_by.map(|id| id.to_string()),
-            resolver_name: self.resolver_name,
-            resolved_at: self.resolved_at.to_utc_optional(),
-            created_at: self.timestamp.to_utc_time(),
-        }
-    }
-}
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(MapMusicReportAdmin)]
 pub struct DbMapMusicReportFull {
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[method(to_string)]
     pub music_id: uuid::Uuid,
+    #[rename(reporter_id)]
+    #[method(to_string)]
     pub user_id: i64,
     pub reason: String,
     pub details: String,
     pub suggested_youtube_url: Option<String>,
     pub current_youtube_music: Option<String>,
     pub status: String,
+    #[expr(self.resolved_by.map(|id| id.to_string()))]
     pub resolved_by: Option<i64>,
     pub resolved_at: Option<OffsetDateTime>,
+    #[rename(created_at)]
     pub timestamp: OffsetDateTime,
     // Joined fields from map_music
+    #[default("Unknown Track".to_string())]
     pub music_name: Option<String>,
+    #[default(0.0)]
     pub music_duration: Option<f64>,
+    #[default("Unknown".to_string())]
     pub music_source: Option<String>,
     // Reporter/resolver info
     pub reporter_name: Option<String>,
     pub resolver_name: Option<String>,
     // Associated maps (aggregated)
+    #[unwrap_default]
     pub associated_maps: Option<Vec<String>>,
+    #[skip]
     pub total_reports: Option<i64>,
 }
 
-impl Into<MapMusicReportAdmin> for DbMapMusicReportFull {
-    fn into(self) -> MapMusicReportAdmin {
-        MapMusicReportAdmin {
-            id: self.id.to_string(),
-            music_id: self.music_id.to_string(),
-            music_name: self.music_name.unwrap_or_else(|| "Unknown Track".to_string()),
-            current_youtube_music: self.current_youtube_music,
-            suggested_youtube_url: self.suggested_youtube_url,
-            reporter_id: self.user_id.to_string(),
-            reporter_name: self.reporter_name,
-            reason: self.reason,
-            details: self.details,
-            status: self.status,
-            resolved_by: self.resolved_by.map(|id| id.to_string()),
-            resolver_name: self.resolver_name,
-            resolved_at: self.resolved_at.to_utc_optional(),
-            created_at: self.timestamp.to_utc_time(),
-            music_duration: self.music_duration.unwrap_or(0.0),
-            music_source: self.music_source.unwrap_or_else(|| "Unknown".to_string()),
-            associated_maps: self.associated_maps.unwrap_or_default(),
-        }
-    }
-}
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(GuideBanAdmin)]
 pub struct DbGuideBan {
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[method(to_string)]
     pub user_id: i64,
+    #[method(to_string)]
     pub banned_by: i64,
     pub reason: String,
     pub created_at: OffsetDateTime,
@@ -1583,53 +1251,35 @@ pub struct DbGuideBan {
     pub user_name: Option<String>,
     pub user_avatar: Option<String>,
     pub banned_by_name: Option<String>,
+    #[skip]
     pub total_bans: Option<i64>,
 }
 
-impl Into<GuideBanAdmin> for DbGuideBan {
-    fn into(self) -> GuideBanAdmin {
-        GuideBanAdmin {
-            id: self.id.to_string(),
-            user_id: self.user_id.to_string(),
-            user_name: self.user_name,
-            user_avatar: self.user_avatar,
-            banned_by: self.banned_by.to_string(),
-            banned_by_name: self.banned_by_name,
-            reason: self.reason,
-            created_at: self.created_at.to_utc_time(),
-            expires_at: self.expires_at.to_utc_optional(),
-            is_active: self.is_active,
-        }
-    }
-}
 
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(PushSubscription)]
 pub struct DbPushSubscription {
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[method(to_string)]
     pub user_id: i64,
     pub endpoint: String,
+    #[skip]
     pub p256dh_key: String,
+    #[skip]
     pub auth_key: String,
+    #[skip]
     pub user_agent: Option<String>,
     pub created_at: OffsetDateTime,
     pub last_used_at: OffsetDateTime,
 }
 
-impl Into<PushSubscription> for DbPushSubscription {
-    fn into(self) -> PushSubscription {
-        PushSubscription {
-            id: self.id.to_string(),
-            user_id: self.user_id.to_string(), // Convert i64 to String for JS compatibility
-            endpoint: self.endpoint,
-            created_at: self.created_at.to_utc_time(),
-            last_used_at: self.last_used_at.to_utc_time(),
-        }
-    }
-}
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(NotificationPreferences)]
 pub struct DbNotificationPreferences {
+    #[method(to_string)]
     pub user_id: i64,
     pub announcements_enabled: bool,
     pub system_enabled: bool,
@@ -1637,62 +1287,39 @@ pub struct DbNotificationPreferences {
     pub updated_at: OffsetDateTime,
 }
 
-impl Into<NotificationPreferences> for DbNotificationPreferences {
-    fn into(self) -> NotificationPreferences {
-        NotificationPreferences {
-            user_id: self.user_id.to_string(), // Convert i64 to String for JS compatibility
-            announcements_enabled: self.announcements_enabled,
-            system_enabled: self.system_enabled,
-            map_specific_enabled: self.map_specific_enabled,
-            updated_at: self.updated_at.to_utc_time(),
-        }
-    }
-}
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(MapChangeSubscription)]
 pub struct DbMapChangeSubscription {
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[skip]
     pub user_id: i64,
     pub server_id: String,
+    #[skip]
     pub subscription_id: uuid::Uuid,
     pub created_at: OffsetDateTime,
     pub triggered: bool,
+    #[skip]
     pub triggered_at: Option<OffsetDateTime>,
 }
 
-impl Into<MapChangeSubscription> for DbMapChangeSubscription {
-    fn into(self) -> MapChangeSubscription {
-        MapChangeSubscription {
-            id: self.id.to_string(),
-            server_id: self.server_id,
-            created_at: self.created_at.to_utc_time(),
-            triggered: self.triggered,
-        }
-    }
-}
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(MapNotifySubscription)]
 pub struct DbMapNotifySubscription {
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[skip]
     pub user_id: i64,
     pub map_name: String,
     pub server_id: Option<String>,
+    #[skip]
     pub subscription_id: uuid::Uuid,
     pub created_at: OffsetDateTime,
     pub triggered: bool,
+    #[skip]
     pub triggered_at: Option<OffsetDateTime>,
-}
-
-impl Into<MapNotifySubscription> for DbMapNotifySubscription {
-    fn into(self) -> MapNotifySubscription {
-        MapNotifySubscription {
-            id: self.id.to_string(),
-            map_name: self.map_name,
-            server_id: self.server_id,
-            created_at: self.created_at.to_utc_time(),
-            triggered: self.triggered,
-        }
-    }
 }
 
 #[auto_serde_with]
@@ -1704,7 +1331,10 @@ pub struct DbVapidKey {
     pub is_active: bool,
 }
 
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(Map3DModel)]
+#[extra(uploader_name = None)]
 pub struct DbMap3DModel {
     pub id: i32,
     pub map_name: String,
@@ -1717,24 +1347,10 @@ pub struct DbMap3DModel {
     pub updated_at: OffsetDateTime,
 }
 
-impl Into<Map3DModel> for DbMap3DModel {
-    fn into(self) -> Map3DModel {
-        Map3DModel {
-            id: self.id,
-            map_name: self.map_name,
-            res_type: self.res_type,
-            credit: self.credit,
-            link_path: self.link_path,
-            uploaded_by: self.uploaded_by,
-            uploader_name: None, // Must be fetched separately if needed
-            file_size: self.file_size,
-            created_at: self.created_at.to_utc_time(),
-            updated_at: self.updated_at.to_utc_time(),
-        }
-    }
-}
-
+#[derive(DbInto)]
 #[auto_serde_with]
+#[db_into(Character3DModel)]
+#[extra(uploader_name = None)]
 pub struct DbCharacter3DModel {
     pub id: i32,
     pub model_id: String,
@@ -1747,25 +1363,6 @@ pub struct DbCharacter3DModel {
     pub file_size: i64,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
-}
-
-impl Into<Character3DModel> for DbCharacter3DModel {
-    fn into(self) -> Character3DModel {
-        Character3DModel {
-            id: self.id,
-            model_id: self.model_id,
-            name: self.name,
-            server_id: self.server_id,
-            credit: self.credit,
-            link_path: self.link_path,
-            uploaded_by: self.uploaded_by,
-            uploader_name: None,
-            thumbnail_path: self.thumbnail_path,
-            file_size: self.file_size,
-            created_at: self.created_at.to_utc_time(),
-            updated_at: self.updated_at.to_utc_time(),
-        }
-    }
 }
 
 pub struct DbCommunityServerEntry {
@@ -1791,41 +1388,27 @@ pub struct DbServerNameMaxPlayers {
     pub max_players: Option<i16>,
 }
 
+#[derive(DbInto)]
+#[auto_serde_with]
+#[db_into(ServerRequestAdmin)]
 pub struct DbServerRequest {
+    #[method(to_string)]
     pub id: uuid::Uuid,
+    #[method(to_string)]
     pub user_id: i64,
     pub community_name: String,
     pub icon_url: Option<String>,
+    #[expr(serde_json::from_value(self.servers).unwrap_or_default())]
     pub servers: serde_json::Value,
     pub game_type: String,
     pub elaboration: Option<String>,
     pub status: String,
+    #[expr(self.reviewed_by.map(|id| id.to_string()))]
     pub reviewed_by: Option<i64>,
     pub reviewed_at: Option<OffsetDateTime>,
     pub created_at: OffsetDateTime,
     pub submitter_name: Option<String>,
     pub reviewer_name: Option<String>,
+    #[skip]
     pub total_requests: Option<i64>,
-}
-
-impl Into<ServerRequestAdmin> for DbServerRequest {
-    fn into(self) -> ServerRequestAdmin {
-        let servers: Vec<ServerEntryResponse> = serde_json::from_value(self.servers)
-            .unwrap_or_default();
-        ServerRequestAdmin {
-            id: self.id.to_string(),
-            user_id: self.user_id.to_string(),
-            submitter_name: self.submitter_name,
-            community_name: self.community_name,
-            icon_url: self.icon_url,
-            servers,
-            game_type: self.game_type,
-            elaboration: self.elaboration,
-            status: self.status,
-            reviewed_by: self.reviewed_by.map(|id| id.to_string()),
-            reviewer_name: self.reviewer_name,
-            reviewed_at: self.reviewed_at.to_utc_optional(),
-            created_at: self.created_at.to_utc_time(),
-        }
-    }
 }

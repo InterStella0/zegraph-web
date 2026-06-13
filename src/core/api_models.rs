@@ -1211,11 +1211,6 @@ pub struct UpdateMapMusicDto {
     pub youtube_music: Option<String>,
 }
 
-// ============================================================================
-// PUSH NOTIFICATION MODELS
-// ============================================================================
-
-// Push Subscription Models
 #[derive(Object, Serialize, Deserialize)]
 pub struct PushSubscriptionDto {
     pub endpoint: String,
@@ -1254,7 +1249,6 @@ pub struct NotificationPreferences {
     pub updated_at: DateTime<Utc>,
 }
 
-// Test Notification Model
 #[derive(Object, Serialize, Deserialize)]
 pub struct TestNotificationDto {
     pub title: String,
@@ -1270,14 +1264,12 @@ pub struct NotificationSendResult {
     pub errors: Vec<String>,
 }
 
-// Paginated subscriptions for admin view
 #[derive(Object, Serialize)]
 pub struct PushSubscriptionsPaginated {
     pub total: i64,
     pub subscriptions: Vec<PushSubscription>,
 }
 
-// Map Change Subscription Models
 #[derive(Object, Serialize)]
 pub struct MapChangeSubscription {
     pub id: String,
