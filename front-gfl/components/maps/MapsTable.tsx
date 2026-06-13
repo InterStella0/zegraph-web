@@ -159,7 +159,7 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
                                     Min {map.min_players}
                                 </Badge>
                             )}
-                            {map.max_players != null && map.max_players != server.max_players && (
+                            {map.max_players != null && (map.max_players != server.max_players && map.max_players != 0)  && (
                                 <Badge variant="outline" className="text-xs">
                                     Max {map.max_players}
                                 </Badge>
