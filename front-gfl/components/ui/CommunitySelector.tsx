@@ -139,7 +139,6 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
 
     const drawerContent = (
         <div className="h-full flex flex-col bg-background">
-            {/* Header - matches WebAppBar height */}
             <div className={`flex items-center ${
                 isCollapsed ? 'justify-center px-4' : 'justify-between px-6'
             } h-16 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0`}>
@@ -174,7 +173,6 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
 
                         return (
                             <div key={community.id} className={isCollapsed ? "px-2 mb-2" : "mb-4 pb-4 border-b border-border/20 last:border-0"}>
-                                {/* Community Header - Collapsed View */}
                                 {(!isMobile && isCollapsed) ? (
                                     <div className="flex flex-col items-center gap-2">
                                         <div className="relative">
@@ -193,7 +191,6 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                                     </div>
                                 ) : (
                                     <>
-                                        {/* Community Header - Expanded View */}
                                         <div className="px-4 mb-3">
                                             <div className="flex items-center gap-3 p-2 rounded-lg bg-accent/20 border border-border/30">
                                                 <div className="relative flex-shrink-0">
@@ -222,7 +219,6 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                                             </div>
                                         </div>
 
-                                        {/* Server List */}
                                         <div className="space-y-1.5 px-3">
                                             {(expandedCommunities.has(community.id)
                                                 ? community.servers
@@ -243,7 +239,6 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                                                                 : 'hover:bg-accent/60 bg-accent/30'
                                                         }`}
                                                     >
-                                                        {/* Player count progress bar */}
                                                         <div
                                                             className={`absolute bottom-0 left-0 h-0.5 transition-all ${
                                                                 isSelected ? 'bg-primary-foreground/30' : 'bg-primary/30'
@@ -252,13 +247,11 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                                                         />
 
                                                         <div className="flex items-start gap-2">
-                                                            {/* Status indicator */}
                                                             <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${
                                                                 communityServer.status ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-gray-400'
                                                             }`} />
 
                                                             <div className="flex-1 min-w-0 space-y-1">
-                                                                {/* Server name and player count */}
                                                                 <div className="flex items-center justify-between gap-2">
                                                                     <span className={`text-sm truncate ${
                                                                         isSelected ? 'font-semibold' : 'font-medium'
@@ -273,7 +266,6 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Current map */}
                                                                 <div className={`flex items-center gap-1 text-xs ${
                                                                     isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'
                                                                 }`}>
@@ -288,7 +280,6 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                                                 );
                                             })}
 
-                                            {/* Show more/less button */}
                                             {community.servers.length > MAX_SERVERS_SHOWN && (
                                                 <Button
                                                     variant="ghost"

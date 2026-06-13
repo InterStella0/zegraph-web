@@ -3,9 +3,6 @@ import { Skeleton } from "components/ui/skeleton";
 export default function Loading() {
     return (
         <div className="w-full">
-            <div className="w-full h-1 bg-primary/20 overflow-hidden">
-                <div className="h-full bg-primary animate-pulse" />
-            </div>
             <div className="m-4">
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
                     <div className="xl:col-span-8 col-span-12">

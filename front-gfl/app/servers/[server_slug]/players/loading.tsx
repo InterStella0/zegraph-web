@@ -1,11 +1,8 @@
 import { Skeleton } from "components/ui/skeleton";
-import { Progress } from "components/ui/progress";
 
 export default function Loading() {
     return (
         <div className="w-full">
-            <Progress className="h-1 w-full mb-6" />
-
             <div className="p-6">
                 <div className="text-center mb-10">
                     <h1 className="text-4xl font-bold mb-2">Players</h1>

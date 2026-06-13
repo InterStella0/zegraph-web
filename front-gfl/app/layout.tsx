@@ -13,6 +13,7 @@ import {AnnouncementsContainer} from "components/announcements/AnnouncementsCont
 import {NotificationBannerLoader} from "components/notifications/NotificationBannerLoader";
 import {DonorBanner} from "components/ui/DonorBanner";
 import getServerUser from "./getServerUser";
+import NextTopLoader from "nextjs-toploader";
 
 export const metadata: Metadata = {
     title: 'ZE Graph',
@@ -41,6 +42,7 @@ export default async function RootLayout({
                 <script async custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js"></script>
             </head>
             <body>
+                <NextTopLoader color="#f48fb1" showSpinner={false} />
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="system"
