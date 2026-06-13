@@ -27,7 +27,7 @@ interface MapNotifyButtonProps {
 type SubscriptionType = 'server' | 'all' | null;
 
 export default function MapNotifyButton({ mapName, serverId, user, notifySubscriptionType, onSubscriptionChange }: MapNotifyButtonProps) {
-    const { isSupported, subscription, subscribe, isLoading: pushLoading } = usePushNotifications();
+    const { isSupported, subscription, subscribe, isLoading: pushLoading } = usePushNotifications(user != null);
     const [subscriptionType, setSubscriptionType] = useState<SubscriptionType>(notifySubscriptionType);
     const [loading, setLoading] = useState(false);
     const [loginDialogOpen, setLoginDialogOpen] = useState(false);

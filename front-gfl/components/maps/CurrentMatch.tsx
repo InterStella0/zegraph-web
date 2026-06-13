@@ -94,7 +94,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
     server: Server, mapImage: string | null, currentMatch: ServerMapMatch, continentData: ContinentStatistics, user: SteamProfile | null
 }) {
     const [currentTime, setCurrentTime] = useState(dayjs());
-    const { isSupported, subscription, subscribe, isLoading: pushLoading } = usePushNotifications();
+    const { isSupported, subscription, subscribe, isLoading: pushLoading } = usePushNotifications(user != null);
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [loading, setLoading] = useState(false);
     const [flowState, setFlowState] = useState<'idle' | 'enabling-push' | 'subscribing-map'>('idle');

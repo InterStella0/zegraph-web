@@ -14,7 +14,7 @@ interface NotificationPermissionState {
   error: string | null;
 }
 
-export function usePushNotifications() {
+export function usePushNotifications(isLogged: boolean) {
   const [state, setState] = useState<NotificationPermissionState>({
     permission: 'default',
     isSubscribed: false,
@@ -25,7 +25,7 @@ export function usePushNotifications() {
 
   const isSupported = typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
-    'PushManager' in window;
+    'PushManager' in window && isLogged;
 
   useEffect(() => {
     if (!isSupported) return;

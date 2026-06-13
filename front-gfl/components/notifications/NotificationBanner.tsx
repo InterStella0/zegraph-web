@@ -12,7 +12,7 @@ interface NotificationBannerProps {
 
 export function NotificationBanner({ userPromise }: NotificationBannerProps) {
   const user = use(userPromise);
-  const { permission, isSubscribed, isSupported, subscribe, isLoading } = usePushNotifications();
+  const { permission, isSubscribed, isSupported, subscribe, isLoading } = usePushNotifications(user != null);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
