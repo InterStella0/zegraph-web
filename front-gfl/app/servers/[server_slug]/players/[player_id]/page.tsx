@@ -106,17 +106,11 @@ export async function generateMetadata({ params}: {
             images: [image],
         },
         twitter: {},
-        // twitter: {
-        //     card: "summary_large_image",
-        //     title,
-        //     description,
-        //     images: [image],
-        // },
         alternates: {
             canonical: `/servers/${server.gotoLink}/players/${player.id}`,
-            // types: {
-            //     "application/json+oembed": `/api/oembed?url=${DOMAIN}/api/${server.id}/players/${player.id}`,
-            // },
+            types: {
+                "application/json+oembed": `/api/oembed?url=${DOMAIN}/api/${server.id}/players/${player.id}`,
+            },
         },
     }
 }
