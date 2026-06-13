@@ -15,6 +15,7 @@ import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import MapNotifyButton from "components/maps/MapNotifyButton";
 import {SteamProfile} from "../../next-auth-steam/steam";
+import {Server} from "types/community.ts";
 
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
@@ -88,7 +89,7 @@ export const getStatusChip = (map) => {
 };
 
 function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionType, onNotificationChange }: {
-    server: any;
+    server: Server;
     map: any;
     favorites: Set<string>;
     toggleFavorite: (mapName: string) => void;
@@ -153,12 +154,12 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
                                     NO NOMS
                                 </Badge>
                             )}
-                            {map.min_players != null && (
+                            {map.min_players != null && map.min_players > 0 && (
                                 <Badge variant="outline" className="text-xs">
                                     Min {map.min_players}
                                 </Badge>
                             )}
-                            {map.max_players != null && (
+                            {map.max_players != null && map.max_players != server.max_players && (
                                 <Badge variant="outline" className="text-xs">
                                     Max {map.max_players}
                                 </Badge>
@@ -237,7 +238,7 @@ export default function MapsTable({
     toggleFavorite: (mapName: string) => void;
     handleChangePage: (event: any, page: number) => void;
     loading: boolean;
-    server: any;
+    server: Server;
     user: SteamProfile | null;
     getSubscriptionType: (mapName: string, serverId: string) => 'server' | 'all' | null;
     onNotificationChange: () => void;
@@ -281,7 +282,6 @@ export default function MapsTable({
                 </TableBody>
             </Table>
 
-            {/* Custom pagination footer */}
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                 <p className="text-sm text-muted-foreground">
                     Showing {startItem}-{endItem} of {mapsData?.total_maps || 0}
