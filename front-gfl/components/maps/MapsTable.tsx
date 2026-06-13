@@ -16,6 +16,7 @@ import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import MapNotifyButton from "components/maps/MapNotifyButton";
 import {SteamProfile} from "../../next-auth-steam/steam";
 import {Server} from "types/community.ts";
+import {MapPlayed, MapPlayedPaginated} from "types/maps.ts";
 
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
@@ -90,7 +91,7 @@ export const getStatusChip = (map) => {
 
 function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionType, onNotificationChange }: {
     server: Server;
-    map: any;
+    map: MapPlayed;
     favorites: Set<string>;
     toggleFavorite: (mapName: string) => void;
     user: SteamProfile | null;
@@ -232,7 +233,7 @@ export default function MapsTable({
     getSubscriptionType,
     onNotificationChange
 }: {
-    mapsData: any;
+    mapsData: MapPlayedPaginated;
     page: number;
     favorites: Set<string>;
     toggleFavorite: (mapName: string) => void;

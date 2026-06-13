@@ -121,7 +121,7 @@ export default function MapsSearchIndex({ serverPromise, userPromise }: { server
         }
     }
 
-    const toggleFavorite = async (mapName) => {
+    const toggleFavorite = async (mapName: string) => {
         if (!user) {
             setLoginDialogOpen(true);
             return;

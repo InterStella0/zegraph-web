@@ -3,12 +3,14 @@ import {Heart} from 'lucide-react';
 import {getMapImage, secondsToHours, simpleRandom} from "utils/generalUtils";
 import {getStatusChip} from "./MapsTable";
 import dayjs from "dayjs";
-import {useEffect, useState} from "react";
+import {Dispatch, useEffect, useState} from "react";
 import Link from "next/link";
 import {Badge} from "components/ui/badge";
 import {Button} from "components/ui/button";
 import {Skeleton} from "components/ui/skeleton";
 import {Pagination, PaginationContent, PaginationFirst, PaginationItem, PaginationLast, PaginationLink, PaginationNext, PaginationPrevious} from "components/ui/pagination";
+import {Server} from "types/community.ts";
+import {MapPlayedPaginated} from "types/maps.ts";
 
 export const MapsMobileViewSkeleton = () => {
     const [isClient, setIsClient] = useState(false)
@@ -179,6 +181,14 @@ export default function MapsMobileView({
     page,
     setPage,
     loading
+}: {
+    server: Server,
+    mapsData: MapPlayedPaginated | null,
+    favorites: Set<string>,
+    toggleFavorite: (mapName: string) => Promise<void>,
+    page: number,
+    setPage: Dispatch<number>,
+    loading: boolean
 }) {
     const totalPages = Math.ceil((mapsData?.total_maps || 0) / 25);
 
