@@ -1,5 +1,6 @@
 use crate::core::api_models::*;
-use crate::core::utils::{db_to_utc, format_pg_time_tz, pg_interval_to_f64, smallest_date};
+use crate::core::utils::{format_pg_time_tz, PgIntervalNumber, TimeToChrono};
+use crate::core::api_models::{PushSubscription, NotificationPreferences, MapChangeSubscription, MapNotifySubscription};
 use crate::global_serializer::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -95,7 +96,7 @@ impl Into<FetchStatusEntry> for DbFetchStatus{
             community_name: self.community_name.unwrap_or_else(|| "Unknown".into()),
             op_name: self.op_name,
             source_name: self.source_name,
-            fetched_at: db_to_utc(self.fetched_at),
+            fetched_at: self.fetched_at.to_utc_time(),
             ok: self.ok,
             error: self.error,
         }
@@ -167,9 +168,9 @@ impl Into<PlayerSession> for DbPlayerSessionPage{
             id: self.session_id,
             server_id: self.server_id,
             player_id: self.player_id,
-            started_at: db_to_utc(self.started_at),
-            ended_at: self.ended_at.map(db_to_utc),
-            last_verified: self.last_verified.map(db_to_utc),
+            started_at: self.started_at.to_utc_time(),
+            ended_at: self.ended_at.to_utc_optional(),
+            last_verified: self.last_verified.to_utc_optional(),
         }
     }
 }
@@ -179,8 +180,8 @@ impl Into<PlayerDetailSession> for DbPlayerDetailSession{
             id: self.player_id,
             session_id: self.session_id,
             name: self.player_name.unwrap_or("Unknown".into()),
-            started_at: db_to_utc(self.started_at),
-            ended_at: self.ended_at.map(db_to_utc),
+            started_at: self.started_at.to_utc_time(),
+            ended_at: self.ended_at.to_utc_optional(),
             is_anonymous: self.is_anonymous
         }
     }
@@ -247,9 +248,9 @@ impl Into<PlayerSession> for DbPlayerSession {
             id: self.session_id,
             player_id: self.player_id,
             server_id: self.server_id,
-            started_at: db_to_utc(self.started_at),
-            ended_at: self.ended_at.map(db_to_utc),
-            last_verified: self.last_verified.map(db_to_utc),
+            started_at: self.started_at.to_utc_time(),
+            ended_at: self.ended_at.to_utc_optional(),
+            last_verified: self.last_verified.to_utc_optional(),
         }
     }
 }
@@ -266,8 +267,8 @@ impl Into<PlayerSeen> for DbPlayerSeen{
         PlayerSeen{
             id: self.player_id,
             name: self.player_name,
-            total_time_together: self.total_time_together.map(pg_interval_to_f64).unwrap_or(0.),
-            last_seen: db_to_utc(self.last_seen.unwrap_or(smallest_date()))
+            total_time_together: self.total_time_together.to_f64(),
+            last_seen: self.last_seen.to_utc_time()
         }
     }
 }
@@ -400,7 +401,7 @@ impl Into<MapRegion> for DbMapRegion {
     fn into(self) -> MapRegion {
         MapRegion{
             region_name: self.region_name.unwrap_or("Unknown Region".to_string()),
-            total_play_duration: self.total_play_duration.map(pg_interval_to_f64).unwrap_or(0.0),
+            total_play_duration: self.total_play_duration.to_f64(),
         }
     }
 }
@@ -460,7 +461,7 @@ impl Into<MapRank> for DbMapRank {
         MapRank {
             rank: self.rank.unwrap_or_default(),
             map: self.map.unwrap_or_default(),
-            total_playtime: self.total_playtime.map(pg_interval_to_f64).unwrap_or(0.)
+            total_playtime: self.total_playtime.to_f64()
         }
     }
 }
@@ -475,8 +476,8 @@ impl Into<MapRegionDate> for DbMapRegionDate {
     fn into(self) -> MapRegionDate {
         MapRegionDate{
             region_name: self.region_name.unwrap_or_default(),
-            total_play_duration: self.total_play_duration.map(pg_interval_to_f64).unwrap_or(0.),
-            date: self.date.map(db_to_utc)
+            total_play_duration: self.total_play_duration.to_f64(),
+            date: self.date.to_utc_optional()
         }
     }
 }
@@ -506,9 +507,9 @@ impl Into<PlayerTableRank> for DbPlayerTable{
             rank: self.ranked.unwrap_or(-1),
             id: self.player_id,
             name: self.player_name.unwrap_or("Unknown Player".to_string()),
-            tryhard_playtime: pg_interval_to_f64(self.tryhard_playtime),
-            casual_playtime: pg_interval_to_f64(self.casual_playtime),
-            total_playtime: pg_interval_to_f64(self.total_playtime),
+            tryhard_playtime: self.tryhard_playtime.to_f64(),
+            casual_playtime: self.casual_playtime.to_f64(),
+            total_playtime: self.total_playtime.to_f64(),
             is_anonymous: self.is_anonymous
         }
     }
@@ -532,12 +533,12 @@ impl Into<PlayerBrief> for DbPlayerBrief {
         PlayerBrief{
             id: self.player_id,
             name: self.player_name,
-            created_at: db_to_utc(self.created_at),
-            total_playtime: self.total_playtime.map(pg_interval_to_f64).unwrap_or(0.),
+            created_at: self.created_at.to_utc_time(),
+            total_playtime: self.total_playtime.to_f64(),
             rank: self.rank.unwrap_or(-1) as i64,
-            online_since: self.online_since.map(db_to_utc),
-            last_played: db_to_utc(self.last_played.unwrap_or(smallest_date())),
-            last_played_duration: self.last_played_duration.map(pg_interval_to_f64).unwrap_or(0.),
+            online_since: self.online_since.to_utc_optional(),
+            last_played: self.last_played.to_utc_time(),
+            last_played_duration: self.last_played_duration.to_f64(),
         }
     }
 }
@@ -553,7 +554,7 @@ impl Into<PlayerAlias> for DbPlayerAlias {
     fn into(self) -> PlayerAlias {
         PlayerAlias{
             name: self.name,
-            created_at: db_to_utc(self.created_at)
+            created_at: self.created_at.to_utc_time()
         }
     }
 }
@@ -563,11 +564,11 @@ impl Into<DetailedPlayer> for DbPlayerDetail{
         DetailedPlayer {
             id: self.player_id,
             name: self.player_name,
-            created_at: db_to_utc(self.created_at),
+            created_at: self.created_at.to_utc_time(),
             category: self.category,
-            casual_playtime: self.casual_playtime.map(pg_interval_to_f64).unwrap_or(0.),
-            tryhard_playtime: self.tryhard_playtime.map(pg_interval_to_f64).unwrap_or(0.),
-            total_playtime: self.total_playtime.map(pg_interval_to_f64).unwrap_or(0.),
+            casual_playtime: self.casual_playtime.to_f64(),
+            tryhard_playtime: self.tryhard_playtime.to_f64(),
+            total_playtime: self.total_playtime.to_f64(),
             aliases: vec![],
             rank: self.rank.unwrap_or(-1) as i64,
             associated_player_id: self.associated_player_id,
@@ -616,9 +617,9 @@ impl Into<Announcement> for DbAnnouncement{
             r#type: self.r#type.into(),
             title: self.title,
             text: self.text,
-            created_at: db_to_utc(self.created_at),
-            published_at: db_to_utc(self.published_at),
-            expires_at: self.expires_at.map(db_to_utc),
+            created_at: self.created_at.to_utc_time(),
+            published_at: self.published_at.to_utc_time(),
+            expires_at: self.expires_at.to_utc_optional(),
             hidden: !self.show
         }
     }
@@ -636,7 +637,7 @@ impl Into<PlayerMostPlayedMap> for DbPlayerMapPlayed{
     fn into(self) -> PlayerMostPlayedMap {
         PlayerMostPlayedMap{
             map: self.map.unwrap_or_default(),
-            duration: self.played.map(pg_interval_to_f64).unwrap_or(0.),
+            duration: self.played.to_f64(),
             rank: 0,
         }
     }
@@ -657,7 +658,7 @@ impl Into<PlayerInfraction> for DbPlayerInfraction{
             source: self.source,
             by: self.by.unwrap_or("Unknown".into()),
             reason: self.reason,
-            infraction_time: self.infraction_time.map(db_to_utc),
+            infraction_time: self.infraction_time.to_utc_optional(),
             admin_avatar: self.admin_avatar,
             flags: self.flags.unwrap_or(0)
         }
@@ -689,7 +690,7 @@ impl Into<PlayerRegionTime> for DbPlayerRegionTime{
         PlayerRegionTime{
             id: self.region_id.unwrap_or(-1),
             name: self.region_name.unwrap_or("Unknown".into()),
-            duration: self.played_time.map(pg_interval_to_f64).unwrap_or(0.),
+            duration: self.played_time.to_f64(),
         }
     }
 }
@@ -704,7 +705,7 @@ pub struct DbPlayerSessionTime{
 impl Into<PlayerSessionTime> for DbPlayerSessionTime{
     fn into(self) -> PlayerSessionTime {
         PlayerSessionTime{
-            bucket_time: db_to_utc(self.bucket_time.unwrap_or(smallest_date())),
+            bucket_time: self.bucket_time.to_utc_time(),
             hours: self.hour_duration.unwrap_or(0.)
         }
     }
@@ -713,9 +714,7 @@ impl Into<PlayerSessionTime> for DbPlayerSessionTime{
 impl Into<ServerCountData> for DbServerCountData{
     fn into(self) -> ServerCountData {
         ServerCountData { 
-            bucket_time: db_to_utc(
-                self.bucket_time.unwrap_or(smallest_date())
-            ),
+            bucket_time: self.bucket_time.to_utc_time(),
             player_count: self.player_count.unwrap_or(0) as i32
         }
     }
@@ -755,8 +754,8 @@ impl Into<PlayerSessionMapPlayed> for DbPlayerSessionMapPlayed{
             server_id: self.server_id,
             map: self.map,
             player_count: self.player_count,
-            started_at: db_to_utc(self.started_at),
-            ended_at: self.ended_at.map(db_to_utc),
+            started_at: self.started_at.to_utc_time(),
+            ended_at: self.ended_at.to_utc_optional(),
             match_data: vec![],
         }
     }
@@ -766,7 +765,7 @@ impl Into<MatchData> for DbPlayerSessionMapPlayed{
         MatchData{
             zombie_score: self.zombie_score.unwrap_or_default(),
             human_score: self.human_score.unwrap_or_default(),
-            occurred_at: db_to_utc(self.occurred_at.unwrap_or(smallest_date())),
+            occurred_at: self.occurred_at.to_utc_time(),
             extend_count: self.extend_count.unwrap_or_default(),
         }
     }
@@ -780,7 +779,7 @@ pub struct DbPlayersStatistic{
 impl Into<PlayersStatistic> for DbPlayersStatistic{
     fn into(self) -> PlayersStatistic{
         PlayersStatistic{
-            total_cum_playtime: self.total_cum_playtime.map(pg_interval_to_f64).unwrap_or_default(),
+            total_cum_playtime: self.total_cum_playtime.to_f64(),
             total_players: self.total_players.unwrap_or_default(),
             countries: self.countries.unwrap_or_default(),
         }
@@ -808,12 +807,12 @@ impl Into<ServerMapMatch> for DbServerMatch{
             server_id: self.server_id,
             map: self.map,
             player_count: self.player_count.unwrap_or_default() as i16,
-            started_at: db_to_utc(self.started_at),
+            started_at: self.started_at.to_utc_time(),
             zombie_score: self.zombie_score,
             human_score: self.human_score,
-            occurred_at: self.occurred_at.map(db_to_utc),
-            estimated_time_end: self.estimated_time_end.map(db_to_utc),
-            server_time_end: self.server_time_end.map(db_to_utc),
+            occurred_at: self.occurred_at.to_utc_optional(),
+            estimated_time_end: self.estimated_time_end.to_utc_optional(),
+            server_time_end: self.server_time_end.to_utc_optional(),
             extend_count: self.extend_count,
         }
     }
@@ -834,7 +833,7 @@ impl Into<MapSessionMatch> for DbServerSessionMatch{
             server_id: self.server_id.unwrap_or("Unknown".into()),
             zombie_score: self.zombie_score.unwrap_or_default(),
             human_score: self.human_score.unwrap_or_default(),
-            occurred_at: db_to_utc(self.occurred_at.unwrap_or(smallest_date())),
+            occurred_at: self.occurred_at.to_utc_time(),
         }
     }
 }
@@ -852,8 +851,8 @@ pub struct DbServerMapPlayed{
 impl Into<ServerMapPlayed> for DbServerMapPlayed{
     fn into(self) -> ServerMapPlayed {
         ServerMapPlayed {
-            started_at: db_to_utc(self.started_at),
-            ended_at: self.ended_at.map(db_to_utc),
+            started_at: self.started_at.to_utc_time(),
+            ended_at: self.ended_at.to_utc_optional(),
             player_count: self.player_count,
             time_id: self.time_id,
             server_id: self.server_id,
@@ -882,14 +881,14 @@ impl Into<MapAnalyze> for DbMapAnalyze{
         MapAnalyze{
             map: self.map,
             unique_players: self.unique_players,
-            cum_player_hours: self.cum_player_hours.map(pg_interval_to_f64).unwrap_or_default(),
-            total_playtime: self.total_playtime.map(pg_interval_to_f64).unwrap_or_default(),
+            cum_player_hours: self.cum_player_hours.to_f64(),
+            total_playtime: self.total_playtime.to_f64(),
             total_sessions: self.total_sessions as i64,
-            avg_playtime_before_quitting: self.avg_playtime_before_quitting.map(pg_interval_to_f64).unwrap_or_default(),
+            avg_playtime_before_quitting: self.avg_playtime_before_quitting.to_f64(),
             dropoff_rate: self.dropoff_rate.unwrap_or_default(),
             avg_players_per_session: self.avg_players_per_session.unwrap_or_default(),
-            last_played: db_to_utc(self.last_played.unwrap_or(smallest_date())),
-            last_played_ended: self.last_played_ended.map(db_to_utc),
+            last_played: self.last_played.to_utc_time(),
+            last_played_ended: self.last_played_ended.to_utc_optional(),
         }
     }
 }
@@ -925,7 +924,7 @@ impl Into<MapPlayerTypeTime> for DbMapPlayerTypeTime{
     fn into(self) -> MapPlayerTypeTime {
         MapPlayerTypeTime {
             category: self.category.unwrap_or("Unknown".into()),
-            time_spent: self.time_spent.map(pg_interval_to_f64).unwrap_or_default()
+            time_spent: self.time_spent.to_f64()
         }
     }
 }
@@ -955,15 +954,15 @@ impl Into<MapInfo> for DbMapInfo{
     fn into(self) -> MapInfo {
         MapInfo {
             name: self.name,
-            first_occurrence: db_to_utc(self.first_occurrence),
-            cleared_at: self.cleared_at.map(db_to_utc),
+            first_occurrence: self.first_occurrence.to_utc_time(),
+            cleared_at: self.cleared_at.to_utc_optional(),
             is_tryhard: self.is_tryhard.unwrap_or_default(),
             is_casual: self.is_casual.unwrap_or_default(),
             has_lasers: self.has_lasers.unwrap_or_default(),
-            current_cooldown: self.current_cooldown.map(db_to_utc),
+            current_cooldown: self.current_cooldown.to_utc_optional(),
             pending_cooldown: self.pending_cooldown.unwrap_or_default(),
             map_left: self.map_left,
-            map_left_last_update: self.map_left_last_update.map(db_to_utc),
+            map_left_last_update: self.map_left_last_update.to_utc_optional(),
             no_noms: self.no_noms,
             enabled: self.enabled,
             min_players: self.min_players.unwrap_or_default(),
@@ -1008,24 +1007,24 @@ impl Into<MapPlayed> for DbServerMap{
     fn into(self) -> MapPlayed {
         MapPlayed {
             map: self.map,
-            first_occurrence: db_to_utc(self.first_occurrence),
-            cooldown: self.cooldown.map(db_to_utc),
+            first_occurrence: self.first_occurrence.to_utc_time(),
+            cooldown: self.cooldown.to_utc_optional(),
             pending_cooldown: self.pending_cooldown.unwrap_or_default(),
             map_left: self.map_left,
-            map_left_last_update: self.map_left_last_update.map(db_to_utc),
+            map_left_last_update: self.map_left_last_update.to_utc_optional(),
             enabled: self.enabled.unwrap_or_default(),
             is_tryhard: self.is_tryhard,
             is_casual: self.is_casual,
             has_lasers: self.has_lasers,
             is_favorite: self.is_favorite,
-            cleared_at: self.cleared_at.map(db_to_utc),
-            total_time: self.total_time.map(|e| pg_interval_to_f64(e)).unwrap_or_default(),
+            cleared_at: self.cleared_at.to_utc_optional(),
+            total_time: self.total_time.to_f64(),
             total_sessions: self.total_sessions.unwrap_or_default(),
-            last_played: self.last_played.map(db_to_utc),
-            last_played_ended: self.last_played_ended.map(db_to_utc),
+            last_played: self.last_played.to_utc_optional(),
+            last_played_ended: self.last_played_ended.to_utc_optional(),
             last_session_id: self.last_session_id.unwrap_or_default(),
             unique_players: self.unique_players.unwrap_or_default(),
-            total_cum_time: self.cum_player_hours.map(pg_interval_to_f64).unwrap_or_default(),
+            total_cum_time: self.cum_player_hours.to_f64(),
             removed: self.removed,
             no_noms: self.no_noms,
             min_players: self.min_players,
@@ -1095,7 +1094,7 @@ impl Into<CountryPlayer> for DbCountryPlayer{
         CountryPlayer{
             id: self.player_id.unwrap_or(String::from("Unknown")),
             name: self.player_name.unwrap_or(String::from("Unknown")),
-            total_playtime: self.total_playtime.map(pg_interval_to_f64).unwrap_or_default(),
+            total_playtime: self.total_playtime.to_f64(),
             total_player_count: self.total_player_count.unwrap_or(0),
             session_count: self.session_count.unwrap_or(0),
         }
@@ -1373,8 +1372,8 @@ impl Into<Guide> for DbGuide {
                 name: self.author_name.unwrap_or("Unknown".into()),
                 avatar: self.author_avatar
             },
-            created_at: db_to_utc(self.created_at),
-            updated_at: db_to_utc(self.updated_at),
+            created_at: self.created_at.to_utc_time(),
+            updated_at: self.updated_at.to_utc_time(),
             upvotes: self.upvotes,
             downvotes: self.downvotes,
             slug: self.slug,
@@ -1411,8 +1410,8 @@ impl Into<GuideComment> for DbGuideComment {
                 avatar: self.author_avatar
             },
             content: self.content,
-            created_at: db_to_utc(self.created_at),
-            updated_at: db_to_utc(self.updated_at),
+            created_at: self.created_at.to_utc_time(),
+            updated_at: self.updated_at.to_utc_time(),
             upvotes: self.upvotes,
             downvotes: self.downvotes,
             user_vote: self.user_vote.map(Into::into),
@@ -1473,8 +1472,8 @@ impl Into<GuideReportAdmin> for DbGuideReportFull {
             status: self.status,
             resolved_by: self.resolved_by.map(|id| id.to_string()),
             resolver_name: self.resolver_name,
-            resolved_at: self.resolved_at.map(db_to_utc),
-            created_at: db_to_utc(self.timestamp),
+            resolved_at: self.resolved_at.to_utc_optional(),
+            created_at: self.timestamp.to_utc_time(),
         }
     }
 }
@@ -1516,8 +1515,8 @@ impl Into<CommentReportAdmin> for DbCommentReportFull {
             status: self.status,
             resolved_by: self.resolved_by.map(|id| id.to_string()),
             resolver_name: self.resolver_name,
-            resolved_at: self.resolved_at.map(db_to_utc),
-            created_at: db_to_utc(self.timestamp),
+            resolved_at: self.resolved_at.to_utc_optional(),
+            created_at: self.timestamp.to_utc_time(),
         }
     }
 }
@@ -1562,8 +1561,8 @@ impl Into<MapMusicReportAdmin> for DbMapMusicReportFull {
             status: self.status,
             resolved_by: self.resolved_by.map(|id| id.to_string()),
             resolver_name: self.resolver_name,
-            resolved_at: self.resolved_at.map(db_to_utc),
-            created_at: db_to_utc(self.timestamp),
+            resolved_at: self.resolved_at.to_utc_optional(),
+            created_at: self.timestamp.to_utc_time(),
             music_duration: self.music_duration.unwrap_or(0.0),
             music_source: self.music_source.unwrap_or_else(|| "Unknown".to_string()),
             associated_maps: self.associated_maps.unwrap_or_default(),
@@ -1597,18 +1596,13 @@ impl Into<GuideBanAdmin> for DbGuideBan {
             banned_by: self.banned_by.to_string(),
             banned_by_name: self.banned_by_name,
             reason: self.reason,
-            created_at: db_to_utc(self.created_at),
-            expires_at: self.expires_at.map(db_to_utc),
+            created_at: self.created_at.to_utc_time(),
+            expires_at: self.expires_at.to_utc_optional(),
             is_active: self.is_active,
         }
     }
 }
 
-// ============================================================================
-// PUSH NOTIFICATION DATABASE MODELS
-// ============================================================================
-
-use crate::core::api_models::{PushSubscription, NotificationPreferences, MapChangeSubscription, MapNotifySubscription};
 
 #[auto_serde_with]
 pub struct DbPushSubscription {
@@ -1628,8 +1622,8 @@ impl Into<PushSubscription> for DbPushSubscription {
             id: self.id.to_string(),
             user_id: self.user_id.to_string(), // Convert i64 to String for JS compatibility
             endpoint: self.endpoint,
-            created_at: db_to_utc(self.created_at),
-            last_used_at: db_to_utc(self.last_used_at),
+            created_at: self.created_at.to_utc_time(),
+            last_used_at: self.last_used_at.to_utc_time(),
         }
     }
 }
@@ -1650,7 +1644,7 @@ impl Into<NotificationPreferences> for DbNotificationPreferences {
             announcements_enabled: self.announcements_enabled,
             system_enabled: self.system_enabled,
             map_specific_enabled: self.map_specific_enabled,
-            updated_at: db_to_utc(self.updated_at),
+            updated_at: self.updated_at.to_utc_time(),
         }
     }
 }
@@ -1671,7 +1665,7 @@ impl Into<MapChangeSubscription> for DbMapChangeSubscription {
         MapChangeSubscription {
             id: self.id.to_string(),
             server_id: self.server_id,
-            created_at: db_to_utc(self.created_at),
+            created_at: self.created_at.to_utc_time(),
             triggered: self.triggered,
         }
     }
@@ -1695,7 +1689,7 @@ impl Into<MapNotifySubscription> for DbMapNotifySubscription {
             id: self.id.to_string(),
             map_name: self.map_name,
             server_id: self.server_id,
-            created_at: db_to_utc(self.created_at),
+            created_at: self.created_at.to_utc_time(),
             triggered: self.triggered,
         }
     }
@@ -1734,8 +1728,8 @@ impl Into<Map3DModel> for DbMap3DModel {
             uploaded_by: self.uploaded_by,
             uploader_name: None, // Must be fetched separately if needed
             file_size: self.file_size,
-            created_at: db_to_utc(self.created_at),
-            updated_at: db_to_utc(self.updated_at),
+            created_at: self.created_at.to_utc_time(),
+            updated_at: self.updated_at.to_utc_time(),
         }
     }
 }
@@ -1768,8 +1762,8 @@ impl Into<Character3DModel> for DbCharacter3DModel {
             uploader_name: None,
             thumbnail_path: self.thumbnail_path,
             file_size: self.file_size,
-            created_at: db_to_utc(self.created_at),
-            updated_at: db_to_utc(self.updated_at),
+            created_at: self.created_at.to_utc_time(),
+            updated_at: self.updated_at.to_utc_time(),
         }
     }
 }
@@ -1830,8 +1824,8 @@ impl Into<ServerRequestAdmin> for DbServerRequest {
             status: self.status,
             reviewed_by: self.reviewed_by.map(|id| id.to_string()),
             reviewer_name: self.reviewer_name,
-            reviewed_at: self.reviewed_at.map(db_to_utc),
-            created_at: db_to_utc(self.created_at),
+            reviewed_at: self.reviewed_at.to_utc_optional(),
+            created_at: self.created_at.to_utc_time(),
         }
     }
 }

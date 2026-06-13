@@ -250,6 +250,26 @@ impl ChronoToTime for DateTime<Utc> {
         OffsetDateTime::from_unix_timestamp(self.timestamp()).unwrap_or(OffsetDateTime::new_in_offset(Date::MIN, Time::MIDNIGHT, UtcOffset::UTC))
     }
 }
+pub trait TimeToChrono{
+    fn to_utc_time(&self) -> DateTime<Utc>;
+    fn to_utc_optional(&self) -> Option<DateTime<Utc>>;
+}
+impl TimeToChrono for OffsetDateTime {
+    fn to_utc_time(&self) -> DateTime<Utc>{
+        db_to_utc(*self)
+    }
+    fn to_utc_optional(&self) -> Option<DateTime<Utc>>{
+        Some(db_to_utc(*self))
+    }
+}
+impl TimeToChrono for Option<OffsetDateTime> {
+    fn to_utc_time(&self) -> DateTime<Utc>{
+        db_to_utc(self.unwrap_or(smallest_date()))
+    }
+    fn to_utc_optional(&self) -> Option<DateTime<Utc>>{
+        self.map(db_to_utc)
+    }
+}
 pub fn format_pg_time_tz(pg_time: &PgTimeTz) -> DateTime<Utc> {
     db_to_utc(OffsetDateTime::new_in_offset(Date::MIN, pg_time.time.clone(), pg_time.offset))
 }
@@ -301,6 +321,21 @@ pub fn retain_peaks<T: PartialEq + Clone>(points: Vec<T>, max_points: usize,
         }
     }
     result
+}
+pub trait PgIntervalNumber{
+    fn to_f64(&self) -> f64;
+}
+
+impl PgIntervalNumber for PgInterval {
+    fn to_f64(&self) -> f64{
+        pg_interval_to_f64(*self)
+    }
+}
+
+impl PgIntervalNumber for Option<PgInterval> {
+    fn to_f64(&self) -> f64{
+        self.map(pg_interval_to_f64).unwrap_or_default()
+    }
 }
 
 pub fn pg_interval_to_f64(interval: PgInterval) -> f64 {
