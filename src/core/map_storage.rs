@@ -443,4 +443,78 @@ impl CharacterStorage {
             }
         }
     }
+
+    fn thumbnail_object_key(&self, model_id: &str, ext: &str) -> String {
+        if self.object_prefix.is_empty() {
+            format!("{model_id}/thumbnail.{ext}")
+        } else {
+            format!("{}/{model_id}/thumbnail.{ext}", self.object_prefix)
+        }
+    }
+
+    pub async fn store_thumbnail(
+        &self,
+        model_id: &str,
+        ext: &str,
+        bytes: &[u8],
+    ) -> Result<String, String> {
+        match &self.backend {
+            MapStorageBackend::Local { .. } => {
+                let cache_dir = get_env_default("CACHE_THUMBNAIL").unwrap_or_default();
+                let dir_path = Path::new(&cache_dir).join("characters");
+                tokio::fs::create_dir_all(&dir_path)
+                    .await
+                    .map_err(|e| format!("Failed to create thumbnail directory: {e}"))?;
+                let filename = format!("{model_id}.{ext}");
+                tokio::fs::write(dir_path.join(&filename), bytes)
+                    .await
+                    .map_err(|e| format!("Failed to write thumbnail: {e}"))?;
+                Ok(filename)
+            }
+            MapStorageBackend::R2 { client, bucket } => {
+                let key = self.thumbnail_object_key(model_id, ext);
+                let content_type = match ext {
+                    "png" => "image/png",
+                    "webp" => "image/webp",
+                    _ => "image/jpeg",
+                };
+                let body = ByteStream::from(bytes.to_vec());
+                client
+                    .put_object()
+                    .bucket(bucket)
+                    .key(&key)
+                    .content_type(content_type)
+                    .body(body)
+                    .send()
+                    .await
+                    .map_err(|e| format!("R2 thumbnail upload failed: {e}"))?;
+                Ok(join_url(&self.public_base_url, &key))
+            }
+        }
+    }
+
+    pub async fn delete_thumbnail(&self, model_id: &str, stored: &str) -> Result<(), String> {
+        match &self.backend {
+            MapStorageBackend::Local { .. } => {
+                let cache_dir = get_env_default("CACHE_THUMBNAIL").unwrap_or_default();
+                let path = Path::new(&cache_dir).join("characters").join(stored);
+                if let Err(e) = tokio::fs::remove_file(&path).await {
+                    return Err(format!("Failed to delete thumbnail {path:?}: {e}"));
+                }
+                Ok(())
+            }
+            MapStorageBackend::R2 { client, bucket } => {
+                let ext = stored.rsplit('.').next().unwrap_or("jpg");
+                let key = self.thumbnail_object_key(model_id, ext);
+                client
+                    .delete_object()
+                    .bucket(bucket)
+                    .key(&key)
+                    .send()
+                    .await
+                    .map_err(|e| format!("R2 thumbnail delete failed: {e}"))?;
+                Ok(())
+            }
+        }
+    }
 }

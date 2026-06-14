@@ -613,9 +613,7 @@ impl CharacterApi {
         }
 
         if let Some(thumb) = &model.thumbnail_path {
-            let cache_dir = get_env_default("CACHE_THUMBNAIL").unwrap_or_default();
-            let thumb_path = std::path::PathBuf::from(cache_dir).join("characters").join(thumb);
-            if let Err(e) = tokio::fs::remove_file(&thumb_path).await {
+            if let Err(e) = app.character_storage.delete_thumbnail(&model_id, thumb).await {
                 tracing::warn!("Failed to delete character thumbnail: {}", e);
             }
         }
@@ -674,19 +672,13 @@ impl CharacterApi {
             return response!(err "Missing thumbnail field", ErrorCode::BadRequest);
         };
 
-        let cache_dir = get_env_default("CACHE_THUMBNAIL").unwrap_or_default();
-        let dir_path = std::path::PathBuf::from(&cache_dir).join("characters");
-        if let Err(e) = tokio::fs::create_dir_all(&dir_path).await {
-            tracing::error!("Failed to create characters thumbnail dir: {}", e);
-            return response!(internal_server_error);
-        }
-
-        let filename = format!("{}.{}", model_id, ext);
-        let file_path = dir_path.join(&filename);
-        if let Err(e) = tokio::fs::write(&file_path, &thumb_bytes).await {
-            tracing::error!("Failed to write character thumbnail: {}", e);
-            return response!(internal_server_error);
-        }
+        let filename = match app.character_storage.store_thumbnail(&model_id, &ext, &thumb_bytes).await {
+            Ok(path) => path,
+            Err(e) => {
+                tracing::error!("Failed to store character thumbnail: {}", e);
+                return response!(internal_server_error);
+            }
+        };
 
         let updated = sqlx::query_as!(
             DbCharacter3DModel,
