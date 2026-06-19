@@ -17,6 +17,8 @@ services:
     networks:
       - default
     logging: *default-logging
+    ports:
+      - "51020:80"
     deploy:
       placement:
         constraints:
