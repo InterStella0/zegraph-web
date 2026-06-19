@@ -17,7 +17,6 @@ services:
       - ${PUBLIC_FILES_PATH:-/front-gfl/public}:/var/www/public/any:ro
     networks:
       - default
-      - dokploy-network
     logging: *default-logging
     deploy:
       placement:
@@ -33,6 +32,10 @@ services:
     deploy:
       replicas: 2
       placement:
+        # Cap 1 replica per node: when both nodes are up you get 1 each (uses
+        # spare worker compute); when the worker is down only 1 runs on the
+        # manager instead of both stacking onto the small VPS.
+        max_replicas_per_node: 1
         preferences:
           - spread: node.hostname
       resources:
@@ -44,7 +47,6 @@ services:
           memory: 256M
     networks:
       - default
-      - dokploy-network
 
   backend:
     image: interstella0/ze-graph:backend
@@ -138,6 +140,9 @@ services:
     deploy:
       replicas: 2
       placement:
+        # Same as frontend: 1 per node, so the manager never has to run both
+        # qgis replicas when the worker is offline.
+        max_replicas_per_node: 1
         preferences:
           - spread: node.hostname
       resources:
@@ -156,5 +161,8 @@ volumes:
 networks:
   default:
     driver: overlay
-  dokploy-network:
-    external: true
+    driver_opts:
+      # Tailscale's interface MTU is ~1280; the overlay defaults to 1450, so
+      # VXLAN-over-Tailscale fragments/drops large packets ("small requests
+      # work, big responses hang"). Lower it to fit inside Tailscale.
+      com.docker.network.driver.mtu: "1200"
