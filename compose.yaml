@@ -144,8 +144,6 @@ services:
           memory: 128M
   qgis-server:
     image: interstella0/ze-graph:qgis-server
-    volumes:
-      - ${QGIS_PROJECT_PATH}:/home/qgis/project
     build:
       context: ./qgis-server
     environment:

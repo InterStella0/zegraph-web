@@ -125,8 +125,6 @@ services:
 
   qgis-server:
     image: interstella0/ze-graph:qgis-server
-    volumes:
-      - ${QGIS_PROJECT_PATH}:/home/qgis/project
     environment:
       LANG: en_EN.UTF-8
       QGIS_PROJECT_FILE: /home/qgis/project/project.qgz
