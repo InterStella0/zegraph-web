@@ -20,7 +20,7 @@ target/
 
 /target
 .env
-.env.*
+.env.production
 .idea
 .vscode
 .sqlx

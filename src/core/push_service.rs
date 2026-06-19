@@ -44,8 +44,13 @@ struct DbSubscription {
 fn read_vapid_keys_from_pem() -> Result<(String, String), Box<dyn std::error::Error + Send + Sync>> {
     use base64::{Engine as _, engine::general_purpose};
 
-    let private_pem = std::fs::read_to_string("vapids/vapid_private.pem")?;
-    let public_pem = std::fs::read_to_string("vapids/vapid_public.pem")?;
+    let private_path = std::env::var("VAPID_PRIVATE_KEY_PATH")
+        .unwrap_or_else(|_| "vapids/vapid_private.pem".to_string());
+    let public_path = std::env::var("VAPID_PUBLIC_KEY_PATH")
+        .unwrap_or_else(|_| "vapids/vapid_public.pem".to_string());
+
+    let private_pem = std::fs::read_to_string(&private_path)?;
+    let public_pem = std::fs::read_to_string(&public_path)?;
 
     // Extract base64 content from PEM (strip header/footer)
     let public_key_base64: String = public_pem

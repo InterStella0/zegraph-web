@@ -12,8 +12,7 @@ services:
       FRONTEND_HOST: ${FRONTEND_HOST:-frontend}
       QGIS_HOST: ${QGIS_HOST:-qgis-server}
     volumes:
-      - ${MAPS_PATH}:/var/www/frontend/public:ro
-      - ${CHARACTERS_PATH}:/var/www/characters:ro
+      # Maps/characters are served from R2 in prod, so no local bind mounts here.
       - ${PUBLIC_FILES_PATH:-/front-gfl/public}:/var/www/public/any:ro
     networks:
       - default
@@ -60,11 +59,15 @@ services:
       CACHE_THUMBNAIL: /var/www/thumbnails
       STORE_UPLOAD: /var/www/maps
       CHARACTER_STORE_UPLOAD: /var/www/characters
+      # VAPID keys delivered as Swarm secrets, mounted under /run/secrets.
+      VAPID_PRIVATE_KEY_PATH: /run/secrets/vapid_private
+      VAPID_PUBLIC_KEY_PATH: /run/secrets/vapid_public
+    secrets:
+      - vapid_private
+      - vapid_public
     volumes:
+      # Maps/characters use the R2 storage backend in prod; vapids via secrets.
       - thumbnails:/var/www/thumbnails
-      - ${MAPS_PATH}:/var/www/maps:rw
-      - ${CHARACTERS_PATH}:/var/www/characters:rw
-      - ${VAPIDS_PATH}:/app/vapids:ro
     logging: *default-logging
     deploy:
       placement:
@@ -157,6 +160,13 @@ volumes:
   thumbnails:
   tile_cache:
   redis-data:
+
+secrets:
+  # Created out-of-band on the manager (see deploy notes); not stored in git.
+  vapid_private:
+    external: true
+  vapid_public:
+    external: true
 
 networks:
   default:
