@@ -5,6 +5,7 @@ export function AdSpot({ className }: { className?: string }) {
   const adClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
   const adSlot = process.env.NEXT_PUBLIC_ADSENSE_AD_SLOT
 
+  console.log("SET HERE", adSlot, adClient)
   if (!adClient || !adSlot) {
     return (
       <div className={cn(
