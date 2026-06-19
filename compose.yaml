@@ -47,6 +47,7 @@ services:
         ANALYZE: ${ANALYZE}
         NEXT_PUBLIC_ADSENSE_CLIENT_ID: ${NEXT_PUBLIC_ADSENSE_CLIENT_ID}
         NEXT_PUBLIC_ADSENSE_AD_SLOT: ${NEXT_PUBLIC_ADSENSE_AD_SLOT}
+        NEXT_PUBLIC_AD_SHOW: ${NEXT_PUBLIC_AD_SHOW}
     volumes:
       - thumbnails:/var/www/thumbnails:ro
       - tile_cache:/var/cache/nginx/qgis_tiles

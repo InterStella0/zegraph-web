@@ -4,8 +4,10 @@ import { cn } from "components/lib/utils"
 export function AdSpot({ className }: { className?: string }) {
   const adClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
   const adSlot = process.env.NEXT_PUBLIC_ADSENSE_AD_SLOT
-
-  console.log("SET HERE", adSlot, adClient)
+  const adShow = process.env.NEXT_PUBLIC_AD_SHOW
+  if (!adShow || adShow.toUpperCase() == "FALSE"){
+    return <></>
+  }
   if (!adClient || !adSlot) {
     return (
       <div className={cn(
