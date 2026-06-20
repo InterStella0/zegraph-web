@@ -21,7 +21,7 @@ const PlayerListItem = ({ player, mode = 'Total', server }: { player: PlayerTabl
                     href={`/servers/${server.gotoLink}/players/${player.id}`}
                     className="hover:underline"
                 >
-                    <div className="font-medium max-w-[25rem] max-sm:max-w-[5rem] truncate">{player.name}</div>
+                    <div className="font-medium max-w-[25rem] max-sm:max-w-[9rem] truncate">{player.name}</div>
                 </HoverPrefetchLink>
                 <div className="text-sm max-sm:text-xs text-muted-foreground">{addOrdinalSuffix(player.rank)} Ranked </div>
             </div>

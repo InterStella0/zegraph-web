@@ -153,25 +153,21 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
     return (
         <div className="m-2">
             <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-5">
-                    <p className="m-2 text-start text-base md:text-base sm:text-xs">Session #{session.time_id}</p>
-                </div>
-                <div className="col-span-7">
-                    <div className="flex flex-row justify-end gap-2 m-2">
+                <div className="col-span-12 flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-0.5 m-2">
+                    <p className="text-sm sm:text-base">Session #{session.time_id}</p>
+                    <div className="flex flex-row items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                         <Tooltip>
                             <TooltipTrigger>
-                                <span className="text-base lg:text-base md:text-sm sm:text-xs">
-                                    {dayjs().diff(startedAt, 'd') < 1? startedAt.fromNow(): startedAt.format('lll')}
+                                <span>
+                                    {dayjs().diff(startedAt, 'd') < 1 ? startedAt.fromNow() : startedAt.format(startedAt.year() !== dayjs().year() ? 'MMM D YYYY, h:mma' : 'MMM D, h:mma')}
                                 </span>
                             </TooltipTrigger>
-                            <TooltipContent>Played at</TooltipContent>
+                            <TooltipContent>Played at {startedAt.format('lll')}</TooltipContent>
                         </Tooltip>
-                        <span className="text-base lg:text-base md:text-sm sm:text-xs">•</span>
+                        <span>•</span>
                         <Tooltip>
                             <TooltipTrigger>
-                                <span className="text-base lg:text-base md:text-sm sm:text-xs">
-                                    {endedAt.diff(startedAt, "m")}mins
-                                </span>
+                                <span>{endedAt.diff(startedAt, "m")}mins</span>
                             </TooltipTrigger>
                             <TooltipContent>Session duration</TooltipContent>
                         </Tooltip>

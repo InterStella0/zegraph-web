@@ -64,7 +64,7 @@ function PlayerInformation(
                         <HoverPrefetchLink
                             href={`/servers/${server.gotoLink}/players/${player.id}`}
                             className={cn(
-                                "font-semibold tracking-wide mb-1 max-w-[6rem] sm:max-w-[10rem] whitespace-nowrap overflow-hidden text-ellipsis inline-block text-sm sm:text-base",
+                                "font-semibold tracking-wide mb-1 max-w-[11rem] max-sm:max-w-[10rem] whitespace-nowrap overflow-hidden text-ellipsis inline-block text-sm sm:text-base",
                                 "hover:underline transition-colors",
                                 isDarkMode ? "text-white" : "text-gray-900"
                             )}

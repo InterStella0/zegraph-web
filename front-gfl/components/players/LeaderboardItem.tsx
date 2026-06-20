@@ -45,7 +45,7 @@ const LeaderboardItem = ({ item, server }) => (
             </div>
             <HoverPrefetchLink
                 href={`/servers/${server.gotoLink}/players/${item.id}`}
-                className="flex-1 hover:underline max-sm:max-w-[5rem] max-w-[10rem] truncate max-sm:text-sm"
+                className="flex-1 hover:underline max-sm:max-w-[9rem] max-w-[10rem] truncate max-sm:text-sm"
             >
                 {item.name}
             </HoverPrefetchLink>

@@ -51,7 +51,7 @@ export interface ServerPageProps {
 export default async function Page({ params }: ServerPageProps){
     const { server_slug } = await params
     const serverPromise = getServerSlug(server_slug)
-    return <div className="mx-7 my-3">
+    return <div className="mx-7 my-3 max-sm:mx-1.5">
         <AdSpot className="w-full mb-3" />
         <ServerContentWrapper serverPromise={serverPromise} />
     </div>

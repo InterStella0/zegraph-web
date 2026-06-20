@@ -46,7 +46,7 @@ export async function generateMetadata({ params}: ServerPageProps): Promise<Meta
 export default async function Page({ params }: ServerPageProps){
     const { server_slug } = await params;
     const server = getServerSlug(server_slug)
-    return <div className="p-6">
+    return <div className="m-6 max-sm:m-1.5">
         <div className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-2">
                 Players

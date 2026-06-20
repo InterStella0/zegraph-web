@@ -47,7 +47,7 @@ export default async function Page({ params }){
     const matchData = server.then(e => getMatchNow(e.id))
     const playerContinents = server.then(e => getContinentStatsNow(e.id))
 
-    return <div className="container max-w-screen-xl py-6 mx-auto px-2">
+    return <div className="container max-w-screen-xl py-6 max-sm:px-0.5 mx-auto px-2">
         <Suspense fallback={null}>
             <CurrentMatch serverPromise={server} mapCurrentPromise={matchData} playerContinentsPromise={playerContinents} userPromise={user} />
         </Suspense>
