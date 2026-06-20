@@ -1,0 +1,27 @@
+[Unit]
+Description=PostgreSQL Streaming Replica For ZE Graph
+After=network-online.target tailscaled.service pg-replica-init.service
+Requires=pg-replica-init.service
+OnFailure=pg-replica-reinit.service
+# Allow a few quick restarts for transient hiccups; only after 4 failures in
+# 10 min does the unit enter 'failed' and escalate to OnFailure= (the rebuild).
+StartLimitIntervalSec=600
+StartLimitBurst=4
+
+[Service]
+Type=notify
+User=postgres
+# Config lives outside the data dir so a rebuild can never wipe it; the
+# data_directory is set inside that config file.
+ExecStart=/usr/bin/postgres --config-file=/var/lib/postgres/replica-conf/postgresql.conf
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutSec=infinity
+# A short reboot just resumes streaming; transient startup errors retry instead of
+# immediately triggering a full rebuild.
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

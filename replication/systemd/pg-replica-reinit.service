@@ -1,0 +1,14 @@
+[Unit]
+Description=PostgreSQL Replica Reinit (auto-triggered on WAL failure)
+After=network-online.target tailscaled.service
+
+[Service]
+Type=oneshot
+User=postgres
+ExecStart=/usr/local/bin/pg-replica-reinit.sh
+# After a successful rebuild, clear the failed state and start the replica.
+# The leading '+' runs these as root (systemctl needs privilege), not as User=.
+ExecStartPost=+/usr/bin/systemctl reset-failed postgresql-replica.service
+ExecStartPost=+/usr/bin/systemctl start postgresql-replica.service
+# Generous timeout: a slow/retried multi-GB transfer must not be killed mid-flight.
+TimeoutSec=7200
