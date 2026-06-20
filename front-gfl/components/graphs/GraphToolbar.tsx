@@ -162,7 +162,7 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex sm:flex-row flex-col gap-2">
                         {showApply && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
