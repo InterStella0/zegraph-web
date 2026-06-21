@@ -19,7 +19,7 @@ set -euo pipefail
 # Load deployment settings with safe defaults.
 CONFIG="${REPLICA_ENV:-/etc/pg-replica/replica.env}"
 [ -f "$CONFIG" ] && source "$CONFIG"
-: "${PRIMARY:?set PRIMARY in $CONFIG (the primary's address)}"
+: "${PRIMARY:?set PRIMARY in $CONFIG to the primary address}"
 : "${PRIMARY_PORT:=5432}"
 : "${REPL_USER:=replicator}"
 : "${SLOT:=replica_pc}"
