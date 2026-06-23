@@ -237,9 +237,8 @@ pub fn get_env_bool(name: &str, default: bool) -> bool{
 }
 pub fn get_env_bool_ok(name: &str) -> Option<bool>{
     env::var(name)
-        .map(|s| s.parse::<bool>().ok())
         .ok()
-        .flatten()
+        .and_then(|s| s.trim().to_ascii_lowercase().parse::<bool>().ok())
 }
 
 pub trait ChronoToTime {

@@ -210,9 +210,9 @@ struct DbServerSimple{
     server_id: String,
 }
 
-async fn recent_players(pool: Arc<Pool<Postgres>>, server_id: &str, port: &str, pre_calculate_player_full: &bool){
+async fn recent_players(pool: Arc<Pool<Postgres>>, server_id: &str, port: &str, pre_calculate_player_full: bool){
     let pool = &*pool;
-    let results: Vec<DbPlayerBrief> = if *pre_calculate_player_full{
+    let results: Vec<DbPlayerBrief> = if pre_calculate_player_full{
         let Ok(result) = sqlx::query_as!(DbPlayerBrief, "
                 WITH pre_vars AS (
                     SELECT $1 AS server_id
@@ -367,7 +367,7 @@ async fn recent_players(pool: Arc<Pool<Postgres>>, server_id: &str, port: &str, 
         sleep(delay).await;
     }
 }
-pub async fn recent_players_updater(pool: Arc<Pool<Postgres>>, port: &str, cache: FastCache, pre_calculate_player_full: &bool) {
+pub async fn recent_players_updater(pool: Arc<Pool<Postgres>>, port: &str, cache: FastCache, pre_calculate_player_full: bool) {
     let ref_pool = &*pool;
 
     if let Ok(result) = cached_response("recent-players-updater", &cache, DAY, get_last_update).await{
@@ -388,8 +388,9 @@ pub async fn recent_players_updater(pool: Arc<Pool<Postgres>>, port: &str, cache
 
     for server in servers{
         let pool2 = pool.clone();
+        let port = port.to_owned();
         tokio::spawn(async move {
-            recent_players(pool2, &server.server_id, port, pre_calculate_player_full).await;
+            recent_players(pool2, &server.server_id, &port, pre_calculate_player_full).await;
         });
     }
 }
