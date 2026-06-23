@@ -229,7 +229,7 @@ async fn init_precalculate(port: &str){
         let pool2 = arc_pool.clone();
         let redis2 = fast.clone();
         tokio::spawn(async move {
-            recent_players_updater(pool2, &port1, redis2, pre_calculate_player_full).await;
+            recent_players_updater(pool2, &port1, redis2, &pre_calculate_player_full).await;
         });
     }
 }
