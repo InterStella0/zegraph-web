@@ -558,7 +558,7 @@ pub const THRESHOLD_MAP_NAME: f32 = 0.5;
 
 pub fn get_map_image<'a>(map_name: &'a str, map_names: &'a Vec<String>) -> Option<&'a str>{
     let mut res = fuzzy_search_threshold(map_name, &map_names, THRESHOLD_MAP_NAME);
-    res.sort_by(|(_, d1), (_, d2)| d2.partial_cmp(d1).unwrap());
+    res.sort_by(|(_, d1), (_, d2)| d2.total_cmp(d1));
     let mut res = res.iter().filter(|(e, _)| map_name.starts_with(e));
     let Some((map_image, _)) = res.next() else {
         return None
@@ -789,8 +789,7 @@ pub async fn generate_unique_guide_slug(
         }
     }
 
-    // Fallback: use UUID suffix if we can't find a unique slug after 1000 tries
-    let uuid_suffix = Uuid::new_v4().to_string().split('-').next().unwrap().to_string();
+    let uuid_suffix = Uuid::new_v4().simple().to_string();
     let fallback = format!("{}-{}", &base_slug[..std::cmp::min(base_slug.len(), 112)], uuid_suffix);
     Ok(fallback)
 }

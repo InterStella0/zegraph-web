@@ -290,7 +290,7 @@ impl MiscApi {
     ) -> Binary<Vec<u8>> {
         let rand = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_nanos()
             .to_string();
         let raw_host = req.header("Host").unwrap_or_else(|| &rand);
@@ -396,7 +396,7 @@ impl MiscApi {
     async fn get_oembed(&self, req: &Request, Data(app): Data<&AppData>, Query(url): Query<String>) -> OEmbedResponseType {
         let rand = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_nanos().to_string();
         let raw_host = req.header("Host").unwrap_or_else(|| &rand);
         let host = format!("{}://{raw_host}", req.uri().scheme_str().unwrap_or("http"));

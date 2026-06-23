@@ -671,7 +671,8 @@ impl PlayerApi{
             },
             None => {
                 // Date wont go past february. Im hardcoding this.
-                (Utc.with_ymd_and_hms(2024, 2, 1, 0, 0, 0).unwrap(), Utc::now())
+                let start_date = Utc.with_ymd_and_hms(2024, 2, 1, 0, 0, 0).unwrap();
+                (start_date, Utc::now())
             }
         };
         let (start, end) = (start.to_db_time(), end.to_db_time());

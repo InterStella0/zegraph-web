@@ -248,14 +248,14 @@ impl PushNotificationService {
         // Build image URL for map notifications
         let mut image_url: Option<String> = None;
 
-        if notification_type == NotificationType::MapSpecific && server_id.is_some() {
+        if notification_type == NotificationType::MapSpecific && let Some(server_id_val) = server_id {
             if is_map_notify {
                 // map_notify: specific map subscription - show Join Now / Map Info buttons
                 payload_data["notificationType"] = json!("map_notify");
-                payload_data["serverId"] = json!(server_id.unwrap());
+                payload_data["serverId"] = json!(server_id_val);
                 if let Some(map) = map_name {
                     payload_data["mapName"] = json!(map);
-                    payload_data["mapInfoUrl"] = json!(format!("/servers/{}/maps/{}", server_id.unwrap(), map));
+                    payload_data["mapInfoUrl"] = json!(format!("/servers/{}/maps/{}", server_id_val, map));
                     // Use medium thumbnail for notification image
                     image_url = Some(format!("/thumbnails/medium/{}.jpg", map));
                 }
@@ -263,7 +263,7 @@ impl PushNotificationService {
                 // map_change: any map change subscription - show Wait for Another / Dismiss buttons
                 payload_data["notificationType"] = json!("map_change");
                 payload_data["allowResubscribe"] = json!(true);
-                payload_data["serverId"] = json!(server_id.unwrap());
+                payload_data["serverId"] = json!(server_id_val);
                 payload_data["subscriptionId"] = json!(subscription.id.to_string());
             }
         }
