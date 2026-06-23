@@ -386,7 +386,9 @@ pub async fn recent_players_updater(pool: Arc<Pool<Postgres>>, port: &str, cache
     };
 
     for server in servers{
-        recent_players(pool, &server.server_id, port, pre_calculate_player_full).await
+        tokio::spawn(async move {
+            recent_players(pool, &server.server_id, port, pre_calculate_player_full).await
+        })
     }
 }
 
