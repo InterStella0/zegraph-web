@@ -31,17 +31,21 @@ services:
       - tile_cache:/var/cache/nginx/qgis_tiles
     logging: *default-logging
     deploy:
-      replicas: 2
+#      replicas: 2
+#      placement:
+#        # Cap 1 replica per node: when both nodes are up you get 1 each (uses
+#        # spare worker compute); when the worker is down only 1 runs on the
+#        # manager instead of both stacking onto the small VPS.
+#        max_replicas_per_node: 1
+#        preferences:
+#          - spread: node.hostname
+
       placement:
-        # Cap 1 replica per node: when both nodes are up you get 1 each (uses
-        # spare worker compute); when the worker is down only 1 runs on the
-        # manager instead of both stacking onto the small VPS.
-        max_replicas_per_node: 1
-        preferences:
-          - spread: node.hostname
+        constraints:
+          - node.role == manager
       resources:
         limits:
-          cpus: '1'
+          cpus: '2'
           memory: 2G
         reservations:
           cpus: '0.25'
