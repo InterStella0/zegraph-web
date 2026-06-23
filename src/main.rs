@@ -203,6 +203,7 @@ async fn init_precalculate(port: &str){
     let port = String::from(port);
     let pg_conn = get_env("DATABASE_URL");
     let pre_calculate_player = get_env_bool("PRECALCULATE_PLAYER", false);
+    let pre_calculate_player_full = get_env_bool("PRECALCULATE_PLAYER_FULL", false);
     let pre_calculate_map = get_env_bool("PRECALCULATE_MAP", false);
     let redis_pool = make_redis_pool();
     let memory = Arc::new(Cache::builder()
@@ -223,12 +224,12 @@ async fn init_precalculate(port: &str){
             maps_updater(pool1, &port1, redis1).await;
         });
     }
-    if pre_calculate_player {
+    if pre_calculate_player || pre_calculate_player_full {
         let port1 = port.clone();
         let pool2 = arc_pool.clone();
         let redis2 = fast.clone();
         tokio::spawn(async move {
-            recent_players_updater(pool2, &port1, redis2).await;
+            recent_players_updater(pool2, &port1, redis2, pre_calculate_player_full).await;
         });
     }
 }

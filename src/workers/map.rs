@@ -688,7 +688,7 @@ pub struct MapWorker {
 }
 
 impl MapWorker {
-    pub fn new(cache: Arc<crate::FastCache>, pool: Arc<Pool<Postgres>>) -> Self {
+    pub fn new(cache: Arc<FastCache>, pool: Arc<Pool<Postgres>>) -> Self {
         Self {
             background_worker: Arc::new(BackgroundWorker::new(cache, 5)),
             pool,

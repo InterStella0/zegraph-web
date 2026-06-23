@@ -210,8 +210,75 @@ struct DbServerSimple{
     server_id: String,
 }
 
-async fn recent_players(pool: &Pool<Postgres>, server_id: &str, port: &str){
-    let Ok(result) = sqlx::query_as!(DbPlayerBrief, "
+async fn recent_players(pool: &Pool<Postgres>, server_id: &str, port: &str, pre_calculate_player_full: &bool){
+    let results: Vec<DbPlayerBrief> = if *pre_calculate_player_full{
+        let Ok(result) = sqlx::query_as!(DbPlayerBrief, "
+                WITH pre_vars AS (
+                    SELECT $1 AS server_id
+                ),
+                sessions_selection AS (
+                    SELECT *,
+                        CASE
+                            WHEN ended_at IS NOT NULL THEN ended_at - started_at
+                            WHEN ended_at IS NULL AND CURRENT_TIMESTAMP - started_at < INTERVAL '12 hours'
+                                THEN CURRENT_TIMESTAMP - started_at
+                            ELSE INTERVAL '0'
+                        END AS duration
+                    FROM player_server_session
+                    WHERE server_id = (SELECT server_id FROM pre_vars)
+                      AND started_at <= CURRENT_TIMESTAMP
+                ),
+                session_duration AS (
+                    SELECT
+                        player_id,
+                        SUM(duration) AS played_time,
+                        COUNT(*) OVER () AS total_players
+                    FROM sessions_selection
+                    GROUP BY player_id
+                ),
+                top_players AS (
+                    SELECT *
+                    FROM session_duration
+                    ORDER BY played_time DESC
+                )
+                SELECT
+                    p.player_id,
+                    p.player_name,
+                    p.created_at,
+                    sp.played_time AS total_playtime,
+                    ROW_NUMBER() OVER (ORDER BY sp.played_time DESC)::int AS rank,
+                    COALESCE(op.started_at, NULL) AS online_since,
+                    lp.ended_at AS last_played,
+                    (lp.ended_at - lp.started_at) AS last_played_duration,
+                    sp.total_players
+                FROM top_players sp
+                JOIN player p
+                    ON p.player_id = sp.player_id
+                LEFT JOIN LATERAL (
+                    SELECT s.started_at, s.ended_at
+                    FROM player_server_session s
+                    WHERE s.player_id = p.player_id
+                      AND s.ended_at IS NOT NULL
+                    ORDER BY s.ended_at DESC
+                    LIMIT 1
+                ) lp ON TRUE
+                LEFT JOIN LATERAL (
+                    SELECT s.started_at
+                    FROM player_server_session s
+                    WHERE s.player_id = p.player_id
+                      AND s.ended_at IS NULL
+                      AND CURRENT_TIMESTAMP - s.started_at < INTERVAL '12 hours'
+                    ORDER BY s.started_at ASC
+                    LIMIT 1
+                ) op ON TRUE
+                ORDER BY sp.played_time DESC;
+            ", server_id).fetch_all(pool).await else {
+            tracing::warn!("Couldn't update 100 players top recent players");
+            return
+        };
+        result
+    } else {
+        let Ok(result) = sqlx::query_as!(DbPlayerBrief, "
     		WITH pre_vars AS (
 				SELECT $1 AS server_id
 			),
@@ -283,13 +350,15 @@ async fn recent_players(pool: &Pool<Postgres>, server_id: &str, port: &str){
 			) op ON TRUE
 			ORDER BY sp.played_time DESC;
         ", server_id).fetch_all(pool).await else {
-        tracing::warn!("Couldn't update 100 players top recent players");
-        return
+            tracing::warn!("Couldn't update 100 players top recent players");
+            return
+        };
+        result
     };
     let delay = Duration::from_millis(100);
     let updater = Updater::new(port);
-    let total = result.len();
-    for (i, row) in result.into_iter().enumerate(){
+    let total = results.len();
+    for (i, row) in results.into_iter().enumerate(){
         if let Err(e) = updater.update_player_metadata(server_id, &row.player_id).await{
             tracing::warn!("Updater couldn't update player metadata: {}", e)
         }
@@ -297,7 +366,7 @@ async fn recent_players(pool: &Pool<Postgres>, server_id: &str, port: &str){
         sleep(delay).await;
     }
 }
-pub async fn recent_players_updater(pool: Arc<Pool<Postgres>>, port: &str, cache: FastCache) {
+pub async fn recent_players_updater(pool: Arc<Pool<Postgres>>, port: &str, cache: FastCache, pre_calculate_player_full: &bool) {
     let pool = &*pool;
 
     if let Ok(result) = cached_response("recent-players-updater", &cache, DAY, get_last_update).await{
@@ -317,7 +386,7 @@ pub async fn recent_players_updater(pool: Arc<Pool<Postgres>>, port: &str, cache
     };
 
     for server in servers{
-        recent_players(pool, &server.server_id, port).await
+        recent_players(pool, &server.server_id, port, pre_calculate_player_full).await
     }
 }
 
@@ -614,7 +683,6 @@ pub async fn cleanup_stale_uploads(store_upload: String) {
 
         let tmp_dir = format!("{}/.tmp", store_upload);
 
-        // Check if temp directory exists
         let Ok(mut entries) = tokio::fs::read_dir(&tmp_dir).await else {
             continue;
         };
@@ -625,28 +693,23 @@ pub async fn cleanup_stale_uploads(store_upload: String) {
         while let Ok(Some(entry)) = entries.next_entry().await {
             let path = entry.path();
 
-            // Check if it's a directory
             if !path.is_dir() {
                 continue;
             }
 
-            // Get directory metadata
             let Ok(metadata) = tokio::fs::metadata(&path).await else {
                 continue;
             };
 
-            // Get modification time
             let Ok(modified) = metadata.modified() else {
                 continue;
             };
 
-            // Check if directory is older than threshold
             let Ok(age) = now.duration_since(modified) else {
                 continue;
             };
 
             if age > stale_threshold {
-                // Delete stale directory
                 if let Err(e) = tokio::fs::remove_dir_all(&path).await {
                     tracing::warn!("Failed to cleanup stale upload directory {:?}: {}", path, e);
                 } else {
