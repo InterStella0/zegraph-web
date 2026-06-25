@@ -1,6 +1,6 @@
 # ZE Graph Website
 ![Code Size](https://img.shields.io/github/languages/code-size/InterStella0/zegraph-web?style=flat)
-![TypeScript](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=TypeScript&type=TypeScript)
+![TypeScript React](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=TypeScript%20React&type=TSX)
 ![Rust](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=Rust&type=Rust)
 ![JavaScript](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=JavaScript&type=JavaScript)
 ![SQL](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=SQL&type=SQL)
