@@ -88,7 +88,7 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
                             size="icon"
                             asChild
                         >
-                            <a href="https://github.com/InterStella0/gfl-ze-watcher" target="_blank" rel="noopener noreferrer">
+                            <a href="https://github.com/InterStella0/zegraph-web" target="_blank" rel="noopener noreferrer">
                                 <SiGithub className="h-4 w-4 text-primary" />
                             </a>
                         </Button>

@@ -57,7 +57,7 @@ export default function Footer() {
 
                             <div className="flex items-center">
                                 <IconLink
-                                    href="https://github.com/InterStella0/gfl-ze-watcher"
+                                    href="https://github.com/InterStella0/zegraph-web"
                                     ariaLabel="GitHub"
                                     tooltip="GitHub: InterStella0"
                                     icon={<SiGithub className="h-5 w-5 text-primary" />}

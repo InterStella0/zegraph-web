@@ -1,6 +1,6 @@
 # ZE Graph Website
 ![Code Size](https://img.shields.io/github/languages/code-size/InterStella0/zegraph-web?style=flat)
-![Lines of Code](https://tokei.queeniemella.cc/b1/github/InterStella0/gfl-ze-watcher?style=flat&category=code)
+![Lines of Code](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code)
 
 This track all CS2 Zombie Escape related servers that I’m aware of, allowing you to view player playtime on each server. 
 It was originally created to monitor only the GFL Zombie Escape server, but has since expanded to include several 

@@ -168,8 +168,8 @@ The replication **slot** (`replica_pc`) is created automatically by the rebuild
 ## Installation (on a new machine)
 
 ```bash
-git clone https://github.com/InterStella0/gfl-ze-watcher
-cd gfl-ze-watcher/replication
+git clone https://github.com/InterStella0/zegraph-web
+cd zegraph-web/replication
 
 # 1. Set your deployment values (primary address, user, slot, paths).
 $EDITOR config/replica.env
