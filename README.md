@@ -1,5 +1,10 @@
 # ZE Graph Website
 ![Code Size](https://img.shields.io/github/languages/code-size/InterStella0/zegraph-web?style=flat)
+![TypeScript React](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=TypeScript%20React&type=TSX)
+![Rust](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=Rust&type=Rust)
+![JavaScript](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=JavaScript&type=JavaScript)
+![SQL](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=SQL&type=SQL)
+![Total line of code](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=Total)
 
 This track all CS2 Zombie Escape related servers that I’m aware of, allowing you to view player playtime on each server. 
 It was originally created to monitor only the GFL Zombie Escape server, but has since expanded to include several 
@@ -47,6 +52,7 @@ flowchart LR
     S2ZE("s2ze.com")
     YouTube("Youtube API v3")
     MusicNames("GitHub Music-Names")
+    Nide("Nide.GG")
   end
   %% Connections with higher contrast arrows
   Website        ==> Backend
@@ -66,6 +72,7 @@ flowchart LR
   YouTube      ==>|Map Music Video| DataScraper
   SteamA2s  ==>|Players & Map| DataScraper
   GFLBans        ==>|Players & Infraction| DataScraper
+  Nide        ==>|Players & Infraction| DataScraper
   Vauff          ==>|Map Images| Backend
   S2ZE      ==>|Map Metadata| Backend
   %% GitHub-friendly styles with high contrast and rounded borders
