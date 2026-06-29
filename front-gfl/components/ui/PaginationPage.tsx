@@ -54,7 +54,7 @@ export default function PaginationPage({ totalPages, page, setPage, compact = fa
                                 <PaginationLink
                                     onClick={() => setPage(pageNum)}
                                     isActive={currentPage}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer w-auto! min-w-9 px-2"
                                 >
                                     {pageNum + 1}
                                 </PaginationLink>
