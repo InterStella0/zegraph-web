@@ -93,7 +93,7 @@ function RadarPreviewDisplay({ dateDisplay }){
             </div>
 
             <div className="rounded-md overflow-hidden">
-                <RadarMap dateDisplay={dateDisplay} height="30vh" />
+                <RadarMap dateDisplay={dateDisplay} height="37vh" />
             </div>
 
         </div>

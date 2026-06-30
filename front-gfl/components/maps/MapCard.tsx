@@ -6,7 +6,10 @@ import dayjs from "dayjs";
 import Image from "next/image";
 import {ServerMapPlayed} from "types/maps.ts";
 import {Server} from "types/community.ts";
-import {Loader2, ImageOff} from "lucide-react";
+import {Loader2, ImageOff, LineChart, ArrowUpRight} from "lucide-react";
+import Link from "next/link";
+import {Button} from "components/ui/button";
+import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
 
 type MapCardProps = {
     detail: ServerMapPlayed,
@@ -29,16 +32,11 @@ function MapCardDisplay({ detail, onClick, server }){
     const endedAt = detail.ended_at != null? dayjs(detail.ended_at): dayjs()
     const duration = endedAt.diff(startedAt, 'minutes')
 
-    const handleOnClick = () => {
-        onClick(detail)
-    }
-
     return (
         <div
             key={detail.time_id}
-            onClick={handleOnClick}
             className="flex-shrink-0 w-[180px] rounded-lg border border-border bg-card overflow-hidden
-                       transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+                       transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
         >
             <div className="relative w-full h-[100px]">
                 {(image === undefined || image === null) && (
@@ -69,10 +67,35 @@ function MapCardDisplay({ detail, onClick, server }){
                 <p className="font-semibold text-sm mb-1 whitespace-nowrap overflow-hidden text-ellipsis">
                     {detail.map}
                 </p>
-                <div className="flex justify-between items-center text-xs">
+                <div className="flex justify-between items-center text-xs mb-2">
                     <div className="flex flex-col items-start">
                         <span className="text-muted-foreground text-xs">{startedAt.format('L LT')}</span>
                     </div>
+                </div>
+                <div className="flex gap-2">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                className="flex-1 px-2"
+                                onClick={()  => onClick(detail)}
+                            >
+                                <LineChart className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Graph</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button asChild variant="outline" size="sm" className="flex-1 px-2">
+                                <Link href={`/servers/${server.gotoLink}/maps/${detail.map}/sessions/${detail.time_id}`}>
+                                    <ArrowUpRight className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Details</TooltipContent>
+                    </Tooltip>
                 </div>
             </div>
         </div>

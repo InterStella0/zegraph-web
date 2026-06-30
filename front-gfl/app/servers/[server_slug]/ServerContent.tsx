@@ -166,12 +166,12 @@ export default function ServerContent({ server, description }: {server: Server, 
                 )}
 
                 <div className="col-span-12 md:col-span-12 xl:col-span-9">
-                    <Card className="min-h-[263px]">
+                    <Card className="min-h-[336px]">
                         <MapGraphList onDateChange={handleDateForceChange} />
                     </Card>
                 </div>
                 <div className="col-span-12 md:col-span-12 xl:col-span-3">
-                    <Card className="min-h-[263px] p-0">
+                    <Card className="min-h-[336px] p-0">
                         <RadarPreview dateDisplay={{ start, end }} />
                     </Card>
                 </div>
