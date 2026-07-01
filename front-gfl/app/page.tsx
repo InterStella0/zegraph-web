@@ -6,6 +6,8 @@ import getServerUser from "./getServerUser";
 import Footer from "components/ui/Footer";
 import {Suspense} from "react";
 import {AdSpot} from "components/ui/AdSpot";
+import PopulationChartLoader from "components/home/PopulationChartLoader";
+import WherePlayersMap from "components/home/WherePlayersMap";
 
 export default async function Page() {
     const communitiesDataPromise = getCommunity();
@@ -14,15 +16,19 @@ export default async function Page() {
     return <>
         <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
         <div className="min-h-screen py-2 sm:py-4">
-            <div className="container max-w-screen-lg mx-auto px-1 sm:px-3">
-                <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="container max-w-screen-xl mx-auto px-1 sm:px-4">
+                <div className="flex flex-col gap-4 sm:gap-6">
                     <div className="text-center px-1 sm:px-0">
                         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-primary mb-2 break-words">
                             Communities
                         </h1>
                         <p className="text-base sm:text-lg md:text-xl break-words">
-                            CS2 Zombie Escape communities that I track &gt;:3
+                            Zombie Escape communities that I track &gt;:3
                         </p>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <PopulationChartLoader />
+                        <WherePlayersMap />
                     </div>
                     <AdSpot className="w-full" />
                     <Suspense fallback={<CommunityListLoading />}>

@@ -1,9 +1,9 @@
 'use client';
 
-import {ReactElement, Suspense, use, useEffect, useState} from 'react';
+import {ReactElement, useEffect, useMemo, useState, use} from 'react';
 import {Skeleton} from "components/ui/skeleton";
 import {Gamepad2} from 'lucide-react';
-import CommunityCard from "components/communities/CommunityCard";
+import CommunityServerGroup from "components/home/CommunityServerGroup";
 import {simpleRandom} from "utils/generalUtils.ts";
 import {Community} from "types/community.ts";
 
@@ -12,10 +12,10 @@ export function CommunityListLoading() {
     useEffect(() => {
         setIsClient(true);
     })
-    const amount = simpleRandom(4, 8, isClient)
-    return <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+    const amount = simpleRandom(3, 6, isClient)
+    return <div className="flex flex-col gap-3">
         {Array.from({length: amount}).map((_, i) => (
-            <Skeleton key={i} className="h-[258px] w-full rounded-lg" />
+            <Skeleton key={i} className="h-[160px] w-full rounded-lg" />
         ))}
     </div>
 }
@@ -23,12 +23,25 @@ export function CommunityListLoading() {
 
 export default function CommunityList({ communitiesDataPromise }: { communitiesDataPromise: Promise<Community[]>}): ReactElement {
     const communities = use(communitiesDataPromise);
+    const serverCount = useMemo(
+        () => communities.reduce((sum, c) => sum + c.servers.length, 0),
+        [communities],
+    );
+
     return <>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+        <div className="flex flex-row items-baseline gap-3 mb-3">
+            <h2 className="text-2xl font-bold">Servers</h2>
+            {communities.length > 0 && (
+                <span className="text-sm text-muted-foreground">
+                    {serverCount} {serverCount === 1 ? 'server' : 'servers'} · {communities.length}{' '}
+                    {communities.length === 1 ? 'community' : 'communities'}
+                </span>
+            )}
+        </div>
+
+        <div className="flex flex-col gap-3">
             {communities.map((community) => (
-                <div key={community.id}>
-                    <CommunityCard community={community} />
-                </div>
+                <CommunityServerGroup key={community.id} community={community} />
             ))}
         </div>
 

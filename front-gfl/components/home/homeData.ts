@@ -1,0 +1,48 @@
+import {fetchUrl} from "utils/generalUtils";
+import {CommunityCountData, GlobalGeoStatistics, PopulationTimeType} from "types/home";
+
+// Distinct line colors for the top-5 communities, roughly matching the design palette
+// (emerald / orange / green / purple / blue).
+export const COMMUNITY_COLORS = [
+    "#34d399",
+    "#fb923c",
+    "#4ade80",
+    "#a78bfa",
+    "#38bdf8",
+];
+
+// Fetch a community's player-count series ending at `time` (the cursor). The backend
+// returns a fixed number of `time_type`-sized buckets before that cursor, so panning the
+// chart just moves the cursor. Returns [] on any error (incl. the endpoint not existing
+// yet) so the UI degrades gracefully instead of throwing.
+export async function fetchCommunityPopulation(
+    communityId: string,
+    timeType: PopulationTimeType,
+    time?: string,
+    signal?: AbortSignal,
+): Promise<CommunityCountData[]> {
+    const params: Record<string, string> = {time_type: timeType};
+    if (time) params.time = time;
+    return fetchUrl(
+        `/communities/${communityId}/unique_players`,
+        {params, signal},
+        false,
+    ).catch(() => []) as Promise<CommunityCountData[]>;
+}
+
+// Fetch the aggregate geo distribution across all servers. Returns null on any error
+// (incl. the endpoint not existing yet) so the map can render an empty state.
+export async function fetchGlobalGeo(signal?: AbortSignal): Promise<GlobalGeoStatistics | null> {
+    return fetchUrl("/radars/global/live_statistics", {signal}, false)
+        .catch(() => null) as Promise<GlobalGeoStatistics | null>;
+}
+
+// Percentage change between the first and last points of a series. Returns null when it
+// can't be computed (too few points, or first value is 0).
+export function computeTrend(data: CommunityCountData[]): number | null {
+    if (!data || data.length < 2) return null;
+    const first = data[0].player_count;
+    const last = data[data.length - 1].player_count;
+    if (first === 0) return null;
+    return ((last - first) / first) * 100;
+}

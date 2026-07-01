@@ -6,7 +6,7 @@
 ![SQL](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=SQL&type=SQL)
 ![Total line of code](https://tokei.queeniemella.cc/b1/github/InterStella0/zegraph-web?style=flat&category=code&label=Total)
 
-This track all CS2 Zombie Escape related servers that I’m aware of, allowing you to view player playtime on each server. 
+This track all CS Zombie Escape related servers that I’m aware of, allowing you to view player playtime on each server. 
 It was originally created to monitor only the GFL Zombie Escape server, but has since expanded to include several 
 servers in the western community. Chinese servers are not tracked due to technical limitations on their servers. Only GFL and 
 Mapeadores servers provide Steam IDs, enabling consistent tracking of individual players. Other servers rely solely 

@@ -1,11 +1,16 @@
-use chrono::Utc;
+use std::fmt::Display;
+use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
+use poem::http::StatusCode;
 use poem::web::Data;
-use poem_openapi::OpenApi;
-use crate::{response, AppData};
+use poem_openapi::{Enum, OpenApi};
+use poem_openapi::param::Query;
+use sqlx::Postgres;
+use crate::{response, AppData, FastCache};
 use crate::core::model::*;
 use crate::core::api_models::*;
 use crate::core::utils::*;
+use crate::routers::players::get_player;
 
 fn truncate_error(error: &str) -> String {
     let truncated = match error.find(", ") {
@@ -15,6 +20,87 @@ fn truncate_error(error: &str) -> String {
     truncated.chars().take(80).collect()
 }
 
+#[derive(Enum)]
+enum CommunityGraphTime{
+    TenMinutes,
+    OneHour,
+    OneDay,
+}
+impl Display for CommunityGraphTime{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CommunityGraphTime::TenMinutes => write!(f, "10min"),
+            CommunityGraphTime::OneHour => write!(f, "1hr"),
+            CommunityGraphTime::OneDay => write!(f, "1day"),
+        }
+    }
+}
+pub async fn get_community(pool: &sqlx::Pool<Postgres>, cache: &FastCache, community_id: &str) -> Option<DbServerCommunity>{
+    let key = format!("find_community_detail:{}", community_id);
+    let func = || sqlx::query_as!(DbServerCommunity, "
+            SELECT
+                c.community_id,
+                c.community_name,
+                c.community_shorten_name,
+                c.community_icon_url,
+                s.server_id,
+                s.server_name,
+                s.server_port,
+                s.server_ip,
+                s.max_players,
+                s.server_fullname,
+                s.online,
+                s.readable_link,
+                LEAST((SELECT COUNT(DISTINCT player_id) FROM player_server_session p
+                    WHERE p.server_id = s.server_id
+                    AND p.ended_at IS NULL
+                    AND CURRENT_TIMESTAMP - p.started_at < INTERVAL '24 hours'),
+                    COALESCE(s.max_players, 64)
+                ) AS player_count,
+                sm.server_website,
+                sm.server_discord_link,
+                sm.server_source,
+                sm.game,
+                COALESCE(sm.source_by_id, false) source_by_id,
+                COALESCE(smp.map, NULL) AS map
+            FROM server s
+            INNER JOIN community c
+                ON c.community_id = s.community_id
+            LEFT JOIN LATERAL (
+                SELECT map
+                FROM server_map_played
+                WHERE server_id = s.server_id
+                  AND ended_at IS NULL
+                ORDER BY started_at DESC
+                LIMIT 1
+            ) smp ON true
+            LEFT JOIN server_metadata sm
+                ON sm.server_id=s.server_id
+            WHERE c.community_id = $1::TEXT::uuid
+            ORDER BY player_count DESC, online DESC, c.community_name
+        ", community_id).fetch_one(pool);
+
+    let data = cached_response(&key, cache, 60 * 60, func).await.ok();
+    data.map(|e| e.result)
+}
+struct CommunityExtractor(pub DbServerCommunity);
+
+
+impl<'a> poem::FromRequest<'a> for CommunityExtractor {
+    async fn from_request(req: &'a poem::Request, _body: &mut poem::RequestBody) -> poem::Result<Self> {
+        let community_id = req.raw_path_param("community_id")
+            .ok_or_else(|| poem::Error::from_string("Invalid community_id", StatusCode::BAD_REQUEST))?;
+
+        let data: &AppData = req.data()
+            .ok_or_else(|| poem::Error::from_string("Invalid data", StatusCode::BAD_REQUEST))?;
+
+        let Some(community) = get_community(&data.pool, &data.cache, &community_id).await else {
+            return Err(poem::Error::from_string("Community not found", StatusCode::NOT_FOUND))
+        };
+
+        Ok(CommunityExtractor(community))
+    }
+}
 pub struct ServerApi;
 #[OpenApi]
 impl ServerApi {
@@ -84,6 +170,71 @@ impl ServerApi {
         response!(ok results.into_values().collect())
     }
 
+    #[oai(path = "/communities/:community_id/unique_players", method="get")]
+    async fn get_communities_players_graph(
+        &self, Data(data): Data<&AppData>,
+        CommunityExtractor(community): CommunityExtractor,
+        Query(time_type): Query<CommunityGraphTime>,
+        Query(time): Query<DateTime<Utc>>
+    ) -> Response<Vec<ServerCountData>> {
+        let pool = &*data.pool.clone();
+
+        let interval_str: &str = match time_type {
+            CommunityGraphTime::TenMinutes => "10 minutes",
+            CommunityGraphTime::OneHour   => "1 hour",
+            CommunityGraphTime::OneDay    => "1 day",
+        };
+        let width_seconds: i64 = match time_type {
+            CommunityGraphTime::TenMinutes => 600,
+            CommunityGraphTime::OneHour   => 3600,
+            CommunityGraphTime::OneDay    => 86400,
+        };
+        let rounded_secs = time.timestamp() / width_seconds * width_seconds;
+        let truncated_time = DateTime::from_timestamp(rounded_secs, 0).unwrap_or(time);
+        let key = format!(
+            "community_players_graph:{}:{}:{}",
+            community.community_id, time_type, rounded_secs
+        );
+
+        let community_id = community.community_id.clone();
+        let bound_time = truncated_time.to_db_time();
+        let func = || sqlx::query_as!(
+            DbServerCountData,
+            "WITH buckets AS (
+                SELECT
+                    gs AS bucket_time,
+                    gs + $3::TEXT::interval AS bucket_end
+                FROM generate_series(
+                    $2::timestamptz - ($3::TEXT::interval * 31),
+                    $2::timestamptz,
+                    $3::TEXT::interval
+                ) AS gs
+            ),
+            community_servers AS (
+                SELECT server_id FROM server WHERE community_id = $1::TEXT::uuid
+            )
+            SELECT
+                NULL::VARCHAR(100) AS server_id,
+                b.bucket_time,
+                COUNT(DISTINCT pss.player_id)::bigint AS player_count
+            FROM buckets b
+            LEFT JOIN player_server_session pss
+                ON pss.server_id IN (SELECT server_id FROM community_servers)
+               AND tstzrange(pss.started_at, pss.ended_at)
+                   && tstzrange(b.bucket_time, b.bucket_end)
+            GROUP BY b.bucket_time
+            ORDER BY b.bucket_time DESC",
+            community_id,
+            bound_time,
+            interval_str
+        ).fetch_all(pool);
+
+        let Ok(response) = cached_response(&key, &data.cache, 600, func).await else {
+            return response!(internal_server_error)
+        };
+
+        response!(ok response.result.iter_into())
+    }
     #[oai(path = "/fetch-status", method="get")]
     async fn get_fetch_status(&self, Data(data): Data<&AppData>, TokenBearer(user_token): TokenBearer) -> Response<Vec<FetchStatusEntry>> {
         if !check_superuser(data, user_token.id).await {
@@ -223,6 +374,7 @@ impl UriPatternExt for ServerApi {
     fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
         vec![
             "/communities",
+            "/communities/{community_id}/unique_players",
             "/fetch-status",
             "/fetch-status-truncated",
         ].iter_into()

@@ -3,7 +3,7 @@ import {CommunityBase, Server} from "types/community";
 import {Dispatch} from "react";
 import {Gamepad2} from "lucide-react";
 
-const GAME_META: Record<string, { label: string; className: string }> = {
+export const GAME_META: Record<string, { label: string; className: string }> = {
     "240":      { label: "CS:S",  className: "border-blue-500/40 text-blue-500" },
     "730_csgo": { label: "CS:GO", className: "border-amber-500/40 text-amber-500" },
     "730_cs2":  { label: "CS2",   className: "border-green-500/40 text-green-500" },

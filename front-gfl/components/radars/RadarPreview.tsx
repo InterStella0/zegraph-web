@@ -22,6 +22,14 @@ export function formWMSUrl(serverId, isLive, time = null){
     return `${WMS_URL}?FILTER=player_server_timed,player_server_timed:"server_id" = '${serverId}'`
 }
 
+// Global (all servers) variant of formWMSUrl: no server_id filter, filtered by time only.
+// Used by the landing-page "Where players are" map to show every server at once.
+export function formGlobalWMSUrl(time = null){
+    if (time)
+        return `${WMS_URL}?TIME=${time}`
+    return WMS_URL
+}
+
 function RadarPreviewDisplay({ dateDisplay }){
     const { server } = useServerData()
 

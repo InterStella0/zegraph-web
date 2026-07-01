@@ -9,7 +9,7 @@ import {formatTitle} from "utils/generalUtils.ts";
 export async function generateMetadata(): Promise<Metadata> {
     return {
         title: formatTitle(`Status`),
-        description: "Live scraper fetch history for tracked CS2 Zombie Escape servers.",
+        description: "Live scraper fetch history for tracked CS Zombie Escape servers.",
         alternates: {
             canonical: '/status'
         }
