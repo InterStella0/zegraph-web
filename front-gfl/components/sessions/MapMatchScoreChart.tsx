@@ -1,9 +1,14 @@
 'use client'
+import { useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components/ui/card';
 import { LazyLineChart as Line } from 'components/graphs/LazyCharts';
-import { getMatchScoreChartData, getChartOptionsWithAnnotations } from 'utils/sessionUtils.js';
+import { getMatchScoreChartData, getChartOptionsWithAnnotations, getRoundChangeAnnotations } from 'utils/sessionUtils.js';
 import { MapSessionMatch, ServerMapPlayed } from "types/maps";
+import { Chart as ChartJS } from "chart.js";
+import annotationPlugin from "chartjs-plugin-annotation";
+
+ChartJS.register(annotationPlugin);
 
 export default function MapMatchScoreChart(
     { sessionInfo, graphMatch }:
@@ -11,6 +16,11 @@ export default function MapMatchScoreChart(
 ) {
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
+
+    const roundAnnotations = useMemo(
+        () => getRoundChangeAnnotations(graphMatch, sessionInfo, isDark),
+        [graphMatch, sessionInfo, isDark]
+    );
 
     return (
         <Card className="mb-6">
@@ -25,7 +35,7 @@ export default function MapMatchScoreChart(
                     <Line
                         data={getMatchScoreChartData(graphMatch, "map")}
                         // @ts-ignore
-                        options={getChartOptionsWithAnnotations(null, sessionInfo, true, 5, isDark)}
+                        options={getChartOptionsWithAnnotations(null, sessionInfo, true, 5, isDark, roundAnnotations)}
                     />
                 </div>
             </CardContent>

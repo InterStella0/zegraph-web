@@ -3,15 +3,18 @@ import duration from 'dayjs/plugin/duration';
 import {color} from "chart.js/helpers";
 dayjs.extend(duration);
 
-export const formatDuration = (start, end) => {
-    if (!start || !end) return '0m';
-    const duration = dayjs(end).diff(dayjs(start), "seconds");
-    const dur = dayjs.duration(duration, 'seconds');
+export const formatDuration = (start, end, withSeconds = false) => {
+    if (!start || !end) return withSeconds ? '0s' : '0m';
+    const totalSeconds = dayjs(end).diff(dayjs(start), "seconds");
+    const dur = dayjs.duration(totalSeconds, 'seconds');
     const hours = dur.hours();
     const minutes = dur.minutes();
+    const seconds = dur.seconds();
     if (hours > 0)
         return `${hours}h ${minutes}m`;
-    return `${minutes}m`
+    if (withSeconds)
+        return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+    return `${minutes}m`;
 };
 
 export const formatTime = (timeStr) => {
@@ -69,6 +72,115 @@ export const getMapStartAnnotations = (maps) => {
             }
         }
     });
+};
+
+export const getRounds = (graphMatch, sessionInfo) => {
+    if (!graphMatch || graphMatch.length === 0) return [];
+
+    const sorted = [...graphMatch].sort((a, b) =>
+        dayjs(a.occurred_at).isAfter(dayjs(b.occurred_at)) ? 1 : -1
+    );
+
+    // Collect distinct score-change events; each one starts a new round.
+    const changes = [];
+    let prevHuman = 0;
+    let prevZombie = 0;
+
+    for (const match of sorted) {
+        const scoreChanged =
+            match.human_score !== prevHuman ||
+            match.zombie_score !== prevZombie;
+
+        if (!scoreChanged) continue;
+
+        changes.push(match);
+        prevHuman = match.human_score;
+        prevZombie = match.zombie_score;
+    }
+
+    const sessionEnd = sessionInfo?.ended_at ?? sorted[sorted.length - 1].occurred_at;
+
+    // A round's line sits at its score change and the band extends to the right,
+    // up to the next change (or session end for the last one).
+    return changes.map((match, i) => {
+        const endAt = i + 1 < changes.length ? changes[i + 1].occurred_at : sessionEnd;
+        return {
+            round: i + 1,
+            date: dayjs(match.occurred_at).millisecond(0).toDate(),
+            startMs: dayjs(match.occurred_at).millisecond(0).valueOf(),
+            endMs: dayjs(endAt).millisecond(0).valueOf(),
+            duration: formatDuration(match.occurred_at, endAt, true),
+            humanScore: match.human_score,
+            zombieScore: match.zombie_score,
+        };
+    });
+};
+
+export const getRoundChangeAnnotations = (graphMatch, sessionInfo, isDark) => {
+    const lineColor = isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.30)';
+    const labelColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
+    const textColor = isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.87)';
+    const tooltipBg = isDark ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)';
+    const dividerColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)';
+
+    const annotations = [];
+    for (const r of getRounds(graphMatch, sessionInfo)) {
+        annotations.push({
+            type: 'line',
+            xMin: r.date,
+            xMax: r.date,
+            borderColor: lineColor,
+            borderWidth: 1.5,
+            label: {
+                display: true,
+                content: r.duration,
+                backgroundColor: '#00000000',
+                color: labelColor,
+                rotation: 270,
+                position: 'start',
+                xAdjust: 8,
+                font: {
+                    size: 10,
+                },
+            }
+        });
+
+        // Full-height transparent hover target covering the round's band (to the
+        // right of the line) that reveals a fuller label on hover.
+        annotations.push({
+            type: 'box',
+            xMin: r.startMs,
+            xMax: r.endMs,
+            backgroundColor: 'rgba(0, 0, 0, 0)',
+            borderColor: 'rgba(0, 0, 0, 0)',
+            enter(ctx) {
+                ctx.element.label.options.display = true;
+                return true;
+            },
+            leave(ctx) {
+                ctx.element.label.options.display = false;
+                return true;
+            },
+            label: {
+                display: false,
+                content: [`Round ${r.round}`, `Lasted ${r.duration}`],
+                backgroundColor: tooltipBg,
+                color: textColor,
+                borderColor: dividerColor,
+                borderWidth: 1,
+                borderRadius: 4,
+                position: {
+                    x: 'center',
+                    y: 'start',
+                },
+                padding: 6,
+                font: {
+                    size: 11,
+                },
+            }
+        });
+    }
+    return annotations;
 };
 
 export const getServerPopChartData = (serverGraph, isDark) => {
@@ -150,7 +262,7 @@ export const getMatchScoreChartData = (data, type) => {
     };
 };
 
-export const getChartOptionsWithAnnotations = (maps, sessionInfo, showLegend = false, suggestedMax = undefined, isDark = false) => {
+export const getChartOptionsWithAnnotations = (maps, sessionInfo, showLegend = false, suggestedMax = undefined, isDark = false, extraAnnotations = null) => {
     const textColor = isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.87)';
     const secondaryTextColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
     const dividerColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)';
@@ -171,7 +283,10 @@ export const getChartOptionsWithAnnotations = (maps, sessionInfo, showLegend = f
                 },
             },
             annotation: {
-                annotations: maps ? getMapStartAnnotations(maps) : null,
+                annotations: [
+                    ...(maps ? getMapStartAnnotations(maps) : []),
+                    ...(extraAnnotations ?? []),
+                ],
             },
             tooltip: {
                 mode: 'index',
