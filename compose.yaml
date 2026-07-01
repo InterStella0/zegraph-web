@@ -15,8 +15,8 @@ services:
       FRONTEND_HOST: ${FRONTEND_HOST:-frontend}
       QGIS_HOST: ${QGIS_HOST:-qgis-server}
     volumes:
-      - ${MAPS_PATH}:/var/www/frontend/public:ro
-      - ${CHARACTERS_PATH}:/var/www/characters:ro
+      - ${STORAGE_PATH}/maps:/var/www/frontend/public:ro
+      - ${STORAGE_PATH}/characters:/var/www/characters:ro
       - ${PUBLIC_FILES_PATH:-/front-gfl/public}:/var/www/public/any:ro
     networks:
       - default
@@ -81,12 +81,10 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       CACHE_THUMBNAIL: /var/www/thumbnails
-      STORE_UPLOAD: /var/www/maps
-      CHARACTER_STORE_UPLOAD: /var/www/characters
+      STORE_UPLOAD: /var/www/storage
     volumes:
       - thumbnails:/var/www/thumbnails
-      - ${MAPS_PATH}:/var/www/maps:rw
-      - ${CHARACTERS_PATH}:/var/www/characters:rw
+      - ${STORAGE_PATH}:/var/www/storage:rw
       - ${VAPIDS_PATH}:/app/vapids:ro
     logging: *default-logging
     deploy:

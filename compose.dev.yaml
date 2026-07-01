@@ -8,8 +8,8 @@ services:
       - ${NGINX_BASE_CONF_PATH}:/etc/nginx/nginx.conf
       - thumbnails:/var/www/thumbnails:ro
       - tile_cache:/var/cache/nginx/qgis_tiles
-      - ${MAPS_PATH}:/var/www/frontend/public:ro
-      - ${CHARACTERS_PATH}:/var/www/characters:ro
+      - ${STORAGE_PATH}/maps:/var/www/frontend/public:ro
+      - ${STORAGE_PATH}/characters:/var/www/characters:ro
     depends_on:
       - frontend
   frontend:
@@ -69,8 +69,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       CACHE_THUMBNAIL: /var/www/thumbnails
-      STORE_UPLOAD: /var/www/maps
-      CHARACTER_STORE_UPLOAD: /var/www/characters
+      STORE_UPLOAD: /var/www/storage
     depends_on:
       redis:
         condition: service_healthy
@@ -81,8 +80,7 @@ services:
       retries: 5
     volumes:
       - thumbnails:/var/www/thumbnails
-      - ${MAPS_PATH}:/var/www/maps:rw
-      - ${CHARACTERS_PATH}:/var/www/characters:rw
+      - ${STORAGE_PATH}:/var/www/storage:rw
       - ${VAPIDS_PATH}:/app/vapids:ro
     develop:
       watch:

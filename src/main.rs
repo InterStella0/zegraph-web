@@ -33,7 +33,7 @@ use moka::future::Cache;
 use crate::core::utils::*;
 use crate::workers::*;
 use crate::core::push_service::*;
-use crate::core::map_storage::{MapStorage, CharacterStorage};
+use crate::core::map_storage::{MapStorage, CharacterStorage, StorageBackend};
 use crate::routers::accounts::AccountsApi;
 use crate::routers::characters::CharacterApi;
 use crate::routers::servers::ServerApi;
@@ -104,17 +104,13 @@ async fn run_main() {
 
     init_map_change_listener(pool.clone(), push_service.clone()).await;
 
-    let map_storage = Arc::new(
-        MapStorage::from_env()
-            .await
-            .expect("Failed to initialize map storage")
-    );
+    let storage_backend = StorageBackend::from_env()
+        .await
+        .expect("Failed to initialize storage backend");
 
-    let character_storage = Arc::new(
-        CharacterStorage::from_env()
-            .await
-            .expect("Failed to initialize character storage")
-    );
+    let map_storage = Arc::new(MapStorage::new(storage_backend.clone()));
+
+    let character_storage = Arc::new(CharacterStorage::new(storage_backend));
 
     let data = AppData {
         pool,

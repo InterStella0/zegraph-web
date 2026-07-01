@@ -63,8 +63,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       CACHE_THUMBNAIL: /var/www/thumbnails
-      STORE_UPLOAD: /var/www/maps
-      CHARACTER_STORE_UPLOAD: /var/www/characters
+      STORE_UPLOAD: /var/www/storage
       # VAPID keys delivered as Swarm secrets, mounted under /run/secrets.
       VAPID_PRIVATE_KEY_PATH: /run/secrets/vapid_private
       VAPID_PUBLIC_KEY_PATH: /run/secrets/vapid_public

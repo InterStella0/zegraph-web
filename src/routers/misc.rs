@@ -274,16 +274,6 @@ impl MiscApi {
             },
         }
     }
-    #[oai(path = "/thumbnails/characters/:filename", method = "get")]
-    async fn get_character_thumbnail(&self, filename: Path<String>) -> Binary<Vec<u8>> {
-        let path = get_env_default("CACHE_THUMBNAIL").unwrap_or_default();
-        let file_path = PathBuf::from(path).join("characters").join(&filename.0);
-        match fs::read(file_path).await {
-            Ok(data) => Binary(data),
-            Err(_) => Binary(vec![]),
-        }
-    }
-
     #[oai(path="/meta_thumbnails", method="get")]
     async fn get_meta_thumbnails(
         &self, req: &Request, Data(app): Data<&AppData>, Query(url): Query<String>
@@ -515,7 +505,6 @@ impl UriPatternExt for MiscApi{
             "/oembed/",
             "/meta_thumbnails",
             "/thumbnails/{thumbnail_type}/{filename}",
-            "/thumbnails/characters/{filename}",
             "/health",
             "/events/data-updates",
             "/sitemap-data",

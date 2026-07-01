@@ -21,7 +21,7 @@ function CharacterModelCard({ model, serverSlug }: { model: Character3DModel, se
             <div className="relative h-32 bg-muted shrink-0">
                 {model.thumbnail_path ? (
                     <img
-                        src={model.thumbnail_path.startsWith('http') ? model.thumbnail_path : `/data/api/thumbnails/characters/${model.thumbnail_path}`}
+                        src={model.thumbnail_path}
                         alt={model.name ?? model.model_id}
                         className="w-full h-full object-cover"
                     />

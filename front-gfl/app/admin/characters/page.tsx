@@ -163,7 +163,7 @@ export default function AdminCharactersPage() {
                       <TableCell>
                         {model.thumbnail_path ? (
                           <img
-                            src={model.thumbnail_path.startsWith('http') ? model.thumbnail_path : `/data/api/thumbnails/characters/${model.thumbnail_path}`}
+                            src={model.thumbnail_path}
                             alt="thumbnail"
                             className="w-12 h-12 object-cover rounded"
                           />
