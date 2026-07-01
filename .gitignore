@@ -34,5 +34,5 @@ heap-profiles/
 *.heapprofile
 /maps/
 **/ads.txt
-characters/*
-!characters/.gitkeep
+storage/*
+!storage/.gitkeep
