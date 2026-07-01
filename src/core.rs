@@ -3,4 +3,4 @@ pub mod updater;
 pub mod model;
 pub mod utils;
 pub mod push_service;
-pub mod map_storage;
+pub mod storage;

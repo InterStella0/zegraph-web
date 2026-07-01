@@ -33,7 +33,7 @@ use moka::future::Cache;
 use crate::core::utils::*;
 use crate::workers::*;
 use crate::core::push_service::*;
-use crate::core::map_storage::{MapStorage, CharacterStorage, StorageBackend};
+use crate::core::storage::{MapStorage, CharacterStorage, StorageBackend};
 use crate::routers::accounts::AccountsApi;
 use crate::routers::characters::CharacterApi;
 use crate::routers::servers::ServerApi;
