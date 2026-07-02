@@ -196,6 +196,27 @@ pub async fn check_superuser(app: &AppData, user_id: i64) -> bool{
     is_superuser == Some(Some(true))
 }
 
+pub async fn is_player_activity_anonymized(app: &AppData, server_id: &str, player_id: &str) -> bool {
+    let Ok(player_id_i64) = player_id.parse::<i64>() else {
+        return false;
+    };
+
+    let func = || sqlx::query_scalar!(
+        r#"SELECT COALESCE(ua.anonymized, FALSE) AS "anonymized!"
+           FROM server s
+           LEFT JOIN website.user_anonymization ua
+               ON ua.community_id = s.community_id AND ua.user_id = $2
+           WHERE s.server_id = $1"#,
+        server_id,
+        player_id_i64
+    ).fetch_one(&*app.pool);
+
+    let key = format!("anon-check:{server_id}:{player_id_i64}");
+    cached_response(&key, &app.cache, 60, func).await
+        .map(|r| r.result)
+        .unwrap_or(false)
+}
+
 #[allow(dead_code)]
 pub struct UserTokenAuthorized{
     user_token: UserToken,

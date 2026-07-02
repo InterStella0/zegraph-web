@@ -10,7 +10,7 @@ use poem::web::{Data};
 use poem_openapi::{ApiResponse, Object, OpenApi};
 use poem_openapi::param::{Path, Query};
 use poem_openapi::payload::{Binary, EventStream, Json, PlainText};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgListener;
 use tokio::fs;
 use tokio::time::interval;
@@ -68,6 +68,12 @@ struct IAmOkie{
 struct NewRowEvent {
     channel: String,
     payload: String,
+}
+
+#[derive(Deserialize)]
+struct PlayerActivityPayload {
+    player_id: String,
+    server_id: String,
 }
 
 enum ThumbnailError{
@@ -444,11 +450,12 @@ impl MiscApi {
         }
     }
     #[oai(path = "/events/data-updates", method = "get")]
-    async fn sse_new_rows(&self) -> EventStream<BoxStream<'static, NewRowEvent>> {
+    async fn sse_new_rows(&self, Data(app): Data<&AppData>) -> EventStream<BoxStream<'static, NewRowEvent>> {
         let Some(db_url) = get_env_default("DATABASE_URL") else {
             let empty_stream: BoxStream<'static, NewRowEvent> = empty().boxed();
             return EventStream::new(empty_stream);
         };
+        let app = app.clone();
 
         let valid_listeners = vec![
             "player_activity", "map_changed", "map_update", "infraction_new", "infraction_update"
@@ -469,6 +476,13 @@ impl MiscApi {
                             result = listener.recv() => {
                                 match result {
                                     Ok(notification) => {
+                                        if notification.channel() == "player_activity" {
+                                            if let Ok(activity) = serde_json::from_str::<PlayerActivityPayload>(notification.payload()) {
+                                                if is_player_activity_anonymized(&app, &activity.server_id, &activity.player_id).await {
+                                                    continue;
+                                                }
+                                            }
+                                        }
                                         yield NewRowEvent {
                                             channel: notification.channel().to_string(),
                                             payload: notification.payload().to_string(),
