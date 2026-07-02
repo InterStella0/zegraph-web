@@ -5,6 +5,7 @@ import {LazyMatrixChart} from "components/graphs/LazyCharts";
 import {color} from "chart.js/helpers";
 import { useEffect, useMemo, useState} from "react";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { Info, AlertTriangle } from "lucide-react";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
@@ -16,6 +17,8 @@ import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider"
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import {DailyMapRegion, MapRegion} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
+
+dayjs.extend(utc);
 
 ChartJS.register(MatrixController, MatrixElement,
     TimeScale, TooltipChart, CategoryScale, LinearScale, Title, MatrixController);
@@ -42,7 +45,7 @@ function MapHeatRegionDisplay(){
         setRegions([])
         fetchServerUrl(server_id, `/maps/${name}/heat-regions`)
             .then((resp: DailyMapRegion[]) => resp.map(e => {
-                const dt = dayjs(e.date)
+                const dt = dayjs.utc(e.date)
                 const iso = dt.format("YYYY-MM-DD")
                 return {
                     x: iso,
@@ -163,7 +166,7 @@ function MapHeatRegionDisplay(){
                 const value = c.dataset.data[c.dataIndex].v;
                 const valueObj = value.regions
                 let hours = valueObj.reduce((a: number, b: MapRegion) => a + b.total_play_duration, 0) / 3600
-                const alpha = (.01 + hours) / 3;
+                const alpha = valueObj.length > 0 ? Math.min(1, Math.max(0.15, (.01 + hours) / 3)) : .01 / 3;
                 valueObj.sort((a: MapRegion, b: MapRegion) =>  b.total_play_duration - a.total_play_duration)
                 // @ts-ignore
                 return color(REGION_COLORS[valueObj[0]?.region_name] ?? 'grey').alpha(alpha).rgbString();

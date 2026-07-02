@@ -67,20 +67,30 @@ impl WorkerQuery<Vec<DbMapRegion>> for MapBasicQuery<Vec<DbMapRegion>> {
                 gd.play_day,
                 rt.region_id,
                 rt.region_name,
-                CASE
-                  WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time THEN
-                       (gd.play_day + (rt.start_time AT TIME ZONE 'UTC')::time)
-                  ELSE
-                       (gd.play_day - interval '1 day' + (rt.start_time AT TIME ZONE 'UTC')::time)
-                END AS region_start,
-                CASE
-                  WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time THEN
-                       (gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time)
-                  ELSE
-                       (gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time)
-                END AS region_end
+                s.region_start,
+                s.region_end
               FROM game_days gd
               CROSS JOIN region_time rt
+              CROSS JOIN LATERAL (
+                VALUES
+                  (
+                    gd.play_day + (rt.start_time AT TIME ZONE 'UTC')::time,
+                    CASE
+                      WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time
+                        THEN gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time
+                      ELSE gd.play_day + interval '1 day'
+                    END
+                  ),
+                  (
+                    gd.play_day + time '00:00',
+                    CASE
+                      WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time
+                        THEN NULL
+                      ELSE gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time
+                    END
+                  )
+              ) AS s(region_start, region_end)
+              WHERE s.region_end IS NOT NULL
             ),
             daily_region_play AS (
               SELECT
@@ -170,20 +180,30 @@ impl WorkerQuery<Vec<DbMapRegionDate>> for MapBasicQuery<Vec<DbMapRegionDate>> {
                 gd.play_day,
                 rt.region_id,
                 rt.region_name,
-                CASE
-                  WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time THEN
-                       (gd.play_day + (rt.start_time AT TIME ZONE 'UTC')::time)
-                  ELSE
-                       (gd.play_day - interval '1 day' + (rt.start_time AT TIME ZONE 'UTC')::time)
-                END AS region_start,
-                CASE
-                  WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time THEN
-                       (gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time)
-                  ELSE
-                       (gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time)
-                END AS region_end
+                s.region_start,
+                s.region_end
               FROM game_days gd
               CROSS JOIN region_time rt
+              CROSS JOIN LATERAL (
+                VALUES
+                  (
+                    gd.play_day + (rt.start_time AT TIME ZONE 'UTC')::time,
+                    CASE
+                      WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time
+                        THEN gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time
+                      ELSE gd.play_day + interval '1 day'
+                    END
+                  ),
+                  (
+                    gd.play_day + time '00:00',
+                    CASE
+                      WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time
+                        THEN NULL
+                      ELSE gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time
+                    END
+                  )
+              ) AS s(region_start, region_end)
+              WHERE s.region_end IS NOT NULL
             ),
             daily_region_play AS (
               SELECT

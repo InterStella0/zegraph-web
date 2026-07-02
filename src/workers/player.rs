@@ -518,17 +518,34 @@ impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerBasicQuery<Vec<DbPlayerRegio
                 SELECT
                     sd.session_id,
                     rt.region_id,
-                    ((sd.session_day::date || ' ' || rt.start_time::text)::timestamptz) AS region_start,
-                    CASE
-                    WHEN rt.start_time < rt.end_time THEN
-                        ((sd.session_day::date || ' ' || rt.end_time::text)::timestamptz)
-                    ELSE
-                        (((sd.session_day::date + 1) || ' ' || rt.end_time::text)::timestamptz)
-                    END AS region_end,
+                    s.region_start,
+                    s.region_end,
                     sd.started_at,
                     sd.ended_at
                 FROM session_days sd
                 CROSS JOIN region_time rt
+                CROSS JOIN LATERAL (
+                    VALUES
+                        (
+                            ((sd.session_day::date || ' ' || rt.start_time::text)::timestamptz),
+                            CASE
+                                WHEN rt.start_time < rt.end_time THEN
+                                    ((sd.session_day::date || ' ' || rt.end_time::text)::timestamptz)
+                                ELSE
+                                    (((sd.session_day::date + 1)::date || ' 00:00:00' || right(rt.end_time::text, length(rt.end_time::text) - 8))::timestamptz)
+                            END
+                        ),
+                        (
+                            ((sd.session_day::date || ' 00:00:00' || right(rt.end_time::text, length(rt.end_time::text) - 8))::timestamptz),
+                            CASE
+                                WHEN rt.start_time < rt.end_time THEN
+                                    NULL
+                                ELSE
+                                    ((sd.session_day::date || ' ' || rt.end_time::text)::timestamptz)
+                            END
+                        )
+                ) AS s(region_start, region_end)
+                WHERE s.region_end IS NOT NULL
             ),
             session_region_overlap AS (
                 SELECT
@@ -555,7 +572,7 @@ impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerBasicQuery<Vec<DbPlayerRegio
 
     fn cache_key_pattern(&self) -> String {
         let ctx = &self.context;
-        format!("player-region:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
+        format!("player-region-2:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
     }
 
     fn ttl(&self) -> u64 {
