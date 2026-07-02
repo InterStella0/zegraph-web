@@ -176,7 +176,10 @@ impl GraphApi {
 		Query(start): Query<DateTime<Utc>>, Query(end): Query<DateTime<Utc>>
 	) -> Response<Vec<ServerCountData>> {
 		let pool = &*data.pool.clone();
-		let Ok(result) = sqlx::query_as!(DbServerCountData, 
+		if end.signed_duration_since(start) > Duration::days(366) {
+			return response!(err "You can only get data within 1 year", ErrorCode::BadRequest);
+		};
+		let Ok(result) = sqlx::query_as!(DbServerCountData,
 			"WITH numbered AS MATERIALIZED (
 			  SELECT *, row_number() OVER (ORDER BY bucket_time) AS rn
 			  FROM server_player_counts
@@ -234,6 +237,9 @@ impl GraphApi {
 		Query(end): Query<DateTime<Utc>>
 	) -> Response<Vec<ServerCountData>>{
 		let pool = &*data.pool.clone();
+		if end.signed_duration_since(start) > Duration::days(366) {
+			return response!(err "You can only get data within 1 year", ErrorCode::BadRequest);
+		};
 		let Ok(result) = sqlx::query_as!(DbServerCountData, "
 			WITH buckets AS (
 				SELECT

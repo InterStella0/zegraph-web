@@ -43,6 +43,7 @@ ChartJS.register(
 );
 
 const TIMEZONE_CHOSEN_FROM = "Asia/Kuala_Lumpur"
+const MAX_ZOOM_OUT_MS = 365 * 24 * 60 * 60 * 1000 // 1 year
 const REGION_MAPPING = [
     { start: 18, end: 24, label: "Asia + EU" },
     { start: 0, end: 6, label: "EU + NA" },
@@ -294,6 +295,19 @@ function ServerGraphDisplay(
         handleZoomChange(chart.scales.x);
     }, [handleZoomChange]);
 
+    // chartjs-plugin-zoom has no maxRange limit (only minRange), so cap
+    // zoom-out manually. Pan is unaffected: this only runs on zoom steps.
+    const clampZoomOut = useCallback(({ chart }) => {
+        const { min, max } = chart.scales.x;
+        if (max - min > MAX_ZOOM_OUT_MS) {
+            const center = (min + max) / 2;
+            chart.zoomScale('x', {
+                min: center - MAX_ZOOM_OUT_MS / 2,
+                max: center + MAX_ZOOM_OUT_MS / 2
+            }, 'none');
+        }
+    }, []);
+
     // Update annotations
     useEffect(() => {
         if (!start.isBefore(end) || end.diff(start, "day") > 6) {
@@ -375,11 +389,12 @@ function ServerGraphDisplay(
                     wheel: { enabled: true },
                     pinch: { enabled: true },
                     mode: 'x',
+                    onZoom: clampZoomOut,
                     onZoomComplete: zoomComplete
                 }
             }
         },
-    }), [zoomComplete, annotationRef, state.maxPlayers, isDark])
+    }), [zoomComplete, clampZoomOut, annotationRef, state.maxPlayers, isDark])
 
     const datasets = [...customDataSet]
 
