@@ -158,15 +158,11 @@ function ServerGraphDisplay(
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
     const [state, dispatch] = useReducer(graphReducer, initialState);
-    const toolBarUse = useRef<boolean>(false)
     const chartRef = useRef<ChartJS | null>(null);
     const abortControllerRef = useRef<AbortController | null>();
     const annotationRef = useRef<{annotations: AnnotationOptions<"box" | "line">[]}>({ annotations: [] });
     const zoomTimeoutRef = useRef<NodeJS.Timeout | null>();
 
-    useEffect(() => {
-        toolBarUse.current = lastSource === DateSources.TOOLBAR || lastSource === DateSources.URL
-    }, [lastSource]);
     useEffect(() => {
         if (server?.max_players !== undefined) {
             const newMax = server.max_players === 0 ? 64 : server.max_players;
@@ -187,9 +183,12 @@ function ServerGraphDisplay(
     useEffect(() => {
         if (lastSource !== DateSources.ZOOM && chartRef.current) {
             clearTimeout(zoomTimeoutRef.current);
-            chartRef.current.resetZoom();
+            // Pin the scale to the requested range, like a manual pan does.
+            // Deriving it from data/annotations (resetZoom) leaves it misaligned,
+            // and zoomScale fires no onZoomComplete echo.
+            chartRef.current.zoomScale('x', { min: start.valueOf(), max: end.valueOf() }, 'none');
         }
-    }, [timestamp, lastSource]);
+    }, [timestamp, lastSource, start, end]);
 
     useEffect(() => {
         if (!start.isBefore(end) || !server_id) return;
@@ -287,14 +286,9 @@ function ServerGraphDisplay(
         // Debounce zoom updates
         clearTimeout(zoomTimeoutRef.current);
         zoomTimeoutRef.current = setTimeout(() => {
-            if (toolBarUse.current) {
-                // Race condition where newStart/newEnd become stale on clicking 'Today'
-                toolBarUse.current = false
-                return
-            }
             setDates(newStart, newEnd, DateSources.ZOOM);
         }, 500);
-    }, [setDates, toolBarUse]);
+    }, [setDates]);
 
     const zoomComplete = useCallback(({ chart }) => {
         handleZoomChange(chart.scales.x);
