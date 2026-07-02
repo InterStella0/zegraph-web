@@ -1,14 +1,17 @@
 import {fetchUrl} from "utils/generalUtils";
 import {CommunityCountData, GlobalGeoStatistics, PopulationTimeType} from "types/home";
 
-// Distinct line colors for the top-5 communities, roughly matching the design palette
-// (emerald / orange / green / purple / blue).
+// Distinct line colors for user-selected communities (up to 8), roughly matching the
+// design palette (emerald / orange / green / purple / blue / pink / yellow / red).
 export const COMMUNITY_COLORS = [
     "#34d399",
     "#fb923c",
     "#4ade80",
     "#a78bfa",
     "#38bdf8",
+    "#f472b6",
+    "#facc15",
+    "#f87171",
 ];
 
 // Fetch a community's player-count series ending at `time` (the cursor). The backend

@@ -21,7 +21,10 @@ import {Button} from 'components/ui/button';
 import {Card, CardContent} from 'components/ui/card';
 import {useServerMap} from 'components/ui/ServerProvider';
 import {PopulationTimeType} from 'types/home';
+import CommunityMultiSelect from './CommunityMultiSelect';
 import {COMMUNITY_COLORS, fetchCommunityPopulation} from './homeData';
+
+const MAX_SELECTED_COMMUNITIES = 8;
 
 ChartJS.register(LinearScale, PointElement, LineElement, TimeScale, Tooltip, Legend, Filler, zoomPlugin);
 
@@ -56,15 +59,31 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
     const {resolvedTheme} = useTheme();
     const isDark = resolvedTheme === 'dark';
 
-    const topCommunities = useMemo(() => {
-        const communities = communityData?.communities ?? [];
-        // getCommunity() already sorts by player count desc.
-        return communities.slice(0, 5).map((c, i) => ({
-            id: c.id,
-            name: c.name,
-            color: COMMUNITY_COLORS[i % COMMUNITY_COLORS.length],
-        }));
-    }, [communityData]);
+    const communities = communityData?.communities ?? [];
+
+    // Which communities the user has chosen to plot. Defaults to the top 5 by player
+    // count (getCommunity() already sorts desc) the first time communities load, since
+    // they arrive asynchronously and may be [] on first client render.
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const didInitSelection = useRef(false);
+    useEffect(() => {
+        if (didInitSelection.current || communities.length === 0) return;
+        didInitSelection.current = true;
+        setSelectedIds(communities.slice(0, 5).map(c => c.id));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [communities]);
+
+    const selectedCommunities = useMemo(() => {
+        // Preserve selection order so a community's color stays stable as the user toggles.
+        return selectedIds
+            .map((id, i) => {
+                const community = communities.find(c => c.id === id);
+                if (!community) return null;
+                return {id, name: community.name, color: COMMUNITY_COLORS[i % COMMUNITY_COLORS.length]};
+            })
+            .filter((c): c is {id: string, name: string, color: string} => c !== null);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedIds, communities]);
 
     const [timeType, setTimeType] = useState<PopulationTimeType>('OneHour');
     // `cursor` is the right edge of the visible window. Panning moves it, which refetches.
@@ -74,7 +93,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
     const panTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
-        if (topCommunities.length === 0) {
+        if (selectedCommunities.length === 0) {
             setLines([]);
             setLoading(false);
             return;
@@ -83,7 +102,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
         setLoading(true);
         const time = cursor.toJSON();
         Promise.all(
-            topCommunities.map(c =>
+            selectedCommunities.map(c =>
                 fetchCommunityPopulation(c.id, timeType, time, controller.signal)
                     .then(data => ({
                         id: c.id,
@@ -98,7 +117,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
             setLoading(false);
         });
         return () => controller.abort();
-    }, [topCommunities, timeType, cursor]);
+    }, [selectedCommunities, timeType, cursor]);
 
     // On pan-complete, take the new right edge of the axis as the cursor and refetch
     // (debounced). This is the time lookup: dragging left walks back through history.
@@ -218,9 +237,17 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                 <div className="flex flex-row items-start justify-between gap-2 mb-3">
                     <div>
                         <h2 className="text-base sm:text-lg font-semibold">Unique players by community</h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">Top 5 · combined</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {selectedCommunities.length} selected · combined
+                        </p>
                     </div>
-                    <div className="flex flex-row items-center gap-2">
+                    <div className="flex flex-row flex-wrap items-center justify-end gap-2">
+                        <CommunityMultiSelect
+                            communities={communities}
+                            selectedIds={selectedIds}
+                            onChange={setSelectedIds}
+                            maxSelected={MAX_SELECTED_COMMUNITIES}
+                        />
                         <div className="flex flex-row rounded-md border border-border p-0.5 text-xs">
                             {TIME_OPTIONS.map(opt => (
                                 <button
@@ -257,7 +284,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                     ))}
                 </div>
 
-                <div className="relative flex-1 min-h-[240px]">
+                <div className={`relative flex-1 ${isExpanded? "min-h-[400px]": "min-h-[240px]"}`}>
                     {!loading && !hasData && (
                         <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground text-center px-4">
                             No population data available yet.
