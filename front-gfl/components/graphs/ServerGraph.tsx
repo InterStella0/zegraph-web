@@ -175,7 +175,13 @@ function ServerGraphDisplay(
     }, [server?.max_players]);
 
     useEffect(() => {
-        setLoading(state.loading);
+        if (!state.loading) {
+            setLoading(false);
+            return;
+        }
+        // Only show loading state if it takes longer than a second
+        const timeout = setTimeout(() => setLoading(true), 1000);
+        return () => clearTimeout(timeout);
     }, [state.loading, setLoading]);
 
     useEffect(() => {
