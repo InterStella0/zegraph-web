@@ -1,8 +1,8 @@
 'use client';
 // @ts-nocheck
 import 'leaflet/dist/leaflet.css';
-import {useMemo} from 'react';
-import {LayersControl, MapContainer, TileLayer} from 'react-leaflet';
+import {useEffect, useMemo} from 'react';
+import {LayersControl, MapContainer, TileLayer, useMap} from 'react-leaflet';
 import {useTheme} from 'next-themes';
 import dayjs from 'dayjs';
 import L from 'leaflet';
@@ -10,6 +10,19 @@ import 'leaflet.nontiledlayer';
 import NonTiledWMSLayer from 'components/radars/NonTiledWMSLayer';
 import {darkBasemap, formGlobalWMSUrl, lightBasemap} from 'components/radars/RadarPreview';
 import {formatDateWMS} from 'components/radars/TemporalController';
+
+// The card can be resized by the parent layout (e.g. expand toggle), but Leaflet only
+// measures its container on mount, so we watch for size changes and re-measure.
+function MapResizeHandler() {
+    const map = useMap();
+    useEffect(() => {
+        const container = map.getContainer();
+        const observer = new ResizeObserver(() => map.invalidateSize());
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [map]);
+    return null;
+}
 
 // Landing-page world map: renders the QGIS WMS player layer for ALL servers (no server_id
 // filter), filtered by a recent time window only. `refreshKey` lets the parent bump the
@@ -42,6 +55,7 @@ export default function WorldRadarMap({refreshKey = 0, windowMinutes = 15}) {
             maxBoundsViscosity={0.5}
             style={{height: '100%', width: '100%', background: 'transparent'}}
         >
+            <MapResizeHandler />
             <TileLayer url={isDark ? darkBasemap : lightBasemap} />
             <LayersControl position="bottomleft">
                 <LayersControl.Overlay checked name="Players">

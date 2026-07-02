@@ -13,9 +13,11 @@ import {
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import dayjs from 'dayjs';
+import {Maximize2, Minimize2} from 'lucide-react';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTheme} from 'next-themes';
 import {LazyLineChart} from 'components/graphs/LazyCharts';
+import {Button} from 'components/ui/button';
 import {Card, CardContent} from 'components/ui/card';
 import {useServerMap} from 'components/ui/ServerProvider';
 import {PopulationTimeType} from 'types/home';
@@ -44,7 +46,12 @@ function windowMs(timeType: PopulationTimeType) {
 
 type Line = {id: string, name: string, color: string, points: {x: string, y: number}[]};
 
-export default function PopulationChart() {
+type Props = {
+    isExpanded: boolean;
+    onToggleExpand: () => void;
+};
+
+export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
     const communityData = useServerMap();
     const {resolvedTheme} = useTheme();
     const isDark = resolvedTheme === 'dark';
@@ -213,21 +220,31 @@ export default function PopulationChart() {
                         <h2 className="text-base sm:text-lg font-semibold">Unique players by community</h2>
                         <p className="text-xs text-muted-foreground mt-0.5">Top 5 · combined</p>
                     </div>
-                    <div className="flex flex-row rounded-md border border-border p-0.5 text-xs">
-                        {TIME_OPTIONS.map(opt => (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => selectTimeType(opt.value)}
-                                className={`px-2.5 py-1 rounded transition-colors ${
-                                    timeType === opt.value
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
+                    <div className="flex flex-row items-center gap-2">
+                        <div className="flex flex-row rounded-md border border-border p-0.5 text-xs">
+                            {TIME_OPTIONS.map(opt => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => selectTimeType(opt.value)}
+                                    className={`px-2.5 py-1 rounded transition-colors ${
+                                        timeType === opt.value
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                        <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            onClick={onToggleExpand}
+                            title={isExpanded ? 'Collapse' : 'Expand'}
+                        >
+                            {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                        </Button>
                     </div>
                 </div>
 

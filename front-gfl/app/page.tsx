@@ -6,8 +6,7 @@ import getServerUser from "./getServerUser";
 import Footer from "components/ui/Footer";
 import {Suspense} from "react";
 import {AdSpot} from "components/ui/AdSpot";
-import PopulationChartLoader from "components/home/PopulationChartLoader";
-import WherePlayersMap from "components/home/WherePlayersMap";
+import HomePopulationRadar from "components/home/HomePopulationRadar";
 
 export default async function Page() {
     const communitiesDataPromise = getCommunity();
@@ -26,10 +25,7 @@ export default async function Page() {
                             Zombie Escape communities that I track &gt;:3
                         </p>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <PopulationChartLoader />
-                        <WherePlayersMap />
-                    </div>
+                    <HomePopulationRadar />
                     <AdSpot className="w-full" />
                     <Suspense fallback={<CommunityListLoading />}>
                         <CommunityList communitiesDataPromise={communitiesDataPromise} />

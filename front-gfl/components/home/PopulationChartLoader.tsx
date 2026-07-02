@@ -15,6 +15,11 @@ const PopulationChart = dynamic(() => import('./PopulationChart'), {
     ),
 });
 
-export default function PopulationChartLoader() {
-    return <PopulationChart />;
+type Props = {
+    isExpanded: boolean;
+    onToggleExpand: () => void;
+};
+
+export default function PopulationChartLoader({isExpanded, onToggleExpand}: Props) {
+    return <PopulationChart isExpanded={isExpanded} onToggleExpand={onToggleExpand} />;
 }
