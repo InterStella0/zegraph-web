@@ -133,7 +133,7 @@ impl WorkerQuery<Vec<DbMapRegion>> for MapBasicQuery<Vec<DbMapRegion>> {
 
     fn cache_key_pattern(&self) -> String {
         let ctx = &self.context;
-        format!("map-regions:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
+        format!("map-regions-2:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
     }
 
     fn ttl(&self) -> u64 {

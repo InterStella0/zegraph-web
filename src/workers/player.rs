@@ -572,7 +572,7 @@ impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerBasicQuery<Vec<DbPlayerRegio
 
     fn cache_key_pattern(&self) -> String {
         let ctx = &self.context;
-        format!("player-region-2:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
+        format!("player-region:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
     }
 
     fn ttl(&self) -> u64 {
