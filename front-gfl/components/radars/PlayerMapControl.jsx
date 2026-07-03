@@ -25,8 +25,6 @@ const PlayerMapControl = () => {
     }, [temporal.data.cursor, temporal.data.interval]);
 
     const handleMapClick = async (e) => {
-        if (temporal?.query?.current) return
-
         const latlng = e.latlng;
 
         // Reset states for new location

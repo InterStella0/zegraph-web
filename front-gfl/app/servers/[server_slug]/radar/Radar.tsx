@@ -21,7 +21,6 @@ export default function Radar(): ReactElement {
     const { resolvedTheme } = useTheme();
     const countryWMSRef = useRef(null)
     const wmsLayerRef = useRef([]);
-    const temporalQueryRef = useRef(false);
     const [ temporal, setTemporal ] = useState({ cursor: dayjs(), interval: '10min', isLive: true})
     const isDarkMode = resolvedTheme === 'dark';
     const center = [0, 0];
@@ -48,7 +47,13 @@ export default function Radar(): ReactElement {
 
     const WMS_URL = "/qgis-server";
     return <>
-        <div className="h-[calc(100hv-72px)] w-[100%]">
+        {/* mb-* on .leaflet-bottom.leaflet-left lifts the layer selector above the temporal
+            bar (~80px tall on md+, ~220px when stacked on mobile). */}
+        <div className="relative h-[calc(100vh-72px)] w-[100%] [&_.leaflet-bottom.leaflet-left]:mb-[236px] md:[&_.leaflet-bottom.leaflet-left]:mb-[96px]">
+        {/* TemporalController must stay a DOM sibling of MapContainer: Leaflet's native
+            listeners on the map container fire before React's delegated handlers, so any
+            control rendered inside the map leaks clicks/drags to it. */}
+        <TemporalContext value={{ data: temporal, set: setTemporal }}>
             <MapContainer
                 // @ts-ignore
                 center={center}
@@ -134,17 +139,16 @@ export default function Radar(): ReactElement {
                         />
                     </LayersControl.Overlay>
                 </LayersControl>
-                <TemporalContext value={{ data: temporal, set: setTemporal, query: temporalQueryRef }}>
-                    <TemporalController
-                        wmsLayerRef={wmsLayerRef}
-                        initialStartDate={dayjs("2024-05-12T03:15:00Z")} // I know my data starts here so.
-                        initialEndDate={dayjs()}
-                    />
-                    <StatsComponent />
-                    <LegendControl />
-                    <PlayerMapControl />
-                </TemporalContext>
+                <StatsComponent />
+                <LegendControl />
+                <PlayerMapControl />
             </MapContainer>
+            <TemporalController
+                wmsLayerRef={wmsLayerRef}
+                initialStartDate={dayjs("2024-05-12T03:15:00Z")} // I know my data starts here so.
+                initialEndDate={dayjs()}
+            />
+        </TemporalContext>
         </div>
     </>
 };

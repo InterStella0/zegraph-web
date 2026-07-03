@@ -1,10 +1,8 @@
 import {useState, useEffect, useRef, useCallback, createContext, useContext} from 'react';
-import { useMap } from 'react-leaflet';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
-import L from 'leaflet'
 import { Button } from "components/ui/button";
 import { Slider } from "components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
@@ -66,33 +64,13 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
     const [selectedRange, setSelectedRange] = useState('1month');
     const [isLive, setIsLive] = useState(true);
     const [availableIntervals, setAvailableIntervals] = useState(intervals);
-    const containerRef = useRef(null)
 
     const animationTimerRef = useRef(null)
     const liveUpdateTimerRef = useRef(null)
     const debounceTimer = useRef(null)
-    const map = useMap()
     useEffect(() => {
         timeContextSet(prop => ({...prop, isLive }))
     }, [isLive, timeContextSet])
-    useEffect(() => {
-        if (!(containerRef && containerRef.current)) return
-
-        const container = containerRef.current
-
-        // Only stop scroll and context events - NOT click/pointer events
-        // which would interfere with Radix UI components
-        L.DomEvent.disableScrollPropagation(container);
-        L.DomEvent.on(container, 'wheel', L.DomEvent.stopPropagation);
-        L.DomEvent.on(container, 'dblclick', L.DomEvent.stopPropagation);
-        L.DomEvent.on(container, 'contextmenu', L.DomEvent.stopPropagation);
-
-        return () => {
-            L.DomEvent.off(container, 'wheel', L.DomEvent.stopPropagation);
-            L.DomEvent.off(container, 'dblclick', L.DomEvent.stopPropagation);
-            L.DomEvent.off(container, 'contextmenu', L.DomEvent.stopPropagation);
-        }
-    }, [containerRef])
 
     const getTimeIncrement = useCallback(getIntervalCallback(selectedInterval), [selectedInterval])
     const formatDateDisplay = (date) => {
@@ -175,28 +153,12 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
         updateWMSLayer(absoluteTime);
     };
 
-    const handleSliderChange = (event, newValue) => {
-        event.preventDefault()
-        event.stopPropagation();
-
+    const handleSliderChange = (newValue) => {
         const stepSize = getStepSizePercent();
         const roundedValue = Math.round(newValue / stepSize) * stepSize;
 
         setSliderValue(roundedValue);
         updateTimeFromSlider(roundedValue);
-    };
-
-    const handleSliderMouseDown = (event) => {
-        if (map) {
-            map.dragging.disable();
-        }
-    };
-
-    // Re-enable map interaction on slider mouse up
-    const handleSliderMouseUp = (event) => {
-        if (map) {
-            map.dragging.enable();
-        }
     };
 
     const animate = () => {
@@ -381,9 +343,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
     };
 
     // Toggle live mode - shows current time
-    const toggleLiveMode = (e) => {
-        e.stopPropagation(); // Native DOM method
-        e.preventDefault();
+    const toggleLiveMode = () => {
         setIsLive(!isLive);
         if (!isLive) {
             setChangeInterval('10min');
@@ -392,14 +352,6 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
             }
         }
     };
-    const handleMouseDown = () => {
-        timeContext.query.current = true
-    }
-    const handleMouseUp = () => {
-        setTimeout(() => {
-            timeContext.query.current = false
-        }, 100)
-    }
     return (
         <TooltipProvider delayDuration={200}>
         <div
@@ -411,9 +363,6 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                 "p-2.5 cursor-default",
                 "slider-container"
             )}
-            onMouseDown={handleSliderMouseDown}
-            onMouseUp={handleSliderMouseUp}
-            ref={containerRef}
         >
             <div className="flex flex-col md:flex-row items-center gap-2 flex-wrap">
                 <div className="flex-none">
@@ -424,9 +373,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                 <Button
                                     variant="ghost"
                                     size="icon-sm"
-                                    onMouseUp={handleMouseUp}
-                                    onMouseDown={handleMouseDown}
-                                    onClick={(e) => {
+                                    onClick={() => {
                                         if (isLive) {
                                             setIsLive(false);
                                             clearInterval(liveUpdateTimerRef.current);
@@ -474,13 +421,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                 <Button
                                     variant="ghost"
                                     size="icon-sm"
-                                    onMouseUp={handleMouseUp}
-                                    onMouseDown={handleMouseDown}
-                                    onClick={(e) => {
-                                        L.DomEvent.stop(e)
-                                        L.DomEvent.stopPropagation(e)
-                                        setIsPlaying(!isPlaying)
-                                    }}
+                                    onClick={() => setIsPlaying(!isPlaying)}
                                     className="bg-accent/50 hover:bg-accent"
                                 >
                                     {isPlaying ?
@@ -497,8 +438,6 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                 <Button
                                     variant="ghost"
                                     size="icon-sm"
-                                    onMouseUp={handleMouseUp}
-                                    onMouseDown={handleMouseDown}
                                     onClick={() => {
                                         if (isLive) {
                                             setIsLive(false);
@@ -530,12 +469,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                     </div>
                 </div>
 
-                <div
-                    className="flex-none"
-                    onClick={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                >
+                <div className="flex-none">
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
                             Range:
@@ -559,12 +493,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                         </Select>
                     </div>
                 </div>
-                <div
-                    className="flex-none"
-                    onClick={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                >
+                <div className="flex-none">
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
                             Interval:
@@ -597,8 +526,6 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                 variant="ghost"
                                 size="icon-sm"
                                 onClick={toggleLiveMode}
-                                onMouseUp={handleMouseUp}
-                                onMouseDown={handleMouseDown}
                                 className={cn(
                                     "relative",
                                     isLive
@@ -641,29 +568,11 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                             ))}
                         </div>
 
-                        <div
-                            className="w-full z-10"
-                            onPointerDown={(e) => {
-                                e.stopPropagation();
-                                if (map) map.dragging.disable();
-                            }}
-                            onPointerUp={() => {
-                                if (map) map.dragging.enable();
-                            }}
-                            onMouseDown={(e) => {
-                                e.stopPropagation();
-                            }}
-                            onMouseUp={() => {
-                                if (map) map.dragging.enable();
-                            }}
-                        >
+                        <div className="w-full z-10">
                             <Slider
                                 value={[sliderValue]}
                                 onValueChange={(values) => {
-                                    handleSliderChange({ preventDefault: () => {}, stopPropagation: () => {} }, values[0]);
-                                }}
-                                onLostPointerCapture={() => {
-                                    if (map) map.dragging.enable();
+                                    handleSliderChange(values[0]);
                                 }}
                                 min={0}
                                 max={100}
