@@ -917,6 +917,7 @@ pub struct DbSteam{
 #[sqlx(type_name = "community_visibility_state_enum")]
 pub enum CommunityVisibilityState {
     Private,
+    FriendsOnly,
     Public
 }
 impl TryFrom<i32> for CommunityVisibilityState {
@@ -925,6 +926,7 @@ impl TryFrom<i32> for CommunityVisibilityState {
     fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(CommunityVisibilityState::Private),
+            2 => Ok(CommunityVisibilityState::FriendsOnly),
             3 => Ok(CommunityVisibilityState::Public),
             _ => Err("Invalid CommunityVisibilityState value"),
         }
@@ -935,6 +937,7 @@ impl Into<i32> for CommunityVisibilityState {
     fn into(self) -> i32 {
         match self {
             CommunityVisibilityState::Private => 1i32,
+            CommunityVisibilityState::FriendsOnly => 2i32,
             CommunityVisibilityState::Public => 3i32
         }
     }
@@ -943,6 +946,7 @@ impl Display for CommunityVisibilityState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             CommunityVisibilityState::Private => f.write_str("Private"),
+            CommunityVisibilityState::FriendsOnly => f.write_str("FriendsOnly"),
             CommunityVisibilityState::Public => f.write_str("Public")
         }
     }

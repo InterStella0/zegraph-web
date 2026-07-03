@@ -185,6 +185,7 @@ CREATE TABLE website.discord_user(
 
 CREATE TYPE community_visibility_state_enum AS ENUM (
     'Private',
+    'FriendsOnly',
     'Public'
 );
 
