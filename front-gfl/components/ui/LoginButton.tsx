@@ -18,7 +18,7 @@ import {SteamProfile} from "../../next-auth-steam/steam.ts";
 
 function UserMenu({ user }: { user: SteamProfile | null }) {
     const router = useRouter();
-    const isSuperuser = user?.is_superuser || false;
+    const canAccessAdmin = user?.is_superuser || user?.is_map_manager || false;
 
     const handleProfile = () => {
         router.push('/users/me/profile');
@@ -60,7 +60,7 @@ function UserMenu({ user }: { user: SteamProfile | null }) {
                     <Cog className="mr-2 h-4 w-4" />
                     Settings
                 </DropdownMenuItem>
-                {isSuperuser && (
+                {canAccessAdmin && (
                     <DropdownMenuItem onClick={handleAdmin}>
                         <Shield className="mr-2 h-4 w-4" />
                         Admin
