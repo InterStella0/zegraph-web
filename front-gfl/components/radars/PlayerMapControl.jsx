@@ -1,4 +1,4 @@
-import {useContext, useState, useEffect, useRef} from 'react';
+import {useContext, useState, useEffect} from 'react';
 import { useMapEvents } from 'react-leaflet';
 import CountryPolygon from "./CountryPolygon.tsx";
 import PlayerPopup from "./PlayerPopup.jsx";
@@ -18,72 +18,14 @@ const PlayerMapControl = () => {
     const server_id = server.id
     const temporal = useContext(TemporalContext);
 
-    // Discards responses that resolve after a newer request has started.
-    const requestSeqRef = useRef(0);
-    const refreshTimerRef = useRef(null);
-    // Latest-value refs so the debounced refresh reads current state, not the
-    // closure from when its timer was set.
-    const clickedLocationRef = useRef(null);
-    clickedLocationRef.current = clickedLocation;
-    const pageRef = useRef(0);
-    pageRef.current = page;
-
-    const queryLocation = (latlng, page) =>
-        !temporal.data?.isLive ? fetchUrl(`/radars/${server_id}/query`, {
-            params: {
-                latitude: latlng.lat,
-                longitude: latlng.lng,
-                page,
-                time: temporal.data.cursor.toISOString(),
-                interval: intervalToServer(temporal.data.interval)
-            }
-        }): fetchUrl(`/radars/${server_id}/live_query`, {
-            params: {
-                latitude: latlng.lat,
-                longitude: latlng.lng,
-                page
-            }
-        });
-
-    // Time moved (live tick, play, step, scrub) while a popup is open: refresh
-    // its list in place instead of closing it. Silent — no loading spinner, keep
-    // the old list until new data lands, never nuke the popup on a failed refresh.
     useEffect(() => {
-        if (!clickedLocationRef.current) return;
-
-        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-        refreshTimerRef.current = setTimeout(async () => {
-            const latlng = clickedLocationRef.current;
-            if (!latlng) return;
-
-            const seq = ++requestSeqRef.current;
-            try {
-                let result = await queryLocation(latlng, pageRef.current);
-                if (seq !== requestSeqRef.current) return;
-                if (result.code === "Unknown") return;
-
-                // Current page fell out of range (players left) — snap back to page 0.
-                if (!result.players?.length && pageRef.current > 0) {
-                    result = await queryLocation(latlng, 0);
-                    if (seq !== requestSeqRef.current) return;
-                    setPage(0);
-                }
-
-                setPlayerData(result.players || []);
-                setTotalPlayers(result.count || 0);
-                setError(null);
-            } catch (error) {
-                console.error('Error refreshing popup data:', error);
-            }
-        }, 400);
-
-        return () => clearTimeout(refreshTimerRef.current);
-    }, [temporal.data.cursor, temporal.data.interval, temporal.data.isLive]);
+        if (clickedLocation) {
+            handlePopupClose();
+        }
+    }, [temporal.data.cursor, temporal.data.interval]);
 
     const handleMapClick = async (e) => {
         const latlng = e.latlng;
-
-        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
 
         // Reset states for new location
         setCountryData(null);
@@ -95,10 +37,23 @@ const PlayerMapControl = () => {
         // Set new location and loading state
         setClickedLocation(latlng);
         setIsLoading(true);
-        const seq = ++requestSeqRef.current;
         try {
-            const result = await queryLocation(latlng, 0);
-            if (seq !== requestSeqRef.current) return;
+            const promise = !temporal.data?.isLive? fetchUrl(`/radars/${server_id}/query`, {
+                params: {
+                    latitude: latlng.lat,
+                    longitude: latlng.lng,
+                    page: 0,
+                    time: temporal.data.cursor.toISOString(),
+                    interval: intervalToServer(temporal.data.interval)
+                }
+            }): fetchUrl(`/radars/${server_id}/live_query`, {
+                params: {
+                    latitude: latlng.lat,
+                    longitude: latlng.lng,
+                    page: 0
+                }
+            })
+            const result = await promise
             if (result.code === "Unknown") {
                 throw new Error("Unknown country selected");
             }
@@ -121,12 +76,11 @@ const PlayerMapControl = () => {
             setTotalPlayers(result.count || 0);
 
         } catch (error) {
-            if (seq !== requestSeqRef.current) return;
             if (error.message !== "Unknown country selected")
                 console.error('Error fetching data:', error);
             setError(error.message);
         } finally {
-            if (seq === requestSeqRef.current) setIsLoading(false);
+            setIsLoading(false);
         }
     };
 
@@ -135,10 +89,23 @@ const PlayerMapControl = () => {
         if (!clickedLocation) return;
 
         setIsLoading(true);
-        const seq = ++requestSeqRef.current;
         try {
-            const result = await queryLocation(clickedLocation, newPage);
-            if (seq !== requestSeqRef.current) return;
+            const promise = !temporal.data?.isLive? fetchUrl(`/radars/${server_id}/query`, {
+                params: {
+                    latitude: clickedLocation.lat,
+                    longitude: clickedLocation.lng,
+                    page: newPage,
+                    time: temporal.data.cursor.toISOString(),
+                    interval: intervalToServer(temporal.data.interval)
+                }
+            }): fetchUrl(`/radars/${server_id}/live_query`, {
+                params: {
+                    latitude: clickedLocation.lat,
+                    longitude: clickedLocation.lng,
+                    page: newPage
+                }
+            })
+            const result = await promise
 
             if (result.players) {
                 setPlayerData(result.players);
@@ -148,7 +115,7 @@ const PlayerMapControl = () => {
         } catch (error) {
             console.error('Error changing page:', error);
         } finally {
-            if (seq === requestSeqRef.current) setIsLoading(false);
+            setIsLoading(false);
         }
     };
 
@@ -160,7 +127,6 @@ const PlayerMapControl = () => {
     };
 
     const handlePopupClose = () => {
-        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         setClickedLocation(null);
         setCountryData(null);
         setPlayerData([]);
