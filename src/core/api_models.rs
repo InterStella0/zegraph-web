@@ -960,6 +960,7 @@ pub struct SteamProfile {
     pub locstatecode: Option<String>,
     pub loccityid: Option<i64>,
     pub is_superuser: Option<bool>,
+    pub is_map_manager: Option<bool>,
 }
 
 #[derive(Deserialize)]

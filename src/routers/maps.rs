@@ -2210,7 +2210,7 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
         multipart: poem::web::Multipart,
     ) -> Response<Map3DModel> {
-        if !check_superuser(&app, user_token.id).await {
+        if !check_superuser_or_map_manager(&app, user_token.id).await {
             return response!(err "Forbidden", ErrorCode::Forbidden);
         }
 
@@ -2331,7 +2331,7 @@ impl MapApi{
         Json(req): Json<serde_json::Value>,
     ) -> Response<InitiateUploadResponse> {
         // Check superuser permission
-        if !check_superuser(&app, user_token.id).await {
+        if !check_superuser_or_map_manager(&app, user_token.id).await {
             return response!(err "Forbidden", ErrorCode::Forbidden);
         }
 
@@ -2415,7 +2415,7 @@ impl MapApi{
         upload: poem::web::Multipart,
     ) -> Response<ChunkUploadResponse> {
         // Check superuser permission
-        if !check_superuser(&app, user_token.id).await {
+        if !check_superuser_or_map_manager(&app, user_token.id).await {
             return response!(err "Forbidden", ErrorCode::Forbidden);
         }
 
@@ -2517,7 +2517,7 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
     ) -> Response<Map3DModel> {
         // Check superuser permission
-        if !check_superuser(&app, user_token.id).await {
+        if !check_superuser_or_map_manager(&app, user_token.id).await {
             return response!(err "Forbidden", ErrorCode::Forbidden);
         }
 
@@ -2667,7 +2667,7 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
     ) -> Response<String> {
         // Check superuser permission
-        if !check_superuser(&app, user_token.id).await {
+        if !check_superuser_or_map_manager(&app, user_token.id).await {
             return response!(err "Forbidden", ErrorCode::Forbidden);
         }
 
@@ -2795,7 +2795,7 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
     ) -> Response<String> {
         // Check superuser permission
-        if !check_superuser(&app, user_token.id).await {
+        if !check_superuser_or_map_manager(&app, user_token.id).await {
             return response!(err "Forbidden", ErrorCode::Forbidden);
         }
 

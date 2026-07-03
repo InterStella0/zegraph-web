@@ -344,8 +344,10 @@ impl AccountsApi {
         };
 
         let is_superuser = check_superuser(data, user_token.id).await;
+        let is_map_manager = check_map_manager(data, user_token.id).await;
         let mut profile: SteamProfile = user.into();
         profile.is_superuser = Some(is_superuser);
+        profile.is_map_manager = Some(is_map_manager);
 
         response!(ok profile)
     }

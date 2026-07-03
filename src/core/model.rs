@@ -865,7 +865,7 @@ impl Into<(PlayerHourDay, PlayerHourDay)> for DbPlayerHourCount{
 
 #[derive(DbInto)]
 #[db_into(SteamProfile)]
-#[extra(loccountrycode = Some("".to_string()), realname = None, gameid = None, gameextrainfo = None, gameserverip = None, locstatecode = None, loccityid = None, is_superuser = Some(false))]
+#[extra(loccountrycode = Some("".to_string()), realname = None, gameid = None, gameextrainfo = None, gameserverip = None, locstatecode = None, loccityid = None, is_superuser = Some(false), is_map_manager = Some(false))]
 pub struct DbSteam{
     #[rename(steamid)]
     #[method(to_string)]

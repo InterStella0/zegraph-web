@@ -114,7 +114,7 @@ impl AdminMapsApi {
         Query(limit): Query<Option<i64>>,
         Query(search): Query<Option<String>>,
     ) -> Response<AdminMapMetadataResponse> {
-        if !check_superuser(data, user_token.id).await {
+        if !check_superuser_or_map_manager(data, user_token.id).await {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 
@@ -238,7 +238,7 @@ impl AdminMapsApi {
         TokenBearer(user_token): TokenBearer,
         Json(dto): Json<UpdateGlobalMapMetadataDto>,
     ) -> Response<bool> {
-        if !check_superuser(data, user_token.id).await {
+        if !check_superuser_or_map_manager(data, user_token.id).await {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 
@@ -279,7 +279,7 @@ impl AdminMapsApi {
         TokenBearer(user_token): TokenBearer,
         poem_openapi::param::Path(map_name): poem_openapi::param::Path<String>,
     ) -> Response<bool> {
-        if !check_superuser(data, user_token.id).await {
+        if !check_superuser_or_map_manager(data, user_token.id).await {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 
@@ -322,7 +322,7 @@ impl AdminMapsApi {
         TokenBearer(user_token): TokenBearer,
         Json(dto): Json<UpdateServerMapMetadataDto>,
     ) -> Response<bool> {
-        if !check_superuser(data, user_token.id).await {
+        if !check_superuser_or_map_manager(data, user_token.id).await {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 

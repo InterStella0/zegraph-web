@@ -420,13 +420,13 @@ CREATE UNIQUE INDEX CONCURRENTLY player_map_rank_idx
 
 CREATE TABLE website.user_roles (
     user_id BIGINT REFERENCES website.steam_user(user_id) ON DELETE CASCADE,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('superuser', 'community_admin', 'regular')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('superuser', 'community_admin', 'regular', 'map_manager')),
     community_id UUID REFERENCES community(community_id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, community_id),
     CONSTRAINT role_community_check CHECK (
         (role = 'community_admin' AND community_id IS NOT NULL) OR
-        (role IN ('superuser', 'regular') AND community_id IS NULL)
+        (role IN ('superuser', 'regular', 'map_manager') AND community_id IS NULL)
         )
 );
 
@@ -464,6 +464,16 @@ BEGIN
 RETURN EXISTS (
     SELECT 1 FROM website.user_roles
     WHERE user_id = check_user_id AND role = 'superuser'
+);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION website.is_map_manager(check_user_id BIGINT)
+RETURNS BOOLEAN AS $$
+BEGIN
+RETURN EXISTS (
+    SELECT 1 FROM website.user_roles
+    WHERE user_id = check_user_id AND role = 'map_manager'
 );
 END;
 $$ LANGUAGE plpgsql;

@@ -196,6 +196,23 @@ pub async fn check_superuser(app: &AppData, user_id: i64) -> bool{
     is_superuser == Some(Some(true))
 }
 
+pub async fn check_map_manager(app: &AppData, user_id: i64) -> bool{
+    let Ok(is_map_manager) = sqlx::query_scalar!(
+        "SELECT website.is_map_manager($1)",
+        user_id
+    )
+        .fetch_optional(&*app.pool)
+        .await else {
+        return false
+    };
+
+    is_map_manager == Some(Some(true))
+}
+
+pub async fn check_superuser_or_map_manager(app: &AppData, user_id: i64) -> bool {
+    check_superuser(app, user_id).await || check_map_manager(app, user_id).await
+}
+
 pub async fn is_player_activity_anonymized(app: &AppData, server_id: &str, player_id: &str) -> bool {
     let Ok(player_id_i64) = player_id.parse::<i64>() else {
         return false;

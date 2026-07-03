@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Sheet, SheetContent } from 'components/ui/sheet';
 import { ScrollArea } from 'components/ui/scroll-area';
-import { FileText, MessageSquare, Music, Ban, Shield, Megaphone, Bell, Settings, Box, Heart, Server } from 'lucide-react';
+import { Button } from 'components/ui/button';
+import { FileText, MessageSquare, Music, Ban, Shield, Megaphone, Bell, Settings, Box, Heart, Server, Menu } from 'lucide-react';
 
 type NavItem = {
   label: string;
@@ -56,8 +58,16 @@ const navSections: NavSection[] = [
   },
 ];
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({ onNavigate, mapManagerOnly }: { onNavigate?: () => void; mapManagerOnly?: boolean }) {
   const pathname = usePathname();
+  const sections = mapManagerOnly
+    ? navSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => item.href === '/admin/maps'),
+        }))
+        .filter((section) => section.items.length > 0)
+    : navSections;
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -69,7 +79,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {/* Navigation */}
       <ScrollArea className="flex-1">
         <div className="py-4">
-          {navSections.map((section) => (
+          {sections.map((section) => (
             <div key={section.title} className="mb-6">
               {/* Section Header */}
               <div className="px-6 mb-2">
@@ -114,28 +124,30 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export default function AdminSidebar({
-  isMobile = false,
-  isOpen = false,
-  onClose = () => {}
-}: {
-  isMobile?: boolean;
-  isOpen?: boolean;
-  onClose?: () => void;
-}) {
-  if (isMobile) {
-    return (
-      <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent side="left" className="w-[280px] p-0">
-          <SidebarContent onNavigate={onClose} />
-        </SheetContent>
-      </Sheet>
-    );
-  }
+export default function AdminSidebar({ mapManagerOnly }: { mapManagerOnly?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <aside className="w-[280px] h-screen sticky top-0 left-0 border-r border-border/40 flex-shrink-0 max-[768px]:hidden">
-      <SidebarContent />
-    </aside>
+    <>
+      {/* Mobile top bar */}
+      <div className="min-[769px]:hidden flex items-center gap-3 px-4 h-14 border-b border-border/40 bg-background/95 backdrop-blur sticky top-0 z-10">
+        <Button variant="ghost" size="icon" onClick={() => setIsOpen(true)}>
+          <Menu className="h-5 w-5" />
+        </Button>
+        <h2 className="text-base font-bold">Admin Dashboard</h2>
+      </div>
+
+      {/* Mobile drawer */}
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetContent side="left" className="w-[280px] p-0">
+          <SidebarContent onNavigate={() => setIsOpen(false)} mapManagerOnly={mapManagerOnly} />
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop sidebar */}
+      <aside className="w-[280px] h-screen sticky top-0 left-0 border-r border-border/40 flex-shrink-0 max-[768px]:hidden">
+        <SidebarContent mapManagerOnly={mapManagerOnly} />
+      </aside>
+    </>
   );
 }
