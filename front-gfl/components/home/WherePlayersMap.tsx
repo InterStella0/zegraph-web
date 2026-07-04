@@ -5,7 +5,7 @@ import {Card, CardContent} from 'components/ui/card';
 import {Badge} from 'components/ui/badge';
 import {Skeleton} from 'components/ui/skeleton';
 import {ContinentStatistics} from 'types/players';
-import PlayerContinentCounter from 'components/players/PlayerContinentCounter';
+import ContinentChips from './ContinentChips';
 import {fetchGlobalContinents} from './homeData';
 
 const WorldRadarMap = dynamic(() => import('./WorldRadarMap'), {
@@ -56,7 +56,7 @@ export default function WherePlayersMap() {
                 </div>
 
                 {geo && geo.total_count > 0 && (
-                    <PlayerContinentCounter continentData={geo} truncate={6} />
+                    <ContinentChips continentData={geo} />
                 )}
             </CardContent>
         </Card>
