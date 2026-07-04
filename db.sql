@@ -344,6 +344,16 @@ CREATE TABLE website.kofi_donors (
 );
 
 
+CREATE TABLE website.ze_community_links (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL,
+    url         TEXT NOT NULL,
+    description TEXT,
+    sort_order  INT NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
 
 CREATE TABLE website.player_map_time(
     server_id VARCHAR(100) REFERENCES server(server_id) ON DELETE CASCADE NOT NULL,
