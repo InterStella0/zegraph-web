@@ -24,6 +24,9 @@ export default async function Page() {
                         <p className="text-base sm:text-lg md:text-xl break-words">
                             Zombie Escape communities that I track &gt;:3
                         </p>
+                        <p className="text-base sm:text-sm md:text-md break-words">
+                            Discover zombie escape (ZE) communities on Counter Strike 2 (CS2), Counter Strike: Global Offensive (CSGO) and Counter Strike: Source (CSS)!
+                        </p>
                     </div>
                     <AdSpot className="w-full" />
                     <HomePopulationRadar />
