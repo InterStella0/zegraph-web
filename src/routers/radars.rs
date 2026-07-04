@@ -191,6 +191,58 @@ impl RadarApi {
         };
         response!(ok stats)
     }
+    #[oai(path="/radars/global/live_statistics/continents", method="get")]
+    async fn radar_statistic_live_continents_global(
+        &self, Data(app): Data<&AppData>,
+    ) -> Response<ContinentStatistics> {
+        let pool = &*app.pool.clone();
+        let func = || sqlx::query_as!(DbContinentStatistic, "
+            WITH vars AS (
+              SELECT
+                CURRENT_TIMESTAMP - INTERVAL '12 hours' AS currently
+            ),
+            total_player_counts AS (
+              SELECT
+                 COUNT(DISTINCT player_id) AS c
+              FROM player_server_session
+              WHERE started_at >= (SELECT currently FROM vars)
+                AND ended_at IS NULL
+            ),
+            deduplicated_countries AS (
+              SELECT
+                \"ISO_A2_EH\" AS country_code,
+                MIN(\"NAME\") AS country_name,
+				MIN(\"CONTINENT\") as continent
+              FROM layers.countries_fixed
+              GROUP BY \"ISO_A2_EH\"
+            )
+            SELECT
+                dc.continent continent,
+                COUNT(DISTINCT player_id) AS players_per_continent,
+                (SELECT c FROM total_player_counts) AS total_players
+            FROM public.player_server_mapped fps
+            LEFT JOIN deduplicated_countries dc
+              ON dc.country_code = fps.location_country
+            GROUP BY continent
+            ORDER BY players_per_continent DESC
+        ")
+            .fetch_all(pool);
+        let key = "live-statistics-continents:global";
+        let Ok(result) = cached_response(key, &app.cache, 60, func).await else {
+            tracing::warn!("Unable to cache live-statistics-continents global");
+            return response!(internal_server_error)
+        };
+        let data = result.result;
+        let total = data.first().and_then(|m| m.total_players).unwrap_or(0);
+        let available = data.iter().filter_map(|m| m.players_per_continent).sum();
+
+        let stats = ContinentStatistics{
+            contain_countries: available,
+            total_count: total.max(available),
+            continents: data.iter_into()
+        };
+        response!(ok stats)
+    }
 
     #[oai(path="/radars/:server_id/live_statistics", method="get")]
     async fn radar_statistic_live(
@@ -431,6 +483,7 @@ impl UriPatternExt for RadarApi{
             "/radars/{server_id}/statistics",
             "/radars/{server_id}/live_statistics",
             "/radars/{server_id}/live_statistics/continents",
+            "/radars/global/live_statistics/continents",
         ].iter_into()
     }
 }

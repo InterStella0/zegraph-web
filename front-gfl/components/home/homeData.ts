@@ -1,5 +1,6 @@
 import {fetchUrl} from "utils/generalUtils";
-import {CommunityCountData, GlobalGeoStatistics, PopulationTimeType} from "types/home";
+import {CommunityCountData, PopulationTimeType} from "types/home";
+import {ContinentStatistics} from "types/players";
 
 // Distinct line colors for user-selected communities (up to 8), roughly matching the
 // design palette (emerald / orange / green / purple / blue / pink / yellow / red).
@@ -32,11 +33,11 @@ export async function fetchCommunityPopulation(
     ).catch(() => []) as Promise<CommunityCountData[]>;
 }
 
-// Fetch the aggregate geo distribution across all servers. Returns null on any error
-// (incl. the endpoint not existing yet) so the map can render an empty state.
-export async function fetchGlobalGeo(signal?: AbortSignal): Promise<GlobalGeoStatistics | null> {
-    return fetchUrl("/radars/global/live_statistics", {signal}, false)
-        .catch(() => null) as Promise<GlobalGeoStatistics | null>;
+// Fetch the live continent distribution across all servers. Returns null on any error
+// so the map can render without the breakdown.
+export async function fetchGlobalContinents(signal?: AbortSignal): Promise<ContinentStatistics | null> {
+    return fetchUrl("/radars/global/live_statistics/continents", {signal}, false)
+        .catch(() => null) as Promise<ContinentStatistics | null>;
 }
 
 // Percentage change between the first and last points of a series. Returns null when it

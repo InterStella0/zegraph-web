@@ -4,27 +4,23 @@ import {useEffect, useState} from 'react';
 import {Card, CardContent} from 'components/ui/card';
 import {Badge} from 'components/ui/badge';
 import {Skeleton} from 'components/ui/skeleton';
-import {GlobalGeoStatistics} from 'types/home';
-import {fetchGlobalGeo} from './homeData';
+import {ContinentStatistics} from 'types/players';
+import PlayerContinentCounter from 'components/players/PlayerContinentCounter';
+import {fetchGlobalContinents} from './homeData';
 
-// The map itself is a QGIS WMS layer covering all servers (see WorldRadarMap), so it
-// renders regardless of the geo endpoint. The geo fetch only drives the header/legend.
 const WorldRadarMap = dynamic(() => import('./WorldRadarMap'), {
     ssr: false,
     loading: () => <Skeleton className="h-full w-full rounded-md" />,
 });
 
-const REGION_DOT = '#34d399';
-
 export default function WherePlayersMap() {
-    const [geo, setGeo] = useState<GlobalGeoStatistics | null>(null);
-    // Bumped every minute to slide the WMS time window forward (keeps the map ~live).
+    const [geo, setGeo] = useState<ContinentStatistics | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
         const controller = new AbortController();
         const load = () => {
-            fetchGlobalGeo(controller.signal).then(data => {
+            fetchGlobalContinents(controller.signal).then(data => {
                 if (controller.signal.aborted) return;
                 setGeo(data);
             });
@@ -40,10 +36,6 @@ export default function WherePlayersMap() {
         };
     }, []);
 
-    const regions = geo?.regions ?? [];
-    const sortedRegions = [...regions].sort((a, b) => b.count - a.count);
-    const hasData = regions.length > 0;
-
     return (
         <Card className="h-full">
             <CardContent className="p-4 sm:p-6 flex flex-col h-full">
@@ -52,7 +44,7 @@ export default function WherePlayersMap() {
                         <h2 className="text-base sm:text-lg font-semibold">Where players are</h2>
                         <p className="text-xs text-muted-foreground mt-0.5">
                             {geo
-                                ? `${geo.total_online.toLocaleString()} online · ${geo.country_count} countries`
+                                ? `${geo.total_count.toLocaleString()} online`
                                 : 'Live player distribution'}
                         </p>
                     </div>
@@ -63,16 +55,8 @@ export default function WherePlayersMap() {
                     <WorldRadarMap refreshKey={refreshKey} />
                 </div>
 
-                {hasData && (
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
-                        {sortedRegions.map(region => (
-                            <div key={region.name} className="flex flex-row items-center gap-1.5">
-                                <span className="h-2 w-2 rounded-full" style={{backgroundColor: REGION_DOT}} />
-                                <span className="text-xs text-muted-foreground">{region.name}</span>
-                                <span className="text-xs font-medium">{region.count.toLocaleString()}</span>
-                            </div>
-                        ))}
-                    </div>
+                {geo && geo.total_count > 0 && (
+                    <PlayerContinentCounter continentData={geo} truncate={6} />
                 )}
             </CardContent>
         </Card>
