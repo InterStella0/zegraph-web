@@ -21,11 +21,10 @@ export const COMMUNITY_COLORS = [
 export async function fetchCommunityPopulation(
     communityId: string,
     timeType: PopulationTimeType,
-    time?: string,
+    time: string,
     signal?: AbortSignal,
 ): Promise<CommunityCountData[]> {
-    const params: Record<string, string> = {time_type: timeType};
-    if (time) params.time = time;
+    const params: Record<string, string> = {time_type: timeType, time};
     return fetchUrl(
         `/communities/${communityId}/unique_players`,
         {params, signal},

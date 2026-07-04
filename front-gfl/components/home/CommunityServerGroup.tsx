@@ -13,6 +13,7 @@ import {getServerAvatarText} from 'components/ui/CommunitySelector';
 import {GAME_META} from 'components/ui/ServerIndicator';
 import {Community, Server} from 'types/community';
 import {computeTrend, fetchCommunityPopulation} from './homeData';
+import dayjs from "dayjs";
 
 const Sparkline = dynamic(() => import('./Sparkline'), {ssr: false});
 
@@ -95,7 +96,7 @@ export default function CommunityServerGroup({community}: {community: Community}
 
     useEffect(() => {
         const controller = new AbortController();
-        fetchCommunityPopulation(community.id, 'OneDay', undefined, controller.signal).then(data => {
+        fetchCommunityPopulation(community.id, 'OneDay', dayjs().toJSON(), controller.signal).then(data => {
             if (controller.signal.aborted) return;
             setPoints(data.map(d => ({x: d.bucket_time, y: d.player_count})));
             setTrend(computeTrend(data));
