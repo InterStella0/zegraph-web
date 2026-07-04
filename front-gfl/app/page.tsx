@@ -25,8 +25,8 @@ export default async function Page() {
                             Zombie Escape communities that I track &gt;:3
                         </p>
                     </div>
-                    <HomePopulationRadar />
                     <AdSpot className="w-full" />
+                    <HomePopulationRadar />
                     <Suspense fallback={<CommunityListLoading />}>
                         <CommunityList communitiesDataPromise={communitiesDataPromise} />
                     </Suspense>
