@@ -111,3 +111,9 @@ flowchart LR
 ![Radar Page2](assets/radar_country.png)
 
 ![Tracker Page](assets/tracker.png)
+
+![3D Viewer](assets/3d_viewer.png)
+
+![Info Sharing](assets/info_sharing.png)
+
+![Statuses](assets/status.png)
