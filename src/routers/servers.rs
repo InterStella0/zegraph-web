@@ -196,8 +196,17 @@ impl ServerApi {
             community.community_id, time_type, rounded_secs
         );
 
+        let cache_ttl: u64 = match time_type {
+            CommunityGraphTime::TenMinutes => 3 * 60,
+            CommunityGraphTime::OneHour   => 30 * 60,
+            CommunityGraphTime::OneDay    => 2 * 60 * 60,
+        };
         let community_id = community.community_id.clone();
         let bound_time = truncated_time.to_db_time();
+        let time_type_str = time_type.to_string();
+        // Closed buckets come precomputed from community_player_counts (pg_cron,
+        // get_community_player_counts); only buckets missing from it (the open
+        // tail, or gaps the cron hasn't covered yet) are computed live.
         let func = || sqlx::query_as!(
             DbServerCountData,
             "WITH buckets AS (
@@ -210,26 +219,37 @@ impl ServerApi {
                     $3::TEXT::interval
                 ) AS gs
             ),
-            community_servers AS (
-                SELECT server_id FROM server WHERE community_id = $1::TEXT::uuid
+            stored AS (
+                SELECT b.bucket_time, c.player_count
+                FROM buckets b
+                JOIN community_player_counts c
+                    ON c.community_id = $1::TEXT::uuid
+                   AND c.time_type = $4
+                   AND c.bucket_time = b.bucket_time
+            ),
+            live AS (
+                SELECT
+                    b.bucket_time,
+                    COUNT(DISTINCT pss.player_id)::bigint AS player_count
+                FROM buckets b
+                LEFT JOIN player_server_session pss
+                    ON pss.server_id IN (SELECT server_id FROM server WHERE community_id = $1::TEXT::uuid)
+                   AND tstzrange(pss.started_at, pss.ended_at)
+                       && tstzrange(b.bucket_time, b.bucket_end)
+                WHERE NOT EXISTS (SELECT 1 FROM stored s WHERE s.bucket_time = b.bucket_time)
+                GROUP BY b.bucket_time
             )
-            SELECT
-                NULL::VARCHAR(100) AS server_id,
-                b.bucket_time,
-                COUNT(DISTINCT pss.player_id)::bigint AS player_count
-            FROM buckets b
-            LEFT JOIN player_server_session pss
-                ON pss.server_id IN (SELECT server_id FROM community_servers)
-               AND tstzrange(pss.started_at, pss.ended_at)
-                   && tstzrange(b.bucket_time, b.bucket_end)
-            GROUP BY b.bucket_time
-            ORDER BY b.bucket_time DESC",
+            SELECT NULL::VARCHAR(100) AS server_id, bucket_time, player_count FROM stored
+            UNION ALL
+            SELECT NULL::VARCHAR(100), bucket_time, player_count FROM live
+            ORDER BY bucket_time DESC",
             community_id,
             bound_time,
-            interval_str
+            interval_str,
+            time_type_str
         ).fetch_all(pool);
 
-        let Ok(response) = cached_response(&key, &data.cache, 600, func).await else {
+        let Ok(response) = cached_response(&key, &data.cache, cache_ttl, func).await else {
             return response!(internal_server_error)
         };
 

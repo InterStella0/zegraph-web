@@ -853,6 +853,16 @@ CREATE TABLE server_player_counts (
 CREATE INDEX idx_server_bucket_time_desc
     ON server_player_counts (server_id, bucket_time DESC);
 
+CREATE TABLE community_player_counts (
+    community_id UUID NOT NULL REFERENCES community(community_id) ON DELETE CASCADE,
+    time_type    VARCHAR(10) NOT NULL,          -- '10min' | '1hr' | '1day' (matches CommunityGraphTime Display)
+    bucket_time  TIMESTAMP WITH TIME ZONE NOT NULL,
+    player_count BIGINT NOT NULL,
+    PRIMARY KEY (community_id, time_type, bucket_time)
+);
+CREATE INDEX idx_community_player_counts_desc
+    ON community_player_counts (community_id, time_type, bucket_time DESC);
+
 CREATE TABLE server_map
 (
     server_id VARCHAR(100) NOT NULL REFERENCES server(server_id) ON DELETE CASCADE,
@@ -948,6 +958,50 @@ SELECT
     bucket_time,
     LEAST(player_count, 64)
 FROM historical_counts;
+$$ LANGUAGE SQL STABLE;
+
+CREATE OR REPLACE FUNCTION get_community_player_counts(p_community_id UUID, p_time_type TEXT, p_width INTERVAL)
+RETURNS TABLE (
+    community_id UUID,
+    time_type TEXT,
+    bucket_time TIMESTAMP WITH TIME ZONE,
+    player_count BIGINT
+) AS $$
+WITH vars AS (
+    SELECT
+        COALESCE((
+            SELECT MAX(c.bucket_time) - p_width FROM community_player_counts c
+            WHERE c.community_id = p_community_id AND c.time_type = p_time_type
+        ), (
+            SELECT date_bin(p_width, MIN(pss.started_at), 'epoch'::timestamptz)
+            FROM player_server_session pss
+            JOIN server s ON s.server_id = pss.server_id
+            WHERE s.community_id = p_community_id
+        )) AS start_time,
+        date_bin(p_width, now(), 'epoch'::timestamptz) - p_width AS end_time
+),
+buckets AS (
+    SELECT gs AS bucket_time, gs + p_width AS bucket_end
+    FROM generate_series(
+        (SELECT start_time FROM vars),
+        (SELECT end_time FROM vars),
+        p_width
+    ) AS gs
+),
+community_servers AS (
+    SELECT s.server_id FROM server s WHERE s.community_id = p_community_id
+)
+SELECT
+    p_community_id,
+    p_time_type,
+    b.bucket_time,
+    COUNT(DISTINCT pss.player_id)::bigint
+FROM buckets b
+LEFT JOIN player_server_session pss
+    ON pss.server_id IN (SELECT cs.server_id FROM community_servers cs)
+   AND tstzrange(pss.started_at, pss.ended_at)
+       && tstzrange(b.bucket_time, b.bucket_end)
+GROUP BY b.bucket_time
 $$ LANGUAGE SQL STABLE;
 
 
@@ -1158,6 +1212,48 @@ SELECT cron.schedule_in_database(
         DELETE FROM website.map_change_subscriptions
         WHERE triggered = TRUE
           AND triggered_at < NOW() - INTERVAL '7 days';
+    $$,
+    'cs2_tracker_db'  -- INSERT YOUR DB NAME
+);
+
+SELECT cron.schedule_in_database(
+    'update-community-counts-10min',
+    '*/20 * * * *',  -- Every 20 minutes
+    $$
+        INSERT INTO community_player_counts (community_id, time_type, bucket_time, player_count)
+        SELECT g.community_id, g.time_type, g.bucket_time, g.player_count
+        FROM community c
+        JOIN LATERAL get_community_player_counts(c.community_id, '10min', INTERVAL '10 minutes') AS g ON TRUE
+        ON CONFLICT (community_id, time_type, bucket_time) DO UPDATE
+        SET player_count = EXCLUDED.player_count;
+    $$,
+    'cs2_tracker_db'  -- INSERT YOUR DB NAME
+);
+
+SELECT cron.schedule_in_database(
+    'update-community-counts-1hr',
+    '0 */2 * * *',  -- Every 2 hours
+    $$
+        INSERT INTO community_player_counts (community_id, time_type, bucket_time, player_count)
+        SELECT g.community_id, g.time_type, g.bucket_time, g.player_count
+        FROM community c
+        JOIN LATERAL get_community_player_counts(c.community_id, '1hr', INTERVAL '1 hour') AS g ON TRUE
+        ON CONFLICT (community_id, time_type, bucket_time) DO UPDATE
+        SET player_count = EXCLUDED.player_count;
+    $$,
+    'cs2_tracker_db'  -- INSERT YOUR DB NAME
+);
+
+SELECT cron.schedule_in_database(
+    'update-community-counts-1day',
+    '30 0 * * *',  -- Daily at 00:30 UTC, after the day bucket closes
+    $$
+        INSERT INTO community_player_counts (community_id, time_type, bucket_time, player_count)
+        SELECT g.community_id, g.time_type, g.bucket_time, g.player_count
+        FROM community c
+        JOIN LATERAL get_community_player_counts(c.community_id, '1day', INTERVAL '1 day') AS g ON TRUE
+        ON CONFLICT (community_id, time_type, bucket_time) DO UPDATE
+        SET player_count = EXCLUDED.player_count;
     $$,
     'cs2_tracker_db'  -- INSERT YOUR DB NAME
 );
