@@ -17,6 +17,7 @@ import MapNotifyButton from "components/maps/MapNotifyButton";
 import {SteamProfile} from "../../next-auth-steam/steam";
 import {Server} from "types/community.ts";
 import {MapPlayed, MapPlayedPaginated} from "types/maps.ts";
+import CategoryChip from "components/ui/CategoryChip.tsx";
 
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
@@ -135,26 +136,11 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
                             </HoverPrefetchLink>
                         </div>
                         <div className="flex gap-1 mt-1">
-                            {map.is_casual && (
-                                <Badge variant="outline" className="text-xs border-green-500 text-green-600 dark:text-green-500">
-                                    CASUAL
-                                </Badge>
-                            )}
-                            {map.is_tryhard && (
-                                <Badge variant="secondary" className="text-xs">
-                                    TRYHARD
-                                </Badge>
-                            )}
-                            {map.has_lasers && (
-                                <Badge variant="outline" className="text-xs border-blue-500 text-blue-600 dark:text-blue-400">
-                                    LASERS
-                                </Badge>
-                            )}
-                            {map.no_noms && (
-                                <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 dark:text-orange-500">
-                                    NO NOMS
-                                </Badge>
-                            )}
+                            {map.is_casual && !map.is_tryhard && <CategoryChip category="casual" size="small" />}
+                            {map.is_tryhard && !map.is_casual  && <CategoryChip category="tryhard" size="small" />}
+                            {map.is_tryhard && map.is_casual && <CategoryChip category="mixed" size="small" />}
+                            {map.has_lasers && <CategoryChip category="lasers" title="Map contains killable lasers" size="small" />}
+                            {map.no_noms && <CategoryChip category="no noms" title="Nominations disabled" size="small" />}
                             {map.min_players != null && map.min_players > 0 && (
                                 <Badge variant="outline" className="text-xs">
                                     Min {map.min_players}

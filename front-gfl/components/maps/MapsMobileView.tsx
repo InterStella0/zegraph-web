@@ -11,6 +11,7 @@ import {Skeleton} from "components/ui/skeleton";
 import {Pagination, PaginationContent, PaginationFirst, PaginationItem, PaginationLast, PaginationLink, PaginationNext, PaginationPrevious} from "components/ui/pagination";
 import {Server} from "types/community.ts";
 import {MapPlayedPaginated} from "types/maps.ts";
+import CategoryChip from "components/ui/CategoryChip.tsx";
 
 export const MapsMobileViewSkeleton = () => {
     const [isClient, setIsClient] = useState(false)
@@ -65,32 +66,17 @@ function MapCardView({ server, map, favorites, toggleFavorite }){
                         {map.map}
                     </Link>
                     <div className="flex gap-1 flex-wrap mb-2">
-                        {map.is_casual && (
-                            <Badge variant="outline" className="text-xs border-green-500 text-green-600 dark:text-green-500">
-                                CASUAL
-                            </Badge>
-                        )}
-                        {map.is_tryhard && (
-                            <Badge variant="secondary" className="text-xs">
-                                TRYHARD
-                            </Badge>
-                        )}
-                        {map.has_lasers && (
-                            <Badge variant="outline" className="text-xs border-blue-500 text-blue-600 dark:text-blue-400">
-                                LASERS
-                            </Badge>
-                        )}
-                        {map.no_noms && (
-                            <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 dark:text-orange-500">
-                                NO NOMS
-                            </Badge>
-                        )}
-                        {map.min_players != null && (
+                        {map.is_casual && !map.is_tryhard && <CategoryChip category="casual" size="small" />}
+                        {map.is_tryhard && !map.is_casual && <CategoryChip category="tryhard" size="small" />}
+                        {map.is_tryhard && map.is_casual && <CategoryChip category="mixed" size="small" />}
+                        {map.has_lasers && <CategoryChip category="lasers" size="small" title="Map contains killable lasers" />}
+                        {map.no_noms && <CategoryChip category="no noms" size="small" title="Nominations disabled" />}
+                        {map.min_players != null && map.min_players > 0 && (
                             <Badge variant="outline" className="text-xs">
                                 Min {map.min_players}
                             </Badge>
                         )}
-                        {map.max_players != null && (
+                        {map.max_players != null && (map.max_players != server.max_players && map.max_players != 0)  && (
                             <Badge variant="outline" className="text-xs">
                                 Max {map.max_players}
                             </Badge>

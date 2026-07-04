@@ -534,7 +534,7 @@ function EditMapDialog({
                 <div className="flex items-center justify-between rounded-lg border px-4 py-3">
                   <div>
                     <Label className="text-sm font-medium">Has Lasers</Label>
-                    <p className="text-xs text-muted-foreground">Map contains laser obstacles</p>
+                    <p className="text-xs text-muted-foreground">Map contains killable lasers</p>
                   </div>
                   <Switch checked={globalHasLasers} onCheckedChange={setGlobalHasLasers} />
                 </div>
@@ -582,8 +582,6 @@ function EditMapDialog({
     </Dialog>
   )
 }
-
-// ─── MapManagementCard ────────────────────────────────────────────────────────
 
 function MapManagementCard({
   entry,
