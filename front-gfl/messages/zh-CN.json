@@ -52,7 +52,7 @@
     "wherePlayersAre": "玩家所在位置",
     "onlineCount": "{count, number} 人在线",
     "liveDistribution": "实时玩家分布",
-    "liveSessions": "实时会话",
+    "liveSessions": "实时场次",
     "uniquePlayersByCommunity": "按社区划分的独立玩家",
     "selectedCombined": "已选择 {count} 个 · 合并显示",
     "interval10Min": "10 分钟",
@@ -258,14 +258,14 @@
       "loadError": "玩家地区数据无法加载"
     },
     "hourOfDay": {
-      "title": "按小时分布的会话统计",
+      "title": "按小时分布的场次统计",
       "hourOfDayAxis": "小时",
       "joinCount": "加入次数",
       "leaveCount": "离开次数",
       "noData": "暂无按小时统计的数据。",
       "utcSuffix": " UTC",
       "localTimeSuffix": " 当地时间",
-      "summary": "会话活动显示了 {joins} 次加入和 {leaves} 次离开。加入高峰时段：{peakJoinHour}:00{timezone}（{peakJoinCount} 次加入）。离开高峰时段：{peakLeaveHour}:00{timezone}（{peakLeaveCount} 次离开）。",
+      "summary": "场次活动显示了 {joins} 次加入和 {leaves} 次离开。加入高峰时段：{peakJoinHour}:00{timezone}（{peakJoinCount} 次加入）。离开高峰时段：{peakLeaveHour}:00{timezone}（{peakLeaveCount} 次离开）。",
       "genericError": "出错了 :/",
       "myTimezone": "我的时区",
       "loadError": "获取玩家小时数据时出错！"
@@ -281,11 +281,11 @@
       "sum": "总计"
     },
     "sessions": {
-      "title": "游戏会话",
+      "title": "游戏场次",
       "ongoing": "进行中",
       "filterByDate": "按日期筛选",
       "clear": "清除",
-      "noSessions": "未找到符合条件的会话。"
+      "noSessions": "未找到符合条件的场次。"
     },
     "byCountries": {
       "title": "按国家划分的玩家",
@@ -322,8 +322,8 @@
     "noScoreData": "暂无比分数据",
     "noImage": "无图片",
     "noServerPopData": "暂无服务器人数数据。",
-    "serverPopTitle": "会话期间的服务器人数",
-    "serverPopSubtitle": "整场会话中的人数变化",
+    "serverPopTitle": "场次期间的服务器人数",
+    "serverPopSubtitle": "整场场次中的人数变化",
     "continentDistribution": "大洲分布",
     "continentSubtitle": "游玩此场次的玩家所在位置。"
   },
@@ -343,7 +343,7 @@
   "maps": {
     "graph": "图表",
     "details": "详情",
-    "sessions": "会话",
+    "sessions": "场次",
     "communityGuides": "社区攻略",
     "error": "错误",
     "failedToLoad": "加载失败",
@@ -362,7 +362,7 @@
       "viewIn3d": "以 3D 查看",
       "no3dModel": "此地图暂无 3D 模型",
       "totalPlaytime": "总游戏时长",
-      "sessions": "会话数",
+      "sessions": "场次数",
       "lastPlayed": "上次游玩",
       "havePlayed": "人玩过此地图",
       "loadError": "地图头部信息无法加载 :/"
@@ -370,13 +370,13 @@
     "analyze": {
       "stillCalculating": "仍在计算中，数据尚未就绪，请稍后再来~",
       "avgPlayers": "平均玩家数",
-      "avgPlayersDesc": "每场会话的平均玩家人数",
+      "avgPlayersDesc": "每场场次的平均玩家人数",
       "dropoffRate": "流失率",
       "dropoffRateDesc": "5 分钟后退出的玩家百分比",
       "avgPlaytime": "平均游戏时长",
       "avgPlaytimeDesc": "每位玩家在此地图上平均花费的时间",
       "cumHours": "累计小时数",
-      "cumHoursDesc": "所有玩家每场会话累计小时数的汇总",
+      "cumHoursDesc": "所有玩家每场场次累计小时数的汇总",
       "creators": "创作者",
       "unknown": "未知",
       "creatorsDesc": "由这些人制作。来源：s2ze.com",
@@ -399,13 +399,13 @@
       "range30to45": "30 - 45 分钟",
       "range45to60": "45 - 60 分钟",
       "over60": "> 60 分钟",
-      "numberOfSessions": "会话数量",
-      "noData": "暂无会话时长数据。",
-      "title": "会话时长分布",
-      "tooltip": "显示玩家每场会话所花费的时间",
-      "totalSessions": "总会话数：{count}",
-      "totalSessionsLabel": "总会话数：",
-      "loadError": "地图平均会话分布出现错误 :/"
+      "numberOfSessions": "场次数量",
+      "noData": "暂无场次时长数据。",
+      "title": "场次时长分布",
+      "tooltip": "显示玩家每场场次所花费的时间",
+      "totalSessions": "总场次数：{count}",
+      "totalSessionsLabel": "总场次数：",
+      "loadError": "地图平均场次分布出现错误 :/"
     },
     "playerType": {
       "playerHours": "玩家小时数",
@@ -461,16 +461,16 @@
     },
     "sessionList": {
       "somethingWrong": "出错了 :/",
-      "title": "会话",
-      "sessionHash": "会话 #",
-      "sessionNumber": "会话 #{id}",
+      "title": "场次",
+      "sessionHash": "场次 #",
+      "sessionNumber": "场次 #{id}",
       "playedAt": "游玩于 {time}",
       "minutes": "{count}分钟",
-      "sessionDuration": "会话时长",
+      "sessionDuration": "场次时长",
       "matchInfo": "比赛信息",
       "humanVsZombie": "人类比分 : 僵尸比分",
       "finalScore": "最终比分（大致准确）",
-      "noSessionFound": "未找到会话。"
+      "noSessionFound": "未找到场次。"
     },
     "filter": {
       "allMaps": "所有地图",
@@ -503,7 +503,7 @@
       "cumulativeHours": "累计小时数",
       "hours": "小时数",
       "players": "玩家数",
-      "sessions": "会话数",
+      "sessions": "场次数",
       "lastPlayed": "上次游玩",
       "showing": "显示第 {start}-{end} 项，共 {total} 项"
     },
@@ -968,7 +968,7 @@
       "players": "玩家（{count}）",
       "loadingPlayers": "正在加载玩家数据...",
       "loading": "加载中...",
-      "playerStats": "{hours}小时 • {sessions} 场会话",
+      "playerStats": "{hours}小时 • {sessions} 场场次",
       "noPlayers": "未找到玩家"
     }
   },
@@ -998,7 +998,7 @@
     "playerCalculating": "该玩家仍在计算中，请稍后再来~",
     "viewPlayerActivities": "查看 {name} 的玩家活动",
     "playerHas": "他们拥有 {hours}",
-    "aboutSessions": "，约 {count} 场会话，",
+    "aboutSessions": "，约 {count} 场场次，",
     "andRank": "排名为{rank}",
     "onServer": "于 {name}。",
     "playerType": "一名{category}类型的玩家，拥有 {hours} 的{type}时间。",
