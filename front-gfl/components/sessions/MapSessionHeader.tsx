@@ -1,3 +1,4 @@
+import {useTranslations} from 'next-intl';
 import { Button } from 'components/ui/button';
 import { Badge } from 'components/ui/badge';
 import { ArrowLeft } from 'lucide-react';
@@ -13,7 +14,8 @@ export default function MapSessionHeader(
     { sessionInfo, server, mapImage }:
     { sessionInfo: SessionInfo<"map">, mapImage: string | null, server: Server }
 ) {
-    const ended = sessionInfo ? sessionInfo.ended_at ? formatTime(sessionInfo.ended_at) : ' ongoing' : ''
+    const t = useTranslations('sessions');
+    const ended = sessionInfo ? sessionInfo.ended_at ? formatTime(sessionInfo.ended_at) : ` ${t('ongoing')}` : ''
 
     return (
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
@@ -39,7 +41,7 @@ export default function MapSessionHeader(
                             {sessionInfo.map}
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Session #{sessionInfo.time_id}
+                            {t('sessionNumber', {id: sessionInfo.time_id})}
                         </p>
                     </div>
                 </div>

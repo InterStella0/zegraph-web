@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from 'components/ui/card';
 import { Button } from 'components/ui/button';
 import { Skeleton } from 'components/ui/skeleton';
@@ -31,6 +32,7 @@ export default function MutualSessionsDisplay<T extends SessionType>(
     { server, mutualSessions, type }:
     { server: Server, mutualSessions: MutualSessionReturn<T>, type: T }
 ) {
+    const t = useTranslations('sessions');
     const [mutualCurrentPage, setMutualCurrentPage] = useState(0);
     const isPlayer = type === 'player';
     const isMap = type === 'map'
@@ -49,7 +51,7 @@ export default function MutualSessionsDisplay<T extends SessionType>(
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle>
-                        {isPlayer ? 'Mutual Sessions' : isMap ? 'Players' : ''}
+                        {isPlayer ? t('mutualSessions') : isMap ? t('players') : ''}
                     </CardTitle>
 
                     {totalPages > 1 && (
@@ -78,7 +80,7 @@ export default function MutualSessionsDisplay<T extends SessionType>(
                                 </p>
                             </div>
                             <div className="text-sm font-semibold text-primary flex-shrink-0">
-                                {(player[isPlayer ? 'total_time_together' : isMap ? 'total_playtime' : ''] / 60).toFixed(1)}mins
+                                {t('minutesValue', {value: (player[isPlayer ? 'total_time_together' : isMap ? 'total_playtime' : ''] / 60).toFixed(1)})}
                             </div>
                         </div>
                     </HoverPrefetchLink>

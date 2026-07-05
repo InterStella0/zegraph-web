@@ -22,7 +22,7 @@ export default function MapSessionStats(
                             {formatDuration(sessionInfo.started_at, sessionInfo.ended_at || dayjs())}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                            {sessionInfo.ended_at ? 'Total' : 'Current'} Duration
+                            {sessionInfo.ended_at ? t('totalDuration') : t('currentDuration')}
                         </div>
                     </div>
 

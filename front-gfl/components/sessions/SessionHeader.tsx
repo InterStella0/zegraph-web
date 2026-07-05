@@ -1,3 +1,4 @@
+import {useTranslations} from 'next-intl';
 import { Button } from 'components/ui/button';
 import { Badge } from 'components/ui/badge';
 import { ArrowLeft } from 'lucide-react';
@@ -17,7 +18,8 @@ export const SessionHeader = (
     : { server: Server; player: PlayerInfo; sessionInfo: PlayerSession }
 
 ) => {
-    const ended = sessionInfo.ended_at ? formatTime(sessionInfo.ended_at) : 'now';
+    const t = useTranslations('sessions');
+    const ended = sessionInfo.ended_at ? formatTime(sessionInfo.ended_at) : t('now');
 
     return (
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
@@ -32,10 +34,10 @@ export const SessionHeader = (
                     <PlayerAvatar uuid={player.id} name={player.name} />
                     <div className="min-w-0">
                         <h1 className="text-xl sm:text-2xl font-semibold truncate max-w-[150px] sm:max-w-[300px]">
-                            {player.name}'s Session
+                            {t('playerSession', {name: player.name})}
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Session #{sessionInfo.id}
+                            {t('sessionNumber', {id: sessionInfo.id})}
                         </p>
                     </div>
                 </div>
