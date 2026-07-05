@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import { useState, useEffect } from 'react';
 import { Globe, Radar } from 'lucide-react';
 import { getFlagUrl, fetchServerUrl } from "utils/generalUtils.ts";
@@ -29,6 +30,7 @@ const CountriesSkeleton = () => (
 );
 
 export default function PlayerByCountries() {
+    const t = useTranslations('players.byCountries');
     const [countries, setCountries] = useState<CountryStatistic[]>([]);
     const [countriesLoading, setCountriesLoading] = useState<boolean>(true);
     const [countriesError, setCountriesError] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export default function PlayerByCountries() {
             <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <div className="flex items-center gap-2">
                     <Globe className="w-5 h-5 text-primary"/>
-                    <h2 className="text-lg max-sm:text-sm font-semibold">Players by countries</h2>
+                    <h2 className="text-lg max-sm:text-sm font-semibold">{t('title')}</h2>
                 </div>
                 <Button
                     asChild
@@ -78,7 +80,7 @@ export default function PlayerByCountries() {
                 >
                     <Link href={`/servers/${server.gotoLink}/radar`} className="flex items-center gap-2">
                         <Radar className="w-4 h-4" />
-                        <span className="max-sm:hidden">View Radar</span>
+                        <span className="max-sm:hidden">{t('viewRadar')}</span>
                     </Link>
                 </Button>
             </CardHeader>
@@ -87,7 +89,7 @@ export default function PlayerByCountries() {
                     <CountriesSkeleton />
                 ) : countriesError ? (
                     <div className="p-4 text-center">
-                        <p className="text-destructive">Error loading countries: {countriesError}</p>
+                        <p className="text-destructive">{t('loadError', {error: countriesError})}</p>
                     </div>
                 ) : (
                     <>

@@ -11,8 +11,10 @@ import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {ExtendedPlayerBrief} from "types/players.ts";
+import {useTranslations} from 'next-intl';
 
 function MapTop10PlayerListDisplay(): ReactElement{
+    const t = useTranslations('maps.top10');
     const { name } = useMapContext()
     const [ playersInfoResult, setPlayerInfo ] = useState<ExtendedPlayerBrief[]>(null)
     const [ loading, setLoading ] = useState<boolean>(false)
@@ -33,7 +35,7 @@ function MapTop10PlayerListDisplay(): ReactElement{
             })
             .catch(e => {
                 if (e === "Value changed") return
-                setError(e.message || "Something went wrong :/")
+                setError(e.message || t('somethingWrongFace'))
             })
             .finally(() => setLoading(false))
         return () => {
@@ -45,7 +47,7 @@ function MapTop10PlayerListDisplay(): ReactElement{
     return (
         <Card className="w-full">
             <div className="p-4 flex justify-between">
-                <h2 className="text-lg font-bold text-primary">Top 10 Players</h2>
+                <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
                 <div>
                     <TooltipProvider>
                         <Tooltip>
@@ -55,7 +57,7 @@ function MapTop10PlayerListDisplay(): ReactElement{
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>Top 10 players who love the map the most.</p>
+                                <p>{t('tooltip')}</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
@@ -63,7 +65,7 @@ function MapTop10PlayerListDisplay(): ReactElement{
             </div>
             {error && <div className="min-h-[712px] flex items-center justify-center gap-2">
                 <AlertTriangle />
-                <p>{error || "Something went wrong"}</p>
+                <p>{error || t('somethingWrong')}</p>
             </div>}
             {!error && <div className="p-4 min-h-[712px]">
                 <Table>
@@ -73,7 +75,7 @@ function MapTop10PlayerListDisplay(): ReactElement{
                             .map((_, index) => <PlayerTableRowLoading key={index}/>)
                         }
                         {!(loading || playersInfoResult == null) && playersInfo.length === 0 && <TableRow>
-                            <TableCell colSpan={2}>No players in this list.</TableCell>
+                            <TableCell colSpan={2}>{t('noPlayers')}</TableCell>
                         </TableRow>
                         }
                         {absoluteLoad && playersInfo.map(player => <PlayerTableRow player={player} key={player.id}/>)}
@@ -84,7 +86,8 @@ function MapTop10PlayerListDisplay(): ReactElement{
     )
 }
 export default function MapTop10PlayerList(): ReactElement{
-    return <ErrorCatch message="Couldn't load top 10 players.">
+    const t = useTranslations('maps.top10');
+    return <ErrorCatch message={t('loadError')}>
         <MapTop10PlayerListDisplay />
     </ErrorCatch>
 }

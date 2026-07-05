@@ -1,4 +1,6 @@
 'use client'
+import {useTranslations} from 'next-intl';
+import dayjs from 'dayjs';
 import { Card } from "components/ui/card";
 import {
     Select,
@@ -15,6 +17,7 @@ import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/
 import type { PlayerSessionTime } from "./PlayTimeHeatmap";
 
 export default function PlayerDetailHourBar({ player, server }: { server: Server, player: PlayerInfo }) {
+    const t = useTranslations('players.hourBar');
     // Group by state (remove "weekly")
     const [groupByTime, setGroupByTime] = useState<"daily" | "monthly" | "yearly">("daily")
 
@@ -36,29 +39,29 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
         }
     }
 
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const monthNames = Array.from({length: 12}, (_, i) => dayjs().month(i).format('MMM'))
 
     return (
         <Card className="overflow-hidden border-0">
             <div className="flex justify-between items-center flex-col sm:flex-row gap-2 p-2 border-b">
                 <h2 className="text-base font-medium">
-                    Play Time History ({totalPlayTime.toLocaleString()}hr)
+                    {t('title', {hours: totalPlayTime.toLocaleString()})}
                 </h2>
 
                 <div className="flex gap-2 flex-wrap justify-end">
                     {/* Group By selector */}
                     <div className="flex gap-0 rounded-md border overflow-hidden">
                         <div className="border-r bg-background p-1 px-3">
-                            Group By
+                            {t('groupBy')}
                         </div>
                         <Select value={groupByTime} onValueChange={handleGroupChange}>
                             <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="daily">Daily</SelectItem>
-                                <SelectItem value="monthly">Monthly</SelectItem>
-                                <SelectItem value="yearly">Yearly</SelectItem>
+                                <SelectItem value="daily">{t('daily')}</SelectItem>
+                                <SelectItem value="monthly">{t('monthly')}</SelectItem>
+                                <SelectItem value="yearly">{t('yearly')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -67,7 +70,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                     {groupByTime === 'daily' && availableYears.length > 0 && (
                         <div className="flex gap-0 rounded-md border overflow-hidden">
                             <div className="border-r bg-background p-1 px-3">
-                                Year
+                                {t('year')}
                             </div>
                             <Select
                                 value={selectedYear.toString()}
@@ -92,7 +95,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                         <>
                             <div className="flex gap-0 rounded-md border overflow-hidden">
                                 <div className="border-r bg-background p-1 px-3">
-                                    Month
+                                    {t('month')}
                                 </div>
                                 <Select
                                     value={selectedMonth.toString()}
@@ -114,7 +117,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                             {availableYears.length > 0 && (
                                 <div className="flex gap-0 rounded-md border overflow-hidden">
                                     <div className="border-r bg-background p-1 px-3">
-                                        Year
+                                        {t('year')}
                                     </div>
                                     <Select
                                         value={selectedYear.toString()}
@@ -140,7 +143,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                         <>
                             <div className="flex gap-0 rounded-md border overflow-hidden">
                                 <div className="border-r bg-background p-1 px-3">
-                                    Sum
+                                    {t('sum')}
                                 </div>
                                 <Select
                                     value={sumMethodYearly}
@@ -151,10 +154,10 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="monthly">
-                                            Monthly
+                                            {t('monthly')}
                                         </SelectItem>
                                         <SelectItem value="yearly">
-                                            Yearly
+                                            {t('yearly')}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -163,7 +166,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                             {availableYears.length > 0 && sumMethodYearly !== "yearly" && (
                                 <div className="flex gap-0 rounded-md border overflow-hidden">
                                     <div className="border-r bg-background p-1 px-3">
-                                        Year
+                                        {t('year')}
                                     </div>
                                     <Select
                                         value={selectedYear.toString()}

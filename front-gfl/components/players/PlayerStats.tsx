@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {ReactElement, use, useState} from "react";
 import { Card } from "components/ui/card";
 import { Badge } from "components/ui/badge";
@@ -9,6 +10,7 @@ import {PlayerWithLegacyRanks} from "types/players";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 
 export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: Promise<PlayerWithLegacyRanks | null>, player: PlayerInfo}): ReactElement{
+    const t = useTranslations('players.stats');
     const cStats = use(cStatsPromise)
     const [activeTab, setActiveTab] = useState<string>("playtime");
 
@@ -16,11 +18,11 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="w-full grid grid-cols-2 rounded-none border-b h-auto">
                 <TabsTrigger value="playtime" className="text-sm">
-                    Play Time
+                    {t('playTime')}
                 </TabsTrigger>
                 {cStats && (
                     <TabsTrigger value="csgostats" className="text-sm">
-                        CSGO Stats
+                        {t('csgoStats')}
                     </TabsTrigger>
                 )}
             </TabsList>
@@ -30,7 +32,7 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
                     <div className="space-y-2">
                         <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">
-                                Total:
+                                {t('total')}
                             </span>
                             <span className="text-sm font-medium">
                                 {formatHours(player.total_playtime)}
@@ -39,7 +41,7 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
 
                         <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">
-                                Casual:
+                                {t('casual')}
                             </span>
                             <span className="text-sm font-medium">
                                 {formatHours(player.casual_playtime)}
@@ -48,7 +50,7 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
 
                         <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">
-                                Try Hard:
+                                {t('tryHard')}
                             </span>
                             <span className="text-sm font-medium">
                                 {formatHours(player.tryhard_playtime)}
@@ -57,7 +59,7 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
 
                         <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">
-                                Others:
+                                {t('others')}
                             </span>
                             <span className="text-sm font-medium">
                                 {formatHours(Math.max(player.total_playtime - (player.tryhard_playtime + player.casual_playtime), 0))}
@@ -78,14 +80,14 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
                 <TabsContent value="csgostats" className="p-4 mt-0">
                     <div className="mb-4 flex justify-end">
                         <Badge variant="secondary" className="h-5 px-2">
-                            Untracked
+                            {t('untracked')}
                         </Badge>
                     </div>
 
                     <div className="space-y-2">
                         <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">
-                                Play Time:
+                                {t('playTimeColon')}
                             </span>
                             <span className="text-sm font-medium">
                                 {formatHours(cStats.human_time + cStats.zombie_time)}
@@ -94,7 +96,7 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
 
                         <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">
-                                Headshots:
+                                {t('headshots')}
                             </span>
                             <span className="text-sm font-medium">
                                 {cStats.headshot}
@@ -103,7 +105,7 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
 
                         <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">
-                                Leader Count:
+                                {t('leaderCount')}
                             </span>
                             <span className="text-sm font-medium">
                                 {cStats.leader_count}
@@ -112,7 +114,7 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
 
                         <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">
-                                Total points:
+                                {t('totalPoints')}
                             </span>
                             <span className="text-sm font-medium">
                                 {cStats.points.toFixed(2)}

@@ -13,6 +13,7 @@ import {getServerAvatarText} from 'components/ui/CommunitySelector';
 import {GAME_META} from 'components/ui/ServerIndicator';
 import {Community, Server} from 'types/community';
 import {computeTrend, fetchCommunityPopulation} from './homeData';
+import {useTranslations} from 'next-intl';
 import dayjs from "dayjs";
 
 const Sparkline = dynamic(() => import('./Sparkline'), {ssr: false});
@@ -26,11 +27,12 @@ function truncate(text: string, max: number) {
 }
 
 function ServerRow({server, rank}: {server: Server, rank: number}) {
+    const t = useTranslations('home');
     const ratio = server.max_players > 0 ? (server.players / server.max_players) * 100 : 0;
     const gameMeta = server.game ? GAME_META[server.game] : undefined;
     const handleCopy = () => {
         navigator.clipboard.writeText(server.fullIp);
-        toast.success('Copied to clipboard');
+        toast.success(t('copiedToClipboard'));
     };
     return (
         <div className="flex flex-row items-center gap-3 py-2.5 border-t border-border/60 first:border-t-0">
@@ -61,7 +63,7 @@ function ServerRow({server, rank}: {server: Server, rank: number}) {
             </div>
             <div className="hidden sm:flex flex-col items-end w-28 flex-shrink-0">
                 <span className="text-xs whitespace-nowrap">
-                    <span className="text-muted-foreground">players </span>
+                    <span className="text-muted-foreground">{t('playersLabel')} </span>
                     {server.players} / {server.max_players}
                 </span>
                 <Progress value={ratio} className="h-1 mt-1 w-full" />
@@ -69,7 +71,7 @@ function ServerRow({server, rank}: {server: Server, rank: number}) {
             <button
                 type="button"
                 onClick={handleCopy}
-                title={`Click to copy: ${server.fullIp}`}
+                title={t('clickToCopy', {ip: server.fullIp})}
                 className="group/copy hidden md:flex flex-row items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
             >
                 <span className="select-all">{server.fullIp}</span>
@@ -80,9 +82,9 @@ function ServerRow({server, rank}: {server: Server, rank: number}) {
                 size="sm"
                 className="flex-shrink-0 gap-1.5 font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md group/view"
             >
-                <Link href={`/servers/${server.gotoLink}`} aria-label={`View stats for ${server.name}`}>
+                <Link href={`/servers/${server.gotoLink}`} aria-label={t('viewStatsFor', {name: server.name})}>
                     <BarChart3 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Insight</span>
+                    <span className="hidden sm:inline">{t('insight')}</span>
                     <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover/view:translate-x-0.5" />
                 </Link>
             </Button>
@@ -91,6 +93,7 @@ function ServerRow({server, rank}: {server: Server, rank: number}) {
 }
 
 export default function CommunityServerGroup({community}: {community: Community}) {
+    const t = useTranslations('home');
     const [points, setPoints] = useState<{x: string, y: number}[]>([]);
     const [trend, setTrend] = useState<number | null>(null);
 
@@ -124,7 +127,7 @@ export default function CommunityServerGroup({community}: {community: Community}
                         <div className="min-w-0">
                             <h3 className="text-sm sm:text-base font-semibold truncate">{community.name}</h3>
                             <p className="text-xs text-muted-foreground">
-                                {community.servers.length} {community.servers.length === 1 ? 'server' : 'servers'}
+                                {t('serverCount', {count: community.servers.length})}
                             </p>
                         </div>
                     </div>

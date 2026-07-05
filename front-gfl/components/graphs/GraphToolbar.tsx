@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {Dispatch, ReactElement, SetStateAction, useEffect, useRef, useState} from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import {debounce} from 'utils/generalUtils';
@@ -92,6 +93,7 @@ function SmallDatePicker({ value, onChange, label, disableFuture, maxDateTime, m
 }
 
 function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: Dispatch<SetStateAction<boolean>>}): ReactElement {
+    const t = useTranslations('servers.toolbar');
     const { start: globalStart, end: globalEnd, setDates, source: lastSource, timestamp } = useDateState();
 
     const [localStart, setLocalStart] = useState(globalStart);
@@ -147,13 +149,13 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
                             <SmallDatePicker
                                 value={localStart}
                                 onChange={(value) => setLocalStart(dayjs(value))}
-                                label="Start"
+                                label={t('start')}
                                 disableFuture
                                 maxDateTime={localEnd ?? null}
                             />
                             <span className="hidden sm:inline-block text-2xl mx-3">-</span>
                             <SmallDatePicker
-                                label="End"
+                                label={t('end')}
                                 value={localEnd}
                                 onChange={(value) => setLocalEnd(dayjs(value))}
                                 disableFuture
@@ -175,7 +177,7 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Select Date</p>
+                                    <p>{t('selectDate')}</p>
                                 </TooltipContent>
                             </Tooltip>
                         )}
@@ -190,7 +192,7 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>Now</p>
+                                <p>{t('now')}</p>
                             </TooltipContent>
                         </Tooltip>
 
@@ -205,7 +207,7 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>Show Players</p>
+                                <p>{t('showPlayers')}</p>
                             </TooltipContent>
                         </Tooltip>
                     </div>
@@ -217,10 +219,11 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
 
 
 export default function GraphToolbar({ setShowPlayersAction }: { setShowPlayersAction: Dispatch<boolean>}): ReactElement {
+    const t = useTranslations('servers.toolbar');
     return (
         <Card>
             <CardContent className="p-0">
-                <ErrorCatch message="Graph toolbar couldn't be loaded.">
+                <ErrorCatch message={t('loadError')}>
                     <GraphToolbarControl setShowPlayersAction={setShowPlayersAction} />
                 </ErrorCatch>
             </CardContent>

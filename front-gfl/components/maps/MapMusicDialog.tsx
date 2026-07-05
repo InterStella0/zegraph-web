@@ -14,6 +14,7 @@ import MusicReportDialog from "./MusicReportDialog";
 import { fetchApiUrl } from "utils/generalUtils";
 import {PlayerAvatar} from "components/players/PlayerAvatar.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
+import {useTranslations} from 'next-intl';
 
 function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60);
@@ -34,6 +35,7 @@ export default function MapMusicDialog({
     tracks,
     initialTrackIndex = 0
 }: MapMusicDialogProps) {
+    const t = useTranslations('maps.music');
     const { server } = useServerData()
     const [currentIndex, setCurrentIndex] = useState(initialTrackIndex);
     const trackRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -127,7 +129,7 @@ export default function MapMusicDialog({
                                 className="gap-2"
                             >
                                 <Flag className="h-4 w-4" />
-                                Report Issue
+                                {t('reportIssue')}
                             </Button>
                         </div>
                     </DialogTitle>
@@ -150,7 +152,7 @@ export default function MapMusicDialog({
                         ) : (
                             <div className="aspect-video w-full rounded-lg bg-muted flex flex-col items-center justify-center">
                                 <Music className="h-8 w-8 sm:h-12 sm:w-12 opacity-50 mb-2" />
-                                <p className="text-xs sm:text-sm text-muted-foreground">No video available</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground">{t('noVideo')}</p>
                             </div>
                         )}
 
@@ -177,7 +179,7 @@ export default function MapMusicDialog({
                                             className="shrink-0"
                                         />
                                     )}
-                                    <span>Contributed by {currentTrack.yt_source_name}</span>
+                                    <span>{t('contributedBy', {name: currentTrack.yt_source_name})}</span>
                                 </Badge>
                             </div>
 
@@ -186,7 +188,7 @@ export default function MapMusicDialog({
                                 <div className="flex items-start gap-1.5 sm:gap-2">
                                     <Link2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                                     <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-                                        <span className="text-xs sm:text-sm text-muted-foreground">Also used in:</span>
+                                        <span className="text-xs sm:text-sm text-muted-foreground">{t('alsoUsedIn')}</span>
                                         {currentTrack.otherMaps.map((map, idx) => (
                                             <Badge key={idx} variant="secondary" className="text-xs">
                                                 <HoverPrefetchLink href={`/servers/${server.gotoLink}/maps/${map}`}>
@@ -203,7 +205,7 @@ export default function MapMusicDialog({
                     {/* Track List Panel */}
                     <div className="lg:w-80 flex flex-col min-h-0 max-h-[40vh] lg:max-h-[80vh]">
                         <div className="flex items-center justify-between mb-2 sm:mb-3">
-                            <h3 className="text-sm font-medium">Playlist</h3>
+                            <h3 className="text-sm font-medium">{t('playlist')}</h3>
                             <div className="flex items-center gap-1.5 sm:gap-2">
                                 <Button
                                     variant="outline"

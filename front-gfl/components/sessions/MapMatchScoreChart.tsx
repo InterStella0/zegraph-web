@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import { useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components/ui/card';
@@ -14,6 +15,7 @@ export default function MapMatchScoreChart(
     { sessionInfo, graphMatch }:
     { sessionInfo: ServerMapPlayed, graphMatch: MapSessionMatch[] }
 ) {
+    const t = useTranslations('sessions');
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
 
@@ -25,9 +27,9 @@ export default function MapMatchScoreChart(
     return (
         <Card className="mb-6">
             <CardHeader>
-                <CardTitle>Match Score Progression</CardTitle>
+                <CardTitle>{t('matchScoreProgression')}</CardTitle>
                 <CardDescription>
-                    Round-by-round score tracking for {sessionInfo.map}
+                    {t('roundByRoundFor', {map: sessionInfo.map})}
                 </CardDescription>
             </CardHeader>
             <CardContent>

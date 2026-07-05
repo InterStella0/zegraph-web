@@ -8,6 +8,7 @@ import Link from "next/link";
 import RadarMap from "components/radars/RadarMap.tsx";
 import { useServerData } from "../../app/servers/[server_slug]/ServerDataProvider";
 import { LucideFullscreen, LucideX, LucideExternalLink } from "lucide-react";
+import {useTranslations} from 'next-intl';
 
 export const lightBasemap = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const darkBasemap  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
@@ -31,6 +32,7 @@ export function formGlobalWMSUrl(time = null){
 }
 
 function RadarPreviewDisplay({ dateDisplay }){
+    const t = useTranslations('radar');
     const { server } = useServerData()
 
     return (
@@ -48,7 +50,7 @@ function RadarPreviewDisplay({ dateDisplay }){
                                 </Link>
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Historical Radar</TooltipContent>
+                        <TooltipContent>{t('historicalRadar')}</TooltipContent>
                     </Tooltip>
 
                     <Tooltip>
@@ -62,9 +64,9 @@ function RadarPreviewDisplay({ dateDisplay }){
                                     </Button>
                                 </DialogTrigger>
                             </TooltipTrigger>
-                            <TooltipContent>Fullscreen</TooltipContent>
+                            <TooltipContent>{t('fullscreen')}</TooltipContent>
                             <DialogTitle className="hidden">
-                                Map of the selected time
+                                {t('mapOfSelectedTime')}
                             </DialogTitle>
                             <DialogContent className="sm:max-w-[95vw] w-full h-full p-0 z-1000">
                                 <RadarMap dateDisplay={dateDisplay} height="100vh" fullscreen={true} />
@@ -82,7 +84,7 @@ function RadarPreviewDisplay({ dateDisplay }){
                                                 </Link>
                                             </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>Historical Radar</TooltipContent>
+                                        <TooltipContent>{t('historicalRadar')}</TooltipContent>
                                     </Tooltip>
 
                                     <DialogClose asChild>

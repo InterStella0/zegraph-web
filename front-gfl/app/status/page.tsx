@@ -5,11 +5,13 @@ import getServerUser from "app/getServerUser";
 import FetchStatusTable from "components/status/FetchStatusTable";
 import { Metadata } from "next";
 import {formatTitle} from "utils/generalUtils.ts";
+import { getTranslations } from 'next-intl/server';
 
 export async function generateMetadata(): Promise<Metadata> {
+    const t = await getTranslations('metadata');
     return {
-        title: formatTitle(`Status`),
-        description: "Live scraper fetch history for tracked CS Zombie Escape servers.",
+        title: formatTitle(t('statusTitle')),
+        description: t('statusDescription'),
         alternates: {
             canonical: '/status'
         }
@@ -17,6 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function StatusPage() {
+    const t = await getTranslations('status');
     const user = getServerUser();
 
     return <>
@@ -26,10 +29,10 @@ export default async function StatusPage() {
                 <div className="flex flex-col gap-4 sm:gap-6">
                     <div className="text-center px-1 sm:px-0">
                         <h1 className="text-4xl sm:text-5xl font-bold text-primary mb-2">
-                            Fetch Status
+                            {t('title')}
                         </h1>
                         <p className="text-base sm:text-lg text-muted-foreground">
-                            Data scraping history
+                            {t('subtitle')}
                         </p>
                     </div>
                     <FetchStatusTable />

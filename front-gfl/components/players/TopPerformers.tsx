@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {useState, useEffect, use} from 'react';
 import { Clock } from 'lucide-react';
 import { fetchUrl, secondsToHours } from "utils/generalUtils";
@@ -33,15 +34,16 @@ const LeaderboardSkeleton = ({ count = 20 }) => (
     </div>
 );
 const timeFrames = [
-    {id: '1d', label: "1 Day", value: 'today'},
-    {id: '1w', label: "1 Week", value: 'week1'},
-    {id: '2w', label: "2 Weeks", value: 'week2'},
-    {id: '1m', label: "1 Month", value: 'month1'},
-    {id: '6m', label: "6 Months", value: 'month6'},
-    {id: '1yr', label: "A Year", value: 'year1'},
+    {id: '1d', labelKey: 'frame1Day', value: 'today'},
+    {id: '1w', labelKey: 'frame1Week', value: 'week1'},
+    {id: '2w', labelKey: 'frame2Weeks', value: 'week2'},
+    {id: '1m', labelKey: 'frame1Month', value: 'month1'},
+    {id: '6m', labelKey: 'frame6Months', value: 'month6'},
+    {id: '1yr', labelKey: 'frame1Year', value: 'year1'},
 ]
 
 const TopPerformers = ({ serverPromise }: { serverPromise: ServerSlugPromise }) => {
+    const t = useTranslations('players.topPerformers');
     const server = use(serverPromise)
     const [performanceTab, setPerformanceTab] = useState<number>(0);
     const [topPlayers, setTopPlayers] = useState<BriefPlayers | null>(null);
@@ -73,11 +75,11 @@ const TopPerformers = ({ serverPromise }: { serverPromise: ServerSlugPromise }) 
         <Card>
             <CardHeader className="flex flex-row items-center gap-2 pb-3">
                 <Clock className="w-5 h-5 text-primary"/>
-                <h2 className="text-lg max-sm:text-md font-semibold">Top Performers</h2>
+                <h2 className="text-lg max-sm:text-md font-semibold">{t('title')}</h2>
             </CardHeader>
             <CardContent className="pt-0">
                 <div className="sm:hidden flex flex-row items-center gap-2 pb-3">
-                    Within
+                    {t('within')}
                     <Select
                         value={performanceTab.toString()}
                         onValueChange={(v) => setPerformanceTab(Number(v))}
@@ -86,9 +88,9 @@ const TopPerformers = ({ serverPromise }: { serverPromise: ServerSlugPromise }) 
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            {timeFrames.map((t, i) => (
-                                <SelectItem key={t.id} value={i.toString()}>
-                                    {t.label}
+                            {timeFrames.map((tf, i) => (
+                                <SelectItem key={tf.id} value={i.toString()}>
+                                    {t(tf.labelKey)}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -100,7 +102,7 @@ const TopPerformers = ({ serverPromise }: { serverPromise: ServerSlugPromise }) 
                     <TabsList className="grid w-full grid-cols-6">
                         {timeFrames.map((timeFrame, index) => (
                             <TabsTrigger key={timeFrame.id} value={index.toString()}>
-                                {timeFrame.label}
+                                {t(timeFrame.labelKey)}
                             </TabsTrigger>
                         ))}
                     </TabsList>
@@ -109,7 +111,7 @@ const TopPerformers = ({ serverPromise }: { serverPromise: ServerSlugPromise }) 
                     <LeaderboardSkeleton />
                 ) : topPlayersError ? (
                     <div className="p-4 text-center">
-                        <p className="text-destructive">Error loading top players: {topPlayersError}</p>
+                        <p className="text-destructive">{t('loadError', {error: topPlayersError})}</p>
                     </div>
                 ) : (
                     <div>

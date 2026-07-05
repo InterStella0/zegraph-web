@@ -6,6 +6,7 @@ import PagesNavigation from "./PagesNavigation";
 import ServerIndicator from "./ServerIndicator";
 import {use} from "react";
 import {SteamProfile} from "../../next-auth-steam/steam.ts";
+import LanguageToggle from "./LanguageToggle";
 
 
 export default function WebAppBar(
@@ -40,6 +41,7 @@ export default function WebAppBar(
 
                 <div className="flex items-center gap-3">
                     <div className="hidden min-[750px]:flex items-center gap-2">
+                        <LanguageToggle />
                         <LoginButton user={user} />
                     </div>
                     <div className="min-[750px]:hidden w-10"></div>

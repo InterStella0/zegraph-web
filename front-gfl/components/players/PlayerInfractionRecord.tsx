@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {use, useEffect, useState} from "react";
 import {
     fetchApiServerUrl,
@@ -32,6 +33,7 @@ import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/ut
 import { useTheme } from "next-themes";
 
 function ModalInfraction({ infraction, onClose }){
+    const t = useTranslations('players.infractions');
     const isEmpty = infraction === null
     const iframeSource = `${infraction?.source}/infractions/${infraction?.id}/`
     return (
@@ -41,7 +43,7 @@ function ModalInfraction({ infraction, onClose }){
                     <div className="w-[100vw] flex flex-col h-full relative">
                         <Alert className="absolute z-1 left-5 right-5 top-5 w-[86%]">
                             <AlertDescription>
-                                I'm showing you infraction from {infraction.source?.replace("https://", "")} because I got lazy half way.
+                                {t('iframeNotice', {source: infraction.source?.replace("https://", "") ?? ''})}
                             </AlertDescription>
                         </Alert>
                         <div className="flex-1 relative w-[100vw]">
@@ -60,6 +62,7 @@ function ModalInfraction({ infraction, onClose }){
 
 function PlayerInfractionRecordBody({ updatedData, player, server }:
                                     { updatedData: PlayerInfraction[], player: PlayerInfo | StillCalculate, server: Server }) {
+    const t = useTranslations('players.infractions');
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const server_id = server.id;
     const [infractions, setInfractions] = useState([]);
@@ -110,7 +113,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
             <div className="flex justify-center items-center h-[250px] text-muted-foreground flex-col gap-2">
                 <Ban className="w-8 h-8 opacity-50" />
                 <h3 className="text-xl font-semibold">
-                    No Records
+                    {t('noRecords')}
                 </h3>
             </div>
         );
@@ -123,7 +126,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
             <div className="max-h-[380px] overflow-y-auto pt-2">
                 {infractions.map(row => {
                     const flag = row.flags;
-                    const by = flag.hasFlag(InfractionFlags.SYSTEM) ? 'System' : row.by;
+                    const by = flag.hasFlag(InfractionFlags.SYSTEM) ? t('system') : row.by;
                     const restrictions = row.flags.getAllRestrictedFlags();
 
                     return (
@@ -150,7 +153,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
                                 </div>
 
                                 <p className={`text-sm ${row.reason ? '' : 'italic text-muted-foreground'}`}>
-                                    {row.reason || 'No reason provided'}
+                                    {row.reason || t('noReason')}
                                 </p>
 
                                 <div className="flex justify-between items-center flex-wrap mt-2 gap-2">
@@ -165,7 +168,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
                                             </Badge>
                                         )) : (
                                             <span className="text-xs text-muted-foreground italic">
-                                                No restrictions
+                                                {t('noRestrictions')}
                                             </span>
                                         )}
                                     </div>
@@ -184,6 +187,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
 }
 
 function PlayerInfractionRecordDisplay({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}) {
+    const t = useTranslations('players.infractions');
     const {server, player} = use(serverPlayerPromise);
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const [updatedData, setUpdatedData] = useState<PlayerInfraction[] | null>(null);
@@ -208,7 +212,7 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: { serverPlayerPr
         <Card className="min-h-[460px] p-4">
             <div className="flex flex-row justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold">
-                    Infractions
+                    {t('title')}
                 </h2>
 
                 <TooltipProvider>
@@ -228,7 +232,7 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: { serverPlayerPr
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p>Update infractions</p>
+                            <p>{t('update')}</p>
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
@@ -239,7 +243,8 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: { serverPlayerPr
     );
 }
 export default function PlayerInfractionRecord({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}){
-    return  <ErrorCatch message="Infraction couldn't be loaded">
+    const t = useTranslations('players.infractions');
+    return  <ErrorCatch message={t('loadError')}>
         <PlayerInfractionRecordDisplay serverPlayerPromise={serverPlayerPromise}  />
     </ErrorCatch>
 }

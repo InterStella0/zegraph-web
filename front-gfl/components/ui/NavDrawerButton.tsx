@@ -14,8 +14,11 @@ import {Server} from "types/community";
 import {useRouter, usePathname} from "next/navigation";
 import {SiDiscord, SiGithub} from "@icons-pack/react-simple-icons";
 import {SteamProfile} from "../../next-auth-steam/steam.ts";
+import {useTranslations} from "next-intl";
+import LanguageToggle from "./LanguageToggle";
 
 export default function NavDrawerButton({ server, user }: { server: Server | null, user: SteamProfile | null }) {
+    const t = useTranslations('nav');
     const currentLocation = usePathname();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const router = useRouter();
@@ -50,11 +53,11 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
 
                     <nav className="flex-1 overflow-auto">
                         <ul className="space-y-1 p-2">
-                            {Object.entries(pages).map(([pageName, pageLink]) => {
-                                const linked = selectedMode === 'ServerSpecific'? pageLink.replace(":server_id", server.gotoLink): pageLink
+                            {pages.map((page) => {
+                                const linked = selectedMode === 'ServerSpecific'? page.href.replace(":server_id", server.gotoLink): page.href
                                 const isActive = currentLocation === linked
                                 return (
-                                    <li key={pageName}>
+                                    <li key={page.key}>
                                         <Button
                                             variant="ghost"
                                             onClick={() => handleNavigate(linked)}
@@ -64,7 +67,7 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
                                                     : 'border-l-4 border-transparent'
                                             }`}
                                         >
-                                            {pageName}
+                                            {t(page.key)}
                                         </Button>
                                     </li>
                                 );
@@ -74,6 +77,7 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
 
                     <div className="flex items-center justify-between gap-2 p-4 border-t border-border mt-auto">
                         <LoginButton user={user} />
+                        <LanguageToggle />
                         <Button
                             variant="ghost"
                             size="icon"

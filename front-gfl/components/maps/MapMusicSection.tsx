@@ -13,6 +13,7 @@ import MapMusicDialog from "./MapMusicDialog";
 import {fetchServerUrl} from "utils/generalUtils.ts";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext.tsx";
+import {useTranslations} from 'next-intl';
 
 function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60);
@@ -85,6 +86,7 @@ function MoreTracksCard({
     count: number;
     onClick: () => void;
 }) {
+    const t = useTranslations('maps.music');
     return (
         <div
             className={cn(
@@ -97,7 +99,7 @@ function MoreTracksCard({
                 <MoreHorizontal className="h-4 w-4 text-primary" />
             </div>
             <p className="text-sm font-medium text-muted-foreground">
-                +{count} more
+                {t('moreCount', {count})}
             </p>
         </div>
     );
@@ -105,6 +107,7 @@ function MoreTracksCard({
 
 const TRUNCATE_MUSIC = 3
 function MapMusicSectionDisplay() {
+    const t = useTranslations('maps.music');
     const { name } = useMapContext()
     const {server} = useServerData()
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -132,7 +135,7 @@ function MapMusicSectionDisplay() {
 
                     return {
                         id: music.id,
-                        title: title || "Unknown Track",
+                        title: title || t('unknownTrack'),
                         artist,
                         duration: music.duration,
                         contexts: music.tags,
@@ -164,7 +167,7 @@ function MapMusicSectionDisplay() {
                     <div className="flex justify-between items-center mb-3 sm:mb-4">
                         <div className="flex items-center gap-2">
                             <Music className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                            <h2 className="text-base sm:text-lg font-bold text-primary">Map Music</h2>
+                            <h2 className="text-base sm:text-lg font-bold text-primary">{t('title')}</h2>
                         </div>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -173,7 +176,7 @@ function MapMusicSectionDisplay() {
                                 </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>Music tracks used in this map. Click to watch video and view lyrics.</p>
+                                <p>{t('tooltip')}</p>
                             </TooltipContent>
                         </Tooltip>
                     </div>
@@ -208,8 +211,9 @@ function MapMusicSectionDisplay() {
 }
 
 export default function MapMusicSection() {
+    const t = useTranslations('maps.music');
     return (
-        <ErrorCatch message="Could not load map music section">
+        <ErrorCatch message={t('loadError')}>
             <MapMusicSectionDisplay />
         </ErrorCatch>
     );

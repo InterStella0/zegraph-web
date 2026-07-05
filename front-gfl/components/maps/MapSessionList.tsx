@@ -21,10 +21,12 @@ import {
     PaginationItem, PaginationLast, PaginationLink, PaginationNext,
     PaginationPrevious
 } from "components/ui/pagination.tsx";
+import {useTranslations} from 'next-intl';
 
 dayjs.extend(relativeTime);
 
 function AllSessions(){
+    const t = useTranslations('maps.sessionList');
     const { name } = useMapContext();
     const [page, setPage] = useState<number>(0)
     const [ sessions, setSessions ] = useState<ServerMapPlayed[]>([])
@@ -48,7 +50,7 @@ function AllSessions(){
             })
             .catch(e => {
                 if (e === "New Page") return
-                setError(e.message || "Something went wrong")
+                setError(e.message || t('somethingWrong'))
             })
             .finally(() => setLoading(false))
         return () => {
@@ -64,12 +66,12 @@ function AllSessions(){
             <div className="p-4">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     <div className="lg:col-span-4">
-                        <h2 className="text-lg font-bold text-primary text-start">Sessions</h2>
+                        <h2 className="text-lg font-bold text-primary text-start">{t('title')}</h2>
                     </div>
                     <div className="col-span-full">
                         <div className="min-h-[835px] flex gap-4 justify-center items-center">
                             <AlertTriangle className="h-5 w-5" />
-                            <p className="text-base">{error || "Something went wrong :/"}</p>
+                            <p className="text-base">{error || t('somethingWrong')}</p>
                         </div>
                     </div>
                 </div>
@@ -82,7 +84,7 @@ function AllSessions(){
             <div className="p-4">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
                     <div className="lg:col-span-4">
-                        <h2 className="text-lg font-bold text-primary text-start">Sessions</h2>
+                        <h2 className="text-lg font-bold text-primary text-start">{t('title')}</h2>
                     </div>
                     <div className="lg:col-span-8">
                         <div className="flex items-center justify-center lg:justify-end w-full">
@@ -104,12 +106,13 @@ function AllSessions(){
 }
 
 function SkeletonSessionGraph(){
+    const t = useTranslations('maps.sessionList');
     return (
         <div className="m-2">
             <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-1">
                     <div className="flex flex-row">
-                        <p className="m-2 text-start">Session #</p>
+                        <p className="m-2 text-start">{t('sessionHash')}</p>
                         <Skeleton className="w-8 h-8" />
                     </div>
                 </div>
@@ -137,6 +140,7 @@ function SkeletonSessionGraph(){
 
 
 function SessionGraph({ session }: { session: ServerMapPlayed }){
+    const t = useTranslations('maps.sessionList');
     const { server } = useServerData()
     const server_id = server?.id
     const { name } = useMapContext()
@@ -154,7 +158,7 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
         <div className="m-2">
             <div className="grid grid-cols-12 gap-2">
                 <div className="col-span-12 flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-0.5 m-2">
-                    <p className="text-sm sm:text-base">Session #{session.time_id}</p>
+                    <p className="text-sm sm:text-base">{t('sessionNumber', {id: session.time_id})}</p>
                     <div className="flex flex-row items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                         <Tooltip>
                             <TooltipTrigger>
@@ -162,14 +166,14 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
                                     {dayjs().diff(startedAt, 'd') < 1 ? startedAt.fromNow() : startedAt.format(startedAt.year() !== dayjs().year() ? 'MMM D YYYY, h:mma' : 'MMM D, h:mma')}
                                 </span>
                             </TooltipTrigger>
-                            <TooltipContent>Played at {startedAt.format('lll')}</TooltipContent>
+                            <TooltipContent>{t('playedAt', {time: startedAt.format('lll')})}</TooltipContent>
                         </Tooltip>
                         <span>•</span>
                         <Tooltip>
                             <TooltipTrigger>
-                                <span>{endedAt.diff(startedAt, "m")}mins</span>
+                                <span>{t('minutes', {count: endedAt.diff(startedAt, "m")})}</span>
                             </TooltipTrigger>
-                            <TooltipContent>Session duration</TooltipContent>
+                            <TooltipContent>{t('sessionDuration')}</TooltipContent>
                         </Tooltip>
                     </div>
                 </div>
@@ -187,7 +191,7 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
                         >
                             <Link href={`/servers/${server.gotoLink}/maps/${name}/sessions/${session?.time_id}`}>
                                 <Users className="mr-2 h-4 w-4" />
-                                Match Info
+                                {t('matchInfo')}
                             </Link>
                         </Button>
 
@@ -203,8 +207,8 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
                                 </TooltipTrigger>
                                 <TooltipContent>
                                     <div className="text-center">
-                                        <p>Human Score : Zombie Score</p>
-                                        <p className="text-xs">Final score (Mostly accurate)</p>
+                                        <p>{t('humanVsZombie')}</p>
+                                        <p className="text-xs">{t('finalScore')}</p>
                                     </div>
                                 </TooltipContent>
                             </Tooltip>
@@ -225,7 +229,8 @@ function MapSessionListDisplay(){
 }
 
 export default function MapSessionList(){
-    return <ErrorCatch message="No session found.">
+    const t = useTranslations('maps.sessionList');
+    return <ErrorCatch message={t('noSessionFound')}>
         <MapSessionListDisplay />
     </ErrorCatch>
 }

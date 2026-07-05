@@ -7,8 +7,10 @@ import {Circle, Users, ChevronDown, ChevronUp} from "lucide-react";
 import ServerCard from "./ServerCard";
 import {getServerAvatarText} from "../ui/CommunitySelector";
 import {useState} from "react";
+import {useTranslations} from "next-intl";
 
 const CommunityCard = ({ community }) => {
+    const t = useTranslations('home');
     const [ isExpanded, setExpanded ] = useState(false);
     const maxServersToShow = 3;
     const serversToDisplay = isExpanded
@@ -34,7 +36,7 @@ const CommunityCard = ({ community }) => {
                                 <div className="flex flex-row items-center gap-1">
                                     <Users className="h-4 w-4" />
                                     <span className="text-xs sm:text-sm">
-                                        {community.players.toLocaleString()} players
+                                        {t('playerCount', {count: community.players})}
                                     </span>
                                 </div>
                                 <div className="flex flex-row items-center gap-1">
@@ -42,7 +44,7 @@ const CommunityCard = ({ community }) => {
                                         className={`h-2 w-2 ${community.status ? 'fill-green-500 text-green-500' : 'fill-red-500 text-red-500'}`}
                                     />
                                     <span className="text-xs sm:text-xs text-muted-foreground">
-                                        {community.status ? 'Online' : 'Offline'}
+                                        {community.status ? t('online') : t('offline')}
                                     </span>
                                 </div>
                             </div>
@@ -51,7 +53,7 @@ const CommunityCard = ({ community }) => {
 
                     <div>
                         <h3 className="text-sm sm:text-base font-medium mb-2">
-                            Servers
+                            {t('servers')}
                         </h3>
                         {serversToDisplay.map(server => (
                             <ServerCard
@@ -70,12 +72,12 @@ const CommunityCard = ({ community }) => {
                                 {isExpanded ? (
                                     <>
                                         <ChevronUp className="mr-2 h-4 w-4" />
-                                        Show Less
+                                        {t('showLess')}
                                     </>
                                 ) : (
                                     <>
                                         <ChevronDown className="mr-2 h-4 w-4" />
-                                        Show {community.servers.length - maxServersToShow} More
+                                        {t('showMore', {count: community.servers.length - maxServersToShow})}
                                     </>
                                 )}
                             </Button>

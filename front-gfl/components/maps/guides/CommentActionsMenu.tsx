@@ -6,6 +6,7 @@ import {
     DropdownMenuTrigger,
 } from "components/ui/dropdown-menu";
 import {MoreVertical, Edit, Trash2, Flag, Ban} from "lucide-react";
+import { useTranslations } from 'next-intl';
 
 interface CommentActionsMenuProps {
     isAuthor: boolean;
@@ -26,6 +27,7 @@ export default function CommentActionsMenu({
     isBanned = false,
     banReason = null,
 }: CommentActionsMenuProps) {
+    const t = useTranslations('guides.actions');
     const canEdit = isAuthor && !isBanned;
     const canDelete = isAuthor || isSuperuser;
     const canReport = !isAuthor && !isSuperuser && !isBanned;
@@ -43,31 +45,31 @@ export default function CommentActionsMenu({
                 {canEdit && (
                     <DropdownMenuItem onClick={onEdit}>
                         <Edit className="mr-2 h-4 w-4" />
-                        Edit
+                        {t('edit')}
                     </DropdownMenuItem>
                 )}
                 {showBannedEdit && (
                     <DropdownMenuItem disabled className="text-muted-foreground">
                         <Ban className="mr-2 h-4 w-4" />
-                        Edit (Banned)
+                        {t('editBanned')}
                     </DropdownMenuItem>
                 )}
                 {canDelete && (
                     <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
+                        {t('delete')}
                     </DropdownMenuItem>
                 )}
                 {canReport && (
                     <DropdownMenuItem onClick={onReport} className="text-destructive focus:text-destructive">
                         <Flag className="mr-2 h-4 w-4" />
-                        Report
+                        {t('report')}
                     </DropdownMenuItem>
                 )}
                 {showBannedReport && (
                     <DropdownMenuItem disabled className="text-muted-foreground">
                         <Ban className="mr-2 h-4 w-4" />
-                        Report (Banned)
+                        {t('reportBanned')}
                     </DropdownMenuItem>
                 )}
             </DropdownMenuContent>

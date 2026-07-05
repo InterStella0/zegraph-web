@@ -3,29 +3,31 @@ import Link from "next/link";
 import {Server} from "types/community";
 import {useEffect, useMemo, useState} from "react";
 import {usePathname} from "next/navigation";
+import {useTranslations} from "next-intl";
 
 
 export const pagesSelection = {
-    'ServerSpecific': {
-        'Communities': '/',
-        'Server': '/servers/:server_id',
-        'Players': '/servers/:server_id/players',
-        'Maps': '/servers/:server_id/maps',
-        'Models': '/servers/:server_id/models',
-        'Guides': '/servers/:server_id/guides',
-        'Radar': '/servers/:server_id/radar',
-    },
-    'Community': {
-        'Communities': '/',
-        'Tracker': '/live',
-        'Hub': '/hub',
-        'Status': '/status',
-        'Donors': '/donors',
-    }
-}
+    'ServerSpecific': [
+        {key: 'communities', href: '/'},
+        {key: 'server', href: '/servers/:server_id'},
+        {key: 'players', href: '/servers/:server_id/players'},
+        {key: 'maps', href: '/servers/:server_id/maps'},
+        {key: 'models', href: '/servers/:server_id/models'},
+        {key: 'guides', href: '/servers/:server_id/guides'},
+        {key: 'radar', href: '/servers/:server_id/radar'},
+    ],
+    'Community': [
+        {key: 'communities', href: '/'},
+        {key: 'tracker', href: '/live'},
+        {key: 'hub', href: '/hub'},
+        {key: 'status', href: '/status'},
+        {key: 'donors', href: '/donors'},
+    ]
+} as const
 
 
 export default function PagesNavigation({ server }: { server: Server }) {
+    const t = useTranslations('nav');
     const currentLocation = usePathname();
     const [pendingLocation, setPendingLocation] = useState<string | null>(null);
 
@@ -37,10 +39,10 @@ export default function PagesNavigation({ server }: { server: Server }) {
     const pages = pagesSelection[selectedMode];
 
     const pagesNav = useMemo(() => {
-        return Object.entries(pages).map(([pageName, page], i) => {
+        return pages.map((page, i) => {
             const linked = selectedMode === 'ServerSpecific'
-                ? page.replace(":server_id", server?.gotoLink)
-                : page;
+                ? page.href.replace(":server_id", server?.gotoLink)
+                : page.href;
 
             const activePath = pendingLocation ?? currentLocation;
             const isActive = activePath === linked;
@@ -57,11 +59,11 @@ export default function PagesNavigation({ server }: { server: Server }) {
                     href={linked}
                     onClick={() => setPendingLocation(linked)}
                 >
-                    {pageName}
+                    {t(page.key)}
                 </Link>
             );
         });
-    }, [currentLocation, pendingLocation, server, selectedMode, pages]);
+    }, [currentLocation, pendingLocation, server, selectedMode, pages, t]);
 
     return <>{pagesNav}</>;
 }

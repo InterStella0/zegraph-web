@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {use, useEffect, useMemo, useState} from "react";
 import {fetchApiServerUrl, REGION_COLORS, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
@@ -30,6 +31,7 @@ ChartJS.register(
 )
 type RegionChartData = { x: string; y: number };
 function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}){
+    const t = useTranslations('players.region');
     const { server, player } = use(serverPlayerPromise);
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const { resolvedTheme } = useTheme();
@@ -87,7 +89,7 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
     const data = {
         labels: regions.map(e => e.x),
         datasets: [{
-            label: 'Hours',
+            label: t('hours'),
             data: regions.map(e => e.y),
             borderWidth: 2,
             borderColor: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(0 0% 100%)',
@@ -97,7 +99,7 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
 
     const summary = useMemo(() => {
         if (regions.length === 0) {
-            return "No regional playtime data available.";
+            return t('noData');
         }
 
         const totalHours = regions.reduce((sum, r) => sum + r.y, 0);
@@ -108,16 +110,16 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
         }));
 
         return summarizeRegionData(regionData);
-    }, [regions]);
+    }, [regions, t]);
 
     return (
         <div>
-            <h2 className="text-xl font-semibold m-4">Region</h2>
+            <h2 className="text-xl font-semibold m-4">{t('title')}</h2>
             <div className="h-[350px] xl:h-[350px] lg:h-[385px] flex items-center justify-center m-4">
                 {error &&
                     <div className="flex gap-4">
                         <AlertCircle className="w-5 h-5" />
-                        <p>{error.message || "Something went wrong :/"}</p>
+                        <p>{error.message || t('genericError')}</p>
                     </div>}
                 {!error && !loading && (
                     <>
@@ -126,7 +128,7 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
                         </ScreenReaderOnly>
                         <div
                             role="img"
-                            aria-label="Player regional playtime distribution"
+                            aria-label={t('ariaLabel')}
                             aria-describedby="region-playtime-summary"
                             style={{ width: '100%', height: '100%' }}
                         >
@@ -142,8 +144,9 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
     )
 }
 export default function PlayerRegionPlayTime({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}){
+    const t = useTranslations('players.region');
     return <Card className="h-[500px] p-1">
-        <ErrorCatch message="Player region couldn't be loaded">
+        <ErrorCatch message={t('loadError')}>
             <PlayerRegionPlayTimeDisplay serverPlayerPromise={serverPlayerPromise}  />
         </ErrorCatch>
     </Card>

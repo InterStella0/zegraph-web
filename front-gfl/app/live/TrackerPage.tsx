@@ -31,6 +31,7 @@ import Link from "next/link";
 import relativeTime from 'dayjs/plugin/relativeTime';
 import timezone from "dayjs/plugin/timezone";
 import LocalizedFormat from "dayjs/plugin/localizedFormat";
+import { useTranslations } from 'next-intl';
 
 dayjs.extend(relativeTime)
 dayjs.extend(timezone)
@@ -51,6 +52,7 @@ function ServerBadge({ serverId }: { serverId: string }) {
 }
 
 const InfractionView = ({event}) => {
+    const t = useTranslations('tracker');
     const rowData = JSON.parse(event.payload)
     const payload = rowData.payload
     const admin = payload.admin;
@@ -73,7 +75,7 @@ const InfractionView = ({event}) => {
                             </AvatarFallback>
                         </Avatar>
                         <h3 className="text-base font-bold">
-                            {event.channel === 'infraction_new'? 'New Infraction': 'Update Infraction'}
+                            {event.channel === 'infraction_new'? t('newInfraction'): t('updateInfraction')}
                         </h3>
                         {flags.getAllRestrictedFlags().map((v, i) => <Badge key={i}
                                                                            variant="destructive"
@@ -94,10 +96,10 @@ const InfractionView = ({event}) => {
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium">
-                                        {player?.gs_name ?? "Unknown" }
+                                        {player?.gs_name ?? t('unknown') }
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        ID: {playerId ?? "Unknown"}
+                                        ID: {playerId ?? t('unknown')}
                                     </p>
                                 </div>
                             </div>
@@ -124,7 +126,7 @@ const InfractionView = ({event}) => {
                             <div className="bg-muted/50 p-1.5 rounded-lg border border-border">
                                 {payload.reason && (
                                     <p className="text-sm mt-1">
-                                        Reason: <strong>{payload.reason}</strong>
+                                        {t('reason')} <strong>{payload.reason}</strong>
                                     </p>
                                 )}
                                 <p className="text-xs text-muted-foreground block mt-1">
@@ -142,7 +144,7 @@ const InfractionView = ({event}) => {
             <Card className="mb-2 rounded-lg">
                 <div className="h-1 w-full bg-chart-5" />
                 <CardContent>
-                    <p className="text-destructive">Error rendering infraction event</p>
+                    <p className="text-destructive">{t('infractionRenderError')}</p>
                 </CardContent>
             </Card>
         );
@@ -150,6 +152,7 @@ const InfractionView = ({event}) => {
 };
 
 const MapActivity = ({event}) => {
+    const t = useTranslations('tracker');
     const changeType = event.channel
     const payload = useMemo(() => JSON.parse(event.payload), [event])
     const [mapImage, setImage] = useState<string | null>()
@@ -167,7 +170,7 @@ const MapActivity = ({event}) => {
                 <CardContent className="pt-2">
                     <div className="flex items-center mb-1.5">
                         <h3 className="text-base font-bold">
-                            {changeType === "map_changed"? "Map Change": "Map Update"}
+                            {changeType === "map_changed"? t('mapChange'): t('mapUpdate')}
                         </h3>
                         <ServerBadge serverId={server_id} />
                     </div>
@@ -189,9 +192,9 @@ const MapActivity = ({event}) => {
                                     <strong>{payload.map}</strong>
                                 </Link>
                             </p>
-                            <p className="text-sm">Player Count: {payload.player_count}</p>
+                            <p className="text-sm">{t('playerCount', {count: payload.player_count})}</p>
                             {changeType === "map_update" &&
-                                <p className="text-sm">Lasted {dayjs(payload.ended_at).diff(dayjs(payload.started_at), 'minute')}min</p>}
+                                <p className="text-sm">{t('lasted', {minutes: dayjs(payload.ended_at).diff(dayjs(payload.started_at), 'minute')})}</p>}
                             <p className="text-xs text-muted-foreground block mt-1">
                                 {dayjs(payload.started_at).format('lll')}
                             </p>
@@ -206,7 +209,7 @@ const MapActivity = ({event}) => {
             <Card className="mb-2 rounded-lg">
                 <div className="h-1 w-full bg-chart-5" />
                 <CardContent>
-                    <p className="text-destructive">Error rendering map activity event</p>
+                    <p className="text-destructive">{t('mapRenderError')}</p>
                 </CardContent>
             </Card>
         );
@@ -214,6 +217,7 @@ const MapActivity = ({event}) => {
 };
 
 function PlayerActivity({event}){
+    const t = useTranslations('tracker');
     const payload = JSON.parse(event.payload);
     const serverId = payload.server_id;
     const isJoin = payload.event_name === 'join';
@@ -251,7 +255,7 @@ function PlayerActivity({event}){
                             className={cn(isJoin && "bg-emerald-500 hover:bg-emerald-600")}
                         >
                             {isJoin ? <UserPlus className="h-3 w-3 mr-1" /> : <UserMinus className="h-3 w-3 mr-1" />}
-                            {isJoin ? 'Joined' : 'Left'}
+                            {isJoin ? t('joined') : t('left')}
                         </Badge>
                     </div>
                 </div>
@@ -264,6 +268,7 @@ function PlayerActivity({event}){
 }
 
 export default function LiveServerTrackerPage({ userPromise }){
+    const t = useTranslations('tracker');
     const [events, setEvents] = useState([]);
     const [selectedTab, setSelectedTab] = useState(0);
     const [isConnected, setIsConnected] = useState(true);
@@ -378,13 +383,13 @@ export default function LiveServerTrackerPage({ userPromise }){
                 <div className="flex justify-between items-center mb-3">
                     <h1 className="text-2xl font-bold flex items-center">
                         <Gamepad2 className="mr-1 text-primary" />
-                        Live Feed
+                        {t('liveFeed')}
                         {!isConnected && (
                             <Tooltip>
                                 <TooltipTrigger>
                                     <Loader2 className="ml-1 h-4 w-4 animate-spin text-chart-5" />
                                 </TooltipTrigger>
-                                <TooltipContent>Reconnecting...</TooltipContent>
+                                <TooltipContent>{t('reconnecting')}</TooltipContent>
                             </Tooltip>
                         )}
                     </h1>
@@ -416,28 +421,28 @@ export default function LiveServerTrackerPage({ userPromise }){
                                 {events.length}
                             </Badge>
                             <Zap className="h-4 w-4" />
-                            <span className="hidden sm:inline">All Events</span>
+                            <span className="hidden sm:inline">{t('allEvents')}</span>
                         </TabsTrigger>
                         <TabsTrigger value="1" className="flex items-center gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:font-bold">
                             <Badge variant="outline" className="h-5 min-w-[20px]">
                                 {counters.playerActivity}
                             </Badge>
                             <UserPlus className="h-4 w-4" />
-                            <span className="hidden sm:inline">Player Activity</span>
+                            <span className="hidden sm:inline">{t('playerActivity')}</span>
                         </TabsTrigger>
                         <TabsTrigger value="2" className="flex items-center gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:font-bold">
                             <Badge variant="outline" className="h-5 min-w-[20px]">
                                 {counters.mapActivity}
                             </Badge>
                             <MapPin className="h-4 w-4" />
-                            <span className="hidden sm:inline">Map Changes</span>
+                            <span className="hidden sm:inline">{t('mapChanges')}</span>
                         </TabsTrigger>
                         <TabsTrigger value="3" className="flex items-center gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:font-bold">
                             <Badge variant="outline" className="h-5 min-w-[20px]">
                                 {counters.infraction}
                             </Badge>
                             <Gavel className="h-4 w-4" />
-                            <span className="hidden sm:inline">Infractions</span>
+                            <span className="hidden sm:inline">{t('infractions')}</span>
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
@@ -449,7 +454,7 @@ export default function LiveServerTrackerPage({ userPromise }){
                         <Alert className="mt-2 border border-border">
                             <Info className="h-4 w-4" />
                             <AlertDescription>
-                                No events to display. Waiting for new events...
+                                {t('noEvents')}
                             </AlertDescription>
                         </Alert>
                     ) : (
@@ -470,7 +475,7 @@ export default function LiveServerTrackerPage({ userPromise }){
                                         key={uniqueKey}
                                         className="animate-in fade-in-0 slide-in-from-top-2 duration-300"
                                     >
-                                        <ErrorCatch message="Couldn't render this event. Something went wrong.">
+                                        <ErrorCatch message={t('eventRenderError')}>
                                             {renderEvent(event)}
                                         </ErrorCatch>
                                     </div>

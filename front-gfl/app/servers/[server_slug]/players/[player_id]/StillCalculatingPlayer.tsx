@@ -1,4 +1,5 @@
 "use client"
+import {useTranslations} from "next-intl";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "components/ui/card";
@@ -6,6 +7,7 @@ import { Button } from "components/ui/button";
 import { Hourglass, Clock, RefreshCw } from "lucide-react";
 
 export default function StillCalculatingPlayer() {
+    const t = useTranslations('players.stillCalculating');
     const [seconds, setSeconds] = useState(10);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const router = useRouter();
@@ -41,12 +43,12 @@ export default function StillCalculatingPlayer() {
             <Hourglass className="w-12 h-12 text-muted-foreground" />
 
             <h2 className="text-xl font-medium">
-                {isRefreshing ? "Refreshing data..." : "Calculating Player Stats..."}
+                {isRefreshing ? t('refreshingData') : t('calculating')}
             </h2>
 
             <p className="text-sm text-muted-foreground flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                Retrying in {seconds}s
+                {t('retryingIn', {seconds})}
             </p>
 
             <Button
@@ -56,7 +58,7 @@ export default function StillCalculatingPlayer() {
                 className="mt-2"
             >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? "Refreshing..." : "Retry Now"}
+                {isRefreshing ? t('refreshing') : t('retryNow')}
             </Button>
         </Card>
     );

@@ -23,15 +23,16 @@ import {useServerMap} from 'components/ui/ServerProvider';
 import {PopulationTimeType} from 'types/home';
 import CommunityMultiSelect from './CommunityMultiSelect';
 import {COMMUNITY_COLORS, fetchCommunityPopulation} from './homeData';
+import {useTranslations} from 'next-intl';
 
 const MAX_SELECTED_COMMUNITIES = 8;
 
 ChartJS.register(LinearScale, PointElement, LineElement, TimeScale, Tooltip, Legend, Filler, zoomPlugin);
 
-const TIME_OPTIONS: {label: string, value: PopulationTimeType}[] = [
-    {label: '10 min', value: 'TenMinutes'},
-    {label: '1 hour', value: 'OneHour'},
-    {label: '1 day', value: 'OneDay'},
+const TIME_OPTIONS: {labelKey: string, value: PopulationTimeType}[] = [
+    {labelKey: 'interval10Min', value: 'TenMinutes'},
+    {labelKey: 'interval1Hour', value: 'OneHour'},
+    {labelKey: 'interval1Day', value: 'OneDay'},
 ];
 
 // The backend returns at most 32 buckets, sized by time_type. So the visible window is
@@ -55,6 +56,7 @@ type Props = {
 };
 
 export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
+    const t = useTranslations('home');
     const communityData = useServerMap();
     const {resolvedTheme} = useTheme();
     const isDark = resolvedTheme === 'dark';
@@ -236,9 +238,9 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
             <CardContent className="p-4 sm:p-6 flex flex-col h-full">
                 <div className="flex flex-row items-start justify-between gap-2 mb-3">
                     <div>
-                        <h2 className="text-base sm:text-lg font-semibold">Unique players by community</h2>
+                        <h2 className="text-base sm:text-lg font-semibold">{t('uniquePlayersByCommunity')}</h2>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            {selectedCommunities.length} selected · combined
+                            {t('selectedCombined', {count: selectedCommunities.length})}
                         </p>
                     </div>
                     <div className="flex flex-row flex-wrap items-center justify-end gap-2">
@@ -260,7 +262,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                                             : 'text-muted-foreground hover:text-foreground'
                                     }`}
                                 >
-                                    {opt.label}
+                                    {t(opt.labelKey)}
                                 </button>
                             ))}
                         </div>
@@ -268,7 +270,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                             size="icon-sm"
                             variant="ghost"
                             onClick={onToggleExpand}
-                            title={isExpanded ? 'Collapse' : 'Expand'}
+                            title={isExpanded ? t('collapse') : t('expand')}
                         >
                             {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                         </Button>
@@ -287,7 +289,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                 <div className={`relative flex-1 ${isExpanded? "min-h-[400px]": "min-h-[240px]"}`}>
                     {!loading && !hasData && (
                         <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground text-center px-4">
-                            No population data available yet.
+                            {t('noPopulationData')}
                         </div>
                     )}
                     {(hasData || loading) && <LazyLineChart data={data} options={options} />}

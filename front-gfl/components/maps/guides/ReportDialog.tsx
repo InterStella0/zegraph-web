@@ -20,6 +20,7 @@ import { Textarea } from 'components/ui/textarea';
 import { Button } from 'components/ui/button';
 import { Label } from 'components/ui/label';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 interface ReportDialogProps {
     open: boolean;
@@ -29,11 +30,11 @@ interface ReportDialogProps {
 }
 
 const reportReasons = [
-    { value: 'spam', label: 'Spam or advertising' },
-    { value: 'inappropriate', label: 'Inappropriate content' },
-    { value: 'misleading', label: 'Misleading or incorrect information' },
-    { value: 'harassment', label: 'Harassment or hate speech' },
-    { value: 'other', label: 'Other (please specify)' },
+    { value: 'spam', labelKey: 'reasonSpam' },
+    { value: 'inappropriate', labelKey: 'reasonInappropriate' },
+    { value: 'misleading', labelKey: 'reasonMisleading' },
+    { value: 'harassment', labelKey: 'reasonHarassment' },
+    { value: 'other', labelKey: 'reasonOther' },
 ];
 
 export default function ReportDialog({
@@ -42,29 +43,30 @@ export default function ReportDialog({
     onSubmit,
     itemType = 'guide'
 }: ReportDialogProps) {
+    const t = useTranslations('guides.report');
     const [reason, setReason] = useState<string>('');
     const [details, setDetails] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
     const handleSubmit = async () => {
         if (!reason) {
-            toast.error('Please select a reason for reporting');
+            toast.error(t('selectReasonError'));
             return;
         }
 
         setSubmitting(true);
         try {
             await onSubmit(reason, details);
-            toast.success('Report submitted successfully', {
-                description: 'Thank you for helping keep the community safe.'
+            toast.success(t('submitSuccess'), {
+                description: t('submitSuccessDesc')
             });
             // Reset and close
             setReason('');
             setDetails('');
             onClose();
         } catch (error: any) {
-            toast.error('Failed to submit report', {
-                description: error.message || 'Please try again later'
+            toast.error(t('submitFailed'), {
+                description: error.message || t('tryAgainLater')
             });
         } finally {
             setSubmitting(false);
@@ -83,23 +85,23 @@ export default function ReportDialog({
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Report {itemType === 'guide' ? 'Guide' : 'Comment'}</DialogTitle>
+                    <DialogTitle>{itemType === 'guide' ? t('titleGuide') : t('titleComment')}</DialogTitle>
                     <DialogDescription>
-                        Help us maintain a positive community by reporting content that violates our guidelines.
+                        {t('description')}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="reason">Reason for report</Label>
+                        <Label htmlFor="reason">{t('reasonLabel')}</Label>
                         <Select value={reason} onValueChange={setReason}>
                             <SelectTrigger id="reason">
-                                <SelectValue placeholder="Select a reason" />
+                                <SelectValue placeholder={t('selectReason')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {reportReasons.map((option) => (
                                     <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
+                                        {t(option.labelKey)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -107,17 +109,17 @@ export default function ReportDialog({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="details">Additional details (optional)</Label>
+                        <Label htmlFor="details">{t('detailsLabel')}</Label>
                         <Textarea
                             id="details"
-                            placeholder="Provide any additional context that might help us review this report..."
+                            placeholder={t('detailsPlaceholder')}
                             value={details}
                             onChange={(e) => setDetails(e.target.value)}
                             rows={4}
                             maxLength={500}
                         />
                         <p className="text-xs text-muted-foreground">
-                            {details.length}/500 characters
+                            {t('charCount', {count: details.length, max: 500})}
                         </p>
                     </div>
                 </div>
@@ -128,13 +130,13 @@ export default function ReportDialog({
                         onClick={handleClose}
                         disabled={submitting}
                     >
-                        Cancel
+                        {t('cancel')}
                     </Button>
                     <Button
                         onClick={handleSubmit}
                         disabled={submitting || !reason}
                     >
-                        {submitting ? 'Submitting...' : 'Submit Report'}
+                        {submitting ? t('submitting') : t('submitReport')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

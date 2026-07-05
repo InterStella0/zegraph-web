@@ -7,10 +7,12 @@ import Footer from "components/ui/Footer";
 import {Suspense} from "react";
 import {AdSpot} from "components/ui/AdSpot";
 import HomePopulationRadar from "components/home/HomePopulationRadar";
+import {getTranslations} from "next-intl/server";
 
 export default async function Page() {
     const communitiesDataPromise = getCommunity();
     const user = getServerUser();
+    const t = await getTranslations('home');
 
     return <>
         <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
@@ -19,13 +21,13 @@ export default async function Page() {
                 <div className="flex flex-col gap-4 sm:gap-6">
                     <div className="text-center px-1 sm:px-0">
                         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-primary mb-2 break-words">
-                            Communities
+                            {t('title')}
                         </h1>
                         <p className="text-base sm:text-lg md:text-xl break-words">
-                            Zombie Escape communities that I track &gt;:3
+                            {t('subtitle')}
                         </p>
                         <p className="text-base sm:text-sm md:text-md break-words">
-                            Discover zombie escape (ZE) communities on Counter Strike 2 (CS2), Counter Strike: Global Offensive (CSGO) and Counter Strike: Source (CSS)!
+                            {t('description')}
                         </p>
                     </div>
                     <AdSpot className="w-full" />

@@ -7,6 +7,7 @@ import {Input} from "components/ui/input";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "components/ui/select";
 import {Popover, PopoverContent, PopoverTrigger} from "components/ui/popover";
 import {Command, CommandEmpty, CommandGroup, CommandItem, CommandList} from "components/ui/command";
+import {useTranslations} from 'next-intl';
 
 
 export default function MapsSearchControls({
@@ -29,6 +30,7 @@ export default function MapsSearchControls({
     autocompleteLoading: boolean,
 
 }) {
+    const t = useTranslations('maps.searchControls');
     const [open, setOpen] = useState(false);
     const [selectedIndex, setSelectedIndex] = useState(-1);
 
@@ -94,7 +96,7 @@ export default function MapsSearchControls({
                                             setOpen(true);
                                         }
                                     }}
-                                    placeholder="Search maps"
+                                    placeholder={t('searchMaps')}
                                     className="pl-10 pr-10"
                                 />
                                 {autocompleteLoading && (
@@ -111,7 +113,7 @@ export default function MapsSearchControls({
                             <Command shouldFilter={false}>
                                 <CommandList>
                                     <CommandEmpty>
-                                        {autocompleteLoading ? "Loading maps..." : "No maps found"}
+                                        {autocompleteLoading ? t('loadingMaps') : t('noMapsFound')}
                                     </CommandEmpty>
                                     <CommandGroup>
                                         {autocompleteOptions.map((option, index) => (
@@ -139,14 +141,14 @@ export default function MapsSearchControls({
                         }}
                     >
                         <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Sort by" />
+                            <SelectValue placeholder={t('sortBy')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="LastPlayed">Recently Played</SelectItem>
-                            <SelectItem value="HighestCumHour">Cumulative Hours</SelectItem>
-                            <SelectItem value="UniquePlayers">Unique Players</SelectItem>
-                            <SelectItem value="FrequentlyPlayed">Frequently Played</SelectItem>
-                            <SelectItem value="HighestHour">Highest Hours</SelectItem>
+                            <SelectItem value="LastPlayed">{t('recentlyPlayed')}</SelectItem>
+                            <SelectItem value="HighestCumHour">{t('cumulativeHours')}</SelectItem>
+                            <SelectItem value="UniquePlayers">{t('uniquePlayers')}</SelectItem>
+                            <SelectItem value="FrequentlyPlayed">{t('frequentlyPlayed')}</SelectItem>
+                            <SelectItem value="HighestHour">{t('highestHours')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

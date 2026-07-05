@@ -5,12 +5,14 @@ import {Button} from "components/ui/button";
 import {Wifi, WifiOff, BarChart3} from "lucide-react";
 import Link from 'next/link';
 import {toast} from "sonner";
+import {useTranslations} from "next-intl";
 
 const ServerCard = ({ server }) => {
+    const t = useTranslations('home');
     const handleCopyIP = (e) => {
         e.stopPropagation();
         navigator.clipboard.writeText(server.fullIp);
-        toast.success("Copied to clipboard");
+        toast.success(t('copiedToClipboard'));
     };
 
     return (
@@ -41,7 +43,7 @@ const ServerCard = ({ server }) => {
                                 size="sm"
                                 className="text-xs sm:text-xs font-mono px-2 py-1 h-auto transition-all select-all"
                                 onClick={handleCopyIP}
-                                title={`Click to copy: ${server.fullIp}`}
+                                title={t('clickToCopy', {ip: server.fullIp})}
                             >
                                 {server.fullIp}
                             </Button>
@@ -52,7 +54,7 @@ const ServerCard = ({ server }) => {
                             size="sm"
                         >
                             <Link href={`/servers/${server.gotoLink}`}>
-                                <BarChart3 className="mr-2 h-4 w-4" /><span className="hidden min-sm:inline-block">Insights</span>
+                                <BarChart3 className="mr-2 h-4 w-4" /><span className="hidden min-sm:inline-block">{t('insights')}</span>
                             </Link>
                         </Button>
                     </div>

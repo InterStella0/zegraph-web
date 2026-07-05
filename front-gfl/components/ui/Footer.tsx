@@ -2,11 +2,14 @@ import { Star, Coffee, Mail } from "lucide-react";
 import Link from "next/link";
 import FooterFab from "./FooterFab";
 import ThemeToggle from "./ThemeToggle";
+import LanguageToggle from "./LanguageToggle";
 import IconLink from "./IconLink";
 import {SiDiscord, SiGithub, SiSteam} from "@icons-pack/react-simple-icons";
 import {Button} from "components/ui/button.tsx";
+import {useTranslations} from "next-intl";
 
 export default function Footer() {
+    const t = useTranslations('footer');
     const currentYear = new Date().getFullYear();
 
     return (
@@ -24,22 +27,23 @@ export default function Footer() {
                         <div className="flex items-center gap-2">
                             <Star className="h-5 w-5 fill-primary text-primary" />
                             <p className="text-sm text-muted-foreground">
-                                &copy; {currentYear} ZE Graph. All rights reserved.
+                                {t('copyright', {year: currentYear})}
                             </p>
                         </div>
 
                         <div className="flex items-center gap-1">
                             <ThemeToggle />
+                            <LanguageToggle />
 
                             <div className="flex items-center">
                                 <IconLink
                                     href="https://goes.queeniemella.cc/s/discord-zegraph"
                                     ariaLabel="Discord"
-                                    tooltip="Support Server"
+                                    tooltip={t('supportServer')}
                                     icon={<SiDiscord className="h-5 w-5 text-primary" />}
                                 />
                                 <span className="ml-1 hidden text-xs text-foreground md:block">
-                                    Support Server
+                                    {t('supportServer')}
                                 </span>
                             </div>
 
@@ -71,11 +75,11 @@ export default function Footer() {
                                 <IconLink
                                     href="/donors"
                                     ariaLabel="Donate"
-                                    tooltip="Support ZE Graph"
+                                    tooltip={t('supportZeGraph')}
                                     icon={<Coffee className="h-5 w-5 text-primary" />}
                                 />
                                 <span className="ml-1 hidden text-xs text-foreground md:block">
-                                    Donate
+                                    {t('donate')}
                                 </span>
                             </div>
                         </div>
@@ -86,7 +90,7 @@ export default function Footer() {
                             <div className="flex justify-center sm:justify-start">
                                 <div className="w-fit rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 to-secondary/10 px-6 py-2.5 shadow-sm backdrop-blur-sm transition-all hover:shadow-md">
                                     <p className="text-sm font-medium tracking-wide text-foreground">
-                                        Please be nice~
+                                        {t('beNice')}
                                     </p>
                                 </div>
                             </div>
@@ -108,7 +112,7 @@ export default function Footer() {
                                     className="rounded-full shadow-sm transition-all hover:shadow-md"
                                 >
                                     <Link href="/privacy">
-                                        Privacy Policy
+                                        {t('privacyPolicy')}
                                     </Link>
                                 </Button>
                                 <Button
@@ -117,7 +121,7 @@ export default function Footer() {
                                     className="rounded-full shadow-sm transition-all hover:shadow-md"
                                 >
                                     <a href="https://status.zegraph.xyz" target="_blank" rel="noopener noreferrer">
-                                        API Status
+                                        {t('apiStatus')}
                                     </a>
                                 </Button>
                             </div>

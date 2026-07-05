@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {ReactElement, use, useEffect, useState} from "react";
 import {fetchApiServerUrl, simpleRandom, StillCalculate} from "utils/generalUtils";
 import { Card, CardContent } from "components/ui/card";
@@ -45,9 +46,10 @@ function SessionSkeleton() {
 }
 
 function SessionRow({ session, server, player }) {
+    const t = useTranslations('players.sessions');
     const playerId = player.id
     const calculateDuration = (startedAt: string, endedAt: string) => {
-        if (!endedAt) return 'Ongoing';
+        if (!endedAt) return t('ongoing');
         const start = dayjs(startedAt);
         const end = dayjs(endedAt);
         const duration = end.diff(start, 'minute');
@@ -72,7 +74,7 @@ function SessionRow({ session, server, player }) {
                             </span>
                             <p className="text-xs sm:text-sm text-muted-foreground">
                                 {isOngoing(session.ended_at)
-                                    ? 'Ongoing': dayjs(session.ended_at).format('MMM DD, h:mm a')
+                                    ? t('ongoing'): dayjs(session.ended_at).format('MMM DD, h:mm a')
                                 }
                             </p>
                         </div>
@@ -92,6 +94,7 @@ function SessionRow({ session, server, player }) {
 }
 
 export default function PlayerSessionList({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}): ReactElement {
+    const t = useTranslations('players.sessions');
     const { server, player } = use(serverPlayerPromise)
     const server_id = server.id
     const playerId = !(player instanceof StillCalculate)? player.id: null
@@ -157,7 +160,7 @@ export default function PlayerSessionList({ serverPlayerPromise }: { serverPlaye
         <div className="w-full">
             <div className="mb-3 flex items-center gap-4 flex-wrap">
                 <h2 className="text-lg sm:text-xl font-semibold">
-                    Play Sessions
+                    {t('title')}
                 </h2>
                 <div className="flex gap-2 items-center">
                     {selectedDate && (
@@ -179,7 +182,7 @@ export default function PlayerSessionList({ serverPlayerPromise }: { serverPlaye
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {selectedDate ? dayjs(selectedDate).format('MMM DD, YYYY') : 'Filter by date'}
+                                {selectedDate ? dayjs(selectedDate).format('MMM DD, YYYY') : t('filterByDate')}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -208,7 +211,7 @@ export default function PlayerSessionList({ serverPlayerPromise }: { serverPlaye
                                 setPage(0);
                             }}
                         >
-                            Clear
+                            {t('clear')}
                         </Button>
                     )}
                 </div>
@@ -231,7 +234,7 @@ export default function PlayerSessionList({ serverPlayerPromise }: { serverPlaye
             {sessionList.length === 0 && !loading && (
                 <div className="text-center py-8">
                     <p className="text-muted-foreground">
-                        No sessions found for the selected criteria.
+                        {t('noSessions')}
                     </p>
                 </div>
             )}

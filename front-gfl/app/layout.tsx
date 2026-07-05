@@ -14,14 +14,19 @@ import {NotificationBannerLoader} from "components/notifications/NotificationBan
 import {DonorBanner} from "components/ui/DonorBanner";
 import getServerUser from "./getServerUser";
 import NextTopLoader from "nextjs-toploader";
+import {NextIntlClientProvider} from "next-intl";
+import {getLocale, getTranslations} from "next-intl/server";
+import {DayjsLocaleProvider} from "components/providers/DayjsLocaleProvider";
 
-export const metadata: Metadata = {
-    title: 'ZE Graph',
-    description: 'Shows Zombie Escape (ZE) player activities on many western servers. ' +
-        'Popular servers like GFL, Mapeadores, RSS, PSE, Net4All, Cola-Team and many more are tracked!',
-    metadataBase: new URL(DOMAIN),
-    alternates: {
-        canonical: '/'
+export async function generateMetadata(): Promise<Metadata> {
+    const t = await getTranslations('metadata');
+    return {
+        title: 'ZE Graph',
+        description: t('rootDescription'),
+        metadataBase: new URL(DOMAIN),
+        alternates: {
+            canonical: '/'
+        }
     }
 }
 
@@ -33,8 +38,9 @@ export default async function RootLayout({
 }) {
     const communities = getCommunity();
     const user = getServerUser();
+    const locale = await getLocale();
     return (
-        <html lang="en" className={inter.variable} suppressHydrationWarning>
+        <html lang={locale} className={inter.variable} suppressHydrationWarning>
             <head>
                 <link rel="icon" href="/favicon.ico" sizes="any" />
                 <meta name="theme-color" content="#f48fb1" />
@@ -42,6 +48,8 @@ export default async function RootLayout({
                 <script async custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js"></script>
             </head>
             <body>
+                <NextIntlClientProvider>
+                <DayjsLocaleProvider>
                 <NextTopLoader color="#f48fb1" showSpinner={false} />
                 <ThemeProvider
                     attribute="class"
@@ -64,6 +72,8 @@ export default async function RootLayout({
                         </PostHogProvider>
                     </CommunityServerProvider>
                 </ThemeProvider>
+                </DayjsLocaleProvider>
+                </NextIntlClientProvider>
             </body>
         </html>
     )

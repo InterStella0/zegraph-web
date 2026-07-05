@@ -1,3 +1,4 @@
+import {useTranslations} from 'next-intl';
 import { Card, CardContent } from 'components/ui/card';
 import { formatDuration, getServerPopRange } from 'utils/sessionUtils.js';
 import dayjs from "dayjs";
@@ -8,6 +9,7 @@ export default function MapSessionStats(
     { sessionInfo, serverGraph, graphMatch, mutualSessions }:
     { sessionInfo: ServerMapPlayed, serverGraph: ServerGraphType<"map">, graphMatch: MapSessionMatch[], mutualSessions: MutualSessionReturn<"map"> }
 ) {
+    const t = useTranslations('sessions');
     const final = graphMatch[graphMatch.length - 1] || null
     const finalScore = final ? `${final.human_score}-${final.zombie_score}` : '?-?'
 
@@ -29,7 +31,7 @@ export default function MapSessionStats(
                             {finalScore}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                            Match Score
+                            {t('matchScore')}
                         </div>
                     </div>
 
@@ -38,7 +40,7 @@ export default function MapSessionStats(
                             {mutualSessions.length}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                            Total Players
+                            {t('totalPlayers')}
                         </div>
                     </div>
 
@@ -47,7 +49,7 @@ export default function MapSessionStats(
                             {getServerPopRange(serverGraph)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                            Server Pop Range
+                            {t('serverPopRange')}
                         </div>
                     </div>
                 </div>

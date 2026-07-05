@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {useEffect, useState, useMemo, use} from "react";
 import {addOrdinalSuffix, APIError, fetchApiServerUrl, formatNumber, formatHours, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
@@ -36,6 +37,8 @@ export interface PlayerTopMap extends PlayerMostPlayedMap{
 }
 
 function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}) {
+    const t = useTranslations('players.topMaps');
+    const tCommon = useTranslations('common');
     const { server, player } = use(serverPlayerPromise)
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const [maps, setMaps] = useState<PlayerTopMap[]>([]);
@@ -212,7 +215,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
     const chartData = {
         labels: displayedMaps.map(e => e.map),
         datasets: [{
-            label: 'Hours',
+            label: t('hours'),
             data: displayedMaps.map(e => e.hours),
             backgroundColor: generateColors(displayedMaps.length),
             borderWidth: 0,
@@ -223,15 +226,19 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
     // Generate SEO summary
     const summary = useMemo(() => {
         if (maps.length === 0) {
-            return "No map playtime data available.";
+            return t('noData');
         }
 
         const totalHours = maps.reduce((sum, m) => sum + m.hours, 0);
         const topMap = maps[0];
 
-        return `Player has played ${formatNumber(maps.length)} different map${maps.length !== 1 ? 's' : ''} ` +
-            `for a total of ${formatNumber(totalHours)} Hours. Most played: ${topMap.map} with ${formatNumber(topMap.hours)} hours.`;
-    }, [maps]);
+        return t('summary', {
+            count: maps.length,
+            total: formatNumber(totalHours),
+            topMap: topMap.map,
+            topHours: formatNumber(topMap.hours),
+        });
+    }, [maps, t]);
 
     const cardHeight = isMobile ? '280px' : '380px';
 
@@ -257,13 +264,13 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
         <div className="p-4 h-full flex flex-col">
             <div className="flex justify-between items-center mb-2">
                 <h2 className={`font-bold ${isMobile ? 'text-base' : 'text-xl'}`}>
-                    Map Playtime
+                    {t('title')}
                 </h2>
 
                 <Tabs value={viewType} onValueChange={handleViewChange}>
                     <TabsList>
-                        <TabsTrigger value="chart" className={isMobile ? 'text-xs px-2 py-1' : ''}>Chart</TabsTrigger>
-                        <TabsTrigger value="table" className={isMobile ? 'text-xs px-2 py-1' : ''}>Table</TabsTrigger>
+                        <TabsTrigger value="chart" className={isMobile ? 'text-xs px-2 py-1' : ''}>{t('chart')}</TabsTrigger>
+                        <TabsTrigger value="table" className={isMobile ? 'text-xs px-2 py-1' : ''}>{t('table')}</TabsTrigger>
                     </TabsList>
                 </Tabs>
             </div>
@@ -273,7 +280,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                     <div className="relative">
                         <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search maps..."
+                            placeholder={t('searchMaps')}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-8"
@@ -289,15 +296,15 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                 {loading && <SkeletonBarGraph sorted />}
                 {error && (error instanceof APIError && error.code === 202 ?
                     <p className="text-muted-foreground">
-                        Still calculating...
+                        {t('stillCalculating')}
                     </p> :
                     <p className="text-destructive">
-                        Failed to load map data
+                        {t('loadFailed')}
                     </p>
                 )}
                 {!loading && !error && maps.length === 0 && (
                     <p className="text-muted-foreground">
-                        No map data available
+                        {t('noMapData')}
                     </p>
                 )}
                 {!loading && !error && maps.length > 0 && (
@@ -310,7 +317,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                                 <div
                                     className="w-full h-full flex items-center justify-center"
                                     role="img"
-                                    aria-label="Player map playtime distribution"
+                                    aria-label={t('ariaLabel')}
                                     aria-describedby="map-playtime-summary"
                                 >
                                     <Doughnut
@@ -325,10 +332,10 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                                     <Table>
                                         <TableHeader className="sticky top-0 bg-background">
                                             <TableRow>
-                                                <TableHead className="font-bold">Rank</TableHead>
-                                                <TableHead className="font-bold">Map</TableHead>
-                                                <TableHead className="font-bold">Play Rank</TableHead>
-                                                <TableHead className="font-bold text-right">Time</TableHead>
+                                                <TableHead className="font-bold">{t('rank')}</TableHead>
+                                                <TableHead className="font-bold">{t('map')}</TableHead>
+                                                <TableHead className="font-bold">{t('playRank')}</TableHead>
+                                                <TableHead className="font-bold text-right">{t('time')}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -343,7 +350,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                                                             </Link>
                                                         </TableCell>
                                                         <TableCell>
-                                                            {mapData.rank > 0? addOrdinalSuffix(mapData.rank): 'No data'}
+                                                            {mapData.rank > 0? tCommon('ordinal', {n: mapData.rank}): t('noDataCell')}
                                                         </TableCell>
                                                         <TableCell className="text-right">
                                                             {formatDuration(mapData.duration)}
@@ -368,7 +375,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                                 {searchTerm && filteredMaps.length === 0 && (
                                     <div className="flex justify-center mt-4">
                                         <p className="text-muted-foreground">
-                                            No maps found matching "{searchTerm}"
+                                            {t('noMapsMatching', {query: searchTerm})}
                                         </p>
                                     </div>
                                 )}
@@ -382,8 +389,9 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
 }
 
 export default function PlayerTopMap({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}) {
+    const t = useTranslations('players.topMaps');
     return (
-        <ErrorCatch message="Top maps couldn't be loaded.">
+        <ErrorCatch message={t('loadError')}>
             <Card className="h-full w-full overflow-hidden">
                 <PlayerTopMapDisplay serverPlayerPromise={serverPlayerPromise} />
             </Card>

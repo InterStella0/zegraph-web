@@ -1,3 +1,4 @@
+import {useTranslations, useLocale} from 'next-intl';
 import {ReactElement, use} from "react";
 import {addOrdinalSuffix, fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
@@ -27,6 +28,7 @@ import {SiSteam} from "@icons-pack/react-simple-icons";
 dayjs.extend(relativeTime)
 
 function AliasesDropdown({ aliases }) {
+    const t = useTranslations('players.card');
     const primaryAlias = aliases[0]?.name || '';
     const remainingCount = aliases.length - 1;
 
@@ -41,7 +43,7 @@ function AliasesDropdown({ aliases }) {
 
                 {remainingCount > 0 && (
                     <span className="text-xs text-muted-foreground/60">
-                        +{remainingCount} more
+                        {t('moreAliases', {count: remainingCount})}
                     </span>
                 )}
             </div>
@@ -50,13 +52,14 @@ function AliasesDropdown({ aliases }) {
 }
 
 function RankChip({ label, rank, title = undefined }) {
+    const tCommon = useTranslations('common');
     return (
         <Badge
             variant="outline"
             title={title}
             className="px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap"
         >
-            {label} {addOrdinalSuffix(rank)}
+            {label} {tCommon('ordinal', {n: rank})}
         </Badge>
     );
 }
@@ -70,11 +73,13 @@ async function getCStatsCSGO(server_id: string, player_id: string): Promise<Play
 }
 
 function PlayerCardDetailDisplay({ server, player }: { server: Server, player: PlayerInfo }): ReactElement {
+    const t = useTranslations('players.card');
+    const locale = useLocale();
     const cStats = getCStatsCSGO(server.id, player.id)
     const ranks = player?.ranks
-    let lastPlayedText = `Last online ${dayjs(player.last_played).fromNow()} (${secondsToHours(player.last_played_duration)}hr)`;
+    let lastPlayedText = t('lastOnline', {ago: dayjs(player.last_played).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
     if (player.online_since) {
-        lastPlayedText = `Playing since ${dayjs(player.online_since).fromNow()}`;
+        lastPlayedText = t('playingSince', {ago: dayjs(player.online_since).fromNow()});
     }
     const steamId = !player.id.includes('-')? player.id: player?.associated_player_id? player.associated_player_id: null
 
@@ -118,7 +123,7 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>View Steam Profile</p>
+                                            <p>{t('viewSteamProfile')}</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
@@ -134,18 +139,18 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
 
                     <div className="flex mt-4 sm:mt-auto gap-2 justify-center sm:justify-start">
                         <div className="flex flex-wrap mt-4 sm:mt-auto gap-2 justify-center sm:justify-start max-w-full">
-                            {ranks && <RankChip label="Ranked" rank={ranks?.server_playtime}/>}
+                            {ranks && <RankChip label={t('ranked')} rank={ranks?.server_playtime}/>}
                             {player.category && player.category !== 'unknown' && (
                                 <CategoryChip category={player.category} size="medium"/>
                             )}
-                            {ranks && <RankChip label="Global" rank={ranks?.global_playtime} title="Global playtime regardless of communities"/>}
-                            {ranks && <RankChip label="Tryhard" rank={ranks?.tryhard_playtime}/>}
-                            {ranks && <RankChip label="Casual" rank={ranks?.casual_playtime}/>}
+                            {ranks && <RankChip label={t('global')} rank={ranks?.global_playtime} title={t('globalTitle')}/>}
+                            {ranks && <RankChip label={t('tryhard')} rank={ranks?.tryhard_playtime}/>}
+                            {ranks && <RankChip label={t('casual')} rank={ranks?.casual_playtime}/>}
                             {ranks && ranks?.highest_map_rank &&
                                 <RankChip
                                     label={`${ranks?.highest_map_rank?.map} -`}
                                     rank={ranks?.highest_map_rank?.rank}
-                                    title={`Top ${ranks?.highest_map_rank?.rank} on ${ranks?.highest_map_rank?.map} (${secondsToHours(ranks?.highest_map_rank?.total_playtime)}hr)`}/>
+                                    title={t('topOnMap', {rank: ranks?.highest_map_rank?.rank, map: ranks?.highest_map_rank?.map, hours: secondsToHours(ranks?.highest_map_rank?.total_playtime, locale)})}/>
                             }
                         </div>
                     </div>
@@ -160,13 +165,14 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
 
 
 export default function PlayerCardDetail({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed> }) {
+    const t = useTranslations('players.card');
     const {server, player } = use(serverPlayerPromise)
     if (player instanceof StillCalculate)
         return null // Should not reach here
 
     return (
         <Card className="w-full">
-            <ErrorCatch message="No player detail is available.">
+            <ErrorCatch message={t('noDetail')}>
                 <PlayerCardDetailDisplay server={server} player={player} />
             </ErrorCatch>
         </Card>

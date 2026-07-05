@@ -10,6 +10,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import {Suspense} from "react";
 import {getContinentStatsNow, getMatchNow} from "./util.ts";
 import {AdSpot} from "components/ui/AdSpot";
+import { getTranslations } from 'next-intl/server';
 dayjs.extend(relativeTime)
 
 export async function generateMetadata({ params}: {
@@ -18,21 +19,22 @@ export async function generateMetadata({ params}: {
     const { server_slug } = await params
 
     const server = await getServerSlug(server_slug)
+    const t = await getTranslations('metadata');
     if (!server)
         return {
-        title: formatTitle("Maps")
+        title: formatTitle(t('mapsTitleFallback'))
     }
 
-    let description = `Play zombie escape on ${server.community_name} at ${server.fullIp}.`
+    let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
     try{
         const parameters = { page: 1, sorted_by: 'LastPlayed' }
         const data: MapPlayedPaginated = await fetchServerUrl(server.id, '/maps/last/sessions', { params: parameters, next: {revalidate: threeMinutes} });
         const latestMap = data.maps[0]
-        description += ` There are over ${data.total_maps} maps that has been played! Last played ${latestMap.map} at ${dayjs(latestMap.last_played).fromNow()}.`
+        description += ' ' + t('mapsPlayedLast', {count: data.total_maps, map: latestMap.map, time: dayjs(latestMap.last_played).fromNow()});
     }catch(e){}
 
     return {
-        title: formatTitle(`${server.community_name} Maps`),
+        title: formatTitle(t('mapsTitle', {name: server.community_name})),
         description: description,
         alternates: {
             canonical: `/servers/${server.gotoLink}/maps`

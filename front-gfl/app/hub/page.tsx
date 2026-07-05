@@ -4,13 +4,16 @@ import ResponsiveAppBar from 'components/ui/ResponsiveAppBar';
 import Footer from 'components/ui/Footer';
 import getServerUser from '../getServerUser';
 import { URI, formatTitle } from 'utils/generalUtils';
+import { getTranslations } from 'next-intl/server';
 
-export const metadata: Metadata = {
-  title: formatTitle('Hub'),
-  description:
-    'A hub of Zombie Escape (ZE) community websites, tools, minigames and resources worth checking out.',
-  alternates: { canonical: '/hub' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('metadata');
+  return {
+    title: formatTitle(t('hubTitle')),
+    description: t('hubDescription'),
+    alternates: { canonical: '/hub' },
+  };
+}
 
 interface CommunityLink {
   id: string;
@@ -41,6 +44,7 @@ function hostOf(url: string): string {
 }
 
 export default async function HubPage() {
+  const t = await getTranslations('hub');
   const user = getServerUser();
   const links = await getLinks();
 
@@ -55,11 +59,10 @@ export default async function HubPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Compass className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold">ZE Community Hub</h1>
+              <h1 className="text-3xl font-bold">{t('title')}</h1>
             </div>
             <p className="text-muted-foreground max-w-2xl">
-              A collection of community websites, tools, minigames and resources from across the
-              Zombie Escape community. Found something that belongs here? Let us know.
+              {t('description')}
             </p>
           </div>
 
@@ -93,8 +96,8 @@ export default async function HubPage() {
             </div>
           ) : (
             <div className="text-center py-16 text-muted-foreground space-y-2">
-              <p className="text-lg font-medium">Nothing here yet.</p>
-              <p className="text-sm">Community links will show up here soon.</p>
+              <p className="text-lg font-medium">{t('nothingYet')}</p>
+              <p className="text-sm">{t('comingSoon')}</p>
             </div>
           )}
 

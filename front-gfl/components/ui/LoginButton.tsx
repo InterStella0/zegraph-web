@@ -15,8 +15,10 @@ import LoginDialog from "./LoginDialog.tsx";
 import {signOut} from "next-auth/react";
 import {useRouter} from "next/navigation";
 import {SteamProfile} from "../../next-auth-steam/steam.ts";
+import {useTranslations} from "next-intl";
 
 function UserMenu({ user }: { user: SteamProfile | null }) {
+    const t = useTranslations('auth');
     const router = useRouter();
     const canAccessAdmin = user?.is_superuser || user?.is_map_manager || false;
 
@@ -54,21 +56,21 @@ function UserMenu({ user }: { user: SteamProfile | null }) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleProfile}>
                     <User className="mr-2 h-4 w-4" />
-                    Profile
+                    {t('profile')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleSettings}>
                     <Cog className="mr-2 h-4 w-4" />
-                    Settings
+                    {t('settings')}
                 </DropdownMenuItem>
                 {canAccessAdmin && (
                     <DropdownMenuItem onClick={handleAdmin}>
                         <Shield className="mr-2 h-4 w-4" />
-                        Admin
+                        {t('admin')}
                     </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    Logout
+                    {t('logout')}
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -76,6 +78,7 @@ function UserMenu({ user }: { user: SteamProfile | null }) {
 }
 
 export default function LoginButton({user}: { user: SteamProfile | null}){
+    const t = useTranslations('auth');
     const [loginDialogOpen, setLoginDialogOpen] = useState(false);
 
     const handleLoginClick = () => {
@@ -91,7 +94,7 @@ export default function LoginButton({user}: { user: SteamProfile | null}){
             variant="outline"
             size="sm"
         >
-            Login<span className="hidden min-[965px]:block">with Steam</span>
+            {t('login')}<span className="hidden min-[965px]:block">{t('withSteam')}</span>
         </Button>
     )}
         <LoginDialog

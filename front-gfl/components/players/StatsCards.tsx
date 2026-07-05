@@ -4,34 +4,35 @@ import { fetchServerUrl, secondsToHours } from "utils/generalUtils";
 import { ServerPlayersStatistic } from "types/players.ts";
 import {ServerSlugPromise} from "../../app/servers/[server_slug]/util.ts";
 import { Card, CardContent } from "components/ui/card";
+import { getTranslations, getLocale } from "next-intl/server";
 
-const getStatsCards = (stats: ServerPlayersStatistic) => {
+const getStatsCards = (stats: ServerPlayersStatistic, t: (key: string) => string, locale: string) => {
     if (!stats) return [];
 
     return [
         {
-            label: 'Total Players',
-            thisWeek: stats.week1?.total_players?.toLocaleString() || '0',
-            allTime: stats.all_time?.total_players?.toLocaleString() || '0',
+            label: t('totalPlayers'),
+            thisWeek: stats.week1?.total_players?.toLocaleString(locale) || '0',
+            allTime: stats.all_time?.total_players?.toLocaleString(locale) || '0',
             icon: <User className="w-7 h-7" />,
-            weekLabel: 'This Week',
-            allTimeLabel: 'All Time'
+            weekLabel: t('thisWeek'),
+            allTimeLabel: t('allTime')
         },
         {
-            label: 'Cumulative Hours',
-            thisWeek: secondsToHours(stats.week1?.total_cum_playtime || 0),
-            allTime: secondsToHours(stats.all_time?.total_cum_playtime || 0),
+            label: t('cumulativeHours'),
+            thisWeek: secondsToHours(stats.week1?.total_cum_playtime || 0, locale),
+            allTime: secondsToHours(stats.all_time?.total_cum_playtime || 0, locale),
             icon: <Clock className="w-7 h-7" />,
-            weekLabel: 'This Week',
-            allTimeLabel: 'All Time'
+            weekLabel: t('thisWeek'),
+            allTimeLabel: t('allTime')
         },
         {
-            label: 'Countries',
+            label: t('countries'),
             thisWeek: stats.week1?.countries?.toString() || '0',
             allTime: stats.all_time?.countries?.toString() || '0',
             icon: <Globe className="w-7 h-7" />,
-            weekLabel: 'This Week',
-            allTimeLabel: 'All Time'
+            weekLabel: t('thisWeek'),
+            allTimeLabel: t('allTime')
         }
     ];
 };
@@ -39,9 +40,11 @@ const getStatsCards = (stats: ServerPlayersStatistic) => {
 export default async function StatsCards({ serverPromise }: {serverPromise: ServerSlugPromise}): Promise<ReactElement> {
     const server = await serverPromise
     const stats: ServerPlayersStatistic = await fetchServerUrl(server.id, '/players/stats', {});
+    const t = await getTranslations('players.statsCards');
+    const locale = await getLocale();
 
     return <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {getStatsCards(stats).map((stat, index) => (
+            {getStatsCards(stats, t, locale).map((stat, index) => (
                 <Card key={index} className="h-full">
                     <CardContent className="text-center py-4 px-4">
                         <div className="text-primary mb-2 flex justify-center">

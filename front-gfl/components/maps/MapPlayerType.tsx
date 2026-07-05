@@ -15,10 +15,14 @@ import { Info, AlertCircle } from "lucide-react";
 import { useTheme } from "next-themes";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizePlayerTypes } from "utils/chartSeoUtils.tsx";
+import {useTranslations, useLocale} from 'next-intl';
 
 ChartJS.register(ArcElement, Legend);
 
 function MapPlayerTypeDisplay() {
+    const t = useTranslations('maps.playerType');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
     const { name } = useMapContext();
     const { server } = useServerData();
     const server_id = server.id
@@ -57,7 +61,7 @@ function MapPlayerTypeDisplay() {
         labels: playerTypes.map(p => p.category),
         datasets: [
             {
-                label: 'Player Hours',
+                label: t('playerHours'),
                 data: playerTypes.map(p => p.time_spent),
                 backgroundColor: playerTypes.map(p => categoryColors[p.category] || (isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)')),
                 hoverOffset: 10,
@@ -79,9 +83,9 @@ function MapPlayerTypeDisplay() {
                 callbacks: {
                     label: (context: any) => {
                         const count = context.raw;
-                        const hours = secondsToHours(count)
+                        const hours = secondsToHours(count, locale)
                         const percent = ((count / totalSeconds) * 100).toFixed(1);
-                        return `${context.label}: ${hours} hrs (${percent}%)`;
+                        return `${context.label}: ${tCommon('hours', {value: hours})} (${percent}%)`;
                     },
                 },
             },
@@ -96,7 +100,7 @@ function MapPlayerTypeDisplay() {
 
     const summary = useMemo(() => {
         if (!playerTypes || playerTypes.length === 0) {
-            return "No player type data available.";
+            return t('noData');
         }
 
         const playerTypeData = playerTypes.map(p => ({
@@ -114,7 +118,7 @@ function MapPlayerTypeDisplay() {
     <Card className="p-6">
         <TooltipProvider>
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-primary">Player Type Distribution</h2>
+                <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -122,7 +126,7 @@ function MapPlayerTypeDisplay() {
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Shows the different types of players that has played this map</p>
+                        <p>{t('tooltip')}</p>
                     </TooltipContent>
                 </Tooltip>
             </div>
@@ -136,14 +140,14 @@ function MapPlayerTypeDisplay() {
             <div
                 className="flex justify-center items-center mb-4"
                 role="img"
-                aria-label="Player type distribution"
+                aria-label={t('title')}
                 aria-describedby="player-type-summary"
             >
                 {!error && loading && <div className="p-12"><Skeleton className="w-[250px] h-[250px] rounded-full" /></div>}
                 {error &&
                     <div className="flex gap-4 min-h-[300px] items-center">
                         <AlertCircle className="w-5 h-5" />
-                        <p>{error.message || "Something went wrong :/"}</p>
+                        <p>{error.message || t('somethingWrong')}</p>
                     </div>}
                 {!error && !loading && <div className="max-h-[300px] max-w-[300px]">
                     {DoughnutDisplay}
@@ -154,7 +158,8 @@ function MapPlayerTypeDisplay() {
     );
 }
 export default function MapPlayerType(){
-    return <ErrorCatch message="Could not load map player type!">
+    const t = useTranslations('maps.playerType');
+    return <ErrorCatch message={t('loadError')}>
         <MapPlayerTypeDisplay />
     </ErrorCatch>
 }

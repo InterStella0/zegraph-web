@@ -24,12 +24,14 @@ import {
     TooltipTrigger,
 } from 'components/ui/tooltip';
 import {CommunitiesData, getCommunityData} from "../../../app/getCommunity.ts";
+import { useTranslations } from 'next-intl';
 
 interface MapGuidesListDisplayProps {
     session: SteamSession | null;
 }
 
 function MapGuidesListDisplay({ session }: MapGuidesListDisplayProps) {
+    const t = useTranslations('guides.list');
     const { mapName, serverGoto, serverId } = useGuideContext();
     const router = useRouter();
     const isBanned = session?.isBanned ?? false;
@@ -112,12 +114,12 @@ function MapGuidesListDisplay({ session }: MapGuidesListDisplayProps) {
                                 <span className="w-full sm:w-auto">
                                     <Button disabled className="w-full sm:w-auto">
                                         <Plus className="mr-2 h-4 w-4" />
-                                        Create Guide
+                                        {t('createGuide')}
                                     </Button>
                                 </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p className="font-semibold">You are banned</p>
+                                <p className="font-semibold">{t('youAreBanned')}</p>
                                 {banReason && <p className="text-sm text-muted-foreground">{banReason}</p>}
                             </TooltipContent>
                         </Tooltip>
@@ -125,7 +127,7 @@ function MapGuidesListDisplay({ session }: MapGuidesListDisplayProps) {
                 ) : (
                     <Button onClick={handleCreateGuide} className="w-full sm:w-auto">
                         <Plus className="mr-2 h-4 w-4" />
-                        Create Guide
+                        {t('createGuide')}
                     </Button>
                 )}
             </div>
@@ -169,9 +171,9 @@ function MapGuidesListDisplay({ session }: MapGuidesListDisplayProps) {
                 <Card className="p-12">
                     <div className="text-center">
                         <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <h3 className="text-lg font-semibold mb-2">No guides yet</h3>
+                        <h3 className="text-lg font-semibold mb-2">{t('noGuides')}</h3>
                         <p className="text-muted-foreground mb-4">
-                            Be the first to share your knowledge about this map!
+                            {t('beFirst')}
                         </p>
                         {isBanned ? (
                             <TooltipProvider>
@@ -180,12 +182,12 @@ function MapGuidesListDisplay({ session }: MapGuidesListDisplayProps) {
                                         <span>
                                             <Button disabled>
                                                 <Plus className="mr-2 h-4 w-4" />
-                                                Create First Guide
+                                                {t('createFirstGuide')}
                                             </Button>
                                         </span>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p className="font-semibold">You are banned</p>
+                                        <p className="font-semibold">{t('youAreBanned')}</p>
                                         {banReason && <p className="text-sm text-muted-foreground">{banReason}</p>}
                                     </TooltipContent>
                                 </Tooltip>
@@ -193,7 +195,7 @@ function MapGuidesListDisplay({ session }: MapGuidesListDisplayProps) {
                         ) : (
                             <Button onClick={handleCreateGuide}>
                                 <Plus className="mr-2 h-4 w-4" />
-                                Create First Guide
+                                {t('createFirstGuide')}
                             </Button>
                         )}
                     </div>
@@ -246,8 +248,9 @@ interface MapGuidesListProps {
 }
 
 export default function MapGuidesList({ session }: MapGuidesListProps) {
+    const t = useTranslations('guides.list');
     return (
-        <ErrorCatch message="Could not load guides list">
+        <ErrorCatch message={t('loadError')}>
             <MapGuidesListDisplay session={session} />
         </ErrorCatch>
     );

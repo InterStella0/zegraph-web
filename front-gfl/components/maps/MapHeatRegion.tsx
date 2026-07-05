@@ -17,6 +17,7 @@ import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider"
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import {DailyMapRegion, MapRegion} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
+import {useTranslations, useLocale} from 'next-intl';
 
 dayjs.extend(utc);
 
@@ -31,6 +32,8 @@ type HeatRegionData = {
 }
 
 function MapHeatRegionDisplay(){
+    const t = useTranslations('maps.heatRegion');
+    const locale = useLocale();
     const { name } = useMapContext()
     const [ loading, setLoading ] = useState<boolean>(true)
     const [ regions, setRegions ] = useState<HeatRegionData[]>([])
@@ -194,7 +197,7 @@ function MapHeatRegionDisplay(){
     // Generate SEO summary
     const summary = useMemo(() => {
         if (!regions || regions.length === 0) {
-            return "No regional heatmap data available.";
+            return t('noData');
         }
 
         const dayTotals = new Map<string, number>();
@@ -220,9 +223,13 @@ function MapHeatRegionDisplay(){
 
         const uniqueDays = new Set(regions.map(r => r.x)).size;
 
-        return `Heatmap shows map play patterns over ${formatNumber(uniqueDays)} days. ` +
-            `Most active day: ${mostActiveDay[0]} with ${formatHours(mostActiveDay[1])}. ` +
-            `Most active region: ${mostActiveRegion[0]} with ${formatHours(mostActiveRegion[1])}.`;
+        return t('summary', {
+            days: formatNumber(uniqueDays, 0, locale),
+            day: mostActiveDay[0],
+            dayHours: formatHours(mostActiveDay[1], locale),
+            region: mostActiveRegion[0],
+            regionHours: formatHours(mostActiveRegion[1], locale)
+        });
     }, [regions]);
 
     // @ts-ignore
@@ -231,7 +238,7 @@ function MapHeatRegionDisplay(){
         <div className="p-4">
             <div className="flex justify-between">
                 <h2 className="text-xl font-bold text-primary">
-                    Region Distribution
+                    {t('title')}
                 </h2>
                 <div>
                     <TooltipProvider>
@@ -242,8 +249,8 @@ function MapHeatRegionDisplay(){
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>{error ? (notReady ? "Data is not ready." : "Something went wrong") : 
-                                    "Region time of when a map is being played in a year."}</p>
+                                <p>{error ? (notReady ? t('dataNotReady') : t('somethingWrong')) :
+                                    t('tooltip')}</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
@@ -259,7 +266,7 @@ function MapHeatRegionDisplay(){
             <div
                 className="p-4 flex justify-center md:justify-center sm:justify-end xs:justify-end items-center overflow-auto"
                 role="img"
-                aria-label="Regional playtime heatmap by day and region"
+                aria-label={t('ariaLabel')}
                 aria-describedby="heat-region-summary"
             >
                 {ChartDisplay}
@@ -269,7 +276,8 @@ function MapHeatRegionDisplay(){
     )
 }
 export default function MapHeatRegion(){
-    return <ErrorCatch message="Couldn't load map heat region!">
+    const t = useTranslations('maps.heatRegion');
+    return <ErrorCatch message={t('loadError')}>
         <MapHeatRegionDisplay />
     </ErrorCatch>
 }

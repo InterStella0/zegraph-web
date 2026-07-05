@@ -14,6 +14,7 @@ import { Server } from "types/community";
 import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/util";
 import {ScrollArea, ScrollBar} from "components/ui/scroll-area.tsx";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
+import { useTranslations } from "next-intl";
 
 dayjs.extend(weekOfYear)
 dayjs.extend(isoWeek)
@@ -57,6 +58,7 @@ export default function PlayTimeHeatmap({
     }) => void
     onChangeTotalPlayed: (value: number) => void
 }) {
+    const t = useTranslations('players.heatmap')
     const playerId = player.id
     const server_id = server.id
     const [loading, setLoading] = useState(true)
@@ -275,7 +277,7 @@ export default function PlayTimeHeatmap({
                     },
                     label(context: any) {
                         const v = context.dataset.data[context.dataIndex];
-                        return [v.d, `${v.v.toFixed(2)} hours played`];
+                        return [v.d, t('hoursPlayedValue', {hours: v.v.toFixed(2)})];
                     }
                 }
             },
@@ -336,7 +338,7 @@ export default function PlayTimeHeatmap({
                 top: 10
             }
         }
-    }), [groupBy, colors, heatmapData])
+    }), [groupBy, colors, heatmapData, t])
 
     // Chart data
     const data = useMemo(() => ({
@@ -369,26 +371,32 @@ export default function PlayTimeHeatmap({
     // Generate SEO summaries at top level (not inside conditionals)
     const yearlySummary = useMemo(() => {
         if (chartBarData.length === 0) {
-            return "No yearly playtime data available.";
+            return t('noYearlyData');
         }
         const years = chartBarData.length;
         const totalHours = chartBarData.reduce((sum, d) => sum + d.hours, 0);
         const maxHours = Math.max(...chartBarData.map(d => d.hours));
-        return `Player activity across ${formatNumber(years)} period${years !== 1 ? 's' : ''}. ` +
-            `Total: ${formatNumber(totalHours)} hours. Peak: ${formatNumber(maxHours)} hours.`;
-    }, [chartBarData]);
+        return t('yearlySummary', {
+            periods: years,
+            total: formatNumber(totalHours),
+            peak: formatNumber(maxHours),
+        });
+    }, [chartBarData, t]);
 
     const matrixSummary = useMemo(() => {
         if (heatmapData.length === 0) {
-            return "No playtime data available.";
+            return t('noData');
         }
         const totalHours = heatmapData.reduce((sum, d) => sum + d.v, 0);
         const maxHours = Math.max(...heatmapData.map(d => d.v));
         const activeDays = new Set(heatmapData.filter(d => d.v > 0).map(d => d.x)).size;
 
-        return `Player activity heatmap showing ${formatNumber(totalHours)} hours across ${formatNumber(activeDays)} active day${activeDays !== 1 ? 's' : ''}. ` +
-            `Peak daily activity: ${formatNumber(maxHours)} hours.`;
-    }, [heatmapData]);
+        return t('matrixSummary', {
+            total: formatNumber(totalHours),
+            days: activeDays,
+            peak: formatNumber(maxHours),
+        });
+    }, [heatmapData, t]);
 
     if (loading) {
         return (
@@ -403,7 +411,7 @@ export default function PlayTimeHeatmap({
     if (groupBy === 'yearly' && rawData.length === 0) {
         return (
             <div className="flex flex-col justify-center items-center p-4 h-[280px] text-muted-foreground">
-                <p>No playtime data available</p>
+                <p>{t('noDataShort')}</p>
             </div>
         )
     }
@@ -413,7 +421,7 @@ export default function PlayTimeHeatmap({
         if (chartBarData.length === 0) {
             return (
                 <div className="flex justify-center items-center p-4 h-[232px] text-muted-foreground">
-                    No playtime data available
+                    {t('noDataShort')}
                 </div>
             )
         }
@@ -421,7 +429,7 @@ export default function PlayTimeHeatmap({
         const chartData = {
             labels: chartBarData.map(d => d.time),
             datasets: [{
-                label: 'Hours Played',
+                label: t('hoursPlayed'),
                 data: chartBarData.map(d => d.hours),
                 backgroundColor: colors.primaryColor,
                 borderColor: colors.primaryColor,
@@ -441,7 +449,7 @@ export default function PlayTimeHeatmap({
                     borderColor: colors.gridColor,
                     borderWidth: 1,
                     callbacks: {
-                        label: (context: any) => `${context.parsed.y.toFixed(2)} hours played`
+                        label: (context: any) => t('hoursPlayedValue', {hours: context.parsed.y.toFixed(2)})
                     }
                 }
             },
@@ -453,7 +461,7 @@ export default function PlayTimeHeatmap({
                 },
                 y: {
                     type: 'linear' as const,
-                    title: { display: true, text: 'Hours Played', color: colors.textColor },
+                    title: { display: true, text: t('hoursPlayed'), color: colors.textColor },
                     ticks: { color: colors.textColor },
                     grid: { color: colors.gridColor }
                 }
@@ -468,7 +476,7 @@ export default function PlayTimeHeatmap({
                 <div
                     style={{ width: '100%', height: '200px' }}
                     role="img"
-                    aria-label="Yearly player activity heatmap"
+                    aria-label={t('yearlyAriaLabel')}
                     aria-describedby="yearly-heatmap-summary"
                 >
                     <LazyBarChart data={chartData} options={yearlyChartOptions} />
@@ -481,7 +489,7 @@ export default function PlayTimeHeatmap({
     if (heatmapData.length === 0) {
         return (
             <div className="flex justify-center items-center p-4 h-[200px] text-muted-foreground">
-                No playtime data available
+                {t('noDataShort')}
             </div>
         )
     }
@@ -494,7 +502,7 @@ export default function PlayTimeHeatmap({
             <div
                 className="flex justify-center md:justify-center sm:justify-end xs:justify-end items-center"
                 role="img"
-                aria-label={`Player ${groupBy} activity heatmap`}
+                aria-label={t('matrixAriaLabel', {groupBy})}
                 aria-describedby="matrix-heatmap-summary"
             >
                 <LazyMatrixChart

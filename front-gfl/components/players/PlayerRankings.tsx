@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {useState, useEffect, use} from 'react';
 import { Search, Trophy, Loader2 } from 'lucide-react';
 import {fetchApiServerUrl, fetchServerUrl, simpleRandom} from "utils/generalUtils";
@@ -46,11 +47,12 @@ const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => {
     </>
 };
 const rankingModes: RankingMode[] = [
-    {id: 'total', label: "Total Time", value: 'Total'},
-    {id: 'casual', label: "Casual", value: 'Casual'},
-    {id: 'tryhard', label: "Tryhard", value: 'TryHard'},
+    {id: 'total', labelKey: 'modeTotalTime', value: 'Total'},
+    {id: 'casual', labelKey: 'modeCasual', value: 'Casual'},
+    {id: 'tryhard', labelKey: 'modeTryhard', value: 'TryHard'},
 ]
 const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise }) => {
+    const t = useTranslations('players.rankings');
     const server = use(serverPromise)
     const serverId = server.id;
     const [searchTerm, setSearchTerm] = useState<string>('');
@@ -155,13 +157,13 @@ const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise })
         <Card className="mb-6">
             <CardHeader className="flex flex-row items-center gap-2 pb-3">
                 <Trophy className="w-5 h-5 text-primary"/>
-                <h2 className="text-lg max-sm:text-md font-semibold">Player Rankings</h2>
+                <h2 className="text-lg max-sm:text-md font-semibold">{t('title')}</h2>
             </CardHeader>
             <CardContent className="pt-0">
                 <div className="relative mb-4">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
                     <Input
-                        placeholder="Search for your favorite players... (Press Enter to search)"
+                        placeholder={t('searchPlaceholder')}
                         value={searchInputValue}
                         onChange={(e) => handleSearchInputChange(e.target.value)}
                         onKeyUp={handleKeyPress}
@@ -176,7 +178,7 @@ const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise })
                     <TabsList className="grid w-full grid-cols-3">
                         {rankingModes.map((mode, index) => (
                             <TabsTrigger key={mode.id} value={index.toString()}>
-                                {mode.label}
+                                {t(mode.labelKey)}
                             </TabsTrigger>
                         ))}
                     </TabsList>
@@ -193,12 +195,12 @@ const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise })
                         {playerRankings?.players?.length === 0 ? (
                             <div className="p-8 text-center">
                                 <h3 className="text-lg font-semibold text-muted-foreground mb-2">
-                                    No players found
+                                    {t('noPlayersFound')}
                                 </h3>
                                 <p className="text-sm text-muted-foreground">
                                     {debouncedSearchTerm ?
-                                        `No results found for "${debouncedSearchTerm}". Try adjusting your search.` :
-                                        'No players available at the moment.'
+                                        t('noResultsFor', {query: debouncedSearchTerm}) :
+                                        t('noPlayersAvailable')
                                     }
                                 </p>
                             </div>

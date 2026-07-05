@@ -13,6 +13,7 @@ import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "comp
 import { traverseSceneChunked } from 'utils/sceneProcessing'
 import { getCachedModelData, cacheModelData } from 'utils/modelCache'
 import { Map3DModel } from 'types/maps'
+import { useTranslations } from 'next-intl'
 
 const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('firefox')
 const formatFileSize = (bytes: number): string => {
@@ -404,15 +405,16 @@ function LoadingFallback({
   processingState: ProcessingState
   modelMetadata?: Map3DModel
 }) {
+  const t = useTranslations('maps.viewer3d')
   const phase = processingState.phase
   const processingProgress = processingState.progress
   const { active, progress: downloadProgress, loaded, total } = useProgress()
 
   const isDownloading = active || !phase
-  const currentPhase = isDownloading ? 'Downloading' :
-                      phase === 'parsing' ? 'Parsing' :
-                      phase === 'validating' ? 'Validating scene' :
-                      phase === 'optimizing' ? 'Optimizing materials' : 'Ready'
+  const currentPhase = isDownloading ? t('phaseDownloading') :
+                      phase === 'parsing' ? t('phaseParsing') :
+                      phase === 'validating' ? t('phaseValidating') :
+                      phase === 'optimizing' ? t('phaseOptimizing') : t('phaseReady')
 
   const currentProgress = isDownloading ? Math.round(downloadProgress) : Math.round(processingProgress || 0)
 
@@ -424,8 +426,8 @@ function LoadingFallback({
         </div>
         <div className="text-sm text-muted-foreground">
           {isDownloading
-            ? `${loaded} / ${total} items (${currentProgress}%)`
-            : `${currentProgress}% complete`
+            ? t('downloadProgress', {loaded, total, percent: currentProgress})
+            : t('percentComplete', {percent: currentProgress})
           }
         </div>
         <div className="w-48 h-2 bg-secondary rounded-full mt-4 overflow-hidden">
@@ -438,11 +440,11 @@ function LoadingFallback({
           <div className="mt-4 pt-4 border-t border-border/50 w-full">
             <div className="text-xs text-muted-foreground space-y-1">
               {modelMetadata.credit && (
-                <div>Model by: {modelMetadata.credit}</div>
+                <div>{t('modelBy', {credit: modelMetadata.credit})}</div>
               )}
               <div className="flex gap-4">
-                <span>Resolution: {modelMetadata.res_type}</span>
-                <span>Size: {formatFileSize(modelMetadata.file_size)}</span>
+                <span>{t('resolution')} {modelMetadata.res_type}</span>
+                <span>{t('size')} {formatFileSize(modelMetadata.file_size)}</span>
               </div>
             </div>
           </div>
@@ -453,19 +455,20 @@ function LoadingFallback({
 }
 
 function ErrorFallback({ error, mapName }: { error: Error; mapName: string }) {
+  const t = useTranslations('maps.viewer3d')
   const isDracoError = error.message.includes('draco') || error.message.includes('Draco')
 
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-8">
-      <h3 className="text-lg font-semibold mb-2">Failed to Load Model</h3>
+      <h3 className="text-lg font-semibold mb-2">{t('failedToLoadModel')}</h3>
       <p className="text-sm text-muted-foreground mb-4">{error.message}</p>
       <div className="text-xs text-muted-foreground bg-muted p-3 rounded">
-        <p className="font-mono">There might be no 3D model for this map yet!</p>
+        <p className="font-mono">{t('noModelYet')}</p>
         {isDracoError && (
           <>
-            <p className="mt-3 font-semibold text-yellow-600 dark:text-yellow-500">Draco Decoder Issue</p>
-            <p className="mt-1">This model uses Draco compression. Ensure:</p>
-            <p className="mt-1">1. Internet connection for CDN decoder </p>
+            <p className="mt-3 font-semibold text-yellow-600 dark:text-yellow-500">{t('dracoIssue')}</p>
+            <p className="mt-1">{t('dracoEnsure')}</p>
+            <p className="mt-1">{t('dracoInternet')}</p>
           </>
         )}
       </div>
@@ -1002,37 +1005,38 @@ function SpeedIndicator({ speed, mode, playerState }: {
   mode: string
   playerState?: { isOnGround: boolean; isCrouching: boolean; isSprinting: boolean; isOnLadder?: boolean }
 }) {
+  const t = useTranslations('maps.viewer3d')
   return (
     <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 z-10 p-2 sm:p-3 bg-background/95 backdrop-blur rounded-lg border shadow-lg">
       <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">
-        {mode === 'walk' ? 'Walk Speed' : 'Fly Speed'}
+        {mode === 'walk' ? t('walkSpeed') : t('flySpeed')}
       </div>
       <div className="text-sm sm:text-lg font-bold">{speed.toFixed(1)}x</div>
-      <div className="hidden sm:block text-xs text-muted-foreground mt-1">Scroll to adjust</div>
+      <div className="hidden sm:block text-xs text-muted-foreground mt-1">{t('scrollToAdjust')}</div>
 
       {mode === 'walk' && playerState && (
         <div className="mt-3 pt-3 border-t border-border space-y-1">
           {playerState.isOnLadder ? (
             <div className="flex items-center gap-2 text-xs text-purple-500">
               <div className="w-2 h-2 rounded-full bg-purple-500" />
-              On Ladder
+              {t('onLadder')}
             </div>
           ) : (
             <div className="flex items-center gap-2 text-xs">
               <div className={`w-2 h-2 rounded-full ${playerState.isOnGround ? 'bg-green-500' : 'bg-red-500'}`} />
-              {playerState.isOnGround ? 'On Ground' : 'In Air'}
+              {playerState.isOnGround ? t('onGround') : t('inAir')}
             </div>
           )}
           {playerState.isCrouching && (
             <div className="flex items-center gap-2 text-xs text-yellow-500">
               <div className="w-2 h-2 rounded-full bg-yellow-500" />
-              Crouching
+              {t('crouching')}
             </div>
           )}
           {playerState.isSprinting && !playerState.isCrouching && (
             <div className="flex items-center gap-2 text-xs text-blue-500">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
-              Sprinting
+              {t('sprinting')}
             </div>
           )}
         </div>
@@ -1044,6 +1048,7 @@ function SpeedIndicator({ speed, mode, playerState }: {
 type ControlMode = 'orbit' | 'fly' | 'walk'
 
 export default function MapViewer3D({ mapName, resType, modelMetadata }: MapViewer3DProps) {
+  const t = useTranslations('maps.viewer3d')
   const { theme } = useTheme()
   const [showStats, setShowStats] = useState(false)
   const [wireframe, setWireframe] = useState(false)
@@ -1180,7 +1185,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
             variant={controlMode === 'orbit' ? 'default' : 'secondary'}
             onClick={() => handleControlModeChange('orbit')}
           >
-            Orbit<span className="hidden sm:inline"> (F1)</span>
+            {t('orbit')}<span className="hidden sm:inline"> (F1)</span>
           </Button>
           <Button
             size="sm"
@@ -1188,7 +1193,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
             variant={controlMode === 'fly' ? 'default' : 'secondary'}
             onClick={() => handleControlModeChange('fly')}
           >
-            Noclip<span className="hidden sm:inline"> (F2)</span>
+            {t('noclip')}<span className="hidden sm:inline"> (F2)</span>
           </Button>
           <Button
             size="sm"
@@ -1196,7 +1201,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
             variant={controlMode === 'walk' ? 'default' : 'secondary'}
             onClick={() => handleControlModeChange('walk')}
           >
-            Walk<span className="hidden sm:inline"> (F3)</span>
+            {t('walkMode')}<span className="hidden sm:inline"> (F3)</span>
           </Button>
           <Button
             size="sm"
@@ -1204,7 +1209,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
             variant="secondary"
             onClick={() => setShowControlsHelp(!showControlsHelp)}
           >
-            {showControlsHelp ? 'Hide' : 'Show'} Controls
+            {showControlsHelp ? t('hideControls') : t('showControls')}
           </Button>
           <Button
             size="sm"
@@ -1212,7 +1217,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
             variant="secondary"
             onClick={() => setShowStats(!showStats)}
           >
-            {showStats ? 'Hide' : 'Show'} Stats
+            {showStats ? t('hideStats') : t('showStats')}
           </Button>
           <Button
             size="sm"
@@ -1220,23 +1225,23 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
             variant="secondary"
             onClick={() => setWireframe(!wireframe)}
           >
-            Wireframe
+            {t('wireframe')}
           </Button>
           <Button
             size="sm"
             className="hidden sm:inline-flex"
             variant="secondary"
             onClick={() => setUseBBoxCulling(!useBBoxCulling)}
-            title={useBBoxCulling ? 'Using Bounding Box Culling' : 'Using Center Point Culling'}
+            title={useBBoxCulling ? t('cullingBBoxTitle') : t('cullingCenterTitle')}
           >
-            Culling: {useBBoxCulling ? 'BBox' : 'Center'}
+            {t('culling', {mode: useBBoxCulling ? 'BBox' : 'Center'})}
           </Button>
           <Button
             size="sm"
             className="px-2 sm:px-3"
             variant="secondary"
             onClick={toggleFullscreen}
-            title={isFullscreen ? 'Exit Fullscreen (F11)' : 'Enter Fullscreen (F11)'}
+            title={isFullscreen ? t('exitFullscreen') : t('enterFullscreen')}
           >
             {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
           </Button>
@@ -1256,14 +1261,14 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
               collapsible
               className="max-w-lg"
           ><AccordionItem value="options">
-            <AccordionTrigger>Settings</AccordionTrigger>
+            <AccordionTrigger>{t('settings')}</AccordionTrigger>
             <AccordionContent>
 
-              <div className="text-xs font-semibold mb-3">Controls</div>
+              <div className="text-xs font-semibold mb-3">{t('controls')}</div>
               <div className="space-y-3">
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">Mouse Sensitivity</label>
+                    <label className="text-xs text-muted-foreground">{t('mouseSensitivity')}</label>
                     <span className="text-xs font-mono">{mouseSensitivity.toFixed(2)}x</span>
                   </div>
                   <input
@@ -1276,16 +1281,16 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                       className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                   />
                   <div className="text-[10px] text-muted-foreground mt-1">
-                    {isFirefox ? 'Firefox default: 2.5x' : 'Chrome default: 1.0x'}
+                    {isFirefox ? t('firefoxDefault') : t('chromeDefault')}
                   </div>
                 </div>
               </div>
 
-              <div className="text-xs font-semibold mb-3 mt-4 pt-3 border-t">Lighting</div>
+              <div className="text-xs font-semibold mb-3 mt-4 pt-3 border-t">{t('lighting')}</div>
               <div className="space-y-3">
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">Exposure</label>
+                    <label className="text-xs text-muted-foreground">{t('exposure')}</label>
                     <span className="text-xs font-mono">{(toneMapExposure * 10000).toFixed(0)}</span>
                   </div>
                   <input
@@ -1300,7 +1305,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">Render Distance</label>
+                    <label className="text-xs text-muted-foreground">{t('renderDistance')}</label>
                     <span className="text-xs font-mono">{renderDistance}</span>
                   </div>
                   <input
@@ -1315,7 +1320,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">Ambient</label>
+                    <label className="text-xs text-muted-foreground">{t('ambient')}</label>
                     <span className="text-xs font-mono">{ambientIntensity}</span>
                   </div>
                   <input
@@ -1330,7 +1335,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">Directional</label>
+                    <label className="text-xs text-muted-foreground">{t('directional')}</label>
                     <span className="text-xs font-mono">{directionalIntensity.toFixed(2)}</span>
                   </div>
                   <input
@@ -1345,11 +1350,11 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                 </div>
               </div>
 
-              <div className="text-xs font-semibold mb-3 mt-4 pt-3 border-t">Materials</div>
+              <div className="text-xs font-semibold mb-3 mt-4 pt-3 border-t">{t('materials')}</div>
               <div className="space-y-3">
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">Roughness</label>
+                    <label className="text-xs text-muted-foreground">{t('roughness')}</label>
                     <span className="text-xs font-mono">{materialRoughness.toFixed(2)}</span>
                   </div>
                   <input
@@ -1362,12 +1367,12 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                       className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                   />
                   <div className="text-[10px] text-muted-foreground mt-1">
-                    Higher = less shiny
+                    {t('higherLessShiny')}
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">Metalness</label>
+                    <label className="text-xs text-muted-foreground">{t('metalness')}</label>
                     <span className="text-xs font-mono">{materialMetalness.toFixed(2)}</span>
                   </div>
                   <input
@@ -1380,7 +1385,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                       className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                   />
                   <div className="text-[10px] text-muted-foreground mt-1">
-                    Lower = less reflective
+                    {t('lowerLessReflective')}
                   </div>
                 </div>
                 <Button
@@ -1396,19 +1401,19 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                       setMaterialMetalness(0.1)
                     }}
                 >
-                  Reset All
+                  {t('resetAll')}
                 </Button>
               </div>
 
               <div className="sm:hidden mt-4 pt-3 border-t space-y-2">
-                <div className="text-xs font-semibold mb-2">Toggles</div>
+                <div className="text-xs font-semibold mb-2">{t('toggles')}</div>
                 <Button
                   size="sm"
                   variant="outline"
                   className="w-full text-xs justify-start"
                   onClick={() => setShowControlsHelp(!showControlsHelp)}
                 >
-                  {showControlsHelp ? 'Hide' : 'Show'} Controls Help
+                  {showControlsHelp ? t('hideControlsHelp') : t('showControlsHelp')}
                 </Button>
                 <Button
                   size="sm"
@@ -1416,7 +1421,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                   className="w-full text-xs justify-start"
                   onClick={() => setShowStats(!showStats)}
                 >
-                  {showStats ? 'Hide' : 'Show'} Stats
+                  {showStats ? t('hideStats') : t('showStats')}
                 </Button>
                 <Button
                   size="sm"
@@ -1424,7 +1429,7 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                   className="w-full text-xs justify-start"
                   onClick={() => setWireframe(!wireframe)}
                 >
-                  Wireframe: {wireframe ? 'On' : 'Off'}
+                  {t('wireframeToggle', {state: wireframe ? t('on') : t('off')})}
                 </Button>
                 <Button
                   size="sm"
@@ -1432,34 +1437,34 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
                   className="w-full text-xs justify-start"
                   onClick={() => setUseBBoxCulling(!useBBoxCulling)}
                 >
-                  Culling: {useBBoxCulling ? 'BBox' : 'Center'}
+                  {t('culling', {mode: useBBoxCulling ? 'BBox' : 'Center'})}
                 </Button>
               </div>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="model-info" className="border-border/50">
             <AccordionTrigger className="text-sm">
-              Model Info
+              {t('modelInfo')}
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-3">
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Resolution:</span>
+                  <span className="text-muted-foreground">{t('resolution')}</span>
                   <span className="capitalize">{modelMetadata.res_type}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">File Size:</span>
+                  <span className="text-muted-foreground">{t('fileSize')}</span>
                   <span>{formatFileSize(modelMetadata.file_size)}</span>
                 </div>
                 {modelMetadata.credit && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Credit:</span>
+                    <span className="text-muted-foreground">{t('credit')}</span>
                     <span className="text-right">{modelMetadata.credit}</span>
                   </div>
                 )}
                 {modelMetadata.uploader_name && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Uploaded by:</span>
+                    <span className="text-muted-foreground">{t('uploadedBy')}</span>
                     <span>{modelMetadata.uploader_name}</span>
                   </div>
                 )}
@@ -1472,41 +1477,41 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
 
         {showControlsHelp && controlMode === 'orbit' && (
           <div className="absolute top-12 sm:top-4 left-2 sm:left-4 z-10 p-2 sm:p-3 bg-background/95 backdrop-blur rounded-lg border shadow-lg max-w-[10rem] sm:max-w-xs">
-            <div className="text-[10px] sm:text-xs font-semibold mb-2">Orbit Controls</div>
+            <div className="text-[10px] sm:text-xs font-semibold mb-2">{t('orbitControls')}</div>
             <div className="text-[10px] sm:text-xs text-muted-foreground space-y-1">
-              <div><span className="font-medium">Left Mouse:</span> Rotate</div>
-              <div><span className="font-medium">Right Mouse:</span> Pan</div>
-              <div><span className="font-medium">Scroll:</span> Zoom</div>
-              <div className="hidden sm:block"><span className="font-medium">F:</span> Toggle fullscreen</div>
+              <div><span className="font-medium">{t('leftMouse')}</span> {t('rotate')}</div>
+              <div><span className="font-medium">{t('rightMouse')}</span> {t('pan')}</div>
+              <div><span className="font-medium">{t('scroll')}</span> {t('zoom')}</div>
+              <div className="hidden sm:block"><span className="font-medium">F:</span> {t('toggleFullscreen')}</div>
             </div>
           </div>
         )}
         {showControlsHelp && controlMode === 'fly' && (
           <div className="absolute top-12 sm:top-4 left-2 sm:left-4 z-10 p-2 sm:p-3 bg-background/95 backdrop-blur rounded-lg border shadow-lg max-w-[10rem] sm:max-w-xs">
-            <div className="text-[10px] sm:text-xs font-semibold mb-2">Fly Controls</div>
+            <div className="text-[10px] sm:text-xs font-semibold mb-2">{t('flyControls')}</div>
             <div className="text-[10px] sm:text-xs text-muted-foreground space-y-1">
-              <div><span className="font-medium">WASD:</span> Move</div>
-              <div><span className="font-medium">Space:</span> Up</div>
-              <div><span className="font-medium">Shift:</span> Down</div>
-              <div><span className="font-medium">Mouse:</span> Look around</div>
-              <div><span className="font-medium">Scroll:</span> Speed</div>
-              <div className="hidden sm:block"><span className="font-medium">F:</span> Toggle fullscreen</div>
-              <div className="hidden sm:block"><span className="font-medium">ESC:</span> Unlock mouse</div>
+              <div><span className="font-medium">WASD:</span> {t('move')}</div>
+              <div><span className="font-medium">{t('space')}</span> {t('up')}</div>
+              <div><span className="font-medium">Shift:</span> {t('down')}</div>
+              <div><span className="font-medium">{t('mouse')}</span> {t('lookAround')}</div>
+              <div><span className="font-medium">{t('scroll')}</span> {t('speedLabel')}</div>
+              <div className="hidden sm:block"><span className="font-medium">F:</span> {t('toggleFullscreen')}</div>
+              <div className="hidden sm:block"><span className="font-medium">ESC:</span> {t('unlockMouse')}</div>
             </div>
           </div>
         )}
         {showControlsHelp && controlMode === 'walk' && (
           <div className="absolute top-12 sm:top-4 left-2 sm:left-4 z-10 p-2 sm:p-3 bg-background/95 backdrop-blur rounded-lg border shadow-lg max-w-[10rem] sm:max-w-xs">
-            <div className="text-[10px] sm:text-xs font-semibold mb-2">Walk Controls</div>
+            <div className="text-[10px] sm:text-xs font-semibold mb-2">{t('walkControls')}</div>
             <div className="text-[10px] sm:text-xs text-muted-foreground space-y-1">
-              <div><span className="font-medium">WASD:</span> Walk</div>
-              <div><span className="font-medium">Space:</span> Jump</div>
-              <div><span className="font-medium">Shift:</span> Sprint</div>
-              <div><span className="font-medium">C:</span> Crouch</div>
-              <div><span className="font-medium">Mouse:</span> Look around</div>
-              <div><span className="font-medium">Scroll:</span> Speed</div>
-              <div className="hidden sm:block"><span className="font-medium">F:</span> Toggle fullscreen</div>
-              <div className="hidden sm:block"><span className="font-medium">ESC:</span> Unlock mouse</div>
+              <div><span className="font-medium">WASD:</span> {t('walkAction')}</div>
+              <div><span className="font-medium">{t('space')}</span> {t('jump')}</div>
+              <div><span className="font-medium">Shift:</span> {t('sprint')}</div>
+              <div><span className="font-medium">C:</span> {t('crouch')}</div>
+              <div><span className="font-medium">{t('mouse')}</span> {t('lookAround')}</div>
+              <div><span className="font-medium">{t('scroll')}</span> {t('speedLabel')}</div>
+              <div className="hidden sm:block"><span className="font-medium">F:</span> {t('toggleFullscreen')}</div>
+              <div className="hidden sm:block"><span className="font-medium">ESC:</span> {t('unlockMouse')}</div>
             </div>
           </div>
         )}

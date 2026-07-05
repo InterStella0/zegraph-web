@@ -8,6 +8,7 @@ import { Badge } from "components/ui/badge"
 import { Button } from "components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import CharacterViewerRenderer from "./CharacterViewerRenderer"
+import { getTranslations } from 'next-intl/server';
 
 export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string, character_model_id: string }>
@@ -15,9 +16,10 @@ export async function generateMetadata({ params }: {
     const { server_slug, character_model_id } = await params
     const server = await getServerSlug(server_slug)
     if (!server) return {}
+    const t = await getTranslations('metadata');
     return {
-        title: formatTitle(`${character_model_id} - 3D Character View`),
-        description: `View character 3D model for ${character_model_id} on ${server.community_name}.`,
+        title: formatTitle(t('characterTitle', {id: character_model_id})),
+        description: t('characterDescription', {id: character_model_id, name: server.community_name}),
         alternates: { canonical: `/servers/${server.gotoLink}/characters/${character_model_id}` },
     }
 }

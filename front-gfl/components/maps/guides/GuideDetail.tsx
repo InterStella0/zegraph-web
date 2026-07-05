@@ -31,6 +31,8 @@ import {SteamSession} from "auth";
 import Markdown from "react-markdown";
 import {useGuideContext} from "lib/GuideContextProvider.tsx";
 import {resolveGuideLink} from "../../../app/maps/[map_name]/guides/util.ts";
+import { useTranslations } from 'next-intl';
+import { guideCategoryLabel } from './categoryUtils';
 
 dayjs.extend(relativeTime);
 
@@ -68,6 +70,8 @@ interface GuideDetailProps {
 }
 
 export default function GuideDetail({ session }: GuideDetailProps) {
+    const t = useTranslations('guides.detail');
+    const tGuides = useTranslations('guides');
     const { mapName, guide, serverId, serverGoto } = useGuideContext();
     const router = useRouter();
     const isBanned = session?.isBanned ?? false;
@@ -80,9 +84,9 @@ export default function GuideDetail({ session }: GuideDetailProps) {
     if (!guide){
         return <div className="container max-w-4xl mx-auto px-4 py-6">
             <div className="text-center py-12">
-                <h1 className="text-2xl font-bold mb-2">Guide Not Found</h1>
+                <h1 className="text-2xl font-bold mb-2">{t('notFound')}</h1>
                 <p className="text-muted-foreground">
-                    The guide you're looking for doesn't exist or has been deleted.
+                    {t('notFoundDescription')}
                 </p>
             </div>
         </div>
@@ -121,10 +125,10 @@ export default function GuideDetail({ session }: GuideDetailProps) {
                 { method: 'DELETE' }
             );
 
-            toast.success('Guide deleted successfully');
+            toast.success(t('deleteSuccess'));
             router.push(guidesListUrl);
         } catch (error: any) {
-            toast.error('Failed to delete guide', {
+            toast.error(t('deleteFailed'), {
                 description: error.message
             });
         } finally {
@@ -151,7 +155,7 @@ export default function GuideDetail({ session }: GuideDetailProps) {
     const handleShare = () => {
         const url = `${window.location.origin}${window.location.pathname}`;
         navigator.clipboard.writeText(url);
-        toast.success('Link copied to clipboard!');
+        toast.success(t('linkCopied'));
     };
     return (
         <div>
@@ -161,7 +165,7 @@ export default function GuideDetail({ session }: GuideDetailProps) {
                 className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
             >
                 <ArrowLeft className="h-4 w-4" />
-                Back to Guides
+                {t('backToGuides')}
             </Link>
 
             {/* Main Guide Card */}
@@ -178,17 +182,17 @@ export default function GuideDetail({ session }: GuideDetailProps) {
                         <div>
                             <p className="font-semibold">{guide.author.name}</p>
                             <p className="text-sm text-muted-foreground">
-                                Posted {dayjs(guide.created_at).fromNow()}
+                                {t('posted', {time: dayjs(guide.created_at).fromNow()})}
                                 {wasEdited && (
                                     <span className="ml-1">
-                                        (edited {dayjs(guide.updated_at).fromNow()})
+                                        ({t('editedTime', {time: dayjs(guide.updated_at).fromNow()})})
                                     </span>
                                 )}
                             </p>
                         </div>
                     </div>
                     <Badge variant="secondary" className="ml-2">
-                        {guide.category}
+                        {guideCategoryLabel(tGuides, guide.category)}
                     </Badge>
                 </div>
 
@@ -457,20 +461,19 @@ export default function GuideDetail({ session }: GuideDetailProps) {
             <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Guide?</AlertDialogTitle>
+                        <AlertDialogTitle>{t('deleteTitle')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete your guide
-                            and all associated comments.
+                            {t('deleteDescription')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={deleting}>{t('cancel')}</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDelete}
                             disabled={deleting}
                             className="bg-destructive hover:bg-destructive/90"
                         >
-                            {deleting ? 'Deleting...' : 'Delete'}
+                            {deleting ? t('deleting') : t('delete')}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

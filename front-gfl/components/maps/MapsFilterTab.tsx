@@ -1,5 +1,6 @@
 import {Tabs, TabsList, TabsTrigger} from 'components/ui/tabs';
 import {Dispatch} from "react";
+import {useTranslations} from 'next-intl';
 
 export type FilterTypes = "casual" | "tryhard" | "available" | "favorites" | "lasers" | "all"
 export default function MapsFilterTabs({
@@ -7,6 +8,7 @@ export default function MapsFilterTabs({
     setFilterTab,
     setPage,
 }: { filterTab: FilterTypes, setFilterTab: Dispatch<FilterTypes>, setPage: Dispatch<number> }) {
+    const t = useTranslations('maps.filter');
     return (
         <div className="border border-border rounded-lg bg-card mb-6">
             <Tabs
@@ -21,37 +23,37 @@ export default function MapsFilterTabs({
                         value="all"
                         className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-medium text-sm px-4 py-3"
                     >
-                        All Maps
+                        {t('allMaps')}
                     </TabsTrigger>
                     <TabsTrigger
                         value="casual"
                         className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-medium text-sm px-4 py-3"
                     >
-                        Casual
+                        {t('casual')}
                     </TabsTrigger>
                     <TabsTrigger
                         value="tryhard"
                         className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-medium text-sm px-4 py-3"
                     >
-                        Tryhard
+                        {t('tryhard')}
                     </TabsTrigger>
                     <TabsTrigger
                         value="lasers"
                         className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-medium text-sm px-4 py-3"
                     >
-                        Has Lasers
+                        {t('hasLasers')}
                     </TabsTrigger>
                     <TabsTrigger
                         value="available"
                         className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-medium text-sm px-4 py-3"
                     >
-                        Available Now
+                        {t('availableNow')}
                     </TabsTrigger>
                     <TabsTrigger
                         value="favorites"
                         className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-medium text-sm px-4 py-3"
                     >
-                        Favorites
+                        {t('favorites')}
                     </TabsTrigger>
                 </TabsList>
             </Tabs>

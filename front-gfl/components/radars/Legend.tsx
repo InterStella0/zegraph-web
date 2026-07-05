@@ -9,6 +9,7 @@ import {Skeleton} from "components/ui/skeleton";
 import {ChevronDown, ChevronUp, Globe} from "lucide-react";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "components/ui/collapsible";
 import {useTheme} from "next-themes";
+import {useTranslations} from 'next-intl';
 
 
 
@@ -18,7 +19,7 @@ function LegendWrapper({ setUpdateFn }) {
         setUpdateFn(setData);
     }, [setUpdateFn]);
 
-    return <ErrorCatch message="Error showing legend :/">
+    return <ErrorCatch message={data.errorLabel ?? "Error showing legend :/"}>
         <LegendWrapped reactData={data} />
     </ErrorCatch>
 }
@@ -58,7 +59,7 @@ function WMSLegendImage({name, style = ""}){
     </div>
 }
 
-function LegendWrapped(){
+function LegendWrapped({ reactData }){
     const { resolvedTheme } = useTheme()
     const isDarkMode = resolvedTheme === "dark"
     const [ isExpanded, setExpanded ] = useState(true)
@@ -76,7 +77,7 @@ function LegendWrapped(){
                     <div className="flex items-center gap-2">
                         <Globe />
                         {isExpanded && (
-                            <p className="text-primary font-semibold">Legend</p>
+                            <p className="text-primary font-semibold">{reactData?.legendLabel ?? "Legend"}</p>
                         )}
                     </div>
 
@@ -117,7 +118,7 @@ const LegendControlExtends = L.Control.extend({
         const reactRoot = ReactDOM.createRoot(this._container);
         reactRoot.render(<LegendWrapper setUpdateFn={(fn) => {
             this._setReactDataFn = fn;
-            fn({theme: this.options.theme})
+            fn({theme: this.options.theme, legendLabel: this.options.legendLabel, errorLabel: this.options.errorLabel})
         }} />);
         return this._container;
     },
@@ -134,7 +135,8 @@ const LegendWrapperComponent = createControlComponent(
 );
 
 export default function LegendControl(){
+    const t = useTranslations('radar');
     const ref = useRef()
 
-    return <LegendWrapperComponent ref={ref} position="topright" />
+    return <LegendWrapperComponent ref={ref} position="topright" legendLabel={t('legend')} errorLabel={t('legendError')} />
 }

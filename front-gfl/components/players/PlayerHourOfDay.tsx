@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {use, useEffect, useMemo, useState} from "react";
 import {fetchApiServerUrl, formatNumber, StillCalculate} from "utils/generalUtils.ts";
@@ -29,6 +30,7 @@ ChartJS.register(
 )
 
 function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}){
+    const t = useTranslations('players.hourOfDay');
     const { server, player } = use(serverPlayerPromise);
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const server_id = server.id
@@ -70,7 +72,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
         scales: {
             x: {
                 title: {
-                    text: "Hour of day",
+                    text: t('hourOfDayAxis'),
                     display: true,
                     color: isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)',
                 },
@@ -125,7 +127,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
 
         const dataset = [
             {
-                label: 'Join Count',
+                label: t('joinCount'),
                 data: join,
                 borderColor: isDark ? 'hsl(142.1 76.2% 36.3%)' : 'hsl(142.1 70.6% 45.3%)',
                 backgroundColor: isDark ? 'hsla(142.1 76.2% 36.3% / 0.3)' : 'hsla(142.1 70.6% 45.3% / 0.2)',
@@ -133,7 +135,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
                 pointRadius: 0
             },
             {
-                label: 'Leave Count',
+                label: t('leaveCount'),
                 data: leave,
                 borderColor: isDark ? 'hsl(0 84.2% 60.2%)' : 'hsl(0 72.2% 50.6%)',
                 backgroundColor: isDark ? 'hsla(0 84.2% 60.2% / 0.3)' : 'hsla(0 72.2% 50.6% / 0.2)',
@@ -146,12 +148,12 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
             labels: Array.from({ length: 24 }).map((_, i) => i),
             datasets: dataset
         };
-    }, [hours, mode, isDark]);
+    }, [hours, mode, isDark, t]);
 
     // Generate SEO summary
     const summary = useMemo(() => {
         if (hours.length === 0) {
-            return "No hour of day data available.";
+            return t('noData');
         }
 
         const joins = hours.filter(e => e.event_type === "Join");
@@ -163,26 +165,32 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
         const peakJoinHour = joins.reduce((max, h) => h.count > max.count ? h : max, joins[0]);
         const peakLeaveHour = leaves.reduce((max, h) => h.count > max.count ? h : max, leaves[0]);
 
-        const timezoneSuffix = mode === "UTC" ? " UTC" : " local time";
+        const timezoneSuffix = mode === "UTC" ? t('utcSuffix') : t('localTimeSuffix');
 
-        return `Session activity shows ${formatNumber(totalJoins)} joins and ${formatNumber(totalLeaves)} leaves. ` +
-            `Peak join hour: ${peakJoinHour.hour}:00${timezoneSuffix} (${formatNumber(peakJoinHour.count)} joins). ` +
-            `Peak leave hour: ${peakLeaveHour.hour}:00${timezoneSuffix} (${formatNumber(peakLeaveHour.count)} leaves).`;
-    }, [hours, mode]);
+        return t('summary', {
+            joins: formatNumber(totalJoins),
+            leaves: formatNumber(totalLeaves),
+            peakJoinHour: peakJoinHour.hour,
+            peakJoinCount: formatNumber(peakJoinHour.count),
+            peakLeaveHour: peakLeaveHour.hour,
+            peakLeaveCount: formatNumber(peakLeaveHour.count),
+            timezone: timezoneSuffix,
+        });
+    }, [hours, mode, t]);
 
     if (error){
         return (
             <div>
                 <div className="flex items-center justify-between flex-col sm:flex-row">
                     <h2 className="text-xl font-semibold p-4">
-                        Session Hour Of Day Distribution
+                        {t('title')}
                     </h2>
                     <div className="m-4">
                         <AlertCircle className="w-5 h-5" />
                     </div>
                 </div>
                 <div className="h-[375px] flex items-center justify-center">
-                    <p>{error.message || "Something went wrong :/"}</p>
+                    <p>{error.message || t('genericError')}</p>
                 </div>
             </div>
         )
@@ -191,7 +199,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
         <div>
             <div className="flex items-center justify-between flex-col sm:flex-row">
                 <h2 className="text-xl font-semibold p-4">
-                    Session Hour Of Day Distribution
+                    {t('title')}
                 </h2>
                 <div className="m-4">
                     <div className="flex gap-1 rounded-md border">
@@ -200,7 +208,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
                             onClick={() => setMode("user")}
                             size="sm"
                         >
-                            My Timezone
+                            {t('myTimezone')}
                         </Button>
                         <Button
                             variant={mode !== 'user' ? "default" : "ghost"}
@@ -233,7 +241,8 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     )
 }
 export default function PlayerHourOfDay({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}){
-    return <ErrorCatch message="Error fetching player hour of day!">
+    const t = useTranslations('players.hourOfDay');
+    return <ErrorCatch message={t('loadError')}>
         <Card>
             <PlayerHourOfDayDisplay serverPlayerPromise={serverPlayerPromise} />
         </Card>

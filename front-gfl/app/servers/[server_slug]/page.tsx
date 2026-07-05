@@ -7,13 +7,15 @@ import {Server} from "types/community.ts";
 import {ServerPlayersStatistic} from "types/players.ts";
 import {MapPlayedPaginated} from "types/maps.ts";
 import {getCachedPlayerStats} from "lib/cachedFetches";
+import { getTranslations } from 'next-intl/server';
 
 export async function createServerDescription(server: Server): Promise<string> {
-    let description = `${server.community_name} is a zombie escape server at ${server.fullIp}.`
+    const t = await getTranslations('metadata');
+    let description = t('serverIntro', {name: server.community_name, ip: server.fullIp});
     try{
         const stats: ServerPlayersStatistic = await getCachedPlayerStats(server.id);
         const allTime = stats.all_time
-        description += ` There are ${allTime.total_players.toLocaleString('en-US')} unique players across ${allTime.countries} countries all-time.`
+        description += ' ' + t('uniquePlayers', {players: allTime.total_players.toLocaleString('en-US'), countries: allTime.countries});
     }catch(e){}
 
     try{
@@ -22,10 +24,10 @@ export async function createServerDescription(server: Server): Promise<string> {
         }
         const data: MapPlayedPaginated = await fetchServerUrl(server.id, '/maps/last/sessions', { params: parameters });
 
-        description += ` There are over ${data.total_maps} maps that has been played!`
+        description += ' ' + t('mapsPlayed', {count: data.total_maps});
     }catch(e){}
     if (server.players)
-        description += ` There are ${server.players} players online right now!`
+        description += ' ' + t('playersOnline', {count: server.players});
 
     return description
 }

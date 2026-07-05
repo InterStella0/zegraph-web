@@ -273,18 +273,20 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 
-export function secondsToHours(seconds: number): string{
-    return (seconds / 3600).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+export function secondsToHours(seconds: number, locale: string = 'en-US'): string{
+    return (seconds / 3600).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2})
 }
 
-export function formatHours(seconds: number): string {
-    return `${secondsToHours(seconds)} hrs`;
+export function formatHours(seconds: number, locale: string = 'en-US'): string {
+    return `${secondsToHours(seconds, locale)} hrs`;
 }
-export function formatNumber(num: number, decimals = 0): string {
+export function formatNumber(num: number, decimals = 0, locale: string = 'en-US'): string {
     if (isNaN(num)) return '0';
 
-    const fixed = decimals > 0 ? num.toFixed(decimals) : Math.round(num).toString();
-    return fixed.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return new Intl.NumberFormat(locale, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    }).format(num);
 }
 
 export function secondsToMins(seconds: number): string{

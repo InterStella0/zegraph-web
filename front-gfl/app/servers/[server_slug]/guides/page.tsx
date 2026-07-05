@@ -3,11 +3,13 @@ import { formatTitle } from 'utils/generalUtils';
 import { getServerSlug } from '../util';
 import { auth } from '../../../../auth';
 import ServerGuidesList from 'components/guides/ServerGuidesList';
+import { getTranslations } from 'next-intl/server';
 
 export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string }>
 }): Promise<Metadata> {
     const { server_slug } = await params;
+    const t = await getTranslations('metadata');
     const server = await getServerSlug(server_slug);
 
     if (!server) {
@@ -15,8 +17,8 @@ export async function generateMetadata({ params }: {
     }
 
     return {
-        title: formatTitle(`${server.community_name} - Community Guides`),
-        description: `Browse top-rated community guides for all maps on ${server.community_name}. Learn strategies, item locations, and tips from experienced players.`,
+        title: formatTitle(t('guidesHubTitle', {name: server.community_name})),
+        description: t('guidesHubDescription', {name: server.community_name}),
         alternates: {
             canonical: `/servers/${server.gotoLink}/guides`
         }
@@ -29,15 +31,16 @@ export default async function GuidesPage({ params }: {
     const { server_slug } = await params;
     const serverPromise = getServerSlug(server_slug);
     const sessionPromise = auth();
+    const t = await getTranslations('guides.pages');
 
     return (
         <div className="p-6">
             <div className="text-center mb-8">
                 <h1 className="text-4xl font-bold mb-2">
-                    Community Guides
+                    {t('communityGuides')}
                 </h1>
                 <p className="text-lg text-muted-foreground">
-                    Top-rated guides for each map - learn from experienced players
+                    {t('topRated')}
                 </p>
             </div>
             <ServerGuidesList serverPromise={serverPromise} sessionPromise={sessionPromise} />

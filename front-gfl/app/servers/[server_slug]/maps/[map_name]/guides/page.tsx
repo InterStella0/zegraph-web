@@ -6,6 +6,7 @@ import MapGuidesList from 'components/maps/guides/MapGuidesList';
 import {MapContextProvider} from "../MapContext.tsx";
 import {ServerMapDetail} from "types/maps.ts";
 import {GuideContextDataInsert, GuideContextProvider} from "../../../../../../lib/GuideContextProvider.tsx";
+import { getTranslations } from 'next-intl/server';
 
 
 export async function getBasicMapInfoDetails(serverId: string, mapName: string){
@@ -17,6 +18,7 @@ export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string; map_name: string }>
 }): Promise<Metadata> {
     const { server_slug, map_name } = await params;
+    const t = await getTranslations('metadata');
     const server = await getServerSlug(server_slug);
 
     if (!server) {
@@ -24,8 +26,8 @@ export async function generateMetadata({ params }: {
     }
 
     return {
-        title: formatTitle(`${map_name} - Community Guides`),
-        description: `Browse and share community guides for ${map_name} on ${server.community_name}. Learn strategies, item locations, and tips from experienced players.`,
+        title: formatTitle(t('guidesTitle', {map: map_name})),
+        description: t('guidesServerDescription', {map: map_name, name: server.community_name}),
         alternates: {
             canonical: `/servers/${server.gotoLink}/maps/${map_name}/guides`
         }
@@ -42,14 +44,15 @@ export default async function GuidesPage({ params }: {
         serverIdPromise: getServerSlug(server_slug).then(s => s.id),
         insideServer: true
     } as GuideContextDataInsert
+    const t = await getTranslations('guides.pages');
 
     return (
         <GuideContextProvider value={mapDetail}>
             <div className="container max-w-screen-xl mx-auto px-4 py-6">
                 <div className="mb-6">
-                    <h1 className="text-3xl font-bold mb-2">Community Guides for {map_name}</h1>
+                    <h1 className="text-3xl font-bold mb-2">{t('communityGuidesFor', {mapName: map_name})}</h1>
                     <p className="text-muted-foreground">
-                        Browse and share strategies, tips, and knowledge about this map
+                        {t('browseShare')}
                     </p>
                 </div>
                 <MapGuidesList session={session} />

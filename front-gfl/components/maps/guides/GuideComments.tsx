@@ -31,6 +31,7 @@ import {SteamSession} from "../../../auth.ts";
 import {useGuideContext} from "../../../lib/GuideContextProvider.tsx";
 import {resolveGuideLink} from "../../../app/maps/[map_name]/guides/util.ts";
 import ReportDialog from "components/maps/guides/ReportDialog.tsx";
+import { useTranslations } from 'next-intl';
 import {
     Tooltip,
     TooltipContent,
@@ -45,6 +46,7 @@ interface GuideCommentsDisplayProps {
 }
 
 function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
+    const t = useTranslations('guides.comments');
     const { mapName, guide, serverId } = useGuideContext()
     const isBanned = session?.isBanned ?? false
     const banReason = session?.banReason ?? null
@@ -112,7 +114,7 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
         }
 
         if (!newComment.trim()) {
-            toast.error('Comment cannot be empty');
+            toast.error(t('emptyError'));
             return;
         }
 
@@ -132,12 +134,12 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
                 setComments([data, ...comments]);
                 setTotalComments(totalComments + 1);
                 setNewComment('');
-                toast.success('Comment posted successfully');
+                toast.success(t('postSuccess'));
             } else {
-                toast.error(data.msg || 'Failed to post comment');
+                toast.error(data.msg || t('postFailed'));
             }
         } catch (error: any) {
-            toast.error('Failed to post comment', {
+            toast.error(t('postFailed'), {
                 description: error.message
             });
         } finally {
@@ -169,12 +171,12 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
 
     const handleEditComment = async (commentId: string) => {
         if (!editContent.trim()) {
-            toast.error('Comment cannot be empty');
+            toast.error(t('emptyError'));
             return;
         }
 
         if (editContent.length > 2000) {
-            toast.error('Comment too long (max 2000 characters)');
+            toast.error(t('tooLong', {max: 2000}));
             return;
         }
 
@@ -195,12 +197,12 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
                 ));
                 setEditingCommentId(null);
                 setEditContent('');
-                toast.success('Comment updated successfully');
+                toast.success(t('updateSuccess'));
             } else {
-                toast.error('Failed to update comment');
+                toast.error(t('updateFailed'));
             }
         } catch (error: any) {
-            toast.error('Failed to update comment', {
+            toast.error(t('updateFailed'), {
                 description: error.message
             });
         }
@@ -216,9 +218,9 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
             // Remove from local state
             setComments(comments.filter(c => c.id !== commentId));
             setTotalComments(totalComments - 1);
-            toast.success('Comment deleted successfully');
+            toast.success(t('deleteSuccess'));
         } catch (error: any) {
-            toast.error('Failed to delete comment', {
+            toast.error(t('deleteFailed'), {
                 description: error.message
             });
         } finally {
@@ -233,19 +235,19 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
         <div>
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 <MessageCircle className="h-6 w-6" />
-                Comments ({totalComments})
+                {t('title', {count: totalComments})}
             </h2>
 
             {/* Add Comment Form */}
             <Card className="p-4 mb-6">
                 {isBanned && (
                     <div className="text-sm text-destructive mb-2">
-                        You are banned from commenting.
-                        {banReason && <span className="text-muted-foreground ml-1">Reason: {banReason}</span>}
+                        {t('bannedFromCommenting')}
+                        {banReason && <span className="text-muted-foreground ml-1">{t('reason', {reason: banReason})}</span>}
                     </div>
                 )}
                 <Textarea
-                    placeholder={isBanned ? "You are banned from commenting" : (session ? "Share your thoughts..." : "Log in to comment")}
+                    placeholder={isBanned ? t('bannedPlaceholder') : (session ? t('sharePlaceholder') : t('loginToComment'))}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     rows={3}
@@ -255,18 +257,18 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
                 />
                 <div className="flex justify-between items-center">
                     <p className="text-xs text-muted-foreground">
-                        {newComment.length}/2000 characters
+                        {t('charCount', {count: newComment.length, max: 2000})}
                     </p>
                     {isBanned ? (
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <span>
-                                        <Button disabled>Post Comment</Button>
+                                        <Button disabled>{t('postComment')}</Button>
                                     </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p className="font-semibold">You are banned</p>
+                                    <p className="font-semibold">{t('youAreBanned')}</p>
                                     {banReason && <p className="text-sm text-muted-foreground">{banReason}</p>}
                                 </TooltipContent>
                             </Tooltip>
@@ -276,7 +278,7 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
                             onClick={handleSubmitComment}
                             disabled={!session || submitting || !newComment.trim()}
                         >
-                            {submitting ? 'Posting...' : 'Post Comment'}
+                            {submitting ? t('posting') : t('postComment')}
                         </Button>
                     )}
                 </div>
@@ -315,7 +317,7 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
                 <Card className="p-8">
                     <div className="text-center text-muted-foreground">
                         <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p>No comments yet. Be the first to share your thoughts!</p>
+                        <p>{t('noComments')}</p>
                     </div>
                 </Card>
             )}
@@ -344,7 +346,7 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
                                                 <span className="font-semibold">{comment.author.name}</span>
                                                 <span className="text-xs text-muted-foreground">
                                                     {dayjs(comment.created_at).fromNow()}
-                                                    {wasEdited && <span className="ml-1">(edited)</span>}
+                                                    {wasEdited && <span className="ml-1">({t('edited')})</span>}
                                                 </span>
                                             </div>
 
@@ -359,7 +361,7 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
                                                     />
                                                     <div className="flex gap-2 mb-1">
                                                         <Button size="sm" onClick={() => handleEditComment(comment.id)}>
-                                                            Save
+                                                            {t('save')}
                                                         </Button>
                                                         <Button
                                                             size="sm"
@@ -369,11 +371,11 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
                                                                 setEditContent('');
                                                             }}
                                                         >
-                                                            Cancel
+                                                            {t('cancel')}
                                                         </Button>
                                                     </div>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {editContent.length}/2000 characters
+                                                        {t('charCount', {count: editContent.length, max: 2000})}
                                                     </p>
                                                 </div>
                                             ) : (
@@ -432,18 +434,18 @@ function GuideCommentsDisplay({ session }: GuideCommentsDisplayProps) {
             <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Comment?</AlertDialogTitle>
+                        <AlertDialogTitle>{t('deleteTitle')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete this comment.
+                            {t('deleteDescription')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={() => deleteCommentId && handleDeleteComment(deleteCommentId)}
                             className="bg-destructive hover:bg-destructive/90"
                         >
-                            Delete
+                            {t('delete')}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -468,8 +470,9 @@ interface GuideCommentsProps {
 }
 
 export default function GuideComments({  session }: GuideCommentsProps) {
+    const t = useTranslations('guides.comments');
     return (
-        <ErrorCatch message="Could not load comments">
+        <ErrorCatch message={t('loadError')}>
             <GuideCommentsDisplay session={session} />
         </ErrorCatch>
     );

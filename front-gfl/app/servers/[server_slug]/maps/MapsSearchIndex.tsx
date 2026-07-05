@@ -11,9 +11,12 @@ import {ServerSlugPromise} from "../util.ts";
 import {SteamProfile} from "../../../../next-auth-steam/steam.ts";
 import {useMapNotifications} from "lib/hooks/useMapNotifications";
 
+import {useTranslations} from 'next-intl';
+
 export type SortByIndex = "LastPlayed" |  "HighestCumHour" |  "UniquePlayers" |  "FrequentlyPlayed" |  "HighestHour"
 
 export default function MapsSearchIndex({ serverPromise, userPromise }: { serverPromise: ServerSlugPromise, userPromise: Promise<SteamProfile | null> }) {
+    const t = useTranslations('maps.searchIndex');
     const server = use(serverPromise)
     const user = use(userPromise)
     const server_id = server.id;
@@ -101,7 +104,7 @@ export default function MapsSearchIndex({ serverPromise, userPromise }: { server
                     setFavorites(favoriteSet);
                 }
             } catch (err) {
-                setError(err.message || 'Failed to load maps');
+                setError(err.message || t('loadFailed'));
             } finally {
                 setLoading(false);
             }

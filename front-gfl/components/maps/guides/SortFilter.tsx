@@ -8,29 +8,31 @@ import {
     SelectTrigger,
     SelectValue,
 } from 'components/ui/select';
+import { useTranslations } from 'next-intl';
 
 interface SortFilterProps {
     value: GuideSortType;
     onChange: (value: GuideSortType) => void;
 }
 
-const sortOptions: { value: GuideSortType; label: string }[] = [
-    { value: 'TopRated', label: 'Top Rated' },
-    { value: 'Newest', label: 'Newest' },
-    { value: 'Oldest', label: 'Oldest' },
-    { value: 'MostDiscussed', label: 'Most Discussed' },
+const sortOptions: { value: GuideSortType; labelKey: string }[] = [
+    { value: 'TopRated', labelKey: 'sortTopRated' },
+    { value: 'Newest', labelKey: 'sortNewest' },
+    { value: 'Oldest', labelKey: 'sortOldest' },
+    { value: 'MostDiscussed', labelKey: 'sortMostDiscussed' },
 ];
 
 export default function SortFilter({ value, onChange }: SortFilterProps) {
+    const t = useTranslations('guides');
     return (
         <Select value={value} onValueChange={onChange}>
             <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Sort by" />
+                <SelectValue placeholder={t('sortBy')} />
             </SelectTrigger>
             <SelectContent>
                 {sortOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                        {t(option.labelKey)}
                     </SelectItem>
                 ))}
             </SelectContent>

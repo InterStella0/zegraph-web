@@ -18,6 +18,7 @@ import {SteamProfile} from "../../next-auth-steam/steam";
 import {Server} from "types/community.ts";
 import {MapPlayed, MapPlayedPaginated} from "types/maps.ts";
 import CategoryChip from "components/ui/CategoryChip.tsx";
+import {useTranslations, useLocale} from 'next-intl';
 
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
@@ -54,18 +55,19 @@ const MapsRowSkeleton = () => {
     );
 }
 
-export const getStatusChip = (map) => {
+export const StatusChip = ({ map }) => {
+    const t = useTranslations('maps.table');
     if (!map.enabled) return (
         <Badge variant="destructive" className="gap-1">
             <Ban className="h-3 w-3" />
-            Disabled
+            {t('disabled')}
         </Badge>
     );
     if (map.map_left != null && map.map_left > 0) {
         return (
             <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 dark:text-amber-500">
                 <Clock className="h-3 w-3" />
-                {map.map_left} maps left
+                {t('mapsLeft', {count: map.map_left})}
             </Badge>
         );
     }
@@ -80,14 +82,14 @@ export const getStatusChip = (map) => {
             );
     }
     if (!map.last_played_ended)
-        return <Badge variant="default">Playing</Badge>;
+        return <Badge variant="default">{t('playing')}</Badge>;
 
     if (map.removed)
         return <Badge variant="destructive" className="gap-1">
             <Ban className="h-3 w-3" />
-            Removed
+            {t('removed')}
         </Badge>
-    return <Badge variant="outline" className="border-green-500 text-green-600 dark:text-green-500">Ready</Badge>;
+    return <Badge variant="outline" className="border-green-500 text-green-600 dark:text-green-500">{t('ready')}</Badge>;
 };
 
 function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionType, onNotificationChange }: {
@@ -99,6 +101,8 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
     getSubscriptionType: (mapName: string, serverId: string) => 'server' | 'all' | null;
     onNotificationChange: () => void;
 }) {
+    const t = useTranslations('maps.table');
+    const locale = useLocale();
     const [ mapImage, setMapImage ] = useState(null);
     const server_id = server.id
     useEffect(() => {
@@ -139,35 +143,35 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
                             {map.is_casual && !map.is_tryhard && <CategoryChip category="casual" size="small" />}
                             {map.is_tryhard && !map.is_casual  && <CategoryChip category="tryhard" size="small" />}
                             {map.is_tryhard && map.is_casual && <CategoryChip category="mixed" size="small" />}
-                            {map.has_lasers && <CategoryChip category="lasers" title="Map contains killable lasers" size="small" />}
-                            {map.no_noms && <CategoryChip category="no noms" title="Nominations disabled" size="small" />}
+                            {map.has_lasers && <CategoryChip category="lasers" title={t('lasersTitle')} size="small" />}
+                            {map.no_noms && <CategoryChip category="no noms" title={t('noNomsTitle')} size="small" />}
                             {map.min_players != null && map.min_players > 0 && (
                                 <Badge variant="outline" className="text-xs">
-                                    Min {map.min_players}
+                                    {t('min', {count: map.min_players})}
                                 </Badge>
                             )}
                             {map.max_players != null && (map.max_players != server.max_players && map.max_players != 0)  && (
                                 <Badge variant="outline" className="text-xs">
-                                    Max {map.max_players}
+                                    {t('max', {count: map.max_players})}
                                 </Badge>
                             )}
                         </div>
                     </div>
                 </div>
             </TableCell>
-            <TableCell>{getStatusChip(map)}</TableCell>
+            <TableCell><StatusChip map={map} /></TableCell>
             <TableCell align="right">
                 <span className="text-sm font-bold text-primary">
-                    {secondsToHours(map.total_cum_time)}
+                    {secondsToHours(map.total_cum_time, locale)}
                 </span>
             </TableCell>
             <TableCell align="right">
                 <span className="text-sm font-bold text-primary">
-                    {secondsToHours(map.total_time)}
+                    {secondsToHours(map.total_time, locale)}
                 </span>
             </TableCell>
             <TableCell align="right" className="font-medium">
-                {map.unique_players.toLocaleString()}
+                {map.unique_players.toLocaleString(locale)}
             </TableCell>
             <TableCell align="right" className="font-medium">
                 {map.total_sessions}
@@ -230,6 +234,7 @@ export default function MapsTable({
     getSubscriptionType: (mapName: string, serverId: string) => 'server' | 'all' | null;
     onNotificationChange: () => void;
 }) {
+    const t = useTranslations('maps.table');
     const totalPages = Math.ceil((mapsData?.total_maps || 0) / 25);
     const startItem = page * 25 + 1;
     const endItem = Math.min((page + 1) * 25, mapsData?.total_maps || 0);
@@ -239,13 +244,13 @@ export default function MapsTable({
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="font-bold">Map</TableHead>
-                        <TableHead className="font-bold">Status</TableHead>
-                        <TableHead align="right" className="font-bold text-right">Cumulative Hours</TableHead>
-                        <TableHead align="right" className="font-bold text-right">Hours</TableHead>
-                        <TableHead align="right" className="font-bold text-right">Players</TableHead>
-                        <TableHead align="right" className="font-bold text-right">Sessions</TableHead>
-                        <TableHead align="center" className="font-bold text-center">Last Played</TableHead>
+                        <TableHead className="font-bold">{t('map')}</TableHead>
+                        <TableHead className="font-bold">{t('status')}</TableHead>
+                        <TableHead align="right" className="font-bold text-right">{t('cumulativeHours')}</TableHead>
+                        <TableHead align="right" className="font-bold text-right">{t('hours')}</TableHead>
+                        <TableHead align="right" className="font-bold text-right">{t('players')}</TableHead>
+                        <TableHead align="right" className="font-bold text-right">{t('sessions')}</TableHead>
+                        <TableHead align="center" className="font-bold text-center">{t('lastPlayed')}</TableHead>
                         <TableHead align="center" className="font-bold text-center"></TableHead>
                         <TableHead align="center" className="font-bold text-center"></TableHead>
                     </TableRow>
@@ -271,7 +276,7 @@ export default function MapsTable({
 
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                 <p className="text-sm text-muted-foreground">
-                    Showing {startItem}-{endItem} of {mapsData?.total_maps || 0}
+                    {t('showing', {start: startItem, end: endItem, total: mapsData?.total_maps || 0})}
                 </p>
                 <PaginationPage totalPages={totalPages} page={page} setPage={(pageNum) => handleChangePage(null, pageNum)} />
             </div>

@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,6 +14,7 @@ import { fetchApiServerUrl } from 'utils/generalUtils';
 import {Guide} from "types/guides.ts";
 
 function MapGuidesButtonDisplay() {
+    const t = useTranslations('maps');
     const { name } = useMapContext();
     const { server } = useServerData();
     const router = useRouter();
@@ -60,12 +62,12 @@ function MapGuidesButtonDisplay() {
                     </div>
                     <div>
                         <div className="text-xs font-medium">
-                            Community Guides
+                            {t('communityGuides')}
                         </div>
                         {loading ? (
                             <Skeleton className="w-[40px] h-[20px] mt-1" />
                         ) : error ? (
-                            <div className="text-xs text-destructive">Error</div>
+                            <div className="text-xs text-destructive">{t('error')}</div>
                         ) : (
                             <div className="text-lg font-bold leading-tight text-blue-400">
                                 {guideCount || 0}
@@ -84,7 +86,7 @@ function MapGuidesButtonDisplay() {
                             <BookOpen className="h-5 w-5" />
                         </div>
                         <p className="text-sm font-medium">
-                            Community Guides
+                            {t('communityGuides')}
                         </p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -97,9 +99,9 @@ function MapGuidesButtonDisplay() {
                         <Skeleton className="w-32 h-4" />
                     </div>
                 ) : error ? (
-                    <p className="text-sm text-destructive">Failed to load</p>
+                    <p className="text-sm text-destructive">{t('failedToLoad')}</p>
                 ) : guideCount === 0 ? (
-                    <p className="text-sm text-muted-foreground">No guides yet</p>
+                    <p className="text-sm text-muted-foreground">{t('noGuidesYet')}</p>
                 ) : (
                     <div className="space-y-2.5">
                         {/* Guide count */}
@@ -143,8 +145,9 @@ function MapGuidesButtonDisplay() {
 }
 
 export default function MapGuidesButton() {
+    const t = useTranslations('maps');
     return (
-        <ErrorCatch message="Could not load guides button">
+        <ErrorCatch message={t('guidesButtonError')}>
             <MapGuidesButtonDisplay />
         </ErrorCatch>
     );

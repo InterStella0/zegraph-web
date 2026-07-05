@@ -13,6 +13,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import timezone from "dayjs/plugin/timezone";
 import MapSessionWrapper from "./MapSessionWrapper.tsx";
 import getSessionData from "./utils.ts";
+import { getTranslations } from 'next-intl/server';
 
 dayjs.extend(relativeTime);
 dayjs.extend(timezone)
@@ -22,6 +23,7 @@ export async function generateMetadata({ params }: {
 }): Promise<Metadata> {
     const { server_slug, map_name, session_id } = await params;
     const server = await getServerSlug(server_slug);
+    const t = await getTranslations('metadata');
     let info: SessionInfo<"map"> | null = null;
     try{
         info = await getSessionInfo(server.id, session_id, "map", map_name)
@@ -29,12 +31,12 @@ export async function generateMetadata({ params }: {
         if (error.code === 202){
             return {
                 title: formatTitle(map_name),
-                description: "The map is still being calculated. Please come back later~",
+                description: t('mapCalculating'),
             }
         }else if (error.code === 404){
             return {
                 title: "ZE Graph",
-                description: `View map activities on ${server.community_name}`
+                description: t('viewMapActivities', {name: server.community_name})
             };
         }else{
             return {}
@@ -42,15 +44,15 @@ export async function generateMetadata({ params }: {
     }
     let description = ``
     if (info.ended_at){
-        description += `They were playing it for ${formatHours(dayjs(info.ended_at).diff(dayjs(info.started_at), 'seconds', true))}.`
+        description += t('werePlayingIt', {hours: formatHours(dayjs(info.ended_at).diff(dayjs(info.started_at), 'seconds', true))})
     }else{
-        description += `They are currently playing it for ${formatHours(dayjs().diff(dayjs(info.started_at), 'seconds', true))}.`
+        description += t('arePlayingIt', {hours: formatHours(dayjs().diff(dayjs(info.started_at), 'seconds', true))})
     }
     try{
         const serverCounts = await getServerGraph(server.id, session_id, map_name, "map")
         const playerCounts = serverCounts.map(e => e.player_count)
         const [min, max] = [Math.min(...playerCounts), Math.max(...playerCounts)]
-        description += ` Player count ranges from ${min} to ${max}.`
+        description += ' ' + t('playerCountRange', {min, max})
     }catch (error){}
 
     try{
@@ -61,16 +63,16 @@ export async function generateMetadata({ params }: {
             const matchCounts = match.zombie_score + match.human_score
 
             if (info.ended_at)
-                description += ` Played through ${matchCounts} rounds with a final score of ${match.human_score}-${match.zombie_score}.`
+                description += ' ' + t('roundsFinalScore', {rounds: matchCounts, human: match.human_score, zombie: match.zombie_score})
             else
-                description += ` Played through ${matchCounts} rounds with a score of ${match.human_score}-${match.zombie_score}..`
+                description += ' ' + t('roundsScore', {rounds: matchCounts, human: match.human_score, zombie: match.zombie_score})
         }
     }catch(error){}
 
     if (!info.ended_at){
-        description += ` Currently playing it since ${dayjs(info.started_at).fromNow()}.`;
+        description += ' ' + t('playingSince', {time: dayjs(info.started_at).fromNow()});
     }else{
-        description += ` They played it at ${dayjs(info.started_at).format('MMM D, YYYY h:mm A')}.`;
+        description += ' ' + t('playedItAt', {time: dayjs(info.started_at).format('MMM D, YYYY h:mm A')});
     }
     try{
         const players = await getMutualSessions(server.id, session_id, "map", map_name)

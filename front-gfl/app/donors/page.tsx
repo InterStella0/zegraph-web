@@ -5,11 +5,15 @@ import ResponsiveAppBar from 'components/ui/ResponsiveAppBar';
 import Footer from 'components/ui/Footer';
 import getServerUser from '../getServerUser';
 import { URI } from 'utils/generalUtils';
+import { getTranslations, getLocale } from 'next-intl/server';
 
-export const metadata: Metadata = {
-  title: 'Donors | ZE Graph',
-  description: 'See the supporters who help keep ZE Graph ad-free and running.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('metadata');
+  return {
+    title: t('donorsTitle'),
+    description: t('donorsDescription'),
+  };
+}
 
 interface Donor {
   id: string;
@@ -29,8 +33,8 @@ async function getDonors(): Promise<Donor[]> {
   }
 }
 
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+function formatDate(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -38,6 +42,8 @@ function formatDate(iso: string): string {
 }
 
 export default async function DonatePage() {
+  const t = await getTranslations('donors');
+  const locale = await getLocale();
   const user = getServerUser();
   const donors = await getDonors();
 
@@ -58,13 +64,13 @@ export default async function DonatePage() {
           {/* Page header */}
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="space-y-1">
-              <h1 className="text-3xl font-bold">Donors</h1>
-              <p className="text-muted-foreground">People who help keep ZE Graph running.</p>
+              <h1 className="text-3xl font-bold">{t('title')}</h1>
+              <p className="text-muted-foreground">{t('subtitle')}</p>
             </div>
             <Button asChild className="rounded-full gap-2 shrink-0">
               <a href="https://ko-fi.com/interstella0" target="_blank" rel="noopener noreferrer">
                 <Heart className="w-4 h-4" />
-                Donate on Ko-fi
+                {t('donateKofi')}
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
             </Button>
@@ -78,7 +84,7 @@ export default async function DonatePage() {
               <section className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Top Donors</h2>
+                  <h2 className="text-lg font-semibold">{t('topDonors')}</h2>
                 </div>
                 <div className="space-y-2">
                   {top.map((donor, i) => (
@@ -111,7 +117,7 @@ export default async function DonatePage() {
               <section className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Recent Donations</h2>
+                  <h2 className="text-lg font-semibold">{t('recentDonations')}</h2>
                 </div>
                 <div className="space-y-2">
                   {recent.map((donor) => (
@@ -128,7 +134,7 @@ export default async function DonatePage() {
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap pt-0.5 shrink-0">
-                        {formatDate(donor.donated_at)}
+                        {formatDate(donor.donated_at, locale)}
                       </span>
                     </div>
                   ))}
@@ -137,8 +143,8 @@ export default async function DonatePage() {
             </div>
           ) : (
             <div className="text-center py-16 text-muted-foreground space-y-2">
-              <p className="text-lg font-medium">No donors yet — be the first!</p>
-              <p className="text-sm">Your name could appear here.</p>
+              <p className="text-lg font-medium">{t('noDonors')}</p>
+              <p className="text-sm">{t('yourName')}</p>
             </div>
           )}
 
@@ -147,28 +153,28 @@ export default async function DonatePage() {
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <span className="text-base">🚫</span>
-                <h3 className="font-semibold text-sm">No Ads</h3>
+                <h3 className="font-semibold text-sm">{t('noAds')}</h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                Donations keep the site clean and ad-free. I was gonna put ads if i have no donation.
+                {t('noAdsDesc')}
               </p>
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <Server className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-sm">Server Costs</h3>
+                <h3 className="font-semibold text-sm">{t('serverCosts')}</h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                Hosting a server is not free. Your support covers the monthly bill.
+                {t('serverCostsDesc')}
               </p>
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-sm">Domain</h3>
+                <h3 className="font-semibold text-sm">{t('domain')}</h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                Keeping <span className="font-mono">zegraph.xyz</span> alive has a yearly cost too.
+                {t.rich('domainDesc', {mono: (chunks) => <span className="font-mono">{chunks}</span>})}
               </p>
             </div>
           </section>

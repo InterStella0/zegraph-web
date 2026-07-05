@@ -14,6 +14,7 @@ import {MapRegion} from "types/maps.ts";
 import {Region} from "types/players.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeRegionData } from "utils/chartSeoUtils.tsx";
+import {useTranslations} from 'next-intl';
 
 ChartJS.register(
     BarElement,
@@ -24,6 +25,7 @@ ChartJS.register(
 
 
 function RegionDistribution() {
+    const t = useTranslations('maps.regionDistribution');
     const { name } = useMapContext();
     const [detail, setDetail] = useState<MapRegion[] | null>(null);
     const [ regions, setRegions ] = useState<Region[]>([])
@@ -46,7 +48,7 @@ function RegionDistribution() {
                     console.error('Error fetching region data:', err);
                 }
 
-                setError(err.message || 'Failed to load region data');
+                setError(err.message || t('loadFailed'));
             })
             .finally(() => setLoading(false))
         fetchUrl(`/graph/${server_id}/get_regions`)
@@ -81,7 +83,7 @@ function RegionDistribution() {
                 stacked: true,
                 title: {
                     display: true,
-                    text: 'Hours',
+                    text: t('hours'),
                     color: colors.textColor
                 },
                 ticks: {
@@ -142,7 +144,7 @@ function RegionDistribution() {
     // Generate SEO summary
     const summary = useMemo(() => {
         if (!detail || detail.length === 0) {
-            return "No regional distribution data available.";
+            return t('noData');
         }
 
         // Transform data to match helper function interface
@@ -161,7 +163,7 @@ function RegionDistribution() {
     return (
         <div className="p-6 px-8 rounded-lg">
             <h3 className="text-sm text-muted-foreground font-bold">
-                Overall Distribution
+                {t('title')}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div className="md:col-span-9">
@@ -174,7 +176,7 @@ function RegionDistribution() {
                     <div
                         className="h-[150px] w-full relative"
                         role="img"
-                        aria-label="Regional playtime distribution"
+                        aria-label={t('title')}
                         aria-describedby="region-distribution-summary"
                     >
                         {loading && (
@@ -195,14 +197,14 @@ function RegionDistribution() {
 
                         {!loading && !error && (!detail || detail.length === 0) && (
                             <div className="flex justify-center items-center h-full">
-                                <p className="text-muted-foreground">No region data available</p>
+                                <p className="text-muted-foreground">{t('noData')}</p>
                             </div>
                         )}
                     </div>
                 </div>
                 <div className="md:col-span-3">
                     <div className="m-4 border-l border-border pl-4 w-full">
-                        <h3 className="text-sm text-muted-foreground font-bold mb-3">REGIONS</h3>
+                        <h3 className="text-sm text-muted-foreground font-bold mb-3">{t('regions')}</h3>
                         <div className="max-h-[140px] overflow-y-auto">
                             <Table>
                                 <TableBody>
@@ -234,7 +236,8 @@ function RegionDistribution() {
 }
 
 export default function MapRegionDistribution(){
-    return <ErrorCatch message="Region distribution cannot be load.">
+    const t = useTranslations('maps.regionDistribution');
+    return <ErrorCatch message={t('loadError')}>
         <RegionDistribution />
     </ErrorCatch>
 }

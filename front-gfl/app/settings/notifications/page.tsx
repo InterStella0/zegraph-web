@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'compo
 import { usePushNotifications } from 'lib/hooks/usePushNotifications';
 import {fetchApiUrl} from 'utils/generalUtils';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 interface NotificationPreferences {
   user_id: number;
@@ -17,6 +18,7 @@ interface NotificationPreferences {
 }
 
 export default function NotificationSettingsPage(user) {
+  const t = useTranslations('settings.notifications');
   const { permission, isSubscribed, isSupported, subscribe, unsubscribe, isLoading } = usePushNotifications(user != null);
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [savingPreferences, setSavingPreferences] = useState(false);
@@ -50,10 +52,10 @@ export default function NotificationSettingsPage(user) {
         body: JSON.stringify({ [key]: value }),
       });
       setPreferences(updated);
-      toast.success('Preferences updated');
+      toast.success(t('preferencesUpdated'));
     } catch (error) {
       console.error('Failed to update preferences:', error);
-      toast.error('Failed to update preferences');
+      toast.error(t('preferencesUpdateFailed'));
     } finally {
       setSavingPreferences(false);
     }
@@ -64,9 +66,9 @@ export default function NotificationSettingsPage(user) {
       <div className="container max-w-4xl mx-auto p-6">
         <Card>
           <CardHeader>
-            <CardTitle>Notifications Not Supported</CardTitle>
+            <CardTitle>{t('notSupported')}</CardTitle>
             <CardDescription>
-              Your browser doesn&apos;t support push notifications.
+              {t('notSupportedDesc')}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -77,26 +79,26 @@ export default function NotificationSettingsPage(user) {
   return (
     <div className="container max-w-4xl mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Notification Settings</h1>
+        <h1 className="text-3xl font-bold mb-2">{t('title')}</h1>
         <p className="text-muted-foreground">
-          Manage how you receive notifications from ZE Graph
+          {t('subtitle')}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Push Notifications</CardTitle>
+          <CardTitle>{t('pushTitle')}</CardTitle>
           <CardDescription>
-            Manage how you receive notifications from ZE Graph
+            {t('subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Enable/Disable Notifications */}
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium">Enable Push Notifications</h3>
+              <h3 className="font-medium">{t('enablePush')}</h3>
               <p className="text-sm text-muted-foreground">
-                Receive browser notifications
+                {t('receiveBrowser')}
               </p>
             </div>
             {isSubscribed ? (
@@ -106,7 +108,7 @@ export default function NotificationSettingsPage(user) {
                 disabled={isLoading}
               >
                 <BellOff className="mr-2 h-4 w-4" />
-                {isLoading ? 'Disabling...' : 'Disable'}
+                {isLoading ? t('disabling') : t('disable')}
               </Button>
             ) : (
               <Button
@@ -114,7 +116,7 @@ export default function NotificationSettingsPage(user) {
                 disabled={isLoading}
               >
                 <Bell className="mr-2 h-4 w-4" />
-                {isLoading ? 'Enabling...' : 'Enable'}
+                {isLoading ? t('enabling') : t('enable')}
               </Button>
             )}
           </div>
@@ -122,7 +124,7 @@ export default function NotificationSettingsPage(user) {
           {/* Permission Status */}
           <div className="pt-4 border-t">
             <p className="text-sm text-muted-foreground">
-              Permission status: <span className="font-medium">{permission}</span>
+              {t('permissionStatus')} <span className="font-medium">{permission}</span>
             </p>
           </div>
         </CardContent>
@@ -132,17 +134,17 @@ export default function NotificationSettingsPage(user) {
       {isSubscribed && preferences && (
         <Card>
           <CardHeader>
-            <CardTitle>Notification Preferences</CardTitle>
+            <CardTitle>{t('preferencesTitle')}</CardTitle>
             <CardDescription>
-              Choose what types of notifications you want to receive
+              {t('preferencesDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-medium">Announcements</h3>
+                <h3 className="font-medium">{t('announcements')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Important site announcements and updates
+                  {t('announcementsDesc')}
                 </p>
               </div>
               <Switch
@@ -154,9 +156,9 @@ export default function NotificationSettingsPage(user) {
 
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-medium">System Notifications</h3>
+                <h3 className="font-medium">{t('system')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Server status and system alerts
+                  {t('systemDesc')}
                 </p>
               </div>
               <Switch
@@ -168,9 +170,9 @@ export default function NotificationSettingsPage(user) {
 
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-medium">Map-Specific Notifications</h3>
+                <h3 className="font-medium">{t('mapSpecific')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Get notified when specific maps are played
+                  {t('mapSpecificDesc')}
                 </p>
               </div>
               <Switch

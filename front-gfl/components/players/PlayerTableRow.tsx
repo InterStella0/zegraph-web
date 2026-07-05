@@ -1,5 +1,6 @@
 "use client"
 
+import {useTranslations} from "next-intl";
 import { PlayerAvatar } from "./PlayerAvatar.tsx";
 import dayjs from "dayjs";
 import {fetchServerUrl, secondsToHours, secondsToMins, simpleRandom} from "utils/generalUtils.ts";
@@ -110,6 +111,7 @@ function PlayerInformation(
 }
 
 function PlayerRowError() {
+    const t = useTranslations('players.list');
     return (
         <TableRow>
             <TableCell colSpan={2} className="text-center py-4">
@@ -118,7 +120,7 @@ function PlayerRowError() {
                     "bg-red-500/10 text-red-500"
                 )}>
                     <span role="img" aria-label="warning">⚠️</span>
-                    <span>Unable to load player data</span>
+                    <span>{t('unableToLoad')}</span>
                 </div>
             </TableCell>
         </TableRow>

@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations, useLocale} from 'next-intl';
 import { useEffect, useState} from "react";
 import {fetchApiUrl, getMapImage} from "utils/generalUtils.ts";
 import {Clock, Users, RotateCcw, User, AlarmClock, AlertTriangle, Ban, BoxesIcon} from "lucide-react";
@@ -25,6 +26,8 @@ async function checkModelExists(mapName: string): Promise<boolean> {
 }
 
 function MapHeaderDisplay() {
+    const t = useTranslations('maps.header');
+    const locale = useLocale();
     const [url, setUrl] = useState<string | null>(null);
     const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
     const { name, analyze, info, notReady } = useMapContext();
@@ -101,7 +104,7 @@ function MapHeaderDisplay() {
                             <div className="flex flex-row items-center gap-1 text-destructive">
                                 <Ban className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                                 <span className="text-xs sm:text-sm md:text-base font-medium">
-                                    Removed
+                                    {t('removed')}
                                 </span>
                             </div>
                         </div>
@@ -110,7 +113,7 @@ function MapHeaderDisplay() {
                         <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
                             <div className="flex flex-row items-center gap-1 text-green-500">
                                 <span className="text-xs sm:text-sm md:text-base font-medium">
-                                    Casual
+                                    {t('casual')}
                                 </span>
                             </div>
                         </div>
@@ -119,7 +122,7 @@ function MapHeaderDisplay() {
                         <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
                             <div className="flex flex-row items-center gap-1 text-red-500">
                                 <span className="text-xs sm:text-sm md:text-base font-medium">
-                                    Tryhard
+                                    {t('tryhard')}
                                 </span>
                             </div>
                         </div>
@@ -128,7 +131,7 @@ function MapHeaderDisplay() {
                         <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
                             <div className="flex flex-row items-center gap-1 text-blue-500">
                                 <span className="text-xs sm:text-sm md:text-base font-medium">
-                                    Mixed
+                                    {t('mixed')}
                                 </span>
                             </div>
                         </div>
@@ -137,7 +140,7 @@ function MapHeaderDisplay() {
                         <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
                             <div className="flex flex-row items-center gap-1 text-orange-500">
                                 <span className="text-xs sm:text-sm md:text-base font-medium">
-                                    No Noms Only
+                                    {t('noNomsOnly')}
                                 </span>
                             </div>
                         </div>
@@ -146,7 +149,7 @@ function MapHeaderDisplay() {
                         <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
                             <div className="flex flex-row items-center gap-1 text-blue-400">
                                 <span className="text-xs sm:text-sm md:text-base font-medium">
-                                    Has Lasers
+                                    {t('hasLasers')}
                                 </span>
                             </div>
                         </div>
@@ -156,7 +159,7 @@ function MapHeaderDisplay() {
                             <div className="flex flex-row items-center gap-1 text-white">
                                 <Users className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                                 <span className="text-xs sm:text-sm md:text-base font-medium">
-                                    Min {info.min_players} players
+                                    {t('minPlayers', {count: info.min_players})}
                                 </span>
                             </div>
                         </div>
@@ -182,12 +185,12 @@ function MapHeaderDisplay() {
                                     <div className="flex flex-row items-center gap-1 text-destructive">
                                         <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                                         <span className="text-xs sm:text-sm md:text-base font-medium">
-                                            Data is not ready.
+                                            {t('dataNotReady')}
                                         </span>
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    Still calculating, data is not ready. Come back later~
+                                    {t('stillCalculating')}
                                 </TooltipContent>
                             </Tooltip>
                         </div>
@@ -203,7 +206,7 @@ function MapHeaderDisplay() {
                             className="bg-primary/90 hover:bg-primary text-primary-foreground backdrop-blur-sm"
                         >
                             <BoxesIcon className="h-4 w-4" />
-                            <span className="ml-2 hidden sm:inline">View in 3D</span>
+                            <span className="ml-2 hidden sm:inline">{t('viewIn3d')}</span>
                         </Button>
                     ) : (
                         <Tooltip>
@@ -215,12 +218,12 @@ function MapHeaderDisplay() {
                                         className="backdrop-blur-sm"
                                     >
                                         <BoxesIcon className="h-4 w-4" />
-                                        <span className="ml-2 hidden sm:inline">View in 3D</span>
+                                        <span className="ml-2 hidden sm:inline">{t('viewIn3d')}</span>
                                     </Button>
                                 </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                                3D model not available for this map
+                                {t('no3dModel')}
                             </TooltipContent>
                         </Tooltip>
                     )}
@@ -244,10 +247,10 @@ function MapHeaderDisplay() {
                             {!isLoading && (
                                 <>
                                     <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium">
-                                        {analyze? (analyze.total_playtime / 60 / 60).toLocaleString('en-US', {minimumFractionDigits: 3}): 0}h
+                                        {analyze? (analyze.total_playtime / 60 / 60).toLocaleString(locale, {minimumFractionDigits: 3}): 0}h
                                     </span>
                                     <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium hidden sm:inline">
-                                        Total playtime
+                                        {t('totalPlaytime')}
                                     </span>
                                 </>
                             )}
@@ -265,10 +268,10 @@ function MapHeaderDisplay() {
                             {!isLoading && (
                                 <>
                                     <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium">
-                                        {analyze?.total_sessions.toLocaleString()}
+                                        {analyze?.total_sessions.toLocaleString(locale)}
                                     </span>
                                     <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium hidden sm:inline">
-                                        Sessions
+                                        {t('sessions')}
                                     </span>
                                 </>
                             )}
@@ -286,7 +289,7 @@ function MapHeaderDisplay() {
                             {!isLoading && (
                                 <>
                                     <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium hidden sm:inline">
-                                        Last played
+                                        {t('lastPlayed')}
                                     </span>
                                     <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium">
                                         {dayjs(analyze?.last_played).fromNow()}
@@ -307,10 +310,10 @@ function MapHeaderDisplay() {
                             {!isLoading && (
                                 <>
                                     <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium">
-                                        {analyze?.unique_players.toLocaleString()}
+                                        {analyze?.unique_players.toLocaleString(locale)}
                                     </span>
                                     <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium hidden sm:inline">
-                                        have played this map
+                                        {t('havePlayed')}
                                     </span>
                                 </>
                             )}
@@ -324,7 +327,8 @@ function MapHeaderDisplay() {
 }
 
 export default function MapHeader(){
-    return <ErrorCatch message="Couldn't load map header :/">
+    const t = useTranslations('maps.header');
+    return <ErrorCatch message={t('loadError')}>
         <MapHeaderDisplay />
     </ErrorCatch>
 }

@@ -4,16 +4,18 @@ import { Button } from 'components/ui/button'
 import { ArrowLeft} from 'lucide-react'
 import {Metadata} from "next";
 import MapViewerRenderer from "./MapViewerRenderer.tsx";
+import { getTranslations } from 'next-intl/server';
 
 
 export async function generateMetadata({ params }: {
   params: Promise<{ map_name: string }>
 }): Promise<Metadata> {
   const { map_name } = await params;
+  const t = await getTranslations('metadata');
 
   return {
-    title: formatTitle(`${map_name}  - 3D View`),
-    description: `View ${map_name} on the browser! This is the compressed version of the map for performance reasons.`,
+    title: formatTitle(t('map3dTitle', {map: map_name})),
+    description: t('map3dDescription', {map: map_name}),
     alternates: {
       canonical: `/maps/${map_name}/3d`
     }

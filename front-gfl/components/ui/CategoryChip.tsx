@@ -2,6 +2,7 @@
 import { Badge } from "components/ui/badge";
 import { cn } from "components/lib/utils";
 import { useEffect, useState } from "react";
+import {useTranslations} from 'next-intl';
 
 const CATEGORY_STYLES = {
     'casual': 'border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
@@ -11,9 +12,19 @@ const CATEGORY_STYLES = {
     'no noms': 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-400',
 };
 
+const CATEGORY_KEYS = {
+    'casual': 'casual',
+    'tryhard': 'tryhard',
+    'mixed': 'mixed',
+    'lasers': 'lasers',
+    'no noms': 'noNoms',
+};
+
 export default function CategoryChip({ category, size = "medium", ...other }) {
+    const t = useTranslations('maps.category');
     const [isClient, setIsClient] = useState(false);
     const styleClass = CATEGORY_STYLES[category] || 'border-muted-foreground bg-muted text-muted-foreground';
+    const label = CATEGORY_KEYS[category] ? t(CATEGORY_KEYS[category]) : category;
 
     useEffect(() => {
         setIsClient(true);
@@ -22,7 +33,7 @@ export default function CategoryChip({ category, size = "medium", ...other }) {
     if (!isClient) {
         return (
             <Badge variant="outline" className="font-medium">
-                {category}
+                {label}
             </Badge>
         );
     }
@@ -36,10 +47,10 @@ export default function CategoryChip({ category, size = "medium", ...other }) {
                 size === "small" ? "text-xs px-2 py-0.5" : "text-sm px-3 py-1",
                 other.className
             )}
-            title={other.title || `Player Type: ${category}`}
+            title={other.title || t('playerType', {category: label})}
             {...other}
         >
-            {category}
+            {label}
         </Badge>
     );
 }

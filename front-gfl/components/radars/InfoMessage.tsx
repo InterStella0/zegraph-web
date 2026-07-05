@@ -6,9 +6,10 @@ import { Alert, AlertDescription } from 'components/ui/alert';
 import { Button } from 'components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from 'components/ui/tooltip';
 import { Info, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 
-function RenderedInfoMessage({ message }){
+function RenderedInfoMessage({ message, showInfoLabel }){
     const [isExpanded, setIsExpanded] = useState(() => {
         const savedState = localStorage.getItem(`infoMessage`);
         return savedState !== "collapsed";
@@ -54,7 +55,7 @@ function RenderedInfoMessage({ message }){
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p>Show info</p>
+                            <p>{showInfoLabel}</p>
                         </TooltipContent>
                     </Tooltip>
                 </div>
@@ -67,14 +68,15 @@ const InfoControl = L.Control.extend({
     options: {
         position: 'topleft'
     },
-    initialize: function(message, options) {
+    initialize: function(message, showInfoLabel, options) {
         this.message = message;
+        this.showInfoLabel = showInfoLabel;
         L.setOptions(this, options);
         this._reactRoot = null
     },
     updateMessage: function(message){
         if (this._reactRoot)
-            this._reactRoot.render(<RenderedInfoMessage key={Date.now()} message={message} />)
+            this._reactRoot.render(<RenderedInfoMessage key={Date.now()} message={message} showInfoLabel={this.showInfoLabel} />)
     },
     onAdd: function () {
         const container = L.DomUtil.create('div');
@@ -87,18 +89,20 @@ const InfoControl = L.Control.extend({
         L.DomEvent.on(container, 'pointerdown', L.DomEvent.stopPropagation);
         L.DomEvent.on(container, 'contextmenu', L.DomEvent.stopPropagation);
         this._reactRoot = ReactDOM.createRoot(container);
-        this._reactRoot.render(<RenderedInfoMessage message={this.message} />)
+        this._reactRoot.render(<RenderedInfoMessage message={this.message} showInfoLabel={this.showInfoLabel} />)
         return container;
     }
 });
-export default function InfoMessage({ message = "Player locations are obtained via Steam public profile." }: { message?: string}) {
+export default function InfoMessage({ message }: { message?: string}) {
+    const t = useTranslations('radar');
+    const resolvedMessage = message ?? t('infoDefault');
     const map = useMap();
     const controlRef = useRef(null)
 
     useEffect(() => {
         if (!map) return
 
-        const control = new InfoControl(message);
+        const control = new InfoControl(resolvedMessage, t('showInfo'));
         map.addControl(control);
         controlRef.current = control
 
@@ -107,13 +111,13 @@ export default function InfoMessage({ message = "Player locations are obtained v
 
             map.removeControl(control);
         };
-    }, [map, message])
+    }, [map, resolvedMessage, t])
 
     useEffect(() => {
         if (!controlRef.current) return
 
-        controlRef.current.updateMessage(message)
-    }, [controlRef, message])
+        controlRef.current.updateMessage(resolvedMessage)
+    }, [controlRef, resolvedMessage])
 
     return null;
 }

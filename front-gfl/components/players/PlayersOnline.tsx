@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {useState, useEffect, useMemo, ChangeEvent} from 'react';
 import { Gamepad2, Info, Circle, Search } from 'lucide-react';
 import { fetchServerUrl } from "utils/generalUtils.ts";
@@ -33,6 +34,7 @@ const PlayerListSkeleton = ({ count = 20 }) => (
 );
 
 const PlayersOnline = () => {
+    const t = useTranslations('players.online');
     const [onlinePlayers, setOnlinePlayers] = useState<PlayerDetailSession[]>([]);
     const [onlinePlayersLoading, setOnlinePlayersLoading] = useState<boolean>(true);
     const [onlinePlayersError, setOnlinePlayersError] = useState<string | null>(null);
@@ -93,7 +95,7 @@ const PlayersOnline = () => {
                 <div className="flex items-center gap-2">
                     <Gamepad2 className="w-5 h-5 text-primary" />
                     <h2 className="text-lg max-sm:text-md font-semibold">
-                        Players Online ({onlinePlayers.length})
+                        {t('title', {count: onlinePlayers.length})}
                     </h2>
                 </div>
                 <TooltipProvider>
@@ -104,7 +106,7 @@ const PlayersOnline = () => {
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p>Players who leave take 3 minutes to be registered as offline, which can cause the server's maximum player count to be exceeded.</p>
+                            <p>{t('offlineDelayInfo')}</p>
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
@@ -113,7 +115,7 @@ const PlayersOnline = () => {
                 <div className="relative mb-4">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
                     <Input
-                        placeholder="Search players..."
+                        placeholder={t('searchPlayers')}
                         value={searchQuery}
                         onChange={handleSearchChange}
                         className="pl-10"
@@ -124,14 +126,14 @@ const PlayersOnline = () => {
                     <PlayerListSkeleton count={20} />
                 ) : onlinePlayersError ? (
                     <div className="p-4 text-center">
-                        <p className="text-destructive">Error loading online players: {onlinePlayersError}</p>
+                        <p className="text-destructive">{t('loadError', {error: onlinePlayersError})}</p>
                     </div>
                 ) : (
                     <>
                         {filteredPlayers.length === 0 && searchQuery.trim() ? (
                             <div className="p-6 text-center">
                                 <p className="text-muted-foreground">
-                                    No player name &quot;{searchQuery}&quot;
+                                    {t('noPlayerName', {query: searchQuery})}
                                 </p>
                             </div>
                         ) : (
@@ -157,7 +159,7 @@ const PlayersOnline = () => {
                                                 {player.name}
                                             </HoverPrefetchLink>
                                             <p className="text-xs text-muted-foreground">
-                                                Playing for {getSessionDuration(player.started_at)}
+                                                {t('playingFor', {duration: getSessionDuration(player.started_at)})}
                                             </p>
                                         </div>
                                     </div>

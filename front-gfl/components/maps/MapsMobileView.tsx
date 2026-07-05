@@ -1,7 +1,7 @@
 'use client'
 import {Heart} from 'lucide-react';
 import {getMapImage, secondsToHours, simpleRandom} from "utils/generalUtils";
-import {getStatusChip} from "./MapsTable";
+import {StatusChip} from "./MapsTable";
 import dayjs from "dayjs";
 import {Dispatch, useEffect, useState} from "react";
 import Link from "next/link";
@@ -12,6 +12,7 @@ import {Pagination, PaginationContent, PaginationFirst, PaginationItem, Paginati
 import {Server} from "types/community.ts";
 import {MapPlayedPaginated} from "types/maps.ts";
 import CategoryChip from "components/ui/CategoryChip.tsx";
+import {useTranslations, useLocale} from 'next-intl';
 
 export const MapsMobileViewSkeleton = () => {
     const [isClient, setIsClient] = useState(false)
@@ -46,6 +47,8 @@ export const MapsMobileViewSkeleton = () => {
 }
 
 function MapCardView({ server, map, favorites, toggleFavorite }){
+    const t = useTranslations('maps.table');
+    const locale = useLocale();
     const server_id = server.id
     const [mapImage, setMapImage] = useState(null);
     useEffect(() => {
@@ -69,20 +72,20 @@ function MapCardView({ server, map, favorites, toggleFavorite }){
                         {map.is_casual && !map.is_tryhard && <CategoryChip category="casual" size="small" />}
                         {map.is_tryhard && !map.is_casual && <CategoryChip category="tryhard" size="small" />}
                         {map.is_tryhard && map.is_casual && <CategoryChip category="mixed" size="small" />}
-                        {map.has_lasers && <CategoryChip category="lasers" size="small" title="Map contains killable lasers" />}
-                        {map.no_noms && <CategoryChip category="no noms" size="small" title="Nominations disabled" />}
+                        {map.has_lasers && <CategoryChip category="lasers" size="small" title={t('lasersTitle')} />}
+                        {map.no_noms && <CategoryChip category="no noms" size="small" title={t('noNomsTitle')} />}
                         {map.min_players != null && map.min_players > 0 && (
                             <Badge variant="outline" className="text-xs">
-                                Min {map.min_players}
+                                {t('min', {count: map.min_players})}
                             </Badge>
                         )}
                         {map.max_players != null && (map.max_players != server.max_players && map.max_players != 0)  && (
                             <Badge variant="outline" className="text-xs">
-                                Max {map.max_players}
+                                {t('max', {count: map.max_players})}
                             </Badge>
                         )}
                     </div>
-                    {getStatusChip(map)}
+                    <StatusChip map={map} />
                 </div>
                 <Button
                     variant="ghost"
@@ -116,26 +119,26 @@ function MapCardView({ server, map, favorites, toggleFavorite }){
             <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-full text-center p-2 bg-muted/50 rounded">
                     <p className="text-xl font-bold text-primary">
-                        {secondsToHours(map.total_cum_time)}
+                        {secondsToHours(map.total_cum_time, locale)}
                     </p>
                     <span className="text-xs text-muted-foreground font-medium">
-                        Cumulative Hours
+                        {t('cumulativeHours')}
                     </span>
                 </div>
                 <div className="text-center p-2 bg-muted/50 rounded">
                     <p className="text-xl font-bold text-primary">
-                        {secondsToHours(map.total_time)}
+                        {secondsToHours(map.total_time, locale)}
                     </p>
                     <span className="text-xs text-muted-foreground font-medium">
-                        Hours
+                        {t('hours')}
                     </span>
                 </div>
                 <div className="text-center p-2 bg-muted/50 rounded">
                     <p className="text-xl font-bold text-primary">
-                        {map.unique_players.toLocaleString()}
+                        {map.unique_players.toLocaleString(locale)}
                     </p>
                     <span className="text-xs text-muted-foreground font-medium">
-                        Players
+                        {t('players')}
                     </span>
                 </div>
                 <div className="text-center p-2 bg-muted/50 rounded">
@@ -143,7 +146,7 @@ function MapCardView({ server, map, favorites, toggleFavorite }){
                         {map.total_sessions}
                     </p>
                     <span className="text-xs text-muted-foreground font-medium">
-                        Sessions
+                        {t('sessions')}
                     </span>
                 </div>
                 <div className="text-center p-2 bg-muted/50 rounded">
@@ -151,7 +154,7 @@ function MapCardView({ server, map, favorites, toggleFavorite }){
                         {dayjs(map.last_played).fromNow(true)}
                     </p>
                     <span className="text-xs text-muted-foreground font-medium">
-                        Last Played
+                        {t('lastPlayed')}
                     </span>
                 </div>
             </div>

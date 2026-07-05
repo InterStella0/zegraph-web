@@ -8,6 +8,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from 'components/ui/select';
+import { useTranslations } from 'next-intl';
+import { guideCategoryLabel } from './categoryUtils';
 
 interface CategoryFilterProps {
     value: string;
@@ -15,16 +17,17 @@ interface CategoryFilterProps {
 }
 
 export default function CategoryFilter({ value, onChange }: CategoryFilterProps) {
+    const t = useTranslations('guides');
     return (
         <Select value={value} onValueChange={onChange}>
             <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Filter by category" />
+                <SelectValue placeholder={t('filterByCategory')} />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">{t('allCategories')}</SelectItem>
                 {Object.entries(GuideCategory).map(([key, label]) => (
                     <SelectItem key={key} value={label}>
-                        {label}
+                        {guideCategoryLabel(t, label)}
                     </SelectItem>
                 ))}
             </SelectContent>

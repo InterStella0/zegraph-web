@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "compon
 import { Button } from "components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
 import { cn } from "components/lib/utils";
+import {useTranslations} from 'next-intl';
 
 function CountryStatsWrapper({ setUpdateFn }) {
     const [data, setData] = useState({});
@@ -18,7 +19,7 @@ function CountryStatsWrapper({ setUpdateFn }) {
         setUpdateFn(setData);
     }, [setUpdateFn]);
 
-    return <ErrorCatch message="Couldn't show country stats!">
+    return <ErrorCatch message={data?.labels?.statsError ?? "Couldn't show country stats!"}>
         <CountryStatsList reactData={data} />
     </ErrorCatch>
 }
@@ -49,7 +50,7 @@ const CountryStatsControl = Control.extend({
         const reactRoot = ReactDOM.createRoot(this._container);
         reactRoot.render(<CountryStatsWrapper setUpdateFn={(fn) => {
             this._setReactDataFn = fn;
-            fn({timeContext: this.options.timeContext, server_id: this.options.server_id})
+            fn({timeContext: this.options.timeContext, server_id: this.options.server_id, labels: this.options.labels})
         }} />);
         return this._container;
     },
@@ -70,7 +71,7 @@ function fetchStats(server_id, start, interval, isLive){
 }
 
 const CountryStatsList = ({ reactData }) => {
-    const { timeContext, server_id } = reactData || {}
+    const { timeContext, server_id, labels } = reactData || {}
     const [page, setPage] = useState(1);
     const [isExpanded, setIsExpanded] = useState(true);
     const [loading, setLoading] = useState(false)
@@ -137,7 +138,7 @@ const CountryStatsList = ({ reactData }) => {
 
                                 {isExpanded && !isMobile && (
                                     <span className="text-sm font-semibold flex-1">
-                                        Player Distribution
+                                        {labels?.playerDistribution ?? "Player Distribution"}
                                     </span>
                                 )}
                                 <Button
@@ -151,7 +152,7 @@ const CountryStatsList = ({ reactData }) => {
                         </CollapsibleTrigger>
                     </TooltipTrigger>
                     {!isExpanded && !isMobile && (
-                        <TooltipContent>Player Distribution</TooltipContent>
+                        <TooltipContent>{labels?.playerDistribution ?? "Player Distribution"}</TooltipContent>
                     )}
                 </Tooltip>
 
@@ -163,12 +164,12 @@ const CountryStatsList = ({ reactData }) => {
                         )}>
                             {!isMobile && (
                                 <span className="text-xs text-muted-foreground">
-                                    Players On Map:
+                                    {labels?.playersOnMap ?? "Players On Map:"}
                                 </span>
                             )}
                             <span className="text-xs font-semibold">
-                                <span title="Total players that set public location">{data.in_view_count} </span>
-                                / <span title="Total players in this timeframe">{data.total_count}</span>
+                                <span title={labels?.publicLocation ?? "Total players that set public location"}>{data.in_view_count} </span>
+                                / <span title={labels?.totalTimeframe ?? "Total players in this timeframe"}>{data.total_count}</span>
                             </span>
                         </div>
 
@@ -268,21 +269,29 @@ const StatsControl = createControlComponent(
 );
 
 export default function StatsComponent() {
+    const t = useTranslations('radar');
     const timeContext = useContext(TemporalContext)
     const { server } = useServerData()
     const server_id = server.id
     const deferredTimeContext = useDeferredValue(timeContext)
     const ref = useRef()
     const debounced = useRef()
+    const labels = {
+        statsError: t('statsError'),
+        playerDistribution: t('playerDistribution'),
+        playersOnMap: t('playersOnMap'),
+        publicLocation: t('publicLocation'),
+        totalTimeframe: t('totalTimeframe'),
+    }
     useEffect(() => {
         if (debounced.current) {
             clearTimeout(debounced.current);
         }
         debounced.current = setTimeout(() => {
-            ref.current.updateData({ timeContext: deferredTimeContext, server_id })
+            ref.current.updateData({ timeContext: deferredTimeContext, server_id, labels })
         }, 600);
-    }, [deferredTimeContext, server_id])
+    }, [deferredTimeContext, server_id, t])
     return (
-        <StatsControl ref={ref} timeContext={deferredTimeContext} server_id={server_id} position="topright"/>
+        <StatsControl ref={ref} timeContext={deferredTimeContext} server_id={server_id} labels={labels} position="topright"/>
     );
 }

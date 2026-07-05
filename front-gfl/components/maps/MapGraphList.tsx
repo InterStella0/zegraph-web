@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import {ReactElement, useEffect, useRef, useState} from 'react';
 import {fetchServerUrl } from "utils/generalUtils.ts";
 import dayjs, {Dayjs} from "dayjs";
@@ -15,6 +16,7 @@ dayjs.extend(LocalizedFormat)
 export default function MapGraphList(
     { onDateChange }: { onDateChange: (newStart: Dayjs, newEnd: Dayjs) => void }
 ) {
+    const t = useTranslations('maps');
     const [ page, setPage ] = useState<number>(0)
     const [ mapData, setMapData ] = useState<ServerMapPlayedPaginated | null>(null)
     const [ loading, setLoading ] = useState<boolean>(false)
@@ -40,7 +42,7 @@ export default function MapGraphList(
     return <>
         <div className="flex flex-col sm:flex-row justify-between items-center p-2 px-4">
             <h2 className="text-sm text-muted-foreground uppercase tracking-wide">
-                Sessions
+                {t('sessions')}
             </h2>
             <PaginationPage page={page} setPage={setPage} totalPages={totalPages} />
         </div>

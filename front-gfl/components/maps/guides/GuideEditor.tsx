@@ -62,6 +62,8 @@ import {
 import { AlertCircle } from 'lucide-react';
 import {Avatar, AvatarFallback, AvatarImage} from "components/ui/avatar.tsx";
 import {getServerAvatarText} from "components/ui/CommunitySelector.tsx";
+import { useTranslations } from 'next-intl';
+import { guideCategoryLabel } from './categoryUtils';
 
 // Configure sanitize schema to allow all necessary tags
 const sanitizeSchema = {
@@ -85,6 +87,8 @@ interface GuideEditorProps {
 
 
 export default function GuideEditor({ mode, session, defaultScope }: GuideEditorProps) {
+    const t = useTranslations('guides.editor');
+    const tGuides = useTranslations('guides');
     const { mapName, guide, serverGoto, serverId, serverSlug } = useGuideContext();
     const router = useRouter();
     const isBanned = session?.isBanned ?? false;
@@ -136,26 +140,26 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
         const newErrors: Record<string, string> = {};
 
         if (!title.trim()) {
-            newErrors.title = 'Title is required';
+            newErrors.title = t('titleRequired');
         } else if (title.length < 5) {
-            newErrors.title = 'Title must be at least 5 characters';
+            newErrors.title = t('titleTooShort', {min: 5});
         } else if (title.length > 200) {
-            newErrors.title = 'Title must be at most 200 characters';
+            newErrors.title = t('titleTooLong', {max: 200});
         }
 
         if (!content.trim()) {
-            newErrors.content = 'Content is required';
+            newErrors.content = t('contentRequired');
         } else if (content.length < 50) {
-            newErrors.content = 'Content must be at least 50 characters';
+            newErrors.content = t('contentTooShort', {min: 50});
         }
 
         if (!category) {
-            newErrors.category = 'Category is required';
+            newErrors.category = t('categoryRequired');
         }
 
         // Validate server selection when scope is 'server' and no server context from URL
         if (scope === 'server' && !serverSlug && !selectedServerId) {
-            newErrors.server = 'Please select a server';
+            newErrors.server = t('serverRequired');
         }
 
         setErrors(newErrors);
@@ -244,7 +248,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
 
     const handleSubmit = async () => {
         if (!validate()) {
-            toast.error('Please fix the errors in the form');
+            toast.error(t('fixErrors'));
             return;
         }
 
@@ -278,13 +282,13 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
             });
             const guideSlug = data.slug
             toast.success(
-                mode === 'create' ? 'Guide created successfully!' : 'Guide updated successfully!'
+                mode === 'create' ? t('createSuccess') : t('updateSuccess')
             );
             // Navigate to the guide detail page based on the new scope
             router.refresh(); // Force refresh to invalidate cache
             router.push(resolveGuideLink(effectiveServerId, `/${mapName}/guides/${guideSlug}`))
         } catch (error: any) {
-            toast.error(`Failed to ${mode} guide`, {
+            toast.error(mode === 'create' ? t('createFailed') : t('updateFailed'), {
                 description: error.message
             });
         } finally {
@@ -308,23 +312,23 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                     <div className="flex items-center gap-2">
                         <AlertCircle className="h-5 w-5 text-destructive" />
                         <p className="font-semibold text-destructive">
-                            You are banned from {mode === 'create' ? 'creating' : 'editing'} guides
+                            {mode === 'create' ? t('bannedCreating') : t('bannedEditing')}
                         </p>
                     </div>
-                    {banReason && <p className="text-sm text-muted-foreground mt-1 ml-7">Reason: {banReason}</p>}
+                    {banReason && <p className="text-sm text-muted-foreground mt-1 ml-7">{t('reason', {reason: banReason})}</p>}
                 </div>
             )}
 
             {/* Title Field */}
             <div className="space-y-2">
                 <Label htmlFor="title">
-                    Title <span className="text-destructive">*</span>
+                    {t('title')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                     id="title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Enter a clear, descriptive title for your guide"
+                    placeholder={t('titlePlaceholder')}
                     maxLength={200}
                     className={errors.title ? 'border-destructive' : ''}
                 />
@@ -333,7 +337,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         <span className="text-destructive">{errors.title}</span>
                     ) : (
                         <span className="text-muted-foreground">
-                            A clear title helps others find your guide
+                            {t('titleHint')}
                         </span>
                     )}
                     <span className="text-muted-foreground">{title.length}/200</span>
@@ -343,16 +347,16 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
             {/* Category Field */}
             <div className="space-y-2">
                 <Label htmlFor="category">
-                    Category <span className="text-destructive">*</span>
+                    {t('category')} <span className="text-destructive">*</span>
                 </Label>
                 <Select value={category} onValueChange={(value) => setCategory(value as GuideCategoryType)}>
                     <SelectTrigger id="category" className={errors.category ? 'border-destructive' : ''}>
-                        <SelectValue placeholder="Select a category" />
+                        <SelectValue placeholder={t('selectCategory')} />
                     </SelectTrigger>
                     <SelectContent>
                         {Object.entries(GuideCategory).map(([key, label]) => (
                             <SelectItem key={key} value={label}>
-                                {label}
+                                {guideCategoryLabel(tGuides, label)}
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -365,7 +369,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
             {/* Scope Field */}
             <div className="space-y-2">
                 <Label>
-                    Scope <span className="text-destructive">*</span>
+                    {t('scope')} <span className="text-destructive">*</span>
                 </Label>
                 <div className="flex gap-2">
                     <Button
@@ -379,7 +383,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         className="flex items-center gap-1"
                     >
                         <Globe className="h-4 w-4" />
-                        Global
+                        {t('global')}
                     </Button>
                     <Button
                         type="button"
@@ -394,13 +398,13 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         className="flex items-center gap-1"
                     >
                         <Server className="h-4 w-4" />
-                        Server Specific
+                        {t('serverSpecific')}
                     </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
                     {scope === 'global'
-                        ? 'This guide will be visible across all servers'
-                        : 'This guide will be specific to a selected server'}
+                        ? t('globalHint')
+                        : t('serverHint')}
                 </p>
             </div>
 
@@ -408,7 +412,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
             {scope === 'server' && !serverSlug && (
                 <div className="space-y-2">
                     <Label htmlFor="server">
-                        Server <span className="text-destructive">*</span>
+                        {t('server')} <span className="text-destructive">*</span>
                     </Label>
                     <Select
                         value={selectedServerId ?? ''}
@@ -416,7 +420,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         disabled={loadingServers}
                     >
                         <SelectTrigger id="server" className={errors.server ? 'border-destructive' : ''}>
-                            <SelectValue placeholder={loadingServers ? "Loading servers..." : "Select a server"} />
+                            <SelectValue placeholder={loadingServers ? t('loadingServers') : t('selectServer')} />
                         </SelectTrigger>
                         <SelectContent>
                             {communities?.map((community) => (
@@ -450,12 +454,12 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
             {/* Content Field with Tabs */}
             <div className="space-y-2">
                 <Label htmlFor="content">
-                    Content <span className="text-destructive">*</span>
+                    {t('content')} <span className="text-destructive">*</span>
                 </Label>
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'edit' | 'preview')}>
                     <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="edit">Edit</TabsTrigger>
-                        <TabsTrigger value="preview">Preview</TabsTrigger>
+                        <TabsTrigger value="edit">{t('edit')}</TabsTrigger>
+                        <TabsTrigger value="preview">{t('preview')}</TabsTrigger>
                     </TabsList>
                     <TabsContent value="edit" className="space-y-2">
                         {/* Markdown Toolbar */}
@@ -467,7 +471,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('heading1')}
-                                    title="Insert H1 Heading"
+                                    title={t('insertH1')}
                                 >
                                     <Heading1 className="h-4 w-4" />
                                 </Button>
@@ -476,7 +480,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('heading2')}
-                                    title="Insert H2 Heading"
+                                    title={t('insertH2')}
                                 >
                                     <Heading2 className="h-4 w-4" />
                                 </Button>
@@ -485,7 +489,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('heading3')}
-                                    title="Insert H3 Heading"
+                                    title={t('insertH3')}
                                 >
                                     <Heading3 className="h-4 w-4" />
                                 </Button>
@@ -498,7 +502,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('bold')}
-                                    title="Insert Bold Text"
+                                    title={t('insertBold')}
                                 >
                                     <Bold className="h-4 w-4" />
                                 </Button>
@@ -507,7 +511,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('italic')}
-                                    title="Insert Italic Text"
+                                    title={t('insertItalic')}
                                 >
                                     <Italic className="h-4 w-4" />
                                 </Button>
@@ -520,7 +524,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('list')}
-                                    title="Insert Unordered List"
+                                    title={t('insertList')}
                                 >
                                     <List className="h-4 w-4" />
                                 </Button>
@@ -529,7 +533,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('ordered-list')}
-                                    title="Insert Ordered List"
+                                    title={t('insertOrderedList')}
                                 >
                                     <ListOrdered className="h-4 w-4" />
                                 </Button>
@@ -542,7 +546,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('link')}
-                                    title="Insert Link"
+                                    title={t('insertLink')}
                                 >
                                     <LinkIcon className="h-4 w-4" />
                                 </Button>
@@ -551,7 +555,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('image')}
-                                    title="Insert Image"
+                                    title={t('insertImage')}
                                 >
                                     <ImageIcon className="h-4 w-4" />
                                 </Button>
@@ -560,7 +564,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('youtube')}
-                                    title="Insert YouTube Video"
+                                    title={t('insertYoutube')}
                                 >
                                     <SiYoutube className="h-4 w-4" />
                                 </Button>
@@ -573,7 +577,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('code-inline')}
-                                    title="Insert Inline Code"
+                                    title={t('insertInlineCode')}
                                 >
                                     <Code className="h-4 w-4" />
                                 </Button>
@@ -582,11 +586,11 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     variant="outline"
                                     size="sm"
                                     onClick={() => openMarkdownDialog('code-block')}
-                                    title="Insert Code Block"
+                                    title={t('insertCodeBlock')}
                                     className="gap-1"
                                 >
                                     <Code className="h-4 w-4" />
-                                    <span className="text-xs">Block</span>
+                                    <span className="text-xs">{t('block')}</span>
                                 </Button>
                             </div>
                         </Card>
@@ -596,7 +600,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                             id="content"
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
-                            placeholder="Write your guide content here. You can use Markdown formatting!"
+                            placeholder={t('contentPlaceholder')}
                             rows={20}
                             className={errors.content ? 'border-destructive font-mono text-sm' : 'font-mono text-sm'}
                         />
@@ -605,21 +609,21 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                 <span className="text-destructive">{errors.content}</span>
                             ) : (
                                 <span className="text-muted-foreground">
-                                    Markdown supported: **bold**, *italic*, lists, links, images, videos, code blocks
+                                    {t('markdownSupported')}
                                 </span>
                             )}
-                            <span className="text-muted-foreground">{content.length} characters</span>
+                            <span className="text-muted-foreground">{t('charCountSimple', {count: content.length})}</span>
                         </div>
                         <Card className="p-4 bg-muted/50">
-                            <p className="text-sm font-medium mb-2">Markdown Tips:</p>
+                            <p className="text-sm font-medium mb-2">{t('markdownTips')}</p>
                             <ul className="text-xs space-y-1 text-muted-foreground">
-                                <li>• Headings: # H1, ## H2, ### H3</li>
-                                <li>• Bold: **text**, Italic: *text*</li>
-                                <li>• Lists: Start lines with - or 1.</li>
-                                <li>• Links: [text](url)</li>
-                                <li>• Images: ![alt](url)</li>
-                                <li>• Youtube: [alt](https://www.youtube.com/watch?v=XXXX)</li>
-                                <li>• Code: `inline` or ```block```</li>
+                                <li>• {t('tipHeadings')}</li>
+                                <li>• {t('tipBold')}</li>
+                                <li>• {t('tipLists')}</li>
+                                <li>• {t('tipLinks')}</li>
+                                <li>• {t('tipImages')}</li>
+                                <li>• {t('tipYoutube')}</li>
+                                <li>• {t('tipCode')}</li>
                             </ul>
                         </Card>
                     </TabsContent>
@@ -670,7 +674,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                 </div>
                             ) : (
                                 <p className="text-muted-foreground text-center py-12">
-                                    Start writing to see a preview of your guide
+                                    {t('previewEmpty')}
                                 </p>
                             )}
                         </Card>
@@ -685,7 +689,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                     onClick={handleCancel}
                     disabled={submitting}
                 >
-                    Cancel
+                    {t('cancel')}
                 </Button>
                 {isBanned ? (
                     <TooltipProvider>
@@ -693,12 +697,12 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                             <TooltipTrigger asChild>
                                 <span>
                                     <Button disabled>
-                                        {mode === 'create' ? 'Create Guide' : 'Save Changes'}
+                                        {mode === 'create' ? t('createGuide') : t('saveChanges')}
                                     </Button>
                                 </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p className="font-semibold">You are banned</p>
+                                <p className="font-semibold">{t('youAreBanned')}</p>
                                 {banReason && <p className="text-sm text-muted-foreground">{banReason}</p>}
                             </TooltipContent>
                         </Tooltip>
@@ -709,8 +713,8 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         disabled={submitting}
                     >
                         {submitting
-                            ? (mode === 'create' ? 'Creating...' : 'Saving...')
-                            : (mode === 'create' ? 'Create Guide' : 'Save Changes')}
+                            ? (mode === 'create' ? t('creating') : t('saving'))
+                            : (mode === 'create' ? t('createGuide') : t('saveChanges'))}
                     </Button>
                 )}
             </div>
@@ -720,31 +724,31 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>
-                            {dialogType === 'heading1' && 'Insert H1 Heading'}
-                            {dialogType === 'heading2' && 'Insert H2 Heading'}
-                            {dialogType === 'heading3' && 'Insert H3 Heading'}
-                            {dialogType === 'bold' && 'Insert Bold Text'}
-                            {dialogType === 'italic' && 'Insert Italic Text'}
-                            {dialogType === 'list' && 'Insert Unordered List'}
-                            {dialogType === 'ordered-list' && 'Insert Ordered List'}
-                            {dialogType === 'link' && 'Insert Link'}
-                            {dialogType === 'image' && 'Insert Image'}
-                            {dialogType === 'youtube' && 'Insert YouTube Video'}
-                            {dialogType === 'code-inline' && 'Insert Inline Code'}
-                            {dialogType === 'code-block' && 'Insert Code Block'}
+                            {dialogType === 'heading1' && t('insertH1')}
+                            {dialogType === 'heading2' && t('insertH2')}
+                            {dialogType === 'heading3' && t('insertH3')}
+                            {dialogType === 'bold' && t('insertBold')}
+                            {dialogType === 'italic' && t('insertItalic')}
+                            {dialogType === 'list' && t('insertList')}
+                            {dialogType === 'ordered-list' && t('insertOrderedList')}
+                            {dialogType === 'link' && t('insertLink')}
+                            {dialogType === 'image' && t('insertImage')}
+                            {dialogType === 'youtube' && t('insertYoutube')}
+                            {dialogType === 'code-inline' && t('insertInlineCode')}
+                            {dialogType === 'code-block' && t('insertCodeBlock')}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {(dialogType === 'heading1' || dialogType === 'heading2' || dialogType === 'heading3') &&
-                                'Enter the heading text'}
+                                t('enterHeadingText')}
                             {(dialogType === 'bold' || dialogType === 'italic') &&
-                                'Enter the text to format'}
+                                t('enterTextToFormat')}
                             {(dialogType === 'list' || dialogType === 'ordered-list') &&
-                                'Enter list items separated by commas'}
-                            {dialogType === 'link' && 'Enter the link text and URL'}
-                            {dialogType === 'image' && 'Enter the image description and URL'}
-                            {dialogType === 'youtube' && 'Enter the YouTube video URL and description'}
+                                t('enterListItems')}
+                            {dialogType === 'link' && t('enterLinkTextUrl')}
+                            {dialogType === 'image' && t('enterImageDescUrl')}
+                            {dialogType === 'youtube' && t('enterYoutubeUrlDesc')}
                             {(dialogType === 'code-inline' || dialogType === 'code-block') &&
-                                'Enter the code'}
+                                t('enterCode')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
 
@@ -753,12 +757,12 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         {(dialogType === 'heading1' || dialogType === 'heading2' || dialogType === 'heading3' ||
                             dialogType === 'bold' || dialogType === 'italic') && (
                             <div className="space-y-2">
-                                <Label htmlFor="text">Text</Label>
+                                <Label htmlFor="text">{t('text')}</Label>
                                 <Input
                                     id="text"
                                     value={dialogInputs.text || ''}
                                     onChange={(e) => setDialogInputs({ ...dialogInputs, text: e.target.value })}
-                                    placeholder="Enter text"
+                                    placeholder={t('enterText')}
                                     autoFocus
                                 />
                             </div>
@@ -767,12 +771,12 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         {/* Lists - comma-separated items */}
                         {(dialogType === 'list' || dialogType === 'ordered-list') && (
                             <div className="space-y-2">
-                                <Label htmlFor="items">List Items</Label>
+                                <Label htmlFor="items">{t('listItems')}</Label>
                                 <Input
                                     id="items"
                                     value={dialogInputs.items || ''}
                                     onChange={(e) => setDialogInputs({ ...dialogInputs, items: e.target.value })}
-                                    placeholder="Item 1, Item 2, Item 3"
+                                    placeholder={t('listItemsPlaceholder')}
                                     autoFocus
                                 />
                             </div>
@@ -782,17 +786,17 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         {dialogType === 'link' && (
                             <>
                                 <div className="space-y-2">
-                                    <Label htmlFor="link-text">Link Text</Label>
+                                    <Label htmlFor="link-text">{t('linkText')}</Label>
                                     <Input
                                         id="link-text"
                                         value={dialogInputs.text || ''}
                                         onChange={(e) => setDialogInputs({ ...dialogInputs, text: e.target.value })}
-                                        placeholder="Click here"
+                                        placeholder={t('linkTextPlaceholder')}
                                         autoFocus
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="link-url">URL</Label>
+                                    <Label htmlFor="link-url">{t('url')}</Label>
                                     <Input
                                         id="link-url"
                                         value={dialogInputs.url || ''}
@@ -807,17 +811,17 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         {dialogType === 'image' && (
                             <>
                                 <div className="space-y-2">
-                                    <Label htmlFor="image-alt">Description (Alt Text)</Label>
+                                    <Label htmlFor="image-alt">{t('imageAlt')}</Label>
                                     <Input
                                         id="image-alt"
                                         value={dialogInputs.alt || ''}
                                         onChange={(e) => setDialogInputs({ ...dialogInputs, alt: e.target.value })}
-                                        placeholder="Image description"
+                                        placeholder={t('imageAltPlaceholder')}
                                         autoFocus
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="image-url">Image URL</Label>
+                                    <Label htmlFor="image-url">{t('imageUrl')}</Label>
                                     <Input
                                         id="image-url"
                                         value={dialogInputs.url || ''}
@@ -832,7 +836,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         {dialogType === 'youtube' && (
                             <>
                                 <div className="space-y-2">
-                                    <Label htmlFor="youtube-url">YouTube URL</Label>
+                                    <Label htmlFor="youtube-url">{t('youtubeUrl')}</Label>
                                     <Input
                                         id="youtube-url"
                                         value={dialogInputs.url || ''}
@@ -842,12 +846,12 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="youtube-description">Description (Optional)</Label>
+                                    <Label htmlFor="youtube-description">{t('youtubeDesc')}</Label>
                                     <Input
                                         id="youtube-description"
                                         value={dialogInputs.description || ''}
                                         onChange={(e) => setDialogInputs({ ...dialogInputs, description: e.target.value })}
-                                        placeholder="YouTube video"
+                                        placeholder={t('youtubeDescPlaceholder')}
                                     />
                                 </div>
                             </>
@@ -856,7 +860,7 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         {/* Inline Code - single input */}
                         {dialogType === 'code-inline' && (
                             <div className="space-y-2">
-                                <Label htmlFor="code">Code</Label>
+                                <Label htmlFor="code">{t('code')}</Label>
                                 <Input
                                     id="code"
                                     value={dialogInputs.code || ''}
@@ -872,21 +876,21 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                         {dialogType === 'code-block' && (
                             <>
                                 <div className="space-y-2">
-                                    <Label htmlFor="language">Language (Optional)</Label>
+                                    <Label htmlFor="language">{t('language')}</Label>
                                     <Input
                                         id="language"
                                         value={dialogInputs.language || ''}
                                         onChange={(e) => setDialogInputs({ ...dialogInputs, language: e.target.value })}
-                                        placeholder="javascript, python, etc."
+                                        placeholder={t('languagePlaceholder')}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="code-block">Code</Label>
+                                    <Label htmlFor="code-block">{t('code')}</Label>
                                     <Textarea
                                         id="code-block"
                                         value={dialogInputs.code || ''}
                                         onChange={(e) => setDialogInputs({ ...dialogInputs, code: e.target.value })}
-                                        placeholder="Enter your code here"
+                                        placeholder={t('codePlaceholder')}
                                         className="font-mono"
                                         rows={6}
                                         autoFocus
@@ -897,8 +901,8 @@ export default function GuideEditor({ mode, session, defaultScope }: GuideEditor
                     </div>
 
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDialogInputs({})}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDialogSubmit}>Insert</AlertDialogAction>
+                        <AlertDialogCancel onClick={() => setDialogInputs({})}>{t('cancel')}</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDialogSubmit}>{t('insert')}</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

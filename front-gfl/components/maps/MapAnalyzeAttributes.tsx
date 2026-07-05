@@ -7,12 +7,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 import { Skeleton } from "../ui/skeleton";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useTranslations} from 'next-intl';
 
 function StatCard(
     { title, value, description, icon, colorKey, loading = false, notReady = false, href = null }
     : {title: string, value: any, description: string, icon?: ReactElement, colorKey?: string, loading?: boolean,
         href?: string | null, notReady?: boolean}
 ) {
+    const t = useTranslations('maps.analyze');
     const { resolvedTheme } = useTheme();
     const [ isClient, setIsClient ] = useState(false)
     const isDark = resolvedTheme === 'dark';
@@ -53,7 +55,7 @@ function StatCard(
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>{notReady ? "Still calculating, data is not ready. Come back later~" : description}</p>
+                                        <p>{notReady ? t('stillCalculating') : description}</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
@@ -93,7 +95,7 @@ function StatCard(
                                 </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>{notReady ? "Still calculating, data is not ready. Come back later~" : description}</p>
+                                <p>{notReady ? t('stillCalculating') : description}</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
@@ -134,66 +136,67 @@ function formatBytes(bytes: number, decimals: number = 2): string{
 }
 
 function MapStats() {
+    const t = useTranslations('maps.analyze');
     const { analyze, info, notReady } = useMapContext();
     const isStatLoading = !analyze
     const isMetaLoading = !info
     const stats = [
         {
             id: "avg_players",
-            title: "Avg Players",
+            title: t('avgPlayers'),
             value: analyze?.avg_players_per_session,
             loading: isStatLoading,
             notReady: notReady,
-            description: "Average number of players per session",
+            description: t('avgPlayersDesc'),
             icon: <Users className="sm:h-5 sm:w-5 h-4 w-4" />,
             colorKey: "purple",
         },
         {
             id: "dropoff_rate",
-            title: "Drop-off Rate",
+            title: t('dropoffRate'),
             loading: isStatLoading,
             notReady: notReady,
             value: analyze ? `${(analyze.dropoff_rate * 100).toFixed(2)}%` : null,
-            description: "Percentage of players quit after 5 minutes",
+            description: t('dropoffRateDesc'),
             icon: <LogOut className="sm:h-5 sm:w-5 h-4 w-4" />,
             colorKey: "red",
         },
         {
             id: "avg_playtime",
-            title: "Avg Playtime",
+            title: t('avgPlaytime'),
             loading: isStatLoading,
             notReady: notReady,
             value: analyze ? `${(analyze.avg_playtime_before_quitting / 60).toFixed(0)}m` : null,
-            description: "How long each player spent on average on this map",
+            description: t('avgPlaytimeDesc'),
             icon: <Clock className="sm:h-5 sm:w-5 h-4 w-4" />,
             colorKey: "blue",
         },
         {
             id: "cumulative hours",
-            title: "Player Cum. Hours",
+            title: t('cumHours'),
             loading: isStatLoading,
             notReady: notReady,
             value: analyze? `${(analyze.cum_player_hours / 60 / 60).toFixed(1)}m`: 'N/A',
-            description: "Aggregation of cumulative hours per session for all players",
+            description: t('cumHoursDesc'),
             icon: <Hourglass className="sm:h-5 sm:w-5 h-4 w-4" />,
             colorKey: "green",
         },
         {
             id: "creator",
-            title: "Creators",
+            title: t('creators'),
             loading: isMetaLoading,
-            value: info?.creators || "Unknown",
-            description: "Made by these people. Source: s2ze.com",
+            value: info?.creators || t('unknown'),
+            description: t('creatorsDesc'),
             icon: <Star className="sm:h-5 sm:w-5 h-4 w-4" />,
             colorKey: "purple",
             href: info?.workshop_id? `https://steamcommunity.com/sharedfiles/filedetails/?id=${info?.workshop_id}`: null
         },
         {
             id: "file_size",
-            title: "File Size",
+            title: t('fileSize'),
             loading: isMetaLoading,
             value: formatBytes(info?.file_bytes || 0),
-            description: "File size for the map. Source: s2ze.com",
+            description: t('fileSizeDesc'),
             icon: <Save className="sm:h-5 sm:w-5 h-4 w-4" />,
             colorKey: "blue",
         },
@@ -221,8 +224,9 @@ function MapStats() {
 }
 
 export default function MapAnalyzeAttributes() {
+    const t = useTranslations('maps.analyze');
     return (
-        <ErrorCatch message="Couldn't show map stats">
+        <ErrorCatch message={t('loadError')}>
             <MapStats />
         </ErrorCatch>
     );

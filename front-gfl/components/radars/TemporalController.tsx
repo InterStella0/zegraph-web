@@ -11,6 +11,7 @@ import { Play, Pause, Circle, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "components/lib/utils";
 import {getIntervalCallback} from "utils/generalUtils.ts";
 import {Dayjs} from "dayjs";
+import {useTranslations} from 'next-intl';
 
 // Extend dayjs with plugins
 dayjs.extend(utc);
@@ -28,22 +29,24 @@ export const formatDateWMS = (date) => {
 export const TemporalContext = createContext({})
 
 export default function TemporalController({ wmsLayerRef, initialStartDate, initialEndDate,
-                                               intervals = [
-                                                   { label: '10 minutes', value: '10min' },
-                                                   { label: '1 hour', value: '1hour' },
-                                                   { label: '12 hours', value: '12hours' },
-                                                   { label: '1 day', value: '1day' },
-                                                   { label: '1 month', value: '1month' }
-                                               ]
+                                               intervals = null
                                            }){
+    const t = useTranslations('radar.temporal');
+    intervals = intervals ?? [
+        { label: t('interval10min'), value: '10min' },
+        { label: t('interval1hour'), value: '1hour' },
+        { label: t('interval12hours'), value: '12hours' },
+        { label: t('interval1day'), value: '1day' },
+        { label: t('interval1month'), value: '1month' }
+    ];
     const rangeOptions = [
-        { label: 'Entire History', value: 'all' },
-        { label: '1 Year', value: '1year' },
-        { label: '1 Month', value: '1month' },
-        { label: '1 Week', value: '1week' },
-        { label: '1 Day', value: '1day' },
-        { label: '12 Hours', value: '12hours' },
-        { label: '6 Hours', value: '6hours' }
+        { label: t('rangeAll'), value: 'all' },
+        { label: t('range1year'), value: '1year' },
+        { label: t('range1month'), value: '1month' },
+        { label: t('range1week'), value: '1week' },
+        { label: t('range1day'), value: '1day' },
+        { label: t('range12hours'), value: '12hours' },
+        { label: t('range6hours'), value: '6hours' }
     ];
 
     const [startDate, setStartDate] = useState(initialStartDate);
@@ -256,14 +259,14 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
 
         // Filter the full intervals array to only include valid ones
         return [
-            { label: '10 minutes', value: '10min' },
-            { label: '30 minutes', value: '30min' },
-            { label: '1 hour', value: '1hour' },
-            { label: '6 hours', value: '6hours' },
-            { label: '12 hours', value: '12hours' },
-            { label: '1 day', value: '1day' },
-            { label: '1 week', value: '1week' },
-            { label: '1 month', value: '1month' }
+            { label: t('interval10min'), value: '10min' },
+            { label: t('interval30min'), value: '30min' },
+            { label: t('interval1hour'), value: '1hour' },
+            { label: t('interval6hours'), value: '6hours' },
+            { label: t('interval12hours'), value: '12hours' },
+            { label: t('interval1day'), value: '1day' },
+            { label: t('interval1week'), value: '1week' },
+            { label: t('interval1month'), value: '1month' }
         ].filter(interval => validIntervalValues.includes(interval.value));
     };
 
@@ -413,7 +416,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent className="z-1000">Step backward one interval</TooltipContent>
+                            <TooltipContent className="z-1000">{t('stepBackward')}</TooltipContent>
                         </Tooltip>
 
                         <Tooltip>
@@ -430,7 +433,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                     }
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent className="z-1000">{isPlaying ? "Pause" : "Play"}</TooltipContent>
+                            <TooltipContent className="z-1000">{isPlaying ? t('pause') : t('play')}</TooltipContent>
                         </Tooltip>
 
                         <Tooltip>
@@ -464,7 +467,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent  className="z-1000">Step forward one interval</TooltipContent>
+                            <TooltipContent  className="z-1000">{t('stepForward')}</TooltipContent>
                         </Tooltip>
                     </div>
                 </div>
@@ -472,7 +475,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                 <div className="flex-none">
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            Range:
+                            {t('range')}
                         </span>
                         <Select
                             value={selectedRange}
@@ -496,7 +499,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                 <div className="flex-none">
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            Interval:
+                            {t('interval')}
                         </span>
                         <Select
                             disabled={isLive}
@@ -546,7 +549,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                 )} />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent className="z-1000">{isLive ? "Exit live mode" : "Switch to live mode"}</TooltipContent>
+                        <TooltipContent className="z-1000">{isLive ? t('exitLive') : t('switchLive')}</TooltipContent>
                     </Tooltip>
                 </div>
                 <div className="flex-1 w-full md:w-auto min-w-0 mt-2 md:mt-0">

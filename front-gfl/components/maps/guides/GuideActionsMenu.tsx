@@ -7,6 +7,7 @@ import {
     DropdownMenuTrigger,
 } from "components/ui/dropdown-menu";
 import { MoreVertical, Edit, Trash2, Flag, Share2, Ban } from "lucide-react";
+import { useTranslations } from 'next-intl';
 
 interface GuideActionsMenuProps {
     isAuthor: boolean;
@@ -31,6 +32,7 @@ export default function GuideActionsMenu({
     isBanned = false,
     banReason = null,
 }: GuideActionsMenuProps) {
+    const t = useTranslations('guides.actions');
     const canEdit = isAuthor && !isBanned;
     const canDelete = isAuthor || isSuperuser;
     const canReport = isLoggedIn && !isAuthor && !isBanned;
@@ -48,19 +50,19 @@ export default function GuideActionsMenu({
                 {canEdit && (
                     <DropdownMenuItem onClick={onEdit}>
                         <Edit className="mr-2 h-4 w-4" />
-                        Edit
+                        {t('edit')}
                     </DropdownMenuItem>
                 )}
                 {showBannedEdit && (
                     <DropdownMenuItem disabled className="text-muted-foreground">
                         <Ban className="mr-2 h-4 w-4" />
-                        Edit (Banned)
+                        {t('editBanned')}
                     </DropdownMenuItem>
                 )}
                 {canDelete && (
                     <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
+                        {t('delete')}
                     </DropdownMenuItem>
                 )}
                 {canReport && (
@@ -68,7 +70,7 @@ export default function GuideActionsMenu({
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={onReport}>
                             <Flag className="mr-2 h-4 w-4" />
-                            Report
+                            {t('report')}
                         </DropdownMenuItem>
                     </>
                 )}
@@ -77,14 +79,14 @@ export default function GuideActionsMenu({
                         <DropdownMenuSeparator />
                         <DropdownMenuItem disabled className="text-muted-foreground">
                             <Ban className="mr-2 h-4 w-4" />
-                            Report (Banned)
+                            {t('reportBanned')}
                         </DropdownMenuItem>
                     </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onShare}>
                     <Share2 className="mr-2 h-4 w-4" />
-                    Share
+                    {t('share')}
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useEffect, useState} from "react";
 import {getMapImage} from "utils/generalUtils.ts";
@@ -18,6 +19,7 @@ type MapCardProps = {
 }
 
 export default function MapCard({ detail, onClick, server }: MapCardProps){
+    const t = useTranslations('maps');
     return <ErrorCatch message="Failed to display this map.">
         <MapCardDisplay detail={detail} onClick={onClick} server={server} />
     </ErrorCatch>
@@ -84,7 +86,7 @@ function MapCardDisplay({ detail, onClick, server }){
                                 <LineChart className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Graph</TooltipContent>
+                        <TooltipContent>{t('graph')}</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -94,7 +96,7 @@ function MapCardDisplay({ detail, onClick, server }){
                                 </Link>
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Details</TooltipContent>
+                        <TooltipContent>{t('details')}</TooltipContent>
                     </Tooltip>
                 </div>
             </div>

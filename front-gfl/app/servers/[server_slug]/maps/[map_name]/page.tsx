@@ -26,6 +26,7 @@ import {Metadata} from "next";
 import {
     PlayerBrief,
 } from "types/players.ts";
+import { getTranslations } from 'next-intl/server';
 
 async function getMapInfoDetails(serverId: string, mapName: string): Promise<ServerMapDetail>{
     const toReturn = { info: null, analyze: null, notReady: false, name: mapName}
@@ -54,40 +55,39 @@ export async function generateMetadata({ params }: {
 }): Promise<Metadata> {
     const { server_slug, map_name } = await params;
     const server = await getServerSlug(server_slug);
+    const t = await getTranslations('metadata');
     let mapInfo: ServerMapDetail | null = null
-    const title = formatTitle(`${map_name} on ${server.community_name}`)
+    const title = formatTitle(t('mapOnServer', {map: map_name, name: server.community_name}))
     try{
         mapInfo = await getMapInfoDetails(server.id, map_name)
     }catch(error){
         if (error.code === 202){
             return {
                 title,
-                description: "The map is still being calculated. Please come back later~",
+                description: t('mapCalculating'),
             }
         }else if (error.code === 404){
             return {
                 title: "ZE Graph",
-                description: `View map activities on ${server.community_name}`
+                description: t('viewMapActivities', {name: server.community_name})
             };
         }else{
             return {}
         }
     }
-    const creators = mapInfo?.info?.creators? `Created by ${mapInfo.info.creators}. `: ''
+    const creators = mapInfo?.info?.creators? t('createdBy', {creators: mapInfo.info.creators}) + ' ': ''
     let description = creators
     if (mapInfo.analyze){
-        description += `
-            It have a cumulative of ${formatHours(mapInfo.analyze.cum_player_hours)} in ${server.community_name}. Played by ${mapInfo.analyze.unique_players} players.
-        `;
+        description += t('mapCumulative', {hours: formatHours(mapInfo.analyze.cum_player_hours), name: server.community_name, players: mapInfo.analyze.unique_players});
     }
     if (mapInfo.info?.removed){
-        description += `Map was removed from ${server.community_name}.`
+        description += t('mapRemoved', {name: server.community_name})
     }
     try{
         const regions: MapRegion[] = await fetchServerUrl(server.id, `/maps/${map_name}/regions`)
         const regionMap = regions.sort((a, b) => b.total_play_duration - a.total_play_duration)
         const region = regionMap[0]
-        description += ` Mainly played during ${region.region_name} with ${formatHours(region.total_play_duration)}.`
+        description += ' ' + t('mainlyPlayed', {region: region.region_name, hours: formatHours(region.total_play_duration)})
     }catch (error){
 
     }
@@ -95,7 +95,7 @@ export async function generateMetadata({ params }: {
         const totalPlayers: PlayerBrief[] = await fetchServerUrl(server.id, `/maps/${map_name}/top_players`)
         const players = totalPlayers.sort((a, b) => b.total_playtime - a.total_playtime)
         const firstPlayer = players[0]
-        description += ` Most active player on this map is ${firstPlayer.name} with a playtime of ${formatHours(firstPlayer.total_playtime)}.`
+        description += ' ' + t('mostActivePlayer', {name: firstPlayer.name, hours: formatHours(firstPlayer.total_playtime)})
     }catch (e){}
 
     const image = await getMapImage(server.id, map_name).then(resp => resp?.large || null)

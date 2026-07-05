@@ -16,6 +16,7 @@ import {PlayerMostPlayedMap, PlayerProfilePicture, PlayerRegionTime, PlayerSessi
 import {Server} from "types/community.ts";
 import ResolvePlayerInformation from "./ResolvePlayerInformation.tsx";
 import {AdSpot} from "components/ui/AdSpot";
+import { getTranslations } from 'next-intl/server';
 
 dayjs.extend(relativeTime);
 export async function generateMetadata({ params}: {
@@ -23,6 +24,7 @@ export async function generateMetadata({ params}: {
 }): Promise<Metadata> {
     const { server_slug, player_id } = await params;
     const server = await getServerSlug(server_slug);
+    const t = await getTranslations('metadata');
     let player: PlayerInfo | null = null
     try{
         player = await getPlayerDetailed(server.id, player_id, "raise")
@@ -30,45 +32,45 @@ export async function generateMetadata({ params}: {
         if (error.code === 202){
             return {
                 title: formatTitle(player_id),
-                description: "The player is still being calculated. Please come back later~",
+                description: t('playerCalculating'),
             }
         }else if (error.code === 404){
             return {
                 title: "ZE Graph",
-                description: `View player activities on ${server.community_name}`
+                description: t('viewPlayerActivities', {name: server.community_name})
             };
         }else{
             return {}
         }
     }
-    let description = `They have ${formatHours(player.total_playtime)}`
+    let description = t('playerHas', {hours: formatHours(player.total_playtime)})
     try{
         const pages: PlayerSessionPage = await fetchServerUrl(
             server.id, `/players/${player.id}/sessions`, { params: { page: 1 }, next: { revalidate: threeMinutes } },
         )
         const totalRows = pages.rows.length * pages.total_pages
-        description += `, about ${totalRows} sessions,`
+        description += t('aboutSessions', {count: totalRows})
     }catch (error){
 
     }
     if (player.ranks){
-        description += ` and ${addOrdinalSuffix(player.ranks.server_playtime)}`
+        description += ' ' + t('andRank', {rank: addOrdinalSuffix(player.ranks.server_playtime)})
     }
-    description += ` on ${server.community_name}.`
+    description += ' ' + t('onServer', {name: server.community_name})
     if (player.category){
-        let typePlayer = `A ${player.category} player type with `
+        let typePlayer
         if (player.category === "mixed"){
             const higherType =  player.casual_playtime > player.tryhard_playtime? "casual": "tryhard"
-            typePlayer += `${formatHours(player[`${higherType}_playtime`])} of ${higherType} time.`
+            typePlayer = t('playerType', {category: player.category, hours: formatHours(player[`${higherType}_playtime`]), type: higherType})
         }else{
-            typePlayer += `${formatHours(player[`${player.category}_playtime`])} of ${player.category} time.`
+            typePlayer = t('playerType', {category: player.category, hours: formatHours(player[`${player.category}_playtime`]), type: player.category})
         }
         description += ` ${typePlayer}`;
     }
     if (player.online_since){
-        description += ` Currently online in the server since ${dayjs(player.online_since).fromNow()}.`;
+        description += ' ' + t('currentlyOnline', {time: dayjs(player.online_since).fromNow()});
     }else{
-        description += ` Last online in the server since ${dayjs(player.last_played).fromNow()}.`;
+        description += ' ' + t('lastOnline', {time: dayjs(player.last_played).fromNow()});
     }
     let image = ""
     try{

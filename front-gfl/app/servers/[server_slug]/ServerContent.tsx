@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import { useState } from "react";
 import PlayerList from "components/players/PlayerList.tsx";
 import MapGraphList from "components/maps/MapGraphList.tsx";
@@ -23,6 +24,7 @@ const ServerGraph = dynamic(() => import("components/graphs/ServerGraph"), {
 });
 
 export default function ServerContent({ server, description }: {server: Server, description: string}) {
+    const t = useTranslations('servers.content');
     const [ showPlayers, setShowPlayers ] = useState<boolean>(false);
     const [graphLoading, setGraphLoading] = useState<boolean>(false);
     const { start, end, setDates } = useDateState();
@@ -64,7 +66,7 @@ export default function ServerContent({ server, description }: {server: Server, 
                                         >
                                             <Link href={`/connect/${server.id}`}>
                                                 <Play className="mr-2 h-4 w-4" />
-                                                Join
+                                                {t('join')}
                                             </Link>
                                         </Button>
                                     }
@@ -83,7 +85,7 @@ export default function ServerContent({ server, description }: {server: Server, 
                         <CardContent className="p-0">
                             <div className="flex flex-row justify-between items-center gap-2">
                                 <h3 className="text-sm md:text-base font-bold truncate">
-                                    Data Source
+                                    {t('dataSource')}
                                 </h3>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -92,7 +94,7 @@ export default function ServerContent({ server, description }: {server: Server, 
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>{server.byId ? "This server tracks users by steam ID" : "This server tracks users by name."}</p>
+                                        <p>{server.byId ? t('trackedBySteamId') : t('trackedByName')}</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
@@ -102,7 +104,7 @@ export default function ServerContent({ server, description }: {server: Server, 
                                         {new URL(server.source).hostname}
                                     </a>
                                 ) : (
-                                    "Steam Browser"
+                                    t('steamBrowser')
                                 )}
                             </p>
                         </CardContent>
@@ -117,7 +119,7 @@ export default function ServerContent({ server, description }: {server: Server, 
                         <Card className="h-full">
                             <CardContent className="p-0">
                                 <h3 className="text-sm md:text-base font-bold truncate">
-                                    Website
+                                    {t('website')}
                                 </h3>
                                 <p className="mt-2">
                                     <a href={server.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
@@ -137,11 +139,11 @@ export default function ServerContent({ server, description }: {server: Server, 
                         <Card className="h-full px-3">
                             <CardContent className="p-0">
                                 <h3 className="text-sm md:text-base font-bold truncate">
-                                    Discord
+                                    {t('discord')}
                                 </h3>
                                 <p className="mt-2">
                                     <a href={server.discordLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                        Invite Link
+                                        {t('inviteLink')}
                                     </a>
                                 </p>
                             </CardContent>

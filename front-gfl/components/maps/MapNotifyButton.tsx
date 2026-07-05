@@ -15,6 +15,7 @@ import { usePushNotifications } from 'lib/hooks/usePushNotifications';
 import { fetchApiUrl } from 'utils/generalUtils';
 import { toast } from 'sonner';
 import { SteamProfile } from '../../next-auth-steam/steam';
+import {useTranslations} from 'next-intl';
 
 interface MapNotifyButtonProps {
     mapName: string;
@@ -27,6 +28,7 @@ interface MapNotifyButtonProps {
 type SubscriptionType = 'server' | 'all' | null;
 
 export default function MapNotifyButton({ mapName, serverId, user, notifySubscriptionType, onSubscriptionChange }: MapNotifyButtonProps) {
+    const t = useTranslations('maps.notify');
     const { isSupported, subscription, subscribe, isLoading: pushLoading } = usePushNotifications(user != null);
     const [subscriptionType, setSubscriptionType] = useState<SubscriptionType>(notifySubscriptionType);
     const [loading, setLoading] = useState(false);
@@ -50,15 +52,15 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
         let subscriptionToUse = subscription;
 
         if (!subscription) {
-            toast.info('Requesting notification permission...');
+            toast.info(t('requestingPermission'));
             subscriptionToUse = await subscribe();
 
             if (!subscriptionToUse) {
-                toast.error('Failed to enable notifications. Please check browser permissions.');
+                toast.error(t('enableFailed'));
                 return;
             }
 
-            toast.success('Notifications enabled!');
+            toast.success(t('enabled'));
         }
 
         setLoading(true);
@@ -88,11 +90,11 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
             setSubscriptionType(type);
             onSubscriptionChange?.(type);
             const message = type === 'server'
-                ? `You'll be notified when ${mapName} plays on this server`
-                : `You'll be notified when ${mapName} plays on any server`;
+                ? t('subscribedServer', {mapName})
+                : t('subscribedAll', {mapName});
             toast.success(message);
         } catch (error) {
-            toast.error('Failed to subscribe to map notification');
+            toast.error(t('subscribeFailed'));
             console.error('Subscribe error:', error);
         } finally {
             setLoading(false);
@@ -111,9 +113,9 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
 
             setSubscriptionType(null);
             onSubscriptionChange?.(null);
-            toast.success('Map notification cancelled');
+            toast.success(t('cancelled'));
         } catch (error) {
-            toast.error('Failed to unsubscribe from map notification');
+            toast.error(t('unsubscribeFailed'));
             console.error('Unsubscribe error:', error);
         } finally {
             setLoading(false);
@@ -148,7 +150,7 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
                 {user && (
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuLabel className="text-xs text-muted-foreground">
-                            Notify when map plays
+                            {t('notifyWhenPlays')}
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         {isSubscribed ? (
@@ -158,9 +160,9 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
                                 className="text-destructive focus:text-destructive"
                             >
                                 <BellOff className="mr-2 h-4 w-4" />
-                                Cancel Notification
+                                {t('cancelNotification')}
                                 <span className="ml-auto text-xs text-muted-foreground">
-                                    {subscriptionType === 'server' ? 'This Server' : 'All Servers'}
+                                    {subscriptionType === 'server' ? t('thisServer') : t('allServers')}
                                 </span>
                             </DropdownMenuItem>
                         ) : (
@@ -170,14 +172,14 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
                                     disabled={loading}
                                 >
                                     <Server className="mr-2 h-4 w-4" />
-                                    This Server
+                                    {t('thisServer')}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                     onClick={() => handleSubscribe('all')}
                                     disabled={loading}
                                 >
                                     <Globe className="mr-2 h-4 w-4" />
-                                    All Servers
+                                    {t('allServers')}
                                 </DropdownMenuItem>
                             </>
                         )}

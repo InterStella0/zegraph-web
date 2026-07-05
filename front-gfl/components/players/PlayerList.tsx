@@ -1,4 +1,5 @@
 import {useDeferredValue, useEffect, useState} from "react";
+import {useTranslations} from "next-intl";
 import { fetchUrl } from "utils/generalUtils.ts";
 import PlayerTableRow, {PlayerTableRowLoading} from "./PlayerTableRow.tsx";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
@@ -11,6 +12,7 @@ import PaginationPage from "components/ui/PaginationPage.tsx";
 
 
 function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
+    const t = useTranslations('players.list');
     const [ currentPage, setPage ] = useState<number>(0)
     const pageDef = useDeferredValue(currentPage)
     const [ playersInfoResult, setPlayerInfo ] = useState<BriefPlayers | null>(null)
@@ -70,8 +72,8 @@ function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
                 <Table>
                     <TableHeader className="sticky top-0 bg-background">
                         <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Total Play Time</TableHead>
+                            <TableHead>{t('name')}</TableHead>
+                            <TableHead>{t('totalPlayTime')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -81,7 +83,7 @@ function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
                         }
                         {absoluteLoad && playersInfo.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={2}>No players in this list.</TableCell>
+                                <TableCell colSpan={2}>{t('noPlayers')}</TableCell>
                             </TableRow>
                         )}
                         {absoluteLoad && playersInfo.map(player => <PlayerTableRow player={player} key={player.id} />)}
@@ -103,7 +105,8 @@ type StartEndDates = {
 } | null
 
 export default function PlayerList({ dateDisplay }: { dateDisplay: StartEndDates }){
-    return <ErrorCatch message="Couldn't load player list.">
+    const t = useTranslations('players.list');
+    return <ErrorCatch message={t('loadError')}>
         <PlayerListDisplay dateDisplay={dateDisplay} />
     </ErrorCatch>
 }

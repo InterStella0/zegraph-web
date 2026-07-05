@@ -14,6 +14,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import {Server} from "types/community.ts";
 import SessionPlayerWrapper from "./SessionPlayerWrapper.tsx";
 import {getSessionData} from "./utils.ts";
+import { getTranslations } from 'next-intl/server';
 
 dayjs.extend(relativeTime)
 
@@ -22,6 +23,7 @@ export async function generateMetadata({ params}: {
 }): Promise<Metadata> {
     const { server_slug, player_id, session_id } = await params;
     const server = await getServerSlug(server_slug);
+    const t = await getTranslations('metadata');
     let player: PlayerInfo | null = null
     let info: SessionInfo<"player"> | null = null;
     try{
@@ -31,12 +33,12 @@ export async function generateMetadata({ params}: {
         if (error.code === 202){
             return {
                 title: formatTitle(player_id),
-                description: "The player is still being calculated. Please come back later~",
+                description: t('playerCalculating'),
             }
         }else if (error.code === 404){
             return {
                 title: "ZE Graph",
-                description: `View player activities on ${server.community_name}`
+                description: t('viewPlayerActivities', {name: server.community_name})
             };
         }else{
             return {}
@@ -44,15 +46,15 @@ export async function generateMetadata({ params}: {
     }
     let description = ``
     if (info.ended_at){
-        description += `They were playing for ${formatHours(dayjs(info.ended_at).diff(dayjs(info.started_at), 'seconds', true))}.`
+        description += t('werePlaying', {hours: formatHours(dayjs(info.ended_at).diff(dayjs(info.started_at), 'seconds', true))})
     }else{
-        description += `They are playing for ${formatHours(dayjs().diff(dayjs(info.started_at), 'seconds', true))}.`
+        description += t('arePlaying', {hours: formatHours(dayjs().diff(dayjs(info.started_at), 'seconds', true))})
     }
     try{
         const serverCounts = await getServerGraph(server.id, session_id, player.id, "player")
         const playerCounts = serverCounts.map(e => e.player_count)
         const [min, max] = [Math.min(...playerCounts), Math.max(...playerCounts)]
-        description += ` Player count ranges from ${min} to ${max}.`
+        description += ' ' + t('playerCountRange', {min, max})
     }catch (error){}
 
     try{
@@ -62,16 +64,15 @@ export async function generateMetadata({ params}: {
             const firstTwo = mapNames.slice(0, 2).join(", ")
 
             const remaining = mapNames.length - 2
-            const moreText = remaining > 0 ? ` and ${remaining} more` : ""
 
-            description += ` Played through ${firstTwo}${moreText}.`
+            description += ' ' + (remaining > 0 ? t('playedThroughMore', {maps: firstTwo, count: remaining}) : t('playedThrough', {maps: firstTwo}))
         }
     }catch(error){}
 
     if (player.online_since){
-        description += ` Currently online in the server since ${dayjs(player.online_since).fromNow()}.`;
+        description += ' ' + t('currentlyOnline', {time: dayjs(player.online_since).fromNow()});
     }else{
-        description += ` Last online in the server since ${dayjs(player.last_played).fromNow()}.`;
+        description += ' ' + t('lastOnline', {time: dayjs(player.last_played).fromNow()});
     }
     try{
         const players = await getMutualSessions(server.id, session_id, "player", player_id)

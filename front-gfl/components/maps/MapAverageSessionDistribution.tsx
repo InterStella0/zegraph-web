@@ -14,8 +14,10 @@ import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider"
 import {MapSessionDistribution} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeSessionDistribution } from "utils/chartSeoUtils.tsx";
+import {useTranslations} from 'next-intl';
 
 function AverageSessionDistribution() {
+    const t = useTranslations('maps.sessionDistribution');
     const { name } = useMapContext();
     const [detail, setDetail] = useState<MapSessionDistribution[] | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
@@ -31,17 +33,17 @@ function AverageSessionDistribution() {
                 setDetail(data);
             })
             .catch(err => {
-                setError(err.message || "Something went wrong");
+                setError(err.message || t('somethingWrong'));
             })
             .finally(() => setLoading(false))
     }, [server_id, name]);
 
     const labels = {
-        "Under 10": "< 10 minutes",
-        "10 - 30": "10 - 30 minutes",
-        "30 - 45": "30 - 45 minutes",
-        "45 - 60": "45 - 60 minutes",
-        "Over 60": "> 60 minutes"
+        "Under 10": t('under10'),
+        "10 - 30": t('range10to30'),
+        "30 - 45": t('range30to45'),
+        "45 - 60": t('range45to60'),
+        "Over 60": t('over60')
     };
 
     // Get theme-aware colors
@@ -113,7 +115,7 @@ function AverageSessionDistribution() {
             borderWidth: 1,
             borderRadius: 4,
             barThickness: 25,
-            label: 'Number of Sessions'
+            label: t('numberOfSessions')
         }]
     };
 
@@ -171,7 +173,7 @@ function AverageSessionDistribution() {
     // Generate SEO summary
     const summary = useMemo(() => {
         if (!detail || detail.length === 0) {
-            return "No session duration data available.";
+            return t('noData');
         }
 
         // Transform data to match helper function interface
@@ -196,7 +198,7 @@ function AverageSessionDistribution() {
     return (
         <Card className="p-6 rounded-lg transition-transform duration-300">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-primary">Session Duration Distribution</h2>
+                <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -205,7 +207,7 @@ function AverageSessionDistribution() {
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p>Shows how long players spent in each of their session</p>
+                            <p>{t('tooltip')}</p>
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
@@ -223,7 +225,7 @@ function AverageSessionDistribution() {
                 <div
                     className="h-[300px]"
                     role="img"
-                    aria-label="Session duration distribution"
+                    aria-label={t('title')}
                     aria-describedby="session-distribution-summary"
                 >
                     <Bar data={data} options={options}/>
@@ -232,12 +234,12 @@ function AverageSessionDistribution() {
 
             <div className="mt-4 flex justify-end">
                 {!loading && <p className="text-sm text-muted-foreground">
-                    Total sessions: {detail?.reduce((acc, curr) => acc + curr.session_count, 0) || 0}
+                    {t('totalSessions', {count: detail?.reduce((acc, curr) => acc + curr.session_count, 0) || 0})}
                 </p>
                 }
                 {loading && <div className="flex items-center gap-1">
                     <p className="text-sm text-muted-foreground">
-                        Total sessions:
+                        {t('totalSessionsLabel')}
                     </p>
                     <Skeleton className="w-8 h-4" />
                 </div>}
@@ -248,7 +250,8 @@ function AverageSessionDistribution() {
 }
 
 export default function MapAverageSessionDistribution(){
-    return <ErrorCatch message="Map average session distribution had an error :/">
+    const t = useTranslations('maps.sessionDistribution');
+    return <ErrorCatch message={t('loadError')}>
         <AverageSessionDistribution />
     </ErrorCatch>
 }

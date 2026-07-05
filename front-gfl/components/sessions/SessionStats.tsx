@@ -1,3 +1,4 @@
+import {useTranslations} from 'next-intl';
 import { Card, CardContent } from 'components/ui/card';
 import { formatDuration, getServerPopRange } from 'utils/sessionUtils.js';
 import dayjs from "dayjs";
@@ -9,6 +10,7 @@ import {
 export function SessionStats({ sessionInfo, maps, mutualSessions, serverGraph }
     :{ sessionInfo: PlayerSession, maps: PlayerSessionMapPlayed[], serverGraph: ServerGraphType<"player">, mutualSessions: MutualSessionReturn<"player">,  }
 ) {
+    const t = useTranslations('sessions');
     return (
         <Card className="mb-6">
             <CardContent className="p-6">
@@ -27,7 +29,7 @@ export function SessionStats({ sessionInfo, maps, mutualSessions, serverGraph }
                             {maps.length}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                            Maps Played
+                            {t('mapsPlayed')}
                         </div>
                     </div>
 
@@ -36,7 +38,7 @@ export function SessionStats({ sessionInfo, maps, mutualSessions, serverGraph }
                             {mutualSessions.length}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                            Mutual Sessions
+                            {t('mutualSessions')}
                         </div>
                     </div>
 
@@ -45,7 +47,7 @@ export function SessionStats({ sessionInfo, maps, mutualSessions, serverGraph }
                             {getServerPopRange(serverGraph)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                            Server Pop Range
+                            {t('serverPopRange')}
                         </div>
                     </div>
                 </div>

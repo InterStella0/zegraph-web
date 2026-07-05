@@ -7,6 +7,7 @@ import {Skeleton} from 'components/ui/skeleton';
 import {ContinentStatistics} from 'types/players';
 import ContinentChips from './ContinentChips';
 import {fetchGlobalContinents} from './homeData';
+import {useTranslations} from 'next-intl';
 
 const WorldRadarMap = dynamic(() => import('./WorldRadarMap'), {
     ssr: false,
@@ -14,6 +15,7 @@ const WorldRadarMap = dynamic(() => import('./WorldRadarMap'), {
 });
 
 export default function WherePlayersMap() {
+    const t = useTranslations('home');
     const [geo, setGeo] = useState<ContinentStatistics | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
@@ -41,14 +43,14 @@ export default function WherePlayersMap() {
             <CardContent className="p-4 sm:p-6 flex flex-col h-full">
                 <div className="flex flex-row items-start justify-between gap-2 mb-3">
                     <div>
-                        <h2 className="text-base sm:text-lg font-semibold">Where players are</h2>
+                        <h2 className="text-base sm:text-lg font-semibold">{t('wherePlayersAre')}</h2>
                         <p className="text-xs text-muted-foreground mt-0.5">
                             {geo
-                                ? `${geo.total_count.toLocaleString()} online`
-                                : 'Live player distribution'}
+                                ? t('onlineCount', {count: geo.total_count})
+                                : t('liveDistribution')}
                         </p>
                     </div>
-                    <Badge variant="outline" className="font-mono text-[10px]">live sessions</Badge>
+                    <Badge variant="outline" className="font-mono text-[10px]">{t('liveSessions')}</Badge>
                 </div>
 
                 <div className="relative flex-1 min-h-[220px] rounded-md overflow-hidden bg-muted/30">

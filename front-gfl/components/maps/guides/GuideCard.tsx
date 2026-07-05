@@ -11,6 +11,8 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import {useGuideContext} from "../../../lib/GuideContextProvider.tsx";
 import {resolveGuideLink} from "../../../app/maps/[map_name]/guides/util.ts";
 import {CommunitiesData} from "../../../app/getCommunity.ts";
+import { useTranslations } from 'next-intl';
+import { guideCategoryLabel } from './categoryUtils';
 
 dayjs.extend(relativeTime);
 
@@ -20,6 +22,7 @@ interface GuideCardProps {
 }
 
 export default function GuideCard({ guide, communities }: GuideCardProps) {
+    const t = useTranslations('guides');
     const { serverGoto, insideServer } = useGuideContext()
 
     // Create excerpt (first 150 chars of content, stripping markdown)
@@ -53,7 +56,7 @@ export default function GuideCard({ guide, communities }: GuideCardProps) {
                         {!insideServer && guide.server_id && <Badge variant="secondary">
                             {guide.server_id && (communities?.serversMapped.get(String(guide.server_id))?.community_shorten_name || communities?.serversMapped.get(String(guide.server_id))?.community_name)}
                         </Badge>}
-                        <Badge variant="secondary">{guide.category}</Badge>
+                        <Badge variant="secondary">{guideCategoryLabel(t, guide.category)}</Badge>
                     </div>
                 </div>
 
@@ -78,7 +81,7 @@ export default function GuideCard({ guide, communities }: GuideCardProps) {
                         <span>{guide.comment_count}</span>
                     </div>
                     <span className="ml-auto">
-                        {timeAgo}{wasEdited && ' (edited)'}
+                        {timeAgo}{wasEdited && ` (${t('edited')})`}
                     </span>
                 </div>
             </Card>

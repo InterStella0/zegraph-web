@@ -1,3 +1,4 @@
+import {useTranslations} from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from 'components/ui/card';
 import { Badge } from 'components/ui/badge';
 import { formatTime } from 'utils/sessionUtils.js';
@@ -12,10 +13,11 @@ export default function MapsList(
     { maps, mapImages, server }
     : { maps: PlayerSessionMapPlayed[], mapImages: Record<string, string>, server: Server}
 ){
+    const t = useTranslations('sessions');
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Maps Played</CardTitle>
+                <CardTitle>{t('mapsPlayed')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 p-6">
                 {maps.map((map) => {
@@ -60,7 +62,7 @@ export default function MapsList(
                                             </div>
                                         ) : (
                                             <p className="text-sm text-muted-foreground">
-                                                No score data available
+                                                {t('noScoreData')}
                                             </p>
                                         )}
                                     </div>
@@ -78,7 +80,7 @@ export default function MapsList(
                                         ) : (
                                             <div className="w-[120px] h-[80px] rounded-lg border bg-muted flex items-center justify-center">
                                                 <span className="text-xs text-muted-foreground">
-                                                    No Image
+                                                    {t('noImage')}
                                                 </span>
                                             </div>
                                         )}

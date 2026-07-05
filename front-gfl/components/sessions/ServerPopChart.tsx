@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components/ui/card';
 import { LazyLineChart as Line } from 'components/graphs/LazyCharts';
@@ -34,13 +35,14 @@ export function ServerPopChart<T extends SessionType>(
     { sessionInfo, serverGraph, maps }:
     { sessionInfo: SessionInfo<T>, serverGraph: ServerGraphType<T>, maps: PlayerSessionMapPlayed[] | null }
 ) {
+    const t = useTranslations('sessions');
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
     const data = useMemo(() => getServerPopChartData(serverGraph, isDark), [isDark])
 
     const summary = useMemo(() => {
         if (!serverGraph || serverGraph.length === 0) {
-            return "No server population data available.";
+            return t('noServerPopData');
         }
 
         const playerCounts = serverGraph.map(d => d.player_count);
@@ -61,8 +63,8 @@ export function ServerPopChart<T extends SessionType>(
     return (
         <Card className="mb-6">
             <CardHeader>
-                <CardTitle>Server Population During Session</CardTitle>
-                <CardDescription>Population changes throughout the session</CardDescription>
+                <CardTitle>{t('serverPopTitle')}</CardTitle>
+                <CardDescription>{t('serverPopSubtitle')}</CardDescription>
             </CardHeader>
             <CardContent>
                 <ScreenReaderOnly id="server-pop-summary">
@@ -71,7 +73,7 @@ export function ServerPopChart<T extends SessionType>(
                 <div
                     className="h-[300px]"
                     role="img"
-                    aria-label="Server population during session"
+                    aria-label={t('serverPopTitle')}
                     aria-describedby="server-pop-summary"
                 >
                     <Line

@@ -6,10 +6,12 @@ import GuideDetail from 'components/maps/guides/GuideDetail';
 import GuideComments from 'components/maps/guides/GuideComments';
 import {getGuideBySlug, resolveGuideLink} from "../../../../../../maps/[map_name]/guides/util.ts";
 import {GuideContextProvider} from "lib/GuideContextProvider.tsx";
+import { getTranslations } from 'next-intl/server';
 
 export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string; map_name: string; guide_slug: string }>
 }): Promise<Metadata> {
+    const t = await getTranslations('metadata');
     try {
         const { server_slug, map_name, guide_slug } = await params;
         const server = await getServerSlug(server_slug);
@@ -21,7 +23,7 @@ export async function generateMetadata({ params }: {
         const guide = await getGuideBySlug(map_name, guide_slug, server.id);
 
         if (!guide) {
-            return { title: formatTitle('Guide Not Found') };
+            return { title: formatTitle(t('guideNotFound')) };
         }
 
         // Create excerpt for description
@@ -41,7 +43,7 @@ export async function generateMetadata({ params }: {
         };
     } catch (error) {
         return {
-            title: formatTitle('Guide Not Found')
+            title: formatTitle(t('guideNotFound'))
         };
     }
 }

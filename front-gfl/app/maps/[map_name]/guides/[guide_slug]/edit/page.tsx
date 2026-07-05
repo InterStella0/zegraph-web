@@ -5,29 +5,31 @@ import { auth, SteamSession } from 'auth';
 import GuideEditor from 'components/maps/guides/GuideEditor';
 import { getGuideBySlug } from "../../util";
 import {GuideContextProvider} from "../../../../../../lib/GuideContextProvider.tsx";
+import { getTranslations } from 'next-intl/server';
 
 export async function generateMetadata({ params }: {
     params: Promise<{ map_name: string; guide_slug: string }>
 }): Promise<Metadata> {
+    const t = await getTranslations('metadata');
     try {
         const {  map_name, guide_slug } = await params;
 
         const guide = await getGuideBySlug(map_name, guide_slug);
 
         if (!guide) {
-            return { title: formatTitle('Edit Guide') };
+            return { title: formatTitle(t('editGuideTitle')) };
         }
 
         return {
-            title: formatTitle(`Edit: ${guide.title}`),
-            description: `Edit your guide for ${map_name}`,
+            title: formatTitle(t('editGuideTitleNamed', {title: guide.title})),
+            description: t('editGuideDescription', {map: map_name}),
             alternates: {
                 canonical: `/maps/${map_name}/guides/${guide.slug}/edit`
             }
         };
     } catch (error) {
         return {
-            title: formatTitle('Edit Guide')
+            title: formatTitle(t('editGuideTitle'))
         };
     }
 }
@@ -52,14 +54,15 @@ export default async function EditGuidePage({ params }: {
         redirect(`/maps/${map_name}/guides/${guide.slug}`);
     }
     const mapDetail = { mapName: map_name, guide }
+    const t = await getTranslations('guides.pages');
 
     return (
         <GuideContextProvider value={mapDetail}>
             <div className="container max-w-4xl mx-auto px-4 py-6">
                 <div className="mb-6">
-                    <h1 className="text-3xl font-bold mb-2">Edit Guide</h1>
+                    <h1 className="text-3xl font-bold mb-2">{t('editGuide')}</h1>
                     <p className="text-muted-foreground">
-                        Update your guide for {map_name}
+                        {t('updateYourGuide', {mapName: map_name})}
                     </p>
                 </div>
                 <GuideEditor mode="edit" session={session} />

@@ -1,4 +1,5 @@
 'use client'
+import {useTranslations} from 'next-intl';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components/ui/card';
 import { LazyLineChart as Line } from 'components/graphs/LazyCharts';
@@ -30,13 +31,14 @@ export default function MatchScoreChart(
     {sessionInfo, maps}
     : {sessionInfo: PlayerSession, maps: PlayerSessionMapPlayed[]}
 ) {
+    const t = useTranslations('sessions');
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
 
     // Generate SEO summary
     const summary = useMemo(() => {
         if (!maps || maps.length === 0) {
-            return "No match score data available.";
+            return t('noMatchScoreData');
         }
 
         let totalRounds = 0;
@@ -66,9 +68,9 @@ export default function MatchScoreChart(
     return (
         <Card className="mb-6">
             <CardHeader>
-                <CardTitle>Match Score Progression</CardTitle>
+                <CardTitle>{t('matchScoreProgression')}</CardTitle>
                 <CardDescription>
-                    Round-by-round score tracking across all maps
+                    {t('roundByRound')}
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -78,7 +80,7 @@ export default function MatchScoreChart(
                 <div
                     className="h-[300px]"
                     role="img"
-                    aria-label="Match score progression"
+                    aria-label={t('matchScoreProgression')}
                     aria-describedby="match-score-summary"
                 >
                     <Line

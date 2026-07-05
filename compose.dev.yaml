@@ -1,6 +1,7 @@
 services:
   exposing:
     image: nginx:alpine
+    restart: always
     ports:
       - "3000:80"
     volumes:
@@ -11,7 +12,10 @@ services:
       - ${STORAGE_PATH}/maps:/var/www/frontend/public:ro
       - ${STORAGE_PATH}/characters:/var/www/characters:ro
     depends_on:
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
   frontend:
     restart: always
     build:

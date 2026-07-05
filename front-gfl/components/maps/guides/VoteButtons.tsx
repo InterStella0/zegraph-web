@@ -11,6 +11,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from 'components/ui/tooltip';
+import { useTranslations } from 'next-intl';
 
 interface VoteButtonsProps {
     upvotes: number;
@@ -33,6 +34,7 @@ export default function VoteButtons({
     isBanned = false,
     banReason = null
 }: VoteButtonsProps) {
+    const t = useTranslations('guides');
     const [upvotes, setUpvotes] = useState(initialUpvotes);
     const [downvotes, setDownvotes] = useState(initialDownvotes);
     const [userVote, setUserVote] = useState<VoteType | null>(initialUserVote || null);
@@ -96,8 +98,8 @@ export default function VoteButtons({
             setUpvotes(prevUpvotes);
             setDownvotes(prevDownvotes);
             setUserVote(prevUserVote);
-            toast.error('Failed to update vote', {
-                description: error.message || 'Please try again later'
+            toast.error(t('voteFailed'), {
+                description: error.message || t('tryAgainLater')
             });
         } finally {
             setIsVoting(false);
@@ -116,7 +118,7 @@ export default function VoteButtons({
                 onClick={() => handleVote('UpVote')}
                 disabled={isDisabled}
                 className="flex items-center gap-1"
-                aria-label="Upvote"
+                aria-label={t('upvote')}
             >
                 <ThumbsUp className={iconSize} />
                 <span className={compact ? 'text-xs' : 'text-sm'}>{upvotes}</span>
@@ -127,7 +129,7 @@ export default function VoteButtons({
                 onClick={() => handleVote('DownVote')}
                 disabled={isDisabled}
                 className="flex items-center gap-1"
-                aria-label="Downvote"
+                aria-label={t('downvote')}
             >
                 <ThumbsDown className={iconSize} />
                 <span className={compact ? 'text-xs' : 'text-sm'}>{downvotes}</span>
@@ -143,7 +145,7 @@ export default function VoteButtons({
                         <span>{buttons}</span>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p className="font-semibold">You are banned</p>
+                        <p className="font-semibold">{t('youAreBanned')}</p>
                         {banReason && <p className="text-sm text-muted-foreground">{banReason}</p>}
                     </TooltipContent>
                 </Tooltip>

@@ -18,6 +18,7 @@ import {
     FetchStatusServerGroupTruncated,
 } from "types/fetchStatus";
 import {fetchUrl} from "utils/generalUtils.ts";
+import { useTranslations } from 'next-intl';
 
 dayjs.extend(relativeTime);
 
@@ -103,24 +104,25 @@ function StatusBanner({
     status: "operational" | "degraded" | "outage";
     lastUpdated: dayjs.Dayjs | null;
 }) {
+    const t = useTranslations('status.table');
     const config = {
         operational: {
             bg: "bg-green-500/10 border-green-500/30",
             dot: "bg-green-500",
             text: "text-green-600 dark:text-green-400",
-            label: "All Systems Operational",
+            label: t('allOperational'),
         },
         degraded: {
             bg: "bg-yellow-500/10 border-yellow-500/30",
             dot: "bg-yellow-500",
             text: "text-yellow-600 dark:text-yellow-400",
-            label: "Degraded Performance",
+            label: t('degradedPerformance'),
         },
         outage: {
             bg: "bg-red-500/10 border-red-500/30",
             dot: "bg-red-500",
             text: "text-red-600 dark:text-red-400",
-            label: "Partial Outage",
+            label: t('partialOutage'),
         },
     }[status];
 
@@ -134,7 +136,7 @@ function StatusBanner({
                     </span>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                    {lastUpdated ? `Updated ${lastUpdated.fromNow()}` : "Loading…"}
+                    {lastUpdated ? t('updated', {time: lastUpdated.fromNow()}) : t('loading')}
                 </span>
             </div>
         </div>
@@ -142,14 +144,15 @@ function StatusBanner({
 }
 
 function ServerStatusCard({ group }: { group: FetchStatusServerGroupTruncated }) {
+    const t = useTranslations('status.table');
     const { hasData, hasError, hasOutage } = getServerStatus(group);
     const statusLabel = !hasData
-        ? "No Data"
+        ? t('noData')
         : hasOutage
-        ? "Outage"
+        ? t('outage')
         : hasError
-        ? "Degraded"
-        : "Operational";
+        ? t('degraded')
+        : t('operational');
     const statusVariant: "default" | "destructive" | "outline" = !hasData
         ? "outline"
         : hasError
@@ -220,6 +223,7 @@ function StatusSkeleton() {
 }
 
 export default function FetchStatusTable() {
+    const t = useTranslations('status.table');
     const [entries, setEntries] = useState<FetchStatusCommunityGroupTruncated[] | null>(null);
     const [lastUpdated, setLastUpdated] = useState<dayjs.Dayjs | null>(null);
 
@@ -248,7 +252,7 @@ export default function FetchStatusTable() {
 
             {communities.length === 0 ? (
                 <p className="text-muted-foreground text-sm text-center py-8">
-                    No fetch data in the last 24 hours.
+                    {t('noFetchData')}
                 </p>
             ) : (
                 <>
@@ -264,26 +268,26 @@ export default function FetchStatusTable() {
                     ))}
 
                     <div className="flex justify-between text-xs text-muted-foreground px-1 mt-1">
-                        <span>24 hours ago</span>
-                        <span>Now</span>
+                        <span>{t('hoursAgo24')}</span>
+                        <span>{t('now')}</span>
                     </div>
 
                     <div className="flex items-center gap-4 text-xs text-muted-foreground px-1">
                         <span className="flex items-center gap-1.5">
                             <span className="size-3 rounded-sm bg-green-500 inline-block" />
-                            Operational
+                            {t('operational')}
                         </span>
                         <span className="flex items-center gap-1.5">
                             <span className="size-3 rounded-sm bg-yellow-500 inline-block" />
-                            Minor errors (&lt;50%)
+                            {t('minorErrors')}
                         </span>
                         <span className="flex items-center gap-1.5">
                             <span className="size-3 rounded-sm bg-red-500 inline-block" />
-                            Degraded
+                            {t('degraded')}
                         </span>
                         <span className="flex items-center gap-1.5">
                             <span className="size-3 rounded-sm bg-muted inline-block border" />
-                            No data
+                            {t('noData')}
                         </span>
                     </div>
                 </>

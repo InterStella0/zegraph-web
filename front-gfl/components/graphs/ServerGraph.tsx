@@ -16,7 +16,6 @@ import {
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import annotationPlugin from 'chartjs-plugin-annotation';
-import humanizeDuration from 'humanize-duration'
 import type { AnnotationOptions } from 'chartjs-plugin-annotation';
 import dayjs from 'dayjs';
 import utc from "dayjs/plugin/utc";
@@ -34,6 +33,8 @@ import {ServerMapPlayed} from "types/maps.ts";
 import { useTheme } from "next-themes";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { calculateTimeSeriesStats, formatDateRange, generateSeoTable } from "utils/chartSeoUtils.tsx";
+import { useLocale, useTranslations } from "next-intl";
+import { humanizeDurationLocalized } from "utils/durationFormat.ts";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -153,6 +154,8 @@ function ServerGraphDisplay(
     { setLoading, customDataSet = [], showFlags = { join: true, leave: true, toolbar: true },
         setShowPlayers=() => {} }: ServerGraphProps
 ) {
+    const t = useTranslations('servers.graph');
+    const locale = useLocale();
     const { start, end, setDates, source: lastSource, timestamp } = useDateState();
     const { server } = useServerData()
     const server_id = server.id
@@ -229,7 +232,7 @@ function ServerGraphDisplay(
                                 let text = e.map;
                                 if (e.ended_at !== e.started_at) {
                                     let delta = dayjs(e.ended_at).diff(dayjs(e.started_at));
-                                    text += ` (${humanizeDuration(delta, { units: ['h', 'm'], maxDecimalPoints: 2 })})`;
+                                    text += ` (${humanizeDurationLocalized(delta, locale, { units: ['h', 'm'], maxDecimalPoints: 2 })})`;
                                 }
                                 const mapBorderColor = isDark ? 'hsl(0 84.2% 60.2%)' : 'hsl(0 72.2% 50.6%)';
                                 const mapLabelColor = isDark ? 'hsl(217.2 91.2% 59.8%)' : 'hsl(221.2 83.2% 53.3%)';
@@ -278,7 +281,7 @@ function ServerGraphDisplay(
                 abortControllerRef.current.abort();
             }
         };
-    }, [start, end, server_id]);
+    }, [start, end, server_id, locale]);
 
     const handleZoomChange = useCallback((xScale: any) => {
         const newStart = dayjs(xScale.min);
@@ -355,7 +358,7 @@ function ServerGraphDisplay(
                     color: isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)',
                 },
                 title: {
-                    text: "Time",
+                    text: t('timeAxis'),
                     display: true,
                     color: isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)',
                 },
@@ -394,14 +397,14 @@ function ServerGraphDisplay(
                 }
             }
         },
-    }), [zoomComplete, clampZoomOut, annotationRef, state.maxPlayers, isDark])
+    }), [zoomComplete, clampZoomOut, annotationRef, state.maxPlayers, isDark, t])
 
     const datasets = [...customDataSet]
 
     if (showFlags.join) {
         datasets.push({
             type: 'bar',
-            label: 'Join Count',
+            label: t('joinCount'),
             data: state.data.joinCounts,
             borderColor: isDark ? 'hsl(142.1 76.2% 36.3%)' : 'hsl(142.1 70.6% 45.3%)',
             backgroundColor: isDark ? 'hsla(142.1 76.2% 36.3% / 0.6)' : 'hsla(142.1 70.6% 45.3% / 0.6)',
@@ -413,7 +416,7 @@ function ServerGraphDisplay(
     if (showFlags.leave) {
         datasets.push({
             type: 'bar',
-            label: 'Leave Count',
+            label: t('leaveCount'),
             data: state.data.leaveCounts,
             borderColor: isDark ? 'hsl(0 84.2% 60.2%)' : 'hsl(0 72.2% 50.6%)',
             backgroundColor: isDark ? 'hsla(0 84.2% 60.2% / 0.6)' : 'hsla(0 72.2% 50.6% / 0.6)',
@@ -427,7 +430,7 @@ function ServerGraphDisplay(
     datasets.push(
         {
             type: 'line',
-            label: 'Player Count',
+            label: t('playerCount'),
             data: state.data.playerCounts,
             borderColor: primaryColor,
             backgroundColor: primaryColorAlpha,
@@ -441,7 +444,7 @@ function ServerGraphDisplay(
     // Generate SEO summary and table
     const summary = useMemo(() => {
         if (!state.data.playerCounts || state.data.playerCounts.length === 0) {
-            return "No server data available.";
+            return t('noServerData');
         }
 
         const data = state.data.playerCounts.map(d => ({
@@ -451,10 +454,14 @@ function ServerGraphDisplay(
         const stats = calculateTimeSeriesStats(data);
         const dateRange = formatDateRange(state.data.playerCounts[0].x, state.data.playerCounts[state.data.playerCounts.length - 1].x);
 
-        return `Server player count from ${dateRange}. Peak: ${formatNumber(stats.max)} players, ` +
-            `Average: ${formatNumber(stats.avg, 1)} players, Lowest: ${formatNumber(stats.min)} players. ` +
-            `Data over ${formatNumber(stats.count)} intervals.`;
-    }, [state.data.playerCounts]);
+        return t('summary', {
+            dateRange,
+            peak: formatNumber(stats.max),
+            average: formatNumber(stats.avg, 1),
+            lowest: formatNumber(stats.min),
+            intervals: formatNumber(stats.count),
+        });
+    }, [state.data.playerCounts, t]);
 
     const seoTable = useMemo(() => {
         if (!state.data.playerCounts || state.data.playerCounts.length === 0) {
@@ -467,19 +474,19 @@ function ServerGraphDisplay(
             const leaves = state.data.leaveCounts.find(l => l.x === d.x);
 
             return {
-                Time: dayjs(d.x).format('MMM D, YYYY HH:mm'),
-                'Player Count': formatNumber(d.y),
-                Joins: joins ? formatNumber(joins.y) : '0',
-                Leaves: leaves ? formatNumber(leaves.y) : '0'
+                [t('timeAxis')]: dayjs(d.x).format('MMM D, YYYY HH:mm'),
+                [t('playerCount')]: formatNumber(d.y),
+                [t('joins')]: joins ? formatNumber(joins.y) : '0',
+                [t('leaves')]: leaves ? formatNumber(leaves.y) : '0'
             };
         });
 
         return generateSeoTable(
-            ['Time', 'Player Count', 'Joins', 'Leaves'],
+            [t('timeAxis'), t('playerCount'), t('joins'), t('leaves')],
             rows,
-            'Server player counts over time (first 20 data points)'
+            t('seoTableCaption')
         );
-    }, [state.data.playerCounts, state.data.joinCounts, state.data.leaveCounts]);
+    }, [state.data.playerCounts, state.data.joinCounts, state.data.leaveCounts, t]);
 
     // @ts-ignore
     const ChartValue = <Chart ref={chartRef} data={{ datasets }} options={options} />
@@ -494,7 +501,7 @@ function ServerGraphDisplay(
                 <div
                     className='chart-container'
                     role="img"
-                    aria-label="Server player count over time"
+                    aria-label={t('ariaLabel')}
                     aria-describedby="server-graph-summary"
                 >
                     {ChartValue}
@@ -511,8 +518,9 @@ function ServerGraphDisplay(
 }
 
 export default function ServerGraph(props: ServerGraphProps) {
+    const t = useTranslations('servers.graph');
     return (
-        <ErrorCatch message="Couldn't load server graph.">
+        <ErrorCatch message={t('loadError')}>
             <ServerGraphDisplay {...props} />
         </ErrorCatch>
     );

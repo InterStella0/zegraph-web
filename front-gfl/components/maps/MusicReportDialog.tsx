@@ -21,6 +21,7 @@ import { Input } from 'components/ui/input';
 import { Button } from 'components/ui/button';
 import { Label } from 'components/ui/label';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 interface MusicReportDialogProps {
     open: boolean;
@@ -31,8 +32,8 @@ interface MusicReportDialogProps {
 }
 
 const reportReasons = [
-    { value: 'video_unavailable', label: 'Video not available/removed' },
-    { value: 'wrong_video', label: 'Wrong video/music' },
+    { value: 'video_unavailable', labelKey: 'reasonUnavailable' },
+    { value: 'wrong_video', labelKey: 'reasonWrongVideo' },
 ];
 
 export default function MusicReportDialog({
@@ -42,6 +43,7 @@ export default function MusicReportDialog({
     musicTitle,
     currentYoutubeId
 }: MusicReportDialogProps) {
+    const t = useTranslations('maps.musicReport');
     const [reason, setReason] = useState<string>('');
     const [details, setDetails] = useState('');
     const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -49,15 +51,15 @@ export default function MusicReportDialog({
 
     const handleSubmit = async () => {
         if (!reason) {
-            toast.error('Please select a reason for reporting');
+            toast.error(t('selectReasonError'));
             return;
         }
 
         setSubmitting(true);
         try {
             await onSubmit(reason, details || undefined, youtubeUrl || undefined);
-            toast.success('Report submitted successfully', {
-                description: 'Thank you for helping us maintain accurate music information.'
+            toast.success(t('submitSuccess'), {
+                description: t('submitSuccessDesc')
             });
             // Reset and close
             setReason('');
@@ -65,8 +67,8 @@ export default function MusicReportDialog({
             setYoutubeUrl('');
             onClose();
         } catch (error: any) {
-            toast.error('Failed to submit report', {
-                description: error.message || 'Please try again later'
+            toast.error(t('submitFailed'), {
+                description: error.message || t('tryAgainLater')
             });
         } finally {
             setSubmitting(false);
@@ -86,29 +88,29 @@ export default function MusicReportDialog({
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Report Music Issue</DialogTitle>
+                    <DialogTitle>{t('title')}</DialogTitle>
                     <DialogDescription>
-                        Report an issue with the YouTube video for "{musicTitle}"
+                        {t('description', {title: musicTitle})}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">
                     {currentYoutubeId && (
                         <div className="p-3 bg-muted rounded-md text-sm">
-                            <span className="font-medium">Current video ID:</span> {currentYoutubeId}
+                            <span className="font-medium">{t('currentVideoId')}</span> {currentYoutubeId}
                         </div>
                     )}
 
                     <div className="grid gap-2">
-                        <Label htmlFor="reason">Issue type</Label>
+                        <Label htmlFor="reason">{t('issueType')}</Label>
                         <Select value={reason} onValueChange={setReason}>
                             <SelectTrigger id="reason">
-                                <SelectValue placeholder="Select an issue type" />
+                                <SelectValue placeholder={t('selectIssueType')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {reportReasons.map((option) => (
                                     <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
+                                        {t(option.labelKey)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -116,7 +118,7 @@ export default function MusicReportDialog({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="youtube-url">Suggested YouTube URL (optional)</Label>
+                        <Label htmlFor="youtube-url">{t('suggestedUrl')}</Label>
                         <Input
                             id="youtube-url"
                             placeholder="https://www.youtube.com/watch?v=..."
@@ -124,22 +126,22 @@ export default function MusicReportDialog({
                             onChange={(e) => setYoutubeUrl(e.target.value)}
                         />
                         <p className="text-xs text-muted-foreground">
-                            If you know the correct video, paste the URL here
+                            {t('suggestedUrlHint')}
                         </p>
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="details">Additional details (optional)</Label>
+                        <Label htmlFor="details">{t('detailsLabel')}</Label>
                         <Textarea
                             id="details"
-                            placeholder="Provide any additional context..."
+                            placeholder={t('detailsPlaceholder')}
                             value={details}
                             onChange={(e) => setDetails(e.target.value)}
                             rows={4}
                             maxLength={500}
                         />
                         <p className="text-xs text-muted-foreground">
-                            {details.length}/500 characters
+                            {t('charCount', {count: details.length, max: 500})}
                         </p>
                     </div>
                 </div>
@@ -150,13 +152,13 @@ export default function MusicReportDialog({
                         onClick={handleClose}
                         disabled={submitting}
                     >
-                        Cancel
+                        {t('cancel')}
                     </Button>
                     <Button
                         onClick={handleSubmit}
                         disabled={submitting || !reason}
                     >
-                        {submitting ? 'Submitting...' : 'Submit Report'}
+                        {submitting ? t('submitting') : t('submitReport')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

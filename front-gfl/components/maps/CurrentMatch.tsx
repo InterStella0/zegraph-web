@@ -21,12 +21,14 @@ import {toast} from "sonner";
 import {SteamProfile} from "../../next-auth-steam/steam.ts";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import LoginDialog from "components/ui/LoginDialog";
+import {useTranslations} from "next-intl";
 
 dayjs.extend(duration);
 
 export default function CurrentMatch({ serverPromise, mapCurrentPromise, playerContinentsPromise, userPromise }:
 { serverPromise: ServerSlugPromise, mapCurrentPromise: Promise<ServerMapMatch>, playerContinentsPromise: Promise<ContinentStatistics>, userPromise: Promise<SteamProfile | null> }
 ){
+    const t = useTranslations('servers.currentMatch')
     const server = use(serverPromise)
     const serverSideCurrentMatch = use(mapCurrentPromise)
     const playerContinents = use(playerContinentsPromise)
@@ -80,7 +82,7 @@ export default function CurrentMatch({ serverPromise, mapCurrentPromise, playerC
         return (
             <div className="border border-border rounded-lg bg-card p-6 mb-6">
                 <h6 className="text-lg text-muted-foreground text-center py-8">
-                    No active match found
+                    {t('noActiveMatch')}
                 </h6>
             </div>
         );
@@ -93,6 +95,7 @@ export default function CurrentMatch({ serverPromise, mapCurrentPromise, playerC
 function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, user }: {
     server: Server, mapImage: string | null, currentMatch: ServerMapMatch, continentData: ContinentStatistics, user: SteamProfile | null
 }) {
+    const t = useTranslations('servers.currentMatch');
     const [currentTime, setCurrentTime] = useState(dayjs());
     const { isSupported, subscription, subscribe, isLoading: pushLoading } = usePushNotifications(user != null);
     const [isSubscribed, setIsSubscribed] = useState(false);
@@ -129,17 +132,17 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
         let subscriptionToUse: { id: string; endpoint: string } | null = subscription;
         if (!subscription) {
             setFlowState('enabling-push');
-            toast.info('Requesting notification permission...');
+            toast.info(t('requestingPermission'));
 
             subscriptionToUse = await subscribe();
             setFlowState('idle');
 
             if (!subscriptionToUse) {
-                toast.error('Failed to enable notifications. Please check browser permissions.');
+                toast.error(t('enableNotificationsFailed'));
                 return;
             }
 
-            toast.success('Notifications enabled! Now subscribing to map changes...');
+            toast.success(t('notificationsEnabled'));
             // Continue to map subscription below
         }
 
@@ -157,9 +160,9 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
             });
 
             setIsSubscribed(true);
-            toast.success('You will be notified on next map change');
+            toast.success(t('willBeNotified'));
         } catch (error) {
-            toast.error('Failed to subscribe to map change notifications');
+            toast.error(t('subscribeFailed'));
             console.error('Subscribe error:', error);
         } finally {
             setLoading(false);
@@ -175,9 +178,9 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
             });
 
             setIsSubscribed(false);
-            toast.success('Map change notification cancelled');
+            toast.success(t('notificationCancelled'));
         } catch (error) {
-            toast.error('Failed to unsubscribe from map change notifications');
+            toast.error(t('unsubscribeFailed'));
             console.error('Unsubscribe error:', error);
         } finally {
             setLoading(false);
@@ -198,7 +201,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
         const end = dayjs(serverTimeEnd);
         const diff = end.diff(currentTime);
 
-        if (diff <= 0) return onEnding ?? 'ending';
+        if (diff <= 0) return onEnding ?? t('ending');
 
         const dur = dayjs.duration(diff);
         const hours = Math.floor(dur.asHours());
@@ -215,7 +218,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
     };
 
     const formatMatchDuration = (startedAt) => {
-        if (!startedAt) return 'Unknown';
+        if (!startedAt) return t('unknown');
 
         const started = dayjs(startedAt);
         const diff = currentTime.diff(started);
@@ -232,8 +235,8 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
     };
 
     const duration = formatMatchDuration(currentMatch.started_at);
-    const timeUntilEnd = currentMatch.server_time_end ? formatTimeUntilEnd(currentMatch.server_time_end, "Time left", "Last round"): null;
-    const timeUntilEndEstimate = formatTimeUntilEnd(currentMatch.estimated_time_end, "Estimated end in", "Probably ending now~");
+    const timeUntilEnd = currentMatch.server_time_end ? formatTimeUntilEnd(currentMatch.server_time_end, t('timeLeft'), t('lastRound')): null;
+    const timeUntilEndEstimate = formatTimeUntilEnd(currentMatch.estimated_time_end, t('estimatedEndIn'), t('probablyEnding'));
     const hasScores = currentMatch.human_score !== null && currentMatch.zombie_score !== null;
 
     return (
@@ -261,7 +264,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                         </div>
                         <div className="md:col-span-5">
                             <span className="text-xs uppercase tracking-widest font-bold text-primary">
-                                🎮 Currently Playing
+                                🎮 {t('currentlyPlaying')}
                             </span>
 
                             <h4 className="text-2xl md:text-4xl mb-2 font-bold overflow-hidden text-ellipsis whitespace-nowrap max-w-[40rem]">
@@ -269,7 +272,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                             </h4>
 
                             <p suppressHydrationWarning className="text-sm text-muted-foreground mb-2">
-                                Playing for {duration}
+                                {t('playingFor', {duration})}
                                 {timeUntilEnd && (
                                     <> • {timeUntilEnd}</>
                                 )}
@@ -277,7 +280,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                                     <> • {timeUntilEndEstimate}</>
                                 )}
                                 {(currentMatch.extend_count && currentMatch.extend_count > 0)?
-                                    <> • {currentMatch.extend_count} Extend Count</>: null
+                                    <> • {t('extendCount', {count: currentMatch.extend_count})}</>: null
                                 }
                             </p>
 
@@ -290,11 +293,11 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                                             </Badge>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            Human Score : Zombie Score
+                                            {t('scoreTooltip')}
                                         </TooltipContent>
                                     </Tooltip>
                                 ) : (
-                                    <Badge variant="outline">No Score Data</Badge>
+                                    <Badge variant="outline">{t('noScoreData')}</Badge>
                                 )}
                             </div>
 
@@ -306,7 +309,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                                 >
                                     <HoverPrefetchLink href={`/servers/${server.gotoLink}/maps/${currentMatch.map}`}>
                                         <Info className="mr-2 h-4 w-4" />
-                                        Map Info
+                                        {t('mapInfo')}
                                     </HoverPrefetchLink>
                                 </Button>
                                 <Button
@@ -316,7 +319,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                                 >
                                     <HoverPrefetchLink href={`/servers/${server.gotoLink}/maps/${currentMatch.map}/sessions/${currentMatch.time_id}`}>
                                         <Activity className="mr-2 h-4 w-4" />
-                                        Match Info
+                                        {t('matchInfo')}
                                     </HoverPrefetchLink>
                                 </Button>
                                 <Button
@@ -326,7 +329,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                                 >
                                     <Link href={`/servers/${server.gotoLink}/maps/${currentMatch.map}/guides/`}>
                                         <Book className="mr-2 h-4 w-4" />
-                                        Guides
+                                        {t('guides')}
                                     </Link>
                                 </Button>
                                 <Button
@@ -336,7 +339,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                                 >
                                     <Link href={`/connect/${server.id}`}>
                                         <Play className="mr-2 h-4 w-4" />
-                                        Join
+                                        {t('join')}
                                     </Link>
                                 </Button>
                                 {isSupported && (
@@ -348,12 +351,11 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                                     >
                                         {isSubscribed ? <BellOff className="mr-2 h-4 w-4" /> : <Bell className="mr-2 h-4 w-4" />}
                                         {(() => {
-                                            if (flowState === 'enabling-push') return 'Enabling Notifications...';
-                                            if (flowState === 'subscribing-map') return 'Subscribing...';
-                                            if (loading) return 'Loading...';
-                                            if (isSubscribed) return 'Cancel Notification';
-                                            if (!subscription) return 'Notify Map Change';
-                                            return 'Notify Map Change';
+                                            if (flowState === 'enabling-push') return t('enablingNotifications');
+                                            if (flowState === 'subscribing-map') return t('subscribing');
+                                            if (loading) return t('loading');
+                                            if (isSubscribed) return t('cancelNotification');
+                                            return t('notifyMapChange');
                                         })()}
                                     </Button>
                                 )}
@@ -366,7 +368,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                                         {currentMatch.player_count || '?'}
                                     </h2>
                                     <span className="text-xs text-muted-foreground font-medium">
-                                        PLAYERS
+                                        {t('playersUpper')}
                                     </span>
                                 </div>
 

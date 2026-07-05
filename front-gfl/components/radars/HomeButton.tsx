@@ -1,8 +1,10 @@
 import {useMap} from "react-leaflet";
 import {useEffect} from "react";
 import L from "leaflet";
+import { useTranslations } from 'next-intl';
 
 export default function HomeButton() {
+    const t = useTranslations('radar');
     const map = useMap();
 
     // Create a custom Leaflet control when the component mounts
@@ -32,7 +34,7 @@ export default function HomeButton() {
                 reactContainer.style.width = '34px';
                 reactContainer.style.height = '34px';
                 reactContainer.style.cursor = 'pointer';
-                reactContainer.title = 'Reset View';
+                reactContainer.title = t('resetView');
 
                 // Use ReactDOM to render the Material UI icon into the container
                 try {
@@ -80,7 +82,7 @@ export default function HomeButton() {
         return () => {
             map.removeControl(control);
         };
-    }, [map]);
+    }, [map, t]);
 
     return null;
 };
