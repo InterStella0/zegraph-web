@@ -221,12 +221,8 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
 export default function GraphToolbar({ setShowPlayersAction }: { setShowPlayersAction: Dispatch<boolean>}): ReactElement {
     const t = useTranslations('servers.toolbar');
     return (
-        <Card>
-            <CardContent className="p-0">
-                <ErrorCatch message={t('loadError')}>
-                    <GraphToolbarControl setShowPlayersAction={setShowPlayersAction} />
-                </ErrorCatch>
-            </CardContent>
-        </Card>
+        <ErrorCatch message={t('loadError')}>
+            <GraphToolbarControl setShowPlayersAction={setShowPlayersAction} />
+        </ErrorCatch>
     );
 }
