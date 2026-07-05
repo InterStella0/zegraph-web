@@ -19,7 +19,6 @@ type MapCardProps = {
 }
 
 export default function MapCard({ detail, onClick, server }: MapCardProps){
-    const t = useTranslations('maps');
     return <ErrorCatch message="Failed to display this map.">
         <MapCardDisplay detail={detail} onClick={onClick} server={server} />
     </ErrorCatch>
@@ -27,6 +26,7 @@ export default function MapCard({ detail, onClick, server }: MapCardProps){
 function MapCardDisplay({ detail, onClick, server }){
     const [image, setImage] = useState<string | null>()
     const server_id = server.id
+    const t = useTranslations('maps');
     useEffect(() => {
         getMapImage(server_id, detail.map).then(e => setImage(e? e.small: null))
     }, [server_id, detail])
