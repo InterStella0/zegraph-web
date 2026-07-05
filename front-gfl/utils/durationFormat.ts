@@ -8,6 +8,7 @@ const HUMANIZE_LOCALE: Record<AppLocale, string> = {
     'ms': 'ms',
     'zh-CN': 'zh_CN',
     'zh-TW': 'zh_TW',
+    'ru': 'ru',
 };
 
 export function humanizeDurationLocalized(

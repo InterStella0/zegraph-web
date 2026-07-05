@@ -5,6 +5,7 @@ import 'dayjs/locale/es';
 import 'dayjs/locale/ms';
 import 'dayjs/locale/zh-cn';
 import 'dayjs/locale/zh-tw';
+import 'dayjs/locale/ru';
 import {useLocale} from 'next-intl';
 import {ReactNode} from 'react';
 import {AppLocale} from 'i18n/config';
@@ -15,6 +16,7 @@ const DAYJS_LOCALE: Record<AppLocale, string> = {
     'ms': 'ms',
     'zh-CN': 'zh-cn',
     'zh-TW': 'zh-tw',
+    'ru': 'ru',
 };
 
 // Sets the dayjs global locale during render so children (SSR included) format
