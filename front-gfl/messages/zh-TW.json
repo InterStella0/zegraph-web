@@ -170,7 +170,8 @@
       "totalPlayTime": "總遊玩時間",
       "noPlayers": "此清單中沒有玩家。",
       "loadError": "玩家清單無法載入。",
-      "unableToLoad": "無法載入玩家資料"
+      "unableToLoad": "無法載入玩家資料",
+      "pageInfo": "顯示第 {page} 頁，共 {totalPages} 頁（{totalPlayers} 名玩家）"
     },
     "statsCards": {
       "totalPlayers": "玩家總數",
@@ -259,7 +260,8 @@
       "time": "時間",
       "noDataCell": "無資料",
       "noMapsMatching": "找不到符合「{query}」的地圖",
-      "loadError": "熱門地圖無法載入。"
+      "loadError": "熱門地圖無法載入。",
+      "showing": "顯示第 {start}-{end} 張（共 {total} 張地圖）"
     },
     "region": {
       "title": "地區",

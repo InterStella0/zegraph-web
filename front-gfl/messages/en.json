@@ -170,7 +170,8 @@
       "totalPlayTime": "Total Play Time",
       "noPlayers": "No players in this list.",
       "loadError": "Couldn't load player list.",
-      "unableToLoad": "Unable to load player data"
+      "unableToLoad": "Unable to load player data",
+      "pageInfo": "Showing page {page} of {totalPages} ({totalPlayers} total players)"
     },
     "statsCards": {
       "totalPlayers": "Total Players",
@@ -259,7 +260,8 @@
       "time": "Time",
       "noDataCell": "No data",
       "noMapsMatching": "No maps found matching \"{query}\"",
-      "loadError": "Top maps couldn't be loaded."
+      "loadError": "Top maps couldn't be loaded.",
+      "showing": "Showing {start}-{end} of {total} maps"
     },
     "region": {
       "title": "Region",

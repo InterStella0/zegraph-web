@@ -170,7 +170,8 @@
       "totalPlayTime": "Tổng thời gian chơi",
       "noPlayers": "Không có người chơi trong danh sách này.",
       "loadError": "Không thể tải danh sách người chơi.",
-      "unableToLoad": "Không thể tải dữ liệu người chơi"
+      "unableToLoad": "Không thể tải dữ liệu người chơi",
+      "pageInfo": "Hiển thị trang {page} của {totalPages} ({totalPlayers} tổng số người chơi)"
     },
     "statsCards": {
       "totalPlayers": "Tổng số người chơi",
@@ -259,7 +260,8 @@
       "time": "Thời gian",
       "noDataCell": "Không có dữ liệu",
       "noMapsMatching": "Không tìm thấy bản đồ phù hợp với \"{query}\"",
-      "loadError": "Không thể tải bản đồ hàng đầu."
+      "loadError": "Không thể tải bản đồ hàng đầu.",
+      "showing": "Hiển thị {start}-{end} của {total} bản đồ"
     },
     "region": {
       "title": "Khu vực",

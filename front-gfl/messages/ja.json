@@ -170,7 +170,8 @@
       "totalPlayTime": "総プレイ時間",
       "noPlayers": "このリストにプレイヤーはいません。",
       "loadError": "プレイヤーリストを読み込めません。",
-      "unableToLoad": "プレイヤーデータを読み込めません"
+      "unableToLoad": "プレイヤーデータを読み込めません",
+      "pageInfo": "ページ {page} / {totalPages} を表示中 ({totalPlayers} 人のプレイヤー)"
     },
     "statsCards": {
       "totalPlayers": "総プレイヤー数",
@@ -259,7 +260,8 @@
       "time": "時間",
       "noDataCell": "データなし",
       "noMapsMatching": "\"{query}\"に一致するマップが見つかりません",
-      "loadError": "トップマップを読み込めません。"
+      "loadError": "トップマップを読み込めません。",
+      "showing": "{start}-{end} / {total} マップを表示中"
     },
     "region": {
       "title": "地域",

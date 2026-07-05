@@ -366,7 +366,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                                         <div className="space-y-2 flex flex-col items-center">
                                             <PaginationPage totalPages={totalPages} page={page} setPage={setPage} />
                                             <p className="text-xs text-muted-foreground text-center">
-                                                Showing {(page * rowsPerPage) + 1}-{(page * rowsPerPage) + displayedMaps.length} of {filteredMaps.length} maps
+                                                {t('showing', {start: (page * rowsPerPage) + 1, end: (page * rowsPerPage) + displayedMaps.length, total: filteredMaps.length})}
                                             </p>
                                         </div>
                                     </div>

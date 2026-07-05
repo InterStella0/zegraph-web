@@ -170,7 +170,8 @@
       "totalPlayTime": "Total Waktu Bermain",
       "noPlayers": "Tidak ada pemain dalam daftar ini.",
       "loadError": "Daftar pemain tidak dapat dimuat.",
-      "unableToLoad": "Tidak dapat memuat data pemain"
+      "unableToLoad": "Tidak dapat memuat data pemain",
+      "pageInfo": "Menampilkan halaman {page} dari {totalPages} ({totalPlayers} total pemain)"
     },
     "statsCards": {
       "totalPlayers": "Total Pemain",
@@ -259,7 +260,8 @@
       "time": "Waktu",
       "noDataCell": "Tidak ada data",
       "noMapsMatching": "Tidak ada peta yang cocok dengan \"{query}\"",
-      "loadError": "Peta teratas tidak dapat dimuat."
+      "loadError": "Peta teratas tidak dapat dimuat.",
+      "showing": "Menampilkan {start}-{end} dari {total} peta"
     },
     "region": {
       "title": "Wilayah",

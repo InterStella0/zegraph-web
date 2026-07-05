@@ -170,7 +170,8 @@
       "totalPlayTime": "Tiempo total de juego",
       "noPlayers": "No hay jugadores en esta lista.",
       "loadError": "No se pudo cargar la lista de jugadores.",
-      "unableToLoad": "No se pudieron cargar los datos de jugadores"
+      "unableToLoad": "No se pudieron cargar los datos de jugadores",
+      "pageInfo": "Mostrando página {page} de {totalPages} ({totalPlayers} jugadores totales)"
     },
     "statsCards": {
       "totalPlayers": "Jugadores totales",
@@ -259,7 +260,8 @@
       "time": "Tiempo",
       "noDataCell": "Sin datos",
       "noMapsMatching": "No se encontraron mapas que coincidan con \"{query}\"",
-      "loadError": "No se pudieron cargar los mapas principales."
+      "loadError": "No se pudieron cargar los mapas principales.",
+      "showing": "Mostrando {start}-{end} de {total} mapas"
     },
     "region": {
       "title": "Región",

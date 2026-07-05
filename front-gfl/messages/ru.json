@@ -170,7 +170,8 @@
       "totalPlayTime": "Общее время игры",
       "noPlayers": "Нет игроков в этом списке.",
       "loadError": "Не удалось загрузить список игроков.",
-      "unableToLoad": "Не удалось загрузить данные игрока"
+      "unableToLoad": "Не удалось загрузить данные игрока",
+      "pageInfo": "Страница {page} из {totalPages} ({totalPlayers} всего игроков)"
     },
     "statsCards": {
       "totalPlayers": "Всего игроков",
@@ -259,7 +260,8 @@
       "time": "Время",
       "noDataCell": "Нет данных",
       "noMapsMatching": "Карты, соответствующие \"{query}\", не найдены",
-      "loadError": "Не удалось загрузить топ карты."
+      "loadError": "Не удалось загрузить топ карты.",
+      "showing": "Показано {start}-{end} из {total} карт"
     },
     "region": {
       "title": "Регион",

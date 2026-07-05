@@ -93,7 +93,7 @@ function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
             <div className="flex items-center justify-between px-2 py-4 flex-col">
                 <PaginationPage totalPages={totalPages} page={currentPage} setPage={setPage} compact />
                 <div className="text-sm text-muted-foreground">
-                    Showing page {currentPage + 1} of {totalPages} ({totalPlayers} total players)
+                    {t('pageInfo', {page: currentPage + 1, totalPages, totalPlayers})}
                 </div>
             </div>
         </Card>

@@ -170,7 +170,8 @@
       "totalPlayTime": "总游戏时长",
       "noPlayers": "此列表中没有玩家。",
       "loadError": "玩家列表无法加载。",
-      "unableToLoad": "无法加载玩家数据"
+      "unableToLoad": "无法加载玩家数据",
+      "pageInfo": "显示第 {page} 页，共 {totalPages} 页（{totalPlayers} 名玩家）"
     },
     "statsCards": {
       "totalPlayers": "玩家总数",
@@ -259,7 +260,8 @@
       "time": "时间",
       "noDataCell": "无数据",
       "noMapsMatching": "未找到匹配 \"{query}\" 的地图",
-      "loadError": "热门地图无法加载。"
+      "loadError": "热门地图无法加载。",
+      "showing": "显示第 {start}-{end} 张（共 {total} 张地图）"
     },
     "region": {
       "title": "地区",
