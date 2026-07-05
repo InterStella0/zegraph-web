@@ -351,10 +351,10 @@
     "guidesButtonError": "攻略按鈕無法載入",
     "header": {
       "removed": "已移除",
-      "casual": "休閒",
-      "tryhard": "認真模式",
+      "casual": "咸鱼图",
+      "tryhard": "长程图",
       "mixed": "混合",
-      "noNomsOnly": "僅限無提名",
+      "noNomsOnly": "无订日",
       "hasLasers": "含雷射",
       "minPlayers": "最少 {count} 名玩家",
       "dataNotReady": "資料尚未就緒。",
@@ -474,8 +474,8 @@
     },
     "filter": {
       "allMaps": "所有地圖",
-      "casual": "休閒",
-      "tryhard": "認真模式",
+      "casual": "咸鱼图",
+      "tryhard": "长程图",
       "hasLasers": "含雷射",
       "availableNow": "目前可用",
       "favorites": "收藏"

@@ -200,7 +200,7 @@
     },
     "accessDenied": {
       "title": "Akses Ditolak",
-      "description": "Pemain ini telah memilih untuk menganonimkan profil mereka. Anda perlu log masuk sebagai pemain ini, atau menjadi pentadbir komuniti untuk melihat profil ini."
+      "description": "Pemain ini telah memilih untuk menganonimkan profil dia. Anda perlu log masuk sebagai pemain ini, atau menjadi pentadbir komuniti untuk melihat profil ini."
     },
     "stillCalculating": {
       "refreshingData": "Menyegarkan data...",
@@ -402,7 +402,7 @@
       "numberOfSessions": "Bilangan Sesi",
       "noData": "Tiada data tempoh sesi tersedia.",
       "title": "Taburan Tempoh Sesi",
-      "tooltip": "Menunjukkan berapa lama pemain menghabiskan masa dalam setiap sesi mereka",
+      "tooltip": "Menunjukkan berapa lama pemain menghabiskan masa dalam setiap sesi dia",
       "totalSessions": "Jumlah sesi: {count}",
       "totalSessionsLabel": "Jumlah sesi:",
       "loadError": "Taburan purata sesi peta mengalami ralat :/"
@@ -485,7 +485,7 @@
       "tryhard": "tryhard",
       "mixed": "campuran",
       "lasers": "laser",
-      "noNoms": "tiada nominasi",
+      "noNoms": "Tak boleh nominasi",
       "playerType": "Jenis Pemain: {category}"
     },
     "table": {
@@ -497,7 +497,7 @@
       "lasersTitle": "Peta mengandungi laser yang boleh dibunuh",
       "noNomsTitle": "Nominasi dilumpuhkan",
       "min": "Min {count}",
-      "max": "Maks {count}",
+      "max": "Max {count}",
       "map": "Peta",
       "status": "Status",
       "cumulativeHours": "Jam Terkumpul",
@@ -997,7 +997,7 @@
     "modelsDescription": "Lihat model 3D untuk peta dan watak di {name}.",
     "playerCalculating": "Pemain masih dikira. Datang lagi kemudian~",
     "viewPlayerActivities": "Lihat aktiviti pemain di {name}",
-    "playerHas": "Mereka mempunyai {hours}",
+    "playerHas": "Dia mempunyai {hours}",
     "aboutSessions": ", kira-kira {count} sesi,",
     "andRank": "dan {rank}",
     "onServer": "di {name}.",
