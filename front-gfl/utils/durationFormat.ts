@@ -9,6 +9,8 @@ const HUMANIZE_LOCALE: Record<AppLocale, string> = {
     'zh-CN': 'zh_CN',
     'zh-TW': 'zh_TW',
     'ru': 'ru',
+    'vi': 'vi',
+    'id': 'id',
 };
 
 export function humanizeDurationLocalized(

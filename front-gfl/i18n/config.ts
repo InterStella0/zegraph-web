@@ -1,4 +1,4 @@
-export const LOCALES = ['en', 'es', 'ms', 'zh-CN', 'zh-TW', 'ko', 'ja', 'ru'] as const;
+export const LOCALES = ['en', 'es', 'ms', 'zh-CN', 'zh-TW', 'ko', 'ja', 'ru', 'vi', 'id'] as const;
 export type AppLocale = typeof LOCALES[number];
 
 export const DEFAULT_LOCALE: AppLocale = 'en';
@@ -14,6 +14,8 @@ export const LOCALE_LABELS: Record<AppLocale, string> = {
     'ko': '한국어',
     'ja': '日本語',
     'ru': 'Русский',
+    'vi': 'Tiếng Việt',
+    'id': 'Bahasa Indonesia',
 };
 
 export function isAppLocale(value: string | undefined | null): value is AppLocale {
