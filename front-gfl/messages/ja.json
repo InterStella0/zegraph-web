@@ -10,7 +10,19 @@
     "close": "閉じる",
     "search": "検索",
     "hours": "{value}時間",
-    "ordinal": "{n}番目"
+    "ordinal": "{n}番目",
+    "pagination": {
+      "nav": "ページネーション",
+      "previous": "前へ",
+      "goToPrevious": "前のページに移動",
+      "next": "次へ",
+      "goToNext": "次のページに移動",
+      "first": "最初",
+      "goToFirst": "最初のページに移動",
+      "last": "最後",
+      "goToLast": "最後のページに移動",
+      "morePages": "その他のページ"
+    }
   },
   "auth": {
     "login": "ログイン",

@@ -10,7 +10,19 @@
     "close": "Tutup",
     "search": "Cari",
     "hours": "{value} jam",
-    "ordinal": "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}"
+    "ordinal": "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}",
+    "pagination": {
+      "nav": "paginasi",
+      "previous": "Sebelumnya",
+      "goToPrevious": "Buka halaman sebelumnya",
+      "next": "Berikutnya",
+      "goToNext": "Buka halaman berikutnya",
+      "first": "Pertama",
+      "goToFirst": "Buka halaman pertama",
+      "last": "Terakhir",
+      "goToLast": "Buka halaman terakhir",
+      "morePages": "Halaman lainnya"
+    }
   },
   "auth": {
     "login": "Masuk",

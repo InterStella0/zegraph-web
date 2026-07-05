@@ -10,7 +10,19 @@
     "close": "Cerrar",
     "search": "Buscar",
     "hours": "{value} h",
-    "ordinal": "{n, selectordinal, other {#º}}"
+    "ordinal": "{n, selectordinal, other {#º}}",
+    "pagination": {
+      "nav": "paginación",
+      "previous": "Anterior",
+      "goToPrevious": "Ir a la página anterior",
+      "next": "Siguiente",
+      "goToNext": "Ir a la página siguiente",
+      "first": "Primera",
+      "goToFirst": "Ir a la primera página",
+      "last": "Última",
+      "goToLast": "Ir a la última página",
+      "morePages": "Más páginas"
+    }
   },
   "auth": {
     "login": "Iniciar sesión",

@@ -10,7 +10,19 @@
     "close": "關閉",
     "search": "搜尋",
     "hours": "{value} 小時",
-    "ordinal": "第{n}"
+    "ordinal": "第{n}",
+    "pagination": {
+      "nav": "分頁",
+      "previous": "上一頁",
+      "goToPrevious": "轉到上一頁",
+      "next": "下一頁",
+      "goToNext": "轉到下一頁",
+      "first": "首頁",
+      "goToFirst": "轉到首頁",
+      "last": "末頁",
+      "goToLast": "轉到末頁",
+      "morePages": "更多頁面"
+    }
   },
   "auth": {
     "login": "登入",

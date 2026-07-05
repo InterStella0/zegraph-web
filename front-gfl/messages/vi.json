@@ -10,7 +10,19 @@
     "close": "Đóng",
     "search": "Tìm kiếm",
     "hours": "{value} giờ",
-    "ordinal": "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}"
+    "ordinal": "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}",
+    "pagination": {
+      "nav": "phân trang",
+      "previous": "Trước",
+      "goToPrevious": "Đi tới trang trước",
+      "next": "Tiếp theo",
+      "goToNext": "Đi tới trang tiếp theo",
+      "first": "Đầu tiên",
+      "goToFirst": "Đi tới trang đầu tiên",
+      "last": "Cuối cùng",
+      "goToLast": "Đi tới trang cuối cùng",
+      "morePages": "Nhiều trang hơn"
+    }
   },
   "auth": {
     "login": "Đăng nhập",

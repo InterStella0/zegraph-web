@@ -10,7 +10,19 @@
     "close": "关闭",
     "search": "搜索",
     "hours": "{value} 小时",
-    "ordinal": "第{n}"
+    "ordinal": "第{n}",
+    "pagination": {
+      "nav": "分页",
+      "previous": "上一页",
+      "goToPrevious": "转到上一页",
+      "next": "下一页",
+      "goToNext": "转到下一页",
+      "first": "首页",
+      "goToFirst": "转到首页",
+      "last": "末页",
+      "goToLast": "转到末页",
+      "morePages": "更多页面"
+    }
   },
   "auth": {
     "login": "登录",

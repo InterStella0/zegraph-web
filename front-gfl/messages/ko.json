@@ -10,7 +10,19 @@
     "close": "닫기",
     "search": "검색",
     "hours": "{value} 시간",
-    "ordinal": "{n, selectordinal, one {#번째} other {#번째}}"
+    "ordinal": "{n, selectordinal, one {#번째} other {#번째}}",
+    "pagination": {
+      "nav": "페이지네이션",
+      "previous": "이전",
+      "goToPrevious": "이전 페이지로 이동",
+      "next": "다음",
+      "goToNext": "다음 페이지로 이동",
+      "first": "처음",
+      "goToFirst": "첫 페이지로 이동",
+      "last": "마지막",
+      "goToLast": "마지막 페이지로 이동",
+      "morePages": "더 많은 페이지"
+    }
   },
   "auth": {
     "login": "로그인",

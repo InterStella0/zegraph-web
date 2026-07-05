@@ -10,7 +10,19 @@
     "close": "Close",
     "search": "Search",
     "hours": "{value} hrs",
-    "ordinal": "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}"
+    "ordinal": "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}",
+    "pagination": {
+      "nav": "pagination",
+      "previous": "Previous",
+      "goToPrevious": "Go to previous page",
+      "next": "Next",
+      "goToNext": "Go to next page",
+      "first": "First",
+      "goToFirst": "Go to first page",
+      "last": "Last",
+      "goToLast": "Go to last page",
+      "morePages": "More pages"
+    }
   },
   "auth": {
     "login": "Login",
