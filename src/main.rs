@@ -38,6 +38,7 @@ use crate::routers::accounts::AccountsApi;
 use crate::routers::characters::CharacterApi;
 use crate::routers::servers::ServerApi;
 use crate::routers::donations::DonationsApi;
+use crate::routers::special_thanks::SpecialThanksApi;
 use crate::routers::ze_community_links::ZeCommunityLinksApi;
 use crate::routers::admin_maps::AdminMapsApi;
 use crate::routers::admin_servers::AdminServersApi;
@@ -134,6 +135,7 @@ async fn run_main() {
         AccountsApi,
         CharacterApi,
         DonationsApi,
+        SpecialThanksApi,
         ZeCommunityLinksApi,
         AdminMapsApi,
         AdminServersApi,
@@ -149,6 +151,7 @@ async fn run_main() {
         Arc::new(AccountsApi),
         Arc::new(CharacterApi),
         Arc::new(DonationsApi),
+        Arc::new(SpecialThanksApi),
         Arc::new(ZeCommunityLinksApi),
         Arc::new(AdminMapsApi),
         Arc::new(AdminServersApi),

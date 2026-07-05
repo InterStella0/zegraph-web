@@ -344,6 +344,14 @@ CREATE TABLE website.kofi_donors (
 );
 
 
+CREATE TABLE website.special_thanks (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    display_name TEXT NOT NULL,
+    description  TEXT NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
 CREATE TABLE website.ze_community_links (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name        TEXT NOT NULL,
