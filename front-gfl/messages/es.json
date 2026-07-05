@@ -60,7 +60,9 @@
     "interval1Day": "1 día",
     "collapse": "Contraer",
     "expand": "Expandir",
-    "noPopulationData": "Aún no hay datos de población disponibles."
+    "noPopulationData": "Aún no hay datos de población disponibles.",
+    "playersOnlineCount": "{count, plural, one {# jugador} other {# jugadores}} en línea",
+    "requestServer": "Solicitar un Servidor"
   },
   "servers": {
     "currentMatch": {

@@ -60,7 +60,9 @@
     "interval1Day": "1 hari",
     "collapse": "Kuncupkan",
     "expand": "Kembangkan",
-    "noPopulationData": "Belum ada data populasi tersedia."
+    "noPopulationData": "Belum ada data populasi tersedia.",
+    "playersOnlineCount": "{count, plural, other {# pemain}} dalam talian",
+    "requestServer": "Minta Pelayan"
   },
   "servers": {
     "currentMatch": {

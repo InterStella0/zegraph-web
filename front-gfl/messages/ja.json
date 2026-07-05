@@ -60,7 +60,9 @@
     "interval1Day": "1日",
     "collapse": "折りたたむ",
     "expand": "展開",
-    "noPopulationData": "まだ人口データが利用できません。"
+    "noPopulationData": "まだ人口データが利用できません。",
+    "playersOnlineCount": "{count, plural, one {# プレイヤー} other {# プレイヤー}}がオンライン",
+    "requestServer": "サーバーをリクエスト"
   },
   "servers": {
     "currentMatch": {

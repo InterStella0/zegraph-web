@@ -1,5 +1,6 @@
 'use client'
 import {useContext, useEffect, useState, useCallback} from 'react';
+import {useTranslations} from "next-intl";
 import {Sheet, SheetContent} from "components/ui/sheet";
 import {Button} from "components/ui/button";
 import {Avatar, AvatarFallback, AvatarImage} from "components/ui/avatar";
@@ -40,6 +41,7 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
     setRequestOpen: (value: boolean) => void
 }) {
 
+    const t = useTranslations('home');
     const [isClient, setIsClient] = useState(false);
     const router = useRouter();
     const [isMobile, setIsMobile] = useState(false);
@@ -158,10 +160,10 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                 {!isCollapsed && (
                     <div className="px-6 py-4 border-b border-border/40">
                         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                            Communities
+                            {t('title')}
                         </h2>
                         <p className="text-xs text-muted-foreground">
-                            {communities.reduce((a, b) => a + b.players, 0)} players online
+                            {t('playersOnlineCount', {count: communities.reduce((a, b) => a + b.players, 0)})}
                         </p>
                     </div>
                 )}
@@ -212,7 +214,7 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                                                             <span className="font-medium">{community.players}</span>
                                                         </div>
                                                         <span className="text-xs text-muted-foreground">
-                                                            {community.servers.length} server{community.servers.length !== 1 ? 's' : ''}
+                                                            {t('serverCount', {count: community.servers.length})}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -290,12 +292,12 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                                                     {expandedCommunities.has(community.id) ? (
                                                         <>
                                                             <ChevronUp className="mr-1 h-3 w-3" />
-                                                            Show Less
+                                                            {t('showLess')}
                                                         </>
                                                     ) : (
                                                         <>
                                                             <ChevronDown className="mr-1 h-3 w-3" />
-                                                            Show {community.servers.length - MAX_SERVERS_SHOWN} More
+                                                            {t('showMore', {count: community.servers.length - MAX_SERVERS_SHOWN})}
                                                         </>
                                                     )}
                                                 </Button>
@@ -315,11 +317,11 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                     variant="ghost"
                     size={isCollapsed ? "icon" : "sm"}
                     onClick={() => setRequestOpen(true)}
-                    title="Request a Server"
+                    title={t('requestServer')}
                     className={isCollapsed ? '' : 'w-full justify-start gap-2 text-muted-foreground'}
                 >
                     <PlusCircle className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && <span>Request a Server</span>}
+                    {!isCollapsed && <span>{t('requestServer')}</span>}
                 </Button>
             </div>
         </div>

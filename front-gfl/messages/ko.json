@@ -60,7 +60,9 @@
     "interval1Day": "1일",
     "collapse": "접기",
     "expand": "펼치기",
-    "noPopulationData": "아직 인구 데이터가 없습니다."
+    "noPopulationData": "아직 인구 데이터가 없습니다.",
+    "playersOnlineCount": "{count, plural, one {# 플레이어} other {# 플레이어}}온라인",
+    "requestServer": "서버 요청"
   },
   "servers": {
     "currentMatch": {

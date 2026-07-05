@@ -60,7 +60,9 @@
     "interval1Day": "1 天",
     "collapse": "收合",
     "expand": "展開",
-    "noPopulationData": "尚無人數資料。"
+    "noPopulationData": "尚無人數資料。",
+    "playersOnlineCount": "{count} 名玩家上線",
+    "requestServer": "申請伺服器"
   },
   "servers": {
     "currentMatch": {
@@ -479,12 +481,12 @@
       "favorites": "收藏"
     },
     "category": {
-      "casual": "休閒",
-      "tryhard": "認真模式",
+      "casual": "咸鱼图",
+      "tryhard": "长程图",
       "mixed": "混合",
-      "lasers": "雷射",
-      "noNoms": "無提名",
-      "playerType": "玩家類型：{category}"
+      "lasers": "彈幕图",
+      "noNoms": "無訂日",
+      "playerType": "玩家类型：{category}"
     },
     "table": {
       "disabled": "已停用",
