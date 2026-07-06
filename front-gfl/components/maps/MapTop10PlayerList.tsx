@@ -167,11 +167,11 @@ function MapTop10PlayerListDisplay(): ReactElement{
                     </TooltipProvider>
                 </div>
             </div>
-            {error && <div className="min-h-[712px] flex items-center justify-center gap-2">
+            {error && <div className="min-h-[712px] flex items-center justify-center gap-2 px-4">
                 <AlertTriangle />
                 <p>{error || t('somethingWrong')}</p>
             </div>}
-            {!error && <div className="min-h-[712px] px-2">
+            {!error && <div className="min-h-[712px] px-4">
                 <div className="pb-2">
                     <Popover open={isSuggestionsOpen} onOpenChange={setSuggestionsOpen}>
                         <PopoverTrigger asChild>
