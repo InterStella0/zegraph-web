@@ -22,7 +22,7 @@ const SUGGESTION_MIN_CHARS = 2
 const SUGGESTION_DEBOUNCE_MS = 300
 const COMMIT_DEBOUNCE_MS = 2000
 
-function MapTop10PlayerListDisplay(): ReactElement{
+function MapTopPlayerListDisplay(): ReactElement{
     const t = useTranslations('maps.top10');
     const { name } = useMapContext()
     const [ currentPage, setPage ] = useState<number>(0)
@@ -241,9 +241,9 @@ function MapTop10PlayerListDisplay(): ReactElement{
         </Card>
     )
 }
-export default function MapTop10PlayerList(): ReactElement{
+export default function MapTopPlayerList(): ReactElement{
     const t = useTranslations('maps.top10');
     return <ErrorCatch message={t('loadError')}>
-        <MapTop10PlayerListDisplay />
+        <MapTopPlayerListDisplay />
     </ErrorCatch>
 }

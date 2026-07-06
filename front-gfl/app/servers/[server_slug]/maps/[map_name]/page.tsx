@@ -14,7 +14,7 @@ import MapGuidesButton from "components/maps/MapGuidesButton";
 import MapHeatRegion from "components/maps/MapHeatRegion.tsx";
 import MapRegionDistribution from "components/maps/MapRegionDistribution.tsx";
 import MapSessionList from "components/maps/MapSessionList.tsx";
-import MapTop10PlayerList from "components/maps/MapTop10PlayerList.tsx";
+import MapTopPlayerList from "components/maps/MapTopPlayerList.tsx";
 import MapAverageSessionDistribution from "components/maps/MapAverageSessionDistribution.tsx";
 import MapPlayerType from "components/maps/MapPlayerType.tsx";
 import MapMusicSection from "components/maps/MapMusicSection.tsx";
@@ -203,7 +203,7 @@ export default async function Page({ params }){
                         <MapSessionList />
                     </div>
                     <div className="col-span-12 xl:col-span-4 lg:col-span-5 md:col-span-6">
-                        <MapTop10PlayerList />
+                        <MapTopPlayerList />
                     </div>
                     <div className="col-span-12 xl:col-span-4 lg:col-span-12">
                         <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
