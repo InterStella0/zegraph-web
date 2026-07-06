@@ -960,17 +960,147 @@ impl MapApi{
         handle_worker_map_result(app.map_worker.get_session_distributions(&context).await)
     }
     #[oai(path="/servers/:server_id/maps/:map_name/top_players", method="get")]
-    async fn get_map_player_top_10(
-        &self, Data(app): Data<&AppData>, extract: MapExtractor
-    ) -> Response<Vec<PlayerBrief>>{
-        let context = MapContext::from(extract);
+    async fn get_map_players(
+        &self, Data(app): Data<&AppData>, extract: MapExtractor,
+        Query(page): Query<Option<usize>>, Query(player_name): Query<Option<String>>
+    ) -> Response<BriefPlayers>{
+        let pool = &*app.pool.clone();
+        let pagination_size = 10i64;
+        let page = page.unwrap_or(0);
+        let offset = pagination_size * page as i64;
+        let server_id = extract.server.server_id.clone();
+        let map_name = extract.map.map.clone();
+        let player_name = player_name
+            .map(|n| n.trim().to_string())
+            .filter(|n| n.len() >= 2);
 
-        match app.map_worker.get_top_10_players(&context).await {
-            Ok(result) => response!(ok result),
-            Err(WorkError::NotFound) => response!(err "No players found for map", ErrorCode::NotFound),
-            Err(WorkError::Database(_)) => response!(internal_server_error),
-            Err(WorkError::Calculating) => response!(calculating),
+        let (rows, is_new) = match &player_name {
+            Some(player_name) => {
+                let name_pattern = format!("%{player_name}%");
+                let rows = match sqlx::query_as!(DbPlayerBrief, "
+                    WITH pages AS (
+                        SELECT pmt.player_id, pmt.total_playtime, pmr.map_rank::int AS rank,
+                               COUNT(*) OVER() AS total_players
+                        FROM website.player_map_time pmt
+                        JOIN website.player_map_rank pmr
+                            ON pmr.server_id = pmt.server_id AND pmr.map = pmt.map AND pmr.player_id = pmt.player_id
+                        JOIN player p ON p.player_id = pmt.player_id
+                        WHERE pmt.server_id = $1 AND pmt.map = $2 AND p.player_name ILIKE $5
+                        ORDER BY pmr.map_rank
+                        LIMIT $3 OFFSET $4
+                    )
+                    SELECT
+                        pg.total_players,
+                        p.player_id,
+                        p.player_name,
+                        p.created_at,
+                        pg.total_playtime,
+                        pg.rank,
+                        op.started_at AS \"online_since?\",
+                        lp.started_at AS \"last_played?\",
+                        (lp.ended_at - lp.started_at) AS \"last_played_duration?\"
+                    FROM pages pg
+                    JOIN player p ON p.player_id = pg.player_id
+                    LEFT JOIN LATERAL (
+                        SELECT s.started_at, s.ended_at
+                        FROM player_server_session s
+                        WHERE s.player_id = p.player_id
+                          AND s.server_id = $1
+                          AND s.ended_at IS NOT NULL
+                        ORDER BY s.started_at DESC
+                        LIMIT 1
+                    ) lp ON TRUE
+                    LEFT JOIN LATERAL (
+                        SELECT s.started_at
+                        FROM player_server_session s
+                        WHERE s.player_id = p.player_id
+                          AND s.server_id = $1
+                          AND s.ended_at IS NULL
+                          AND CURRENT_TIMESTAMP - s.started_at < INTERVAL '12 hours'
+                        ORDER BY s.started_at
+                        LIMIT 1
+                    ) op ON TRUE
+                    ORDER BY pg.rank
+                ", server_id, map_name, pagination_size, offset, name_pattern).fetch_all(pool).await {
+                    Ok(rows) => rows,
+                    Err(e) => {
+                        tracing::error!("Failed to search map players for {server_id}:{map_name}:{player_name}: {e}");
+                        return response!(internal_server_error);
+                    }
+                };
+                (rows, true)
+            },
+            None => {
+                let sql_func = || sqlx::query_as!(DbPlayerBrief, "
+                    WITH pages AS (
+                        SELECT pmt.player_id, pmt.total_playtime, pmr.map_rank::int AS rank,
+                               COUNT(*) OVER() AS total_players
+                        FROM website.player_map_time pmt
+                        JOIN website.player_map_rank pmr
+                            ON pmr.server_id = pmt.server_id AND pmr.map = pmt.map AND pmr.player_id = pmt.player_id
+                        WHERE pmt.server_id = $1 AND pmt.map = $2
+                        ORDER BY pmr.map_rank
+                        LIMIT $3 OFFSET $4
+                    )
+                    SELECT
+                        pg.total_players,
+                        p.player_id,
+                        p.player_name,
+                        p.created_at,
+                        pg.total_playtime,
+                        pg.rank,
+                        op.started_at AS \"online_since?\",
+                        lp.started_at AS \"last_played?\",
+                        (lp.ended_at - lp.started_at) AS \"last_played_duration?\"
+                    FROM pages pg
+                    JOIN player p ON p.player_id = pg.player_id
+                    LEFT JOIN LATERAL (
+                        SELECT s.started_at, s.ended_at
+                        FROM player_server_session s
+                        WHERE s.player_id = p.player_id
+                          AND s.server_id = $1
+                          AND s.ended_at IS NOT NULL
+                        ORDER BY s.started_at DESC
+                        LIMIT 1
+                    ) lp ON TRUE
+                    LEFT JOIN LATERAL (
+                        SELECT s.started_at
+                        FROM player_server_session s
+                        WHERE s.player_id = p.player_id
+                          AND s.server_id = $1
+                          AND s.ended_at IS NULL
+                          AND CURRENT_TIMESTAMP - s.started_at < INTERVAL '12 hours'
+                        ORDER BY s.started_at
+                        LIMIT 1
+                    ) op ON TRUE
+                    ORDER BY pg.rank
+                ", server_id, map_name, pagination_size, offset).fetch_all(pool);
+                let key = format!("map-players:{server_id}:{map_name}:{page}");
+                let result = match cached_response(&key, &app.cache, 10 * 60, sql_func).await {
+                    Ok(result) => result,
+                    Err(e) => {
+                        tracing::error!("Failed to fetch map players for {key}: {e}");
+                        return response!(internal_server_error);
+                    }
+                };
+                (result.result, result.is_new)
+            }
+        };
+
+        let total_player_count = rows
+            .first()
+            .and_then(|e| e.total_players)
+            .unwrap_or_default();
+
+        let mut players: Vec<PlayerBrief> = rows.iter_into();
+        if !is_new {
+            update_online_brief(pool, &app.cache, &server_id, &mut players).await;
         }
+        let value = BriefPlayers {
+            total_players: total_player_count,
+            players
+        };
+        response!(ok value)
     }
     #[oai(path="/servers/:server_id/guides", method="get")]
     async fn get_all_map_guides(

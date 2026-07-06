@@ -313,7 +313,8 @@ impl WorkerQuery<Vec<DbMapSessionDistribution>> for MapBasicQuery<Vec<DbMapSessi
                     LEAST(pss.ended_at, smp.ended_at) - GREATEST(pss.started_at, smp.started_at) as total_duration
                 FROM public.server_map_played smp
                 INNER JOIN player_server_session pss
-                    ON pss.started_at < smp.ended_at
+                    ON pss.server_id = smp.server_id
+                    AND pss.started_at < smp.ended_at
                     AND pss.ended_at > smp.started_at
                 WHERE smp.map = (SELECT map_target FROM params)
                     AND smp.server_id = (SELECT target_server FROM params)
@@ -386,83 +387,6 @@ impl WorkerQuery<DbServerMapPartial> for MapBasicQuery<DbServerMapPartial> {
     fn cache_key_pattern(&self) -> String {
         let ctx = &self.context;
         format!("map-partial:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        7 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-}
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerBrief>> for MapBasicQuery<Vec<DbPlayerBrief>> {
-    // Can be reduced
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerBrief>, Self::Error> {
-        // Noted to be a slow query, probably can be speed up
-        let ctx = &self.context;
-        sqlx::query_as!(DbPlayerBrief,
-                "
-            WITH params AS (
-                SELECT $2 AS map_target, $1 AS target_server
-            ),
-            time_spent AS (
-                SELECT
-                    pss.player_id, SUM(
-                        LEAST(pss.ended_at, smp.ended_at) - GREATEST(pss.started_at, smp.started_at)
-                    ) AS total
-                FROM  public.server_map_played smp
-                INNER JOIN player_server_session pss
-                ON pss.started_at < smp.ended_at
-                AND pss.ended_at > smp.started_at
-                WHERE smp.map = (SELECT map_target FROM params)
-                    AND smp.server_id=(SELECT target_server FROM params)
-                GROUP BY pss.player_id
-            )
-            ,
-            online_players AS (
-                SELECT player_id, started_at
-                FROM player_server_session
-                WHERE server_id=(SELECT target_server FROM params)
-                    AND ended_at IS NULL
-                        AND (CURRENT_TIMESTAMP - started_at) < INTERVAL '12 hours'
-                ),
-            last_player_sessions AS (
-                SELECT DISTINCT ON (player_id) player_id, started_at, ended_at
-                FROM player_server_session
-                WHERE ended_at IS NOT NULL
-                    AND server_id=(SELECT target_server FROM params)
-                ORDER BY player_id, started_at DESC
-            )
-            SELECT
-                COUNT(p.player_id) OVER() total_players,
-                p.player_id,
-                p.player_name,
-                p.created_at,
-                ts.total AS total_playtime,
-                COALESCE(op.started_at, NULL) as online_since,
-                lps.started_at AS last_played,
-                (lps.ended_at - lps.started_at) AS last_played_duration,
-                0::int AS rank
-            FROM player p
-            JOIN time_spent ts
-            ON ts.player_id = p.player_id
-            LEFT JOIN online_players op
-            ON op.player_id=p.player_id
-            JOIN last_player_sessions lps
-            ON lps.player_id=p.player_id
-            ORDER BY total_playtime DESC
-            LIMIT 10",
-            ctx.data.server_id, ctx.data.map_name
-            ).fetch_all(&*ctx.pool).await
-    }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("map-top-10:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
     }
 
     fn ttl(&self) -> u64 {
@@ -753,10 +677,6 @@ impl MapWorker {
     }
     pub async fn get_regions(&self, context: &MapContext) -> WorkResult<Vec<MapRegion>> {
         let value: CachedResult<Vec<DbMapRegion>> = self.query_map(context).await?;
-        Ok(value.result.iter_into())
-    }
-    pub async fn get_top_10_players(&self, context: &MapContext) -> WorkResult<Vec<PlayerBrief>> {
-        let value: CachedResult<Vec<DbPlayerBrief>> = self.query_map(context).await?;
         Ok(value.result.iter_into())
     }
     pub async fn get_events(&self, context: &MapContext) -> WorkResult<Vec<MapEventAverage>> {

@@ -407,12 +407,15 @@
       "loadError": "无法显示地图统计数据"
     },
     "top10": {
-      "title": "前 10 名玩家",
-      "tooltip": "最喜爱这张地图的前 10 名玩家。",
+      "title": "玩家",
+      "tooltip": "最喜爱这张地图的玩家。",
       "somethingWrong": "出错了",
       "somethingWrongFace": "出错了 :/",
       "noPlayers": "此列表中没有玩家。",
-      "loadError": "前 10 名玩家无法加载。"
+      "loadError": "玩家无法加载。",
+      "searchPlaceholder": "搜索玩家...（按 Enter 搜索）",
+      "noResultsFor": "未找到 \"{query}\" 的结果。",
+      "noSuggestions": "没有匹配的玩家"
     },
     "sessionDistribution": {
       "somethingWrong": "出错了",

@@ -407,12 +407,15 @@
       "loadError": "Couldn't show map stats"
     },
     "top10": {
-      "title": "Top 10 Players",
-      "tooltip": "Top 10 players who love the map the most.",
+      "title": "Players",
+      "tooltip": "Players who love the map the most.",
       "somethingWrong": "Something went wrong",
       "somethingWrongFace": "Something went wrong :/",
       "noPlayers": "No players in this list.",
-      "loadError": "Couldn't load top 10 players."
+      "loadError": "Couldn't load players.",
+      "searchPlaceholder": "Search players... (Press Enter to search)",
+      "noResultsFor": "No results found for \"{query}\".",
+      "noSuggestions": "No matching players"
     },
     "sessionDistribution": {
       "somethingWrong": "Something went wrong",

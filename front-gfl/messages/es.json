@@ -407,12 +407,15 @@
       "loadError": "No se pudieron mostrar las estadísticas del mapa"
     },
     "top10": {
-      "title": "Top 10 jugadores",
-      "tooltip": "Los 10 jugadores que más aman este mapa.",
+      "title": "Jugadores",
+      "tooltip": "Los jugadores que más aman este mapa.",
       "somethingWrong": "Algo salió mal",
       "somethingWrongFace": "Algo salió mal :/",
       "noPlayers": "No hay jugadores en esta lista.",
-      "loadError": "No se pudo cargar el top 10 de jugadores."
+      "loadError": "No se pudieron cargar los jugadores.",
+      "searchPlaceholder": "Buscar jugadores... (Pulsa Enter para buscar)",
+      "noResultsFor": "No se encontraron resultados para \"{query}\".",
+      "noSuggestions": "No hay jugadores coincidentes"
     },
     "sessionDistribution": {
       "somethingWrong": "Algo salió mal",

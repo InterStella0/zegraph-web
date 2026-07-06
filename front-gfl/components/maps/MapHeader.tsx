@@ -154,7 +154,7 @@ function MapHeaderDisplay() {
                             </div>
                         </div>
                     )}
-                    {info.min_players != null && info.min_players > 0 && (
+                    {info?.min_players != null && info.min_players > 0 && (
                         <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
                             <div className="flex flex-row items-center gap-1 text-white">
                                 <Users className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
@@ -164,7 +164,7 @@ function MapHeaderDisplay() {
                             </div>
                         </div>
                     )}
-                    {info.max_players != null && (info.max_players != server.max_players && info.max_players != 0) && (
+                    {info?.max_players != null && (info.max_players != server.max_players && info.max_players != 0) && (
                         <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
                             <div className="flex flex-row items-center gap-1 text-white">
                                 <Users className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />

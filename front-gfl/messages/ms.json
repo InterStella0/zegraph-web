@@ -407,12 +407,15 @@
       "loadError": "Statistik map tidak dapat ditunjukkan"
     },
     "top10": {
-      "title": "10 Pemain Teratas",
-      "tooltip": "10 pemain yang paling menyukai map ini.",
+      "title": "Pemain",
+      "tooltip": "Pemain yang paling menyukai map ini.",
       "somethingWrong": "Sesuatu telah berlaku",
       "somethingWrongFace": "Sesuatu telah berlaku :/",
       "noPlayers": "Tiada pemain dalam senarai ini.",
-      "loadError": "10 pemain teratas tidak dapat dimuatkan."
+      "loadError": "Pemain tidak dapat dimuatkan.",
+      "searchPlaceholder": "Cari pemain... (Tekan Enter untuk cari)",
+      "noResultsFor": "Tiada hasil untuk \"{query}\".",
+      "noSuggestions": "Tiada pemain yang sepadan"
     },
     "sessionDistribution": {
       "somethingWrong": "Sesuatu telah berlaku",

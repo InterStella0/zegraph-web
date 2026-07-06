@@ -407,12 +407,15 @@
       "loadError": "Statistik peta tidak dapat ditampilkan"
     },
     "top10": {
-      "title": "Top 10 Pemain",
-      "tooltip": "Top 10 pemain yang paling mencintai peta.",
+      "title": "Pemain",
+      "tooltip": "Pemain yang paling mencintai peta.",
       "somethingWrong": "Sesuatu tidak beres",
       "somethingWrongFace": "Sesuatu tidak beres :/",
       "noPlayers": "Tidak ada pemain dalam daftar ini.",
-      "loadError": "Top 10 pemain tidak dapat dimuat."
+      "loadError": "Pemain tidak dapat dimuat.",
+      "searchPlaceholder": "Cari pemain... (Tekan Enter untuk mencari)",
+      "noResultsFor": "Tidak ada hasil untuk \"{query}\".",
+      "noSuggestions": "Tidak ada pemain yang cocok"
     },
     "sessionDistribution": {
       "somethingWrong": "Sesuatu tidak beres",

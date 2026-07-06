@@ -407,12 +407,15 @@
       "loadError": "Không thể hiển thị thống kê bản đồ"
     },
     "top10": {
-      "title": "Top 10 người chơi",
-      "tooltip": "Top 10 người chơi yêu thích bản đồ nhất.",
+      "title": "Người chơi",
+      "tooltip": "Những người chơi yêu thích bản đồ nhất.",
       "somethingWrong": "Có gì đó không đúng",
       "somethingWrongFace": "Có gì đó không đúng :/",
       "noPlayers": "Không có người chơi trong danh sách này.",
-      "loadError": "Không thể tải top 10 người chơi."
+      "loadError": "Không thể tải người chơi.",
+      "searchPlaceholder": "Tìm kiếm người chơi... (Nhấn Enter để tìm kiếm)",
+      "noResultsFor": "Không tìm thấy kết quả cho \"{query}\".",
+      "noSuggestions": "Không có người chơi trùng khớp"
     },
     "sessionDistribution": {
       "somethingWrong": "Có gì đó không đúng",

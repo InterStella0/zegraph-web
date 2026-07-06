@@ -407,12 +407,15 @@
       "loadError": "맵 통계를 표시할 수 없습니다"
     },
     "top10": {
-      "title": "상위 10 플레이어",
-      "tooltip": "이 맵을 가장 좋아하는 상위 10명의 플레이어입니다.",
+      "title": "플레이어",
+      "tooltip": "이 맵을 가장 좋아하는 플레이어입니다.",
       "somethingWrong": "문제가 발생했습니다",
       "somethingWrongFace": "문제가 발생했습니다 :/",
       "noPlayers": "이 목록에 플레이어가 없습니다.",
-      "loadError": "상위 10 플레이어를 로드할 수 없습니다."
+      "loadError": "플레이어를 로드할 수 없습니다.",
+      "searchPlaceholder": "플레이어 검색... (Enter를 눌러 검색)",
+      "noResultsFor": "\"{query}\"에 대한 결과를 찾을 수 없습니다.",
+      "noSuggestions": "일치하는 플레이어가 없습니다"
     },
     "sessionDistribution": {
       "somethingWrong": "문제가 발생했습니다",

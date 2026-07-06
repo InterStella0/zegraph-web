@@ -407,12 +407,15 @@
       "loadError": "無法顯示地圖統計資料"
     },
     "top10": {
-      "title": "前 10 名玩家",
-      "tooltip": "最喜愛這張地圖的前 10 名玩家。",
+      "title": "玩家",
+      "tooltip": "最喜愛這張地圖的玩家。",
       "somethingWrong": "發生錯誤",
       "somethingWrongFace": "發生錯誤 :/",
       "noPlayers": "此清單中沒有玩家。",
-      "loadError": "前 10 名玩家無法載入。"
+      "loadError": "玩家無法載入。",
+      "searchPlaceholder": "搜尋玩家...（按 Enter 搜尋）",
+      "noResultsFor": "找不到「{query}」的結果。",
+      "noSuggestions": "沒有相符的玩家"
     },
     "sessionDistribution": {
       "somethingWrong": "發生錯誤",

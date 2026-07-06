@@ -407,12 +407,15 @@
       "loadError": "マップ統計を表示できません"
     },
     "top10": {
-      "title": "トップ10プレイヤー",
-      "tooltip": "このマップを最も愛するトップ10プレイヤー。",
+      "title": "プレイヤー",
+      "tooltip": "このマップを最も愛するプレイヤー。",
       "somethingWrong": "何か問題が発生しました",
       "somethingWrongFace": "何か問題が発生しました :/",
       "noPlayers": "このリストにプレイヤーはいません。",
-      "loadError": "トップ10プレイヤーを読み込めません。"
+      "loadError": "プレイヤーを読み込めません。",
+      "searchPlaceholder": "プレイヤーを検索...(Enterキーで検索)",
+      "noResultsFor": "\"{query}\"の結果が見つかりません。",
+      "noSuggestions": "一致するプレイヤーがいません"
     },
     "sessionDistribution": {
       "somethingWrong": "何か問題が発生しました",

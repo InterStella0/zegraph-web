@@ -19,7 +19,7 @@ import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 dayjs.extend(relativeTime)
 
 function PlayerInformation(
-    { player, timeUnit = "h" }: { player: ExtendedPlayerBrief, timeUnit?: "h" | "m" }
+    { player, timeUnit = "h", showRank = false }: { player: ExtendedPlayerBrief, timeUnit?: "h" | "m", showRank?: boolean }
 ) {
     const { resolvedTheme } = useTheme();
     const isDarkMode = resolvedTheme === 'dark';
@@ -59,6 +59,11 @@ function PlayerInformation(
         >
             <TableCell className="py-2 sm:py-3 pl-2 sm:pl-4">
                 <div className="flex items-center">
+                    {showRank && (
+                        <span className="w-8 sm:w-9 flex-shrink-0 text-center font-mono text-xs sm:text-sm text-muted-foreground">
+                            #{player.rank}
+                        </span>
+                    )}
                     <PlayerAvatar uuid={player.id} name={player.name} />
 
                     <div className="ml-2 sm:ml-4 min-w-0">
@@ -127,7 +132,7 @@ function PlayerRowError() {
     );
 }
 
-export function PlayerTableRowLoading() {
+export function PlayerTableRowLoading({ showRank = false }: { showRank?: boolean } = {}) {
     const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
@@ -140,6 +145,11 @@ export function PlayerTableRowLoading() {
         <TableRow>
             <TableCell className="py-2 sm:py-3 pl-2 sm:pl-4">
                 <div className="flex items-center">
+                    {showRank && (
+                        <span className="w-8 sm:w-9 flex-shrink-0 flex justify-center">
+                            <Skeleton className="h-3 sm:h-4 w-5" />
+                        </span>
+                    )}
                     <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
                     <div className="ml-2 sm:ml-4 min-w-0">
                         <Skeleton
@@ -158,11 +168,11 @@ export function PlayerTableRowLoading() {
 }
 
 export default function PlayerTableRow(
-    { player, timeUnit = "h" }: { player: ExtendedPlayerBrief, timeUnit?: "h" | "m" }
+    { player, timeUnit = "h", showRank = false }: { player: ExtendedPlayerBrief, timeUnit?: "h" | "m", showRank?: boolean }
 ) {
     return (
         <ErrorBoundary fallback={<PlayerRowError />}>
-            <PlayerInformation player={player} timeUnit={timeUnit} />
+            <PlayerInformation player={player} timeUnit={timeUnit} showRank={showRank} />
         </ErrorBoundary>
     );
 }
