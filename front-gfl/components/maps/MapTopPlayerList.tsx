@@ -8,10 +8,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "../ui/command";
 import { Table, TableBody, TableCell, TableRow } from "../ui/table";
-import {fetchApiServerUrl, fetchServerUrl} from "utils/generalUtils.ts";
+import {fetchApiServerUrl, fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import PlayerTableRow, {PlayerTableRowLoading} from "../players/PlayerTableRow.tsx";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {BriefPlayers, ExtendedPlayerBrief, SearchPlayer} from "types/players.ts";
 import PaginationPage from "components/ui/PaginationPage.tsx";
@@ -30,6 +31,7 @@ function MapTopPlayerListDisplay(): ReactElement{
     const [ playersInfoResult, setPlayerInfo ] = useState<BriefPlayers | null>(null)
     const [ loading, setLoading ] = useState<boolean>(false)
     const [ error, setError ] = useState<string | null>(null)
+    const [ notReady, setNotReady ] = useState<boolean>(false)
     const [ searchInput, setSearchInput ] = useState<string>('')
     const [ searchTerm, setSearchTerm ] = useState<string>('')
     const [ suggestions, setSuggestions ] = useState<SearchPlayer[]>([])
@@ -39,6 +41,8 @@ function MapTopPlayerListDisplay(): ReactElement{
     const { server } = useServerData()
     const server_id = server.id
     const isSuggestionsOpen = suggestionsOpen && (suggestionsLoading || suggestions.length > 0)
+    const [retryTick, setRetryTick] = useState(0)
+    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
         setPlayerInfo(null)
@@ -59,16 +63,18 @@ function MapTopPlayerListDisplay(): ReactElement{
                     (p as ExtendedPlayerBrief).server_id = server_id
                 setPlayerInfo(data)
                 setError(null)
+                setNotReady(false)
             })
             .catch(e => {
                 if (e === "Value changed") return
+                setNotReady(e instanceof StillCalculate)
                 setError(e.message || t('somethingWrongFace'))
             })
             .finally(() => setLoading(false))
         return () => {
             abortController.abort("Value changed")
         }
-    }, [server_id, name, pageDef, searchTerm])
+    }, [server_id, name, pageDef, searchTerm, retryTick])
 
     useEffect(() => {
         const trimmed = searchInput.trim()

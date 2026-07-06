@@ -10,6 +10,7 @@ import {fetchServerUrl, fetchUrl, REGION_COLORS, StillCalculate} from "utils/gen
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
+import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {MapRegion} from "types/maps.ts";
 import {Region} from "types/players.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
@@ -31,12 +32,16 @@ function RegionDistribution() {
     const [ regions, setRegions ] = useState<Region[]>([])
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const [notReady, setNotReady] = useState<boolean>(false);
     const { server } = useServerData()
     const server_id = server.id
+    const [retryTick, setRetryTick] = useState(0)
+    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
         setLoading(true);
         setError(null);
+        setNotReady(false);
         setDetail(null)
 
         fetchServerUrl(server_id, `/maps/${name}/regions`)
@@ -48,12 +53,13 @@ function RegionDistribution() {
                     console.error('Error fetching region data:', err);
                 }
 
+                setNotReady(err instanceof StillCalculate)
                 setError(err.message || t('loadFailed'));
             })
             .finally(() => setLoading(false))
         fetchUrl(`/graph/${server_id}/get_regions`)
             .then(setRegions)
-    }, [server_id, name]);
+    }, [server_id, name, retryTick]);
 
     // Get theme-aware colors
     const getChartColors = () => {

@@ -6,6 +6,7 @@ import { Chart as ChartJS, ArcElement, Legend } from 'chart.js';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
+import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {MapPlayerTypeTime} from "types/players.ts";
 import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
@@ -31,6 +32,9 @@ function MapPlayerTypeDisplay() {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<Error | null>(null);
     const [playerTypes, setPlayerTypes] = useState<MapPlayerTypeTime[]>([]);
+    const [retryTick, setRetryTick] = useState(0)
+    const notReady = error instanceof StillCalculate
+    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
         setLoading(true);
@@ -48,7 +52,7 @@ function MapPlayerTypeDisplay() {
                 setError(err);
             })
             .finally(() => setLoading(false));
-    }, [server_id, name]);
+    }, [server_id, name, retryTick]);
 
     const totalSeconds = playerTypes.reduce((sum, p) => sum + p.time_spent, 0);
     const categoryColors = {

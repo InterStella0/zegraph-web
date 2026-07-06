@@ -14,6 +14,7 @@ import {fetchServerUrl, formatHours, formatNumber, REGION_COLORS, StillCalculate
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
+import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import {DailyMapRegion, MapRegion} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
@@ -42,6 +43,8 @@ function MapHeatRegionDisplay(){
     const notReady = error && error instanceof StillCalculate
     const {server} = useServerData()
     const server_id = server.id
+    const [retryTick, setRetryTick] = useState(0)
+    useNotReadyRetry(!!notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
         setLoading(true)
@@ -61,7 +64,7 @@ function MapHeatRegionDisplay(){
             .then(setRegions)
             .catch(setError)
             .finally(() => setLoading(false))
-    }, [server_id, name]);
+    }, [server_id, name, retryTick]);
 
     const getChartColors = () => {
         if (typeof window === 'undefined') return {

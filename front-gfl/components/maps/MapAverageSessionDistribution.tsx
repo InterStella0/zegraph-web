@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState} from "react";
-import {fetchServerUrl} from "utils/generalUtils.ts";
+import {fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import {LazyBarChart as Bar} from "components/graphs/LazyCharts";
 import { Info } from "lucide-react";
 import { Card } from "../ui/card";
@@ -11,6 +11,7 @@ import ErrorCatch from "../ui/ErrorMessage.tsx";
 import SkeletonBarGraph from "../graphs/SkeletonBarGraph.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
+import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {MapSessionDistribution} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeSessionDistribution } from "utils/chartSeoUtils.tsx";
@@ -22,21 +23,26 @@ function AverageSessionDistribution() {
     const [detail, setDetail] = useState<MapSessionDistribution[] | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const [notReady, setNotReady] = useState<boolean>(false);
     const { server } = useServerData()
     const server_id = server.id
+    const [retryTick, setRetryTick] = useState(0)
+    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
         setLoading(true)
         setDetail(null)
+        setNotReady(false)
         fetchServerUrl(server_id, `/maps/${name}/sessions_distribution`)
             .then((data: MapSessionDistribution[]) => {
                 setDetail(data);
             })
             .catch(err => {
+                setNotReady(err instanceof StillCalculate)
                 setError(err.message || t('somethingWrong'));
             })
             .finally(() => setLoading(false))
-    }, [server_id, name]);
+    }, [server_id, name, retryTick]);
 
     const labels = {
         "Under 10": t('under10'),

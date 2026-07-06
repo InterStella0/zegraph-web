@@ -1,13 +1,14 @@
 'use client'
 import { useEffect, useMemo, useState} from "react";
 import dayjs from "dayjs";
-import {fetchServerUrl} from "utils/generalUtils.ts";
+import {fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import SessionPlayedGraph from "../graphs/SessionPlayedGraph.tsx";
 import PaginationPage from "../ui/PaginationPage.tsx";
 import {Users, Trophy, AlertTriangle} from "lucide-react";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Link from "next/link";
 import {ServerMapPlayed} from "types/maps.ts";
@@ -34,8 +35,11 @@ function AllSessions(){
     const [ totalSessions, setTotalSessions ] = useState(0)
     const [ loading, setLoading ] = useState<boolean>(false)
     const [ error, setError ] = useState<string | null>(null)
+    const [ notReady, setNotReady ] = useState<boolean>(false)
     const { server } = useServerData()
     const server_id = server.id
+    const [retryTick, setRetryTick] = useState(0)
+    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
         setPage(0)
@@ -48,16 +52,19 @@ function AllSessions(){
             .then(resp => {
                 setSessions(resp.maps)
                 setTotalSessions(resp.total_sessions)
+                setError(null)
+                setNotReady(false)
             })
             .catch(e => {
                 if (e === "New Page") return
+                setNotReady(e instanceof StillCalculate)
                 setError(e.message || t('somethingWrong'))
             })
             .finally(() => setLoading(false))
         return () => {
             abort.abort("New Page")
         }
-    }, [server_id, page, name]);
+    }, [server_id, page, name, retryTick]);
     const sessionGraphs = useMemo(() => {
         return [...sessions.map((e, index) => <SessionGraph key={index} session={e} />)]
     }, [sessions])
