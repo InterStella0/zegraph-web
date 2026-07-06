@@ -5,7 +5,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import {debounce} from 'utils/generalUtils';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {DateSources, useDateState} from './DateStateManager';
-import { TrendingUp, Calendar as CalendarIcon, Users } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, Users, Circle } from 'lucide-react';
 import { Button } from "components/ui/button";
 import { Card, CardContent } from "components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
@@ -94,7 +94,7 @@ function SmallDatePicker({ value, onChange, label, disableFuture, maxDateTime, m
 
 function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: Dispatch<SetStateAction<boolean>>}): ReactElement {
     const t = useTranslations('servers.toolbar');
-    const { start: globalStart, end: globalEnd, setDates, source: lastSource, timestamp } = useDateState();
+    const { start: globalStart, end: globalEnd, setDates, source: lastSource, timestamp, isLive, goLive } = useDateState();
 
     const [localStart, setLocalStart] = useState(globalStart);
     const [localEnd, setLocalEnd] = useState(globalEnd);
@@ -131,12 +131,8 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
         setShowApply(false);
     };
 
-    const handleToday = () => {
-        const now = dayjs();
-        const yesterday = now.subtract(6, 'hours');
-        setLocalStart(yesterday);
-        setLocalEnd(now);
-        setDates(yesterday, now, DateSources.TOOLBAR);
+    const handleGoLive = () => {
+        goLive();
         setShowApply(false);
     };
 
@@ -184,15 +180,19 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
-                                    onClick={handleToday}
+                                    onClick={handleGoLive}
                                     size="icon"
-                                    className="h-8 w-8"
+                                    variant={isLive ? "default" : "outline"}
+                                    className="h-8 w-8 relative"
                                 >
-                                    <CalendarIcon className="h-4 w-4" />
+                                    <Circle className={cn("h-4 w-4", isLive && "fill-current")} />
+                                    {isLive && (
+                                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
+                                    )}
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>{t('now')}</p>
+                                <p>{isLive ? t('exitLive') : t('switchLive')}</p>
                             </TooltipContent>
                         </Tooltip>
 

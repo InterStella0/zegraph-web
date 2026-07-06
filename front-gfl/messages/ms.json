@@ -127,7 +127,8 @@
       "start": "Mula",
       "end": "Tamat",
       "selectDate": "Pilih Tarikh",
-      "now": "Sekarang",
+      "exitLive": "Keluar mod langsung",
+      "switchLive": "Tukar ke mod langsung",
       "showPlayers": "Tunjuk Pemain",
       "loadError": "Bar alat graf tidak dapat dimuatkan."
     },

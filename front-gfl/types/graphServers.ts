@@ -6,11 +6,13 @@ export interface DateState {
     start: dayjs.Dayjs,
     end: dayjs.Dayjs,
     source: DateSources,
-    timestamp: dayjs.Dayjs
+    timestamp: dayjs.Dayjs,
+    isLive: boolean
 }
 
 export interface DateStateProvider extends DateState {
     setDates(start: dayjs.Dayjs, end: dayjs.Dayjs, source: DateSources): void;
+    goLive(): void;
 }
 
 export interface GraphServerState {

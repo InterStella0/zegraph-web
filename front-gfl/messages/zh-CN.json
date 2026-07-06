@@ -127,7 +127,8 @@
       "start": "开始",
       "end": "结束",
       "selectDate": "选择日期",
-      "now": "现在",
+      "exitLive": "退出实时模式",
+      "switchLive": "切换到实时模式",
       "showPlayers": "显示玩家",
       "loadError": "图表工具栏无法加载。"
     },

@@ -127,7 +127,8 @@
       "start": "Bắt đầu",
       "end": "Kết thúc",
       "selectDate": "Chọn ngày",
-      "now": "Bây giờ",
+      "exitLive": "Thoát chế độ trực tiếp",
+      "switchLive": "Chuyển sang chế độ trực tiếp",
       "showPlayers": "Hiển thị người chơi",
       "loadError": "Không thể tải thanh công cụ biểu đồ."
     },

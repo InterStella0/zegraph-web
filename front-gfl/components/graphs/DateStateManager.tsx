@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useReducer, useCallback } from 'react';
+import { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import dayjs from 'dayjs';
 import {DateState, DateStateProvider} from "types/graphServers";
 
@@ -7,8 +7,11 @@ export enum DateSources {
     URL,
     TOOLBAR,
     ZOOM,
-    EXTERNAL
+    EXTERNAL,
+    LIVE
 }
+
+const LIVE_POLL_INTERVAL_MS = 150000; // 2.5 minutes
 
 const dateReducer = (state, action) => {
     switch (action.type) {
@@ -18,6 +21,7 @@ const dateReducer = (state, action) => {
                 start: action.start,
                 end: action.end,
                 source: action.source,
+                isLive: action.source === DateSources.LIVE,
                 timestamp: Date.now()
             };
         default:
@@ -31,13 +35,20 @@ const getInitialDates = () => {
         end: now,
         source: DateSources.URL,
         timestamp: dayjs(),
-        setDates: () => {}
+        isLive: true,
+        setDates: () => {},
+        goLive: () => {}
     };
 };
 const DateContext = createContext<DateStateProvider>(getInitialDates());
 
 export function DateProvider({ children }) {
     const [dateState, dispatch] = useReducer(dateReducer, getInitialDates());
+    const dateStateRef = useRef(dateState);
+
+    useEffect(() => {
+        dateStateRef.current = dateState;
+    }, [dateState]);
 
     const setDates = useCallback((start: dayjs.Dayjs, end: dayjs.Dayjs, source: DateSources) => {
         dispatch({ type: 'SET_DATES', start, end, source });
@@ -53,9 +64,33 @@ export function DateProvider({ children }) {
         // setSearchParams
     ]);
 
+    const goLive = useCallback(() => {
+        const { start, end } = dateStateRef.current;
+        const durationMs = end.diff(start);
+        const now = dayjs();
+        setDates(now.subtract(durationMs, 'ms'), now, DateSources.LIVE);
+    }, [setDates]);
+
+    useEffect(() => {
+        if (!dateState.isLive) return;
+
+        const tick = () => {
+            if (document.visibilityState === 'visible') goLive();
+        };
+
+        const intervalId = setInterval(tick, LIVE_POLL_INTERVAL_MS);
+        document.addEventListener('visibilitychange', tick);
+
+        return () => {
+            clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', tick);
+        };
+    }, [dateState.isLive, goLive]);
+
     const value = {
         ...dateState,
-        setDates
+        setDates,
+        goLive
     };
     return (
         <DateContext.Provider value={value}>

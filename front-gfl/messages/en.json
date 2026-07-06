@@ -127,7 +127,8 @@
       "start": "Start",
       "end": "End",
       "selectDate": "Select Date",
-      "now": "Now",
+      "exitLive": "Exit live mode",
+      "switchLive": "Switch to live mode",
       "showPlayers": "Show Players",
       "loadError": "Graph toolbar couldn't be loaded."
     },

@@ -127,7 +127,8 @@
       "start": "開始",
       "end": "結束",
       "selectDate": "選擇日期",
-      "now": "現在",
+      "exitLive": "退出即時模式",
+      "switchLive": "切換至即時模式",
       "showPlayers": "顯示玩家",
       "loadError": "圖表工具列無法載入。"
     },

@@ -127,7 +127,8 @@
       "start": "시작",
       "end": "종료",
       "selectDate": "날짜 선택",
-      "now": "지금",
+      "exitLive": "라이브 모드 종료",
+      "switchLive": "라이브 모드로 전환",
       "showPlayers": "플레이어 표시",
       "loadError": "그래프 도구 모음을 로드할 수 없습니다."
     },

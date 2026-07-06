@@ -127,7 +127,8 @@
       "start": "開始",
       "end": "終了",
       "selectDate": "日付を選択",
-      "now": "今",
+      "exitLive": "ライブモードを終了",
+      "switchLive": "ライブモードに切り替え",
       "showPlayers": "プレイヤーを表示",
       "loadError": "グラフツールバーを読み込めません。"
     },

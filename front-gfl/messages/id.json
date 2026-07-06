@@ -127,7 +127,8 @@
       "start": "Mulai",
       "end": "Akhir",
       "selectDate": "Pilih Tanggal",
-      "now": "Sekarang",
+      "exitLive": "Keluar mode langsung",
+      "switchLive": "Beralih ke mode langsung",
       "showPlayers": "Tampilkan Pemain",
       "loadError": "Bilah alat grafik tidak dapat dimuat."
     },
