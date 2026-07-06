@@ -22,6 +22,7 @@ import {
     PaginationPrevious
 } from "components/ui/pagination.tsx";
 import {useTranslations} from 'next-intl';
+import {Card} from "components/ui/card.tsx";
 
 dayjs.extend(relativeTime);
 
@@ -63,7 +64,7 @@ function AllSessions(){
 
     if (error){
         return (
-            <div className="p-4">
+            <div className="p-2">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     <div className="lg:col-span-4">
                         <h2 className="text-lg font-bold text-primary text-start">{t('title')}</h2>
@@ -81,7 +82,7 @@ function AllSessions(){
     const totalPages = Math.ceil((totalSessions ?? 0) / 5)
     return (
         <TooltipProvider>
-            <div className="p-4">
+            <div className="p-2">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
                     <div className="lg:col-span-4">
                         <h2 className="text-lg font-bold text-primary text-start">{t('title')}</h2>
@@ -222,9 +223,9 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
 
 function MapSessionListDisplay(){
     return (
-        <div className="bg-card">
+        <Card>
             <AllSessions />
-        </div>
+        </Card>
     );
 }
 
