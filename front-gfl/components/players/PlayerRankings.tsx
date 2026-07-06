@@ -12,6 +12,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "components/ui/tabs";
 import { Skeleton } from "components/ui/skeleton";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "components/ui/pagination";
 import PaginationPage from "components/ui/PaginationPage.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "components/ui/command";
 
 const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => {
     const [isClient, setIsClient] = useState(false)
@@ -46,6 +48,10 @@ const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => {
         </div>
     </>
 };
+const SUGGESTION_MIN_CHARS = 2;
+const SUGGESTION_DEBOUNCE_MS = 300;
+const COMMIT_DEBOUNCE_MS = 3000; // preserves existing 3s tuning for the /players/table query
+
 const rankingModes: RankingMode[] = [
     {id: 'total', labelKey: 'modeTotalTime', value: 'Total'},
     {id: 'casual', labelKey: 'modeCasual', value: 'Casual'},
@@ -55,7 +61,6 @@ const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise })
     const t = useTranslations('players.rankings');
     const server = use(serverPromise)
     const serverId = server.id;
-    const [searchTerm, setSearchTerm] = useState<string>('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
     const [rankingTab, setRankingTab] = useState<number>(0);
     const [rankingPage, setRankingPage] = useState<number>(0);
@@ -63,41 +68,44 @@ const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise })
     const [playerRankings, setPlayerRankings] = useState<PlayersTableRanked | null>(null);
     const [playerRankingsLoading, setPlayerRankingsLoading] = useState<boolean>(true);
     const [playerRankingsError, setPlayerRankingsError] = useState<string | null>(null);
-    const [searchSuggestions, setSearchSuggestions] = useState<SearchPlayer[]>([]);
-    const [searchLoading, setSearchLoading] = useState<boolean>(false);
-    const [searchInputValue, setSearchInputValue] = useState<string>('');
+    const [suggestions, setSuggestions] = useState<SearchPlayer[]>([]);
+    const [suggestionsLoading, setSuggestionsLoading] = useState<boolean>(false);
+    const [suggestionsOpen, setSuggestionsOpen] = useState<boolean>(false);
+    const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+    const [searchInput, setSearchInput] = useState<string>('');
     const currentMode = rankingModes[rankingTab]
+    const isSuggestionsOpen = suggestionsOpen && (suggestionsLoading || suggestions.length > 0);
 
-    const fetchSearchSuggestions = async (inputValue: string) => {
-        if (!inputValue.trim()) {
-            setSearchSuggestions([]);
-            return;
-        }
-        try {
-            setSearchLoading(true);
-            const params = {player_name: inputValue};
-            const data: SearchPlayer[] = await fetchApiServerUrl(serverId, '/players/autocomplete', {params});
-            setSearchSuggestions(data || []);
-        } catch (error) {
-            console.error('Error fetching search suggestions:', error);
-            setSearchSuggestions([]);
-        } finally {
-            setSearchLoading(false);
-        }
+    const commitSearch = (value: string) => {
+        setDebouncedSearchTerm(value.trim());
+        setSuggestionsOpen(false);
+        setSelectedIndex(-1);
     };
 
-    const handleSearchInputChange = (newValue: string) => {
-        setSearchInputValue(newValue);
-        setSearchTerm(newValue);
-
-        if (!newValue.trim()) {
-            setDebouncedSearchTerm('');
-        }
+    const handleSearchInputChange = (value: string) => {
+        setSearchInput(value);
+        setSelectedIndex(-1);
+        setSuggestionsOpen(value.trim().length >= SUGGESTION_MIN_CHARS);
     };
 
-    const handleKeyPress = (event: any) => {
-        if (event.key === 'Enter' && searchTerm.trim()) {
-            setDebouncedSearchTerm(searchTerm.trim());
+    const handleSelectSuggestion = (playerName: string) => {
+        setSearchInput(playerName);
+        commitSearch(playerName);
+    };
+
+    const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'ArrowDown' && isSuggestionsOpen) {
+            event.preventDefault();
+            setSelectedIndex(prev => prev < suggestions.length - 1 ? prev + 1 : 0);
+        } else if (event.key === 'ArrowUp' && isSuggestionsOpen) {
+            event.preventDefault();
+            setSelectedIndex(prev => prev > 0 ? prev - 1 : suggestions.length - 1);
+        } else if (event.key === 'Enter') {
+            if (isSuggestionsOpen && selectedIndex >= 0) {
+                handleSelectSuggestion(suggestions[selectedIndex].name);
+            } else {
+                commitSearch(searchInput);
+            }
         }
     };
 
@@ -133,25 +141,46 @@ const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise })
     }, [debouncedSearchTerm, rankingTab]);
 
     useEffect(() => {
-        if (!searchTerm.trim()) {
+        const trimmed = searchInput.trim();
+        if (!trimmed) {
             setDebouncedSearchTerm('');
             return;
         }
 
-        const timeoutId = setTimeout(() => {
-            setDebouncedSearchTerm(searchTerm.trim());
-        }, 3000);
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(trimmed);
+        }, COMMIT_DEBOUNCE_MS);
 
-        return () => clearTimeout(timeoutId);
-    }, [searchTerm]);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
 
     useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            fetchSearchSuggestions(searchInputValue).catch(console.error);
-        }, 100);
+        const trimmed = searchInput.trim();
+        if (trimmed.length < SUGGESTION_MIN_CHARS) {
+            setSuggestions([]);
+            setSuggestionsLoading(false);
+            return;
+        }
 
-        return () => clearTimeout(timeoutId);
-    }, [searchInputValue, serverId]);
+        const abortController = new AbortController();
+        const signal = abortController.signal;
+        const timer = setTimeout(() => {
+            setSuggestionsLoading(true);
+            fetchApiServerUrl(serverId, '/players/autocomplete', {params: {player_name: trimmed}, signal})
+                .then((data: SearchPlayer[]) => setSuggestions(data ?? []))
+                .catch(error => {
+                    if (signal.aborted) return;
+                    console.error('Error fetching search suggestions:', error);
+                    setSuggestions([]);
+                })
+                .finally(() => setSuggestionsLoading(false));
+        }, SUGGESTION_DEBOUNCE_MS);
+
+        return () => {
+            clearTimeout(timer);
+            abortController.abort("Changed");
+        };
+    }, [serverId, searchInput]);
 
     return (
         <Card className="mb-6">
@@ -160,19 +189,50 @@ const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise })
                 <h2 className="text-lg max-sm:text-md font-semibold">{t('title')}</h2>
             </CardHeader>
             <CardContent className="pt-0">
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input
-                        placeholder={t('searchPlaceholder')}
-                        value={searchInputValue}
-                        onChange={(e) => handleSearchInputChange(e.target.value)}
-                        onKeyUp={handleKeyPress}
-                        className="pl-10 pr-10"
-                    />
-                    {searchLoading && (
-                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground"/>
-                    )}
-                </div>
+                <Popover open={isSuggestionsOpen} onOpenChange={setSuggestionsOpen}>
+                    <PopoverTrigger asChild>
+                        <div className="relative mb-4">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+                            <Input
+                                placeholder={t('searchPlaceholder')}
+                                value={searchInput}
+                                onChange={(e) => handleSearchInputChange(e.target.value)}
+                                onKeyDown={handleSearchKeyDown}
+                                onFocus={() => {
+                                    if (searchInput.trim().length >= SUGGESTION_MIN_CHARS) setSuggestionsOpen(true);
+                                }}
+                                className="pl-10 pr-10"
+                            />
+                            {suggestionsLoading && (
+                                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground"/>
+                            )}
+                        </div>
+                    </PopoverTrigger>
+                    <PopoverContent
+                        className="p-0"
+                        align="start"
+                        style={{width: 'var(--radix-popover-trigger-width)'}}
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                    >
+                        <Command shouldFilter={false}>
+                            <CommandList>
+                                <CommandEmpty>{t('noSuggestions')}</CommandEmpty>
+                                <CommandGroup>
+                                    {suggestions.map((option, index) => (
+                                        <CommandItem
+                                            key={option.id}
+                                            value={option.name}
+                                            data-selected={index === selectedIndex}
+                                            onSelect={() => handleSelectSuggestion(option.name)}
+                                        >
+                                            <span className="font-medium">{option.name}</span>
+                                        </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
 
                 <Tabs value={rankingTab.toString()} onValueChange={(v) => setRankingTab(Number(v))} className="mb-4">
                     <TabsList className="grid w-full grid-cols-3">

@@ -228,6 +228,7 @@
       "noPlayersFound": "Không tìm thấy người chơi nào",
       "noResultsFor": "Không tìm thấy kết quả cho \"{query}\". Hãy thử điều chỉnh tìm kiếm của bạn.",
       "noPlayersAvailable": "Hiện không có người chơi nào có sẵn.",
+      "noSuggestions": "Không có người chơi trùng khớp",
       "modeTotalTime": "Tổng thời gian",
       "modeCasual": "Casual",
       "modeTryhard": "Tryhard"

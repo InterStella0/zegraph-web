@@ -228,6 +228,7 @@
       "noPlayersFound": "No se encontraron jugadores",
       "noResultsFor": "No hay resultados para \"{query}\". Intenta ajustar tu búsqueda.",
       "noPlayersAvailable": "No hay jugadores disponibles en este momento.",
+      "noSuggestions": "No hay jugadores coincidentes",
       "modeTotalTime": "Tiempo total",
       "modeCasual": "Casual",
       "modeTryhard": "Tryhard"

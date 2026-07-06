@@ -228,6 +228,7 @@
       "noPlayersFound": "Tidak ada pemain yang ditemukan",
       "noResultsFor": "Tidak ada hasil untuk \"{query}\". Coba sesuaikan pencarian Anda.",
       "noPlayersAvailable": "Tidak ada pemain yang tersedia saat ini.",
+      "noSuggestions": "Tidak ada pemain yang cocok",
       "modeTotalTime": "Total Waktu",
       "modeCasual": "Casual",
       "modeTryhard": "Tryhard"

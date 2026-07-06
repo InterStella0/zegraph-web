@@ -228,6 +228,7 @@
       "noPlayersFound": "找不到玩家",
       "noResultsFor": "找不到「{query}」的結果，請嘗試調整搜尋條件。",
       "noPlayersAvailable": "目前沒有可用的玩家。",
+      "noSuggestions": "沒有相符的玩家",
       "modeTotalTime": "總時長",
       "modeCasual": "休閒",
       "modeTryhard": "認真模式"

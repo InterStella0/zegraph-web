@@ -228,6 +228,7 @@
       "noPlayersFound": "未找到玩家",
       "noResultsFor": "未找到 \"{query}\" 的结果，请尝试调整搜索条件。",
       "noPlayersAvailable": "目前没有可用的玩家。",
+      "noSuggestions": "没有匹配的玩家",
       "modeTotalTime": "总时长",
       "modeCasual": "休闲",
       "modeTryhard": "认真模式"

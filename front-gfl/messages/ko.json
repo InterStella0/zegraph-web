@@ -228,6 +228,7 @@
       "noPlayersFound": "플레이어를 찾을 수 없습니다",
       "noResultsFor": "\"{query}\"에 대한 결과를 찾을 수 없습니다. 검색을 조정해보세요.",
       "noPlayersAvailable": "현재 사용 가능한 플레이어가 없습니다.",
+      "noSuggestions": "일치하는 플레이어가 없습니다",
       "modeTotalTime": "총 시간",
       "modeCasual": "캐주얼",
       "modeTryhard": "트라이 하드"

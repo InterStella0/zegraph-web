@@ -228,6 +228,7 @@
       "noPlayersFound": "Игроки не найдены",
       "noResultsFor": "Результатов не найдено для \"{query}\". Попробуйте изменить поиск.",
       "noPlayersAvailable": "В данный момент нет доступных игроков.",
+      "noSuggestions": "Совпадающих игроков нет",
       "modeTotalTime": "Общее время",
       "modeCasual": "Casual",
       "modeTryhard": "Tryhard"

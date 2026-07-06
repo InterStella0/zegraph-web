@@ -228,6 +228,7 @@
       "noPlayersFound": "No players found",
       "noResultsFor": "No results found for \"{query}\". Try adjusting your search.",
       "noPlayersAvailable": "No players available at the moment.",
+      "noSuggestions": "No matching players",
       "modeTotalTime": "Total Time",
       "modeCasual": "Casual",
       "modeTryhard": "Tryhard"
