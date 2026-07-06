@@ -150,7 +150,7 @@ function MapTop10PlayerListDisplay(): ReactElement{
     const absoluteLoad = pageDef === currentPage && !loading && playersInfoResult != null
     return (
         <Card className="w-full">
-            <div className="p-4 flex justify-between">
+            <div className="px-4 pt-4 pb-1 flex justify-between">
                 <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
                 <div>
                     <TooltipProvider>
@@ -171,7 +171,7 @@ function MapTop10PlayerListDisplay(): ReactElement{
                 <AlertTriangle />
                 <p>{error || t('somethingWrong')}</p>
             </div>}
-            {!error && <div className="min-h-[712px]">
+            {!error && <div className="min-h-[712px] px-2">
                 <div className="pb-2">
                     <Popover open={isSuggestionsOpen} onOpenChange={setSuggestionsOpen}>
                         <PopoverTrigger asChild>
