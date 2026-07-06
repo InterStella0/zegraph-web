@@ -962,6 +962,13 @@
     "historicalRadar": "Radar Sejarah",
     "fullscreen": "Skrin Penuh",
     "mapOfSelectedTime": "Map bagi masa yang dipilih",
+    "layers": {
+      "lightBasemap": "Peta Asas Terang",
+      "darkBasemap": "Peta Asas Gelap",
+      "livePlayers": "Pemain Langsung",
+      "historicalPlayers": "Pemain Sejarah",
+      "countries": "Negara"
+    },
     "temporal": {
       "interval10min": "10 minit",
       "interval30min": "30 minit",

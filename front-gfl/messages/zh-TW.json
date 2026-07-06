@@ -962,6 +962,13 @@
     "historicalRadar": "歷史雷達",
     "fullscreen": "全螢幕",
     "mapOfSelectedTime": "所選時間的地圖",
+    "layers": {
+      "lightBasemap": "淺色底圖",
+      "darkBasemap": "深色底圖",
+      "livePlayers": "即時玩家",
+      "historicalPlayers": "歷史玩家",
+      "countries": "國家"
+    },
     "temporal": {
       "interval10min": "10 分鐘",
       "interval30min": "30 分鐘",

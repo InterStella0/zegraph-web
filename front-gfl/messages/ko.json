@@ -962,6 +962,13 @@
     "historicalRadar": "과거 레이더",
     "fullscreen": "전체 화면",
     "mapOfSelectedTime": "선택한 시간의 맵",
+    "layers": {
+      "lightBasemap": "밝은 배경 지도",
+      "darkBasemap": "어두운 배경 지도",
+      "livePlayers": "실시간 플레이어",
+      "historicalPlayers": "과거 플레이어",
+      "countries": "국가"
+    },
     "temporal": {
       "interval10min": "10분",
       "interval30min": "30분",

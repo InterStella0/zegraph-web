@@ -962,6 +962,13 @@
     "historicalRadar": "Radar lịch sử",
     "fullscreen": "Toàn màn hình",
     "mapOfSelectedTime": "Bản đồ thời gian đã chọn",
+    "layers": {
+      "lightBasemap": "Bản đồ nền sáng",
+      "darkBasemap": "Bản đồ nền tối",
+      "livePlayers": "Người chơi trực tiếp",
+      "historicalPlayers": "Người chơi lịch sử",
+      "countries": "Quốc gia"
+    },
     "temporal": {
       "interval10min": "10 phút",
       "interval30min": "30 phút",

@@ -962,6 +962,13 @@
     "historicalRadar": "Исторический радар",
     "fullscreen": "Полноэкранный режим",
     "mapOfSelectedTime": "Карта выбранного времени",
+    "layers": {
+      "lightBasemap": "Светлая базовая карта",
+      "darkBasemap": "Тёмная базовая карта",
+      "livePlayers": "Игроки в реальном времени",
+      "historicalPlayers": "Исторические игроки",
+      "countries": "Страны"
+    },
     "temporal": {
       "interval10min": "10 минут",
       "interval30min": "30 минут",

@@ -962,6 +962,13 @@
     "historicalRadar": "Historical Radar",
     "fullscreen": "Fullscreen",
     "mapOfSelectedTime": "Map of the selected time",
+    "layers": {
+      "lightBasemap": "Light Basemap",
+      "darkBasemap": "Dark Basemap",
+      "livePlayers": "Live Players",
+      "historicalPlayers": "Historical Players",
+      "countries": "Countries"
+    },
     "temporal": {
       "interval10min": "10 minutes",
       "interval30min": "30 minutes",

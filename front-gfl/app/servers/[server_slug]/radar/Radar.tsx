@@ -15,9 +15,11 @@ import LegendControl from "components/radars/Legend.tsx";
 import PlayerMapControl from "components/radars/PlayerMapControl";
 import {useServerData} from "../ServerDataProvider";
 import {useTheme} from "next-themes";
+import { useTranslations } from 'next-intl';
 
 export default function Radar(): ReactElement {
     const {server} = useServerData()
+    const t = useTranslations('radar');
     const { resolvedTheme } = useTheme();
     const countryWMSRef = useRef(null)
     const wmsLayerRef = useRef([]);
@@ -67,7 +69,7 @@ export default function Radar(): ReactElement {
                 <LayersControl
                     // @ts-ignore
                     position="bottomleft">
-                    <LayersControl.BaseLayer name="Light Basemap" checked={!isDarkMode}>
+                    <LayersControl.BaseLayer name={t('layers.lightBasemap')} checked={!isDarkMode}>
                         <TileLayer
                             url={lightBasemap}
                             // @ts-ignore
@@ -75,7 +77,7 @@ export default function Radar(): ReactElement {
                             zIndex={20}
                         />
                     </LayersControl.BaseLayer>
-                    <LayersControl.BaseLayer name="Dark Basemap" checked={isDarkMode}>
+                    <LayersControl.BaseLayer name={t('layers.darkBasemap')} checked={isDarkMode}>
                         <TileLayer
                             url={darkBasemap}
                             // @ts-ignore
@@ -84,7 +86,7 @@ export default function Radar(): ReactElement {
                         />
                     </LayersControl.BaseLayer>
 
-                    <LayersControl.Overlay checked={temporal.isLive} name="Live Players">
+                    <LayersControl.Overlay checked={temporal.isLive} name={t('layers.livePlayers')}>
                         <NonTiledWMSLayer
                             url={formWMSUrl(server?.id, true)}
                             layers="player_server_mapped"
@@ -96,7 +98,7 @@ export default function Radar(): ReactElement {
                             zIndex={20}
                         />
                     </LayersControl.Overlay>
-                    <LayersControl.Overlay checked={!temporal.isLive} name="Historical Players">
+                    <LayersControl.Overlay checked={!temporal.isLive} name={t('layers.historicalPlayers')}>
                         <NonTiledWMSLayer
                             ref={addWmsLayerRef}
                             url={formWMSUrl(server?.id, false)}
@@ -109,7 +111,7 @@ export default function Radar(): ReactElement {
                             zIndex={20}
                         />
                     </LayersControl.Overlay>
-                    <LayersControl.Overlay checked={true} name="Countries">
+                    <LayersControl.Overlay checked={true} name={t('layers.countries')}>
                         <TileLayer
                             url={`/tiles/countries_${isDarkMode ? 'dark' : 'light'}/{z}/{x}/{y}.png`}
                             // @ts-ignore

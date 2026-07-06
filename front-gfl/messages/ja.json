@@ -962,6 +962,13 @@
     "historicalRadar": "履歴レーダー",
     "fullscreen": "全画面",
     "mapOfSelectedTime": "選択された時間のマップ",
+    "layers": {
+      "lightBasemap": "ライトベースマップ",
+      "darkBasemap": "ダークベースマップ",
+      "livePlayers": "ライブプレイヤー",
+      "historicalPlayers": "履歴プレイヤー",
+      "countries": "国"
+    },
     "temporal": {
       "interval10min": "10分",
       "interval30min": "30分",

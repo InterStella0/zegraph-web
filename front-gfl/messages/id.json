@@ -962,6 +962,13 @@
     "historicalRadar": "Radar Historis",
     "fullscreen": "Layar Penuh",
     "mapOfSelectedTime": "Peta waktu yang dipilih",
+    "layers": {
+      "lightBasemap": "Peta Dasar Terang",
+      "darkBasemap": "Peta Dasar Gelap",
+      "livePlayers": "Pemain Langsung",
+      "historicalPlayers": "Pemain Historis",
+      "countries": "Negara"
+    },
     "temporal": {
       "interval10min": "10 menit",
       "interval30min": "30 menit",

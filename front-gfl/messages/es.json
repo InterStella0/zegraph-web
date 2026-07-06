@@ -962,6 +962,13 @@
     "historicalRadar": "Radar histórico",
     "fullscreen": "Pantalla completa",
     "mapOfSelectedTime": "Mapa del momento seleccionado",
+    "layers": {
+      "lightBasemap": "Mapa base claro",
+      "darkBasemap": "Mapa base oscuro",
+      "livePlayers": "Jugadores en vivo",
+      "historicalPlayers": "Jugadores históricos",
+      "countries": "Países"
+    },
     "temporal": {
       "interval10min": "10 minutos",
       "interval30min": "30 minutos",
