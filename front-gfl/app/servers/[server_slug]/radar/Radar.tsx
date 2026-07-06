@@ -45,14 +45,8 @@ export default function Radar(): ReactElement {
         })
     }, [isDarkMode, countryWMSRef])
 
-    const WMS_URL = "/qgis-server";
     return <>
-        {/* mb-* on .leaflet-bottom.leaflet-left lifts the layer selector above the temporal
-            bar (~80px tall on md+, ~220px when stacked on mobile). */}
-        <div className="relative h-[calc(100vh-72px)] w-[100%] [&_.leaflet-bottom.leaflet-left]:mb-[236px] md:[&_.leaflet-bottom.leaflet-left]:mb-[96px]">
-        {/* TemporalController must stay a DOM sibling of MapContainer: Leaflet's native
-            listeners on the map container fire before React's delegated handlers, so any
-            control rendered inside the map leaks clicks/drags to it. */}
+        <div className="relative h-[calc(100vh-72px)] w-full [&_.leaflet-bottom.leaflet-left]:mb-[236px] md:[&_.leaflet-bottom.leaflet-left]:mb-[96px]">
         <TemporalContext value={{ data: temporal, set: setTemporal }}>
             <MapContainer
                 // @ts-ignore
@@ -102,21 +96,6 @@ export default function Radar(): ReactElement {
                             zIndex={20}
                         />
                     </LayersControl.Overlay>
-                    {/* DISABLED FOR NOW
-                    <LayersControl.Overlay checked={['10min', '30min', '1hour'].includes(temporal.interval)} name="Night Shading">*/}
-                    {/*    <WMSTileLayer*/}
-                    {/*        ref={addWmsLayerRef}*/}
-                    {/*        url={WMS_URL}*/}
-                    {/*        // @ts-ignore*/}
-                    {/*        TIME={`${formatDateWMS(temporal.cursor)}/${formatDateWMS(temporal.cursor.add(10, 'minutes'))}`}*/}
-                    {/*        layers="night_shading"*/}
-                    {/*        format="image/png"*/}
-                    {/*        transparent={true}*/}
-                    {/*        styles="default"*/}
-                    {/*        attribution="&copy; queeniemella"*/}
-                    {/*        zIndex={15}*/}
-                    {/*    />*/}
-                    {/*</LayersControl.Overlay>*/}
                     <LayersControl.Overlay checked={!temporal.isLive} name="Historical Players">
                         <NonTiledWMSLayer
                             ref={addWmsLayerRef}
