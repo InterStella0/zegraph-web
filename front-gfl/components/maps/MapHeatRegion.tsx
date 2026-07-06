@@ -18,6 +18,7 @@ import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import {DailyMapRegion, MapRegion} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import {useTranslations, useLocale} from 'next-intl';
+import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 
 dayjs.extend(utc);
 
@@ -52,7 +53,7 @@ function MapHeatRegionDisplay(){
                 const iso = dt.format("YYYY-MM-DD")
                 return {
                     x: iso,
-                    y: dt.format('ddd'),
+                    y: dt.locale('en').format('ddd'),
                     d: iso,
                     v: e
                 }
@@ -78,6 +79,7 @@ function MapHeatRegionDisplay(){
     };
 
     const colors = getChartColors();
+    const dayNames = useWeekdayLabels();
 
     const options = useMemo(() => ({
         responsive: false,
@@ -116,6 +118,10 @@ function MapHeatRegionDisplay(){
                     color: colors.textColor,
                     font: {
                         size: 9
+                    },
+                    callback(this: any, value: any) {
+                        const label = this.getLabelForValue(value);
+                        return dayNames[label] ?? label;
                     }
                 },
                 grid: {
@@ -156,7 +162,7 @@ function MapHeatRegionDisplay(){
                 top: 10
             }
         }
-    }), [regions, colors])
+    }), [regions, colors, dayNames])
 
     const data = useMemo(() => ({
         datasets: [{
@@ -225,12 +231,12 @@ function MapHeatRegionDisplay(){
 
         return t('summary', {
             days: formatNumber(uniqueDays, 0, locale),
-            day: mostActiveDay[0],
+            day: dayNames[mostActiveDay[0]] ?? mostActiveDay[0],
             dayHours: formatHours(mostActiveDay[1], locale),
             region: mostActiveRegion[0],
             regionHours: formatHours(mostActiveRegion[1], locale)
         });
-    }, [regions]);
+    }, [regions, dayNames]);
 
     // @ts-ignore
     const ChartDisplay = !loading && regions.length > 0 && <LazyMatrixChart data={data} options={options} width="1000px" />

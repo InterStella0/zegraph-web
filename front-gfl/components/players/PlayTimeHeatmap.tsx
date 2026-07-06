@@ -15,6 +15,7 @@ import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/
 import {ScrollArea, ScrollBar} from "components/ui/scroll-area.tsx";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { useTranslations } from "next-intl";
+import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 
 dayjs.extend(weekOfYear)
 dayjs.extend(isoWeek)
@@ -141,7 +142,7 @@ export default function PlayTimeHeatmap({
                 const iso = currentDate.format("YYYY-MM-DD")
                 transformed.push({
                     x: iso,
-                    y: currentDate.format('ddd'), // Mon, Tue, etc
+                    y: currentDate.locale('en').format('ddd'), // stable English key: Mon, Tue, etc
                     d: currentDate.format('MMM DD, YYYY'),
                     v: dataMap.get(iso) || 0  // Use 0 for days without data
                 })
@@ -222,6 +223,7 @@ export default function PlayTimeHeatmap({
     };
 
     const colors = getChartColors();
+    const dayNames = useWeekdayLabels();
 
     // Max hours for color scaling
     const maxHours = useMemo(() => {
@@ -296,6 +298,10 @@ export default function PlayTimeHeatmap({
                     color: colors.textColor,
                     font: {
                         size: 9
+                    },
+                    callback(this: any, value: any) {
+                        const label = this.getLabelForValue(value);
+                        return dayNames[label] ?? label;
                     }
                 },
                 grid: {
@@ -338,7 +344,7 @@ export default function PlayTimeHeatmap({
                 top: 10
             }
         }
-    }), [groupBy, colors, heatmapData, t])
+    }), [groupBy, colors, heatmapData, t, dayNames])
 
     // Chart data
     const data = useMemo(() => ({
