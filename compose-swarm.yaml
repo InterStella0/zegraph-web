@@ -31,7 +31,7 @@ services:
       - tile_cache:/var/cache/nginx/qgis_tiles
     logging: *default-logging
     deploy:
-#      replicas: 2
+      replicas: 2
 #      placement:
 #        # Cap 1 replica per node: when both nodes are up you get 1 each (uses
 #        # spare worker compute); when the worker is down only 1 runs on the
@@ -45,11 +45,11 @@ services:
           - node.role == manager
       resources:
         limits:
-          cpus: '2'
-          memory: 2G
+          cpus: "2"
+          memory: 3G
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: "1"
+          memory: 2048M
     networks:
       - default
 
