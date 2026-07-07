@@ -130,7 +130,8 @@
       "exitLive": "Exit live mode",
       "switchLive": "Switch to live mode",
       "showPlayers": "Show Players",
-      "loadError": "Graph toolbar couldn't be loaded."
+      "loadError": "Graph toolbar couldn't be loaded.",
+      "time": "Time"
     },
     "graph": {
       "timeAxis": "Time",

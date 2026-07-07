@@ -130,7 +130,8 @@
       "exitLive": "ライブモードを終了",
       "switchLive": "ライブモードに切り替え",
       "showPlayers": "プレイヤーを表示",
-      "loadError": "グラフツールバーを読み込めません。"
+      "loadError": "グラフツールバーを読み込めません。",
+      "time": "時刻"
     },
     "graph": {
       "timeAxis": "時間",

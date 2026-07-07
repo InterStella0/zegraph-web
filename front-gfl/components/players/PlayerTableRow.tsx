@@ -1,6 +1,6 @@
 "use client"
 
-import {useTranslations} from "next-intl";
+import {useLocale, useTranslations} from "next-intl";
 import { PlayerAvatar } from "./PlayerAvatar.tsx";
 import dayjs from "dayjs";
 import {fetchServerUrl, secondsToHours, secondsToMins, simpleRandom} from "utils/generalUtils.ts";
@@ -21,6 +21,8 @@ dayjs.extend(relativeTime)
 function PlayerInformation(
     { player, timeUnit = "h", showRank = false }: { player: ExtendedPlayerBrief, timeUnit?: "h" | "m", showRank?: boolean }
 ) {
+    const t = useTranslations('players.card');
+    const locale = useLocale();
     const { resolvedTheme } = useTheme();
     const isDarkMode = resolvedTheme === 'dark';
     const server_id = player.server_id
@@ -41,14 +43,17 @@ function PlayerInformation(
 
     const playtime = timeTaken[timeUnit](player.total_playtime);
 
-    let statusText
+    let statusText: string
     if (playerStatus){
-        statusText = isOnline? `Playing since ${dayjs(playerStatus.started_at).fromNow()}`
-            : `Last online ${dayjs(playerStatus.started_at).fromNow()} (${dayjs(playerStatus.ended_at).diff(dayjs(playerStatus.started_at), 'h', true).toFixed(2)}h)`
+        statusText = isOnline? t('playingSince', {ago: dayjs(playerStatus.started_at).fromNow()})
+            : t('lastOnline', {
+                ago: dayjs(playerStatus.started_at).fromNow(),
+                hours: dayjs(playerStatus.ended_at).diff(dayjs(playerStatus.started_at), 'h', true).toFixed(2)
+            })
     }else{
         statusText = isOnline
-            ? `Playing since ${dayjs(player.online_since).fromNow()}`
-            : `Last online ${dayjs(player.last_played).fromNow()} (${secondsToHours(player.last_played_duration)}h)`;
+            ? t('playingSince', {ago: dayjs(player.online_since).fromNow()})
+            : t('lastOnline', {ago: dayjs(player.last_played).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
     }
 
     return (

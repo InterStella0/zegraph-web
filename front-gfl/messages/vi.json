@@ -130,7 +130,8 @@
       "exitLive": "Thoát chế độ trực tiếp",
       "switchLive": "Chuyển sang chế độ trực tiếp",
       "showPlayers": "Hiển thị người chơi",
-      "loadError": "Không thể tải thanh công cụ biểu đồ."
+      "loadError": "Không thể tải thanh công cụ biểu đồ.",
+      "time": "Thời gian"
     },
     "graph": {
       "timeAxis": "Thời gian",

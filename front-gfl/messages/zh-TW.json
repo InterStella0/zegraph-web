@@ -130,7 +130,8 @@
       "exitLive": "退出即時模式",
       "switchLive": "切換至即時模式",
       "showPlayers": "顯示玩家",
-      "loadError": "圖表工具列無法載入。"
+      "loadError": "圖表工具列無法載入。",
+      "time": "時間"
     },
     "graph": {
       "timeAxis": "時間",

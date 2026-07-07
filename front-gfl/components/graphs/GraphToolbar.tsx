@@ -2,6 +2,7 @@
 import {useTranslations} from 'next-intl';
 import {Dispatch, ReactElement, SetStateAction, useEffect, useRef, useState} from 'react';
 import dayjs, { Dayjs } from 'dayjs';
+import LocalizedFormat from 'dayjs/plugin/localizedFormat';
 import {debounce} from 'utils/generalUtils';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {DateSources, useDateState} from './DateStateManager';
@@ -13,6 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Calendar } from "components/ui/calendar";
 import { cn } from "components/lib/utils";
 
+dayjs.extend(LocalizedFormat);
+
 interface DateTimePickerProps {
     value: Dayjs;
     onChange: (date: Dayjs) => void;
@@ -23,6 +26,7 @@ interface DateTimePickerProps {
 }
 
 function SmallDatePicker({ value, onChange, label, disableFuture, maxDateTime, minDateTime }: DateTimePickerProps) {
+    const t = useTranslations('servers.toolbar');
     const [isOpen, setIsOpen] = useState(false);
     const [timeValue, setTimeValue] = useState(value.format('HH:mm'));
 
@@ -46,7 +50,7 @@ function SmallDatePicker({ value, onChange, label, disableFuture, maxDateTime, m
         onChange(newDate);
     };
 
-    const displayValue = value.format('MMM D, YYYY HH:mm');
+    const displayValue = `${value.format('ll')} ${value.format('HH:mm')}`;
 
     return (
         <div className="flex flex-col gap-1">
@@ -78,7 +82,7 @@ function SmallDatePicker({ value, onChange, label, disableFuture, maxDateTime, m
                         initialFocus
                     />
                     <div className="p-3 border-t">
-                        <label className="text-xs font-medium mb-1 block">Time</label>
+                        <label className="text-xs font-medium mb-1 block">{t('time')}</label>
                         <input
                             type="time"
                             value={timeValue}

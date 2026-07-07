@@ -130,7 +130,8 @@
       "exitLive": "Salir del modo en vivo",
       "switchLive": "Cambiar al modo en vivo",
       "showPlayers": "Mostrar jugadores",
-      "loadError": "No se pudo cargar la barra de herramientas del gráfico."
+      "loadError": "No se pudo cargar la barra de herramientas del gráfico.",
+      "time": "Hora"
     },
     "graph": {
       "timeAxis": "Tiempo",

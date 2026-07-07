@@ -130,7 +130,8 @@
       "exitLive": "Keluar mod langsung",
       "switchLive": "Tukar ke mod langsung",
       "showPlayers": "Tunjuk Pemain",
-      "loadError": "Bar alat graf tidak dapat dimuatkan."
+      "loadError": "Bar alat graf tidak dapat dimuatkan.",
+      "time": "Masa"
     },
     "graph": {
       "timeAxis": "Masa",

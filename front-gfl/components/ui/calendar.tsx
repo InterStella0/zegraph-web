@@ -11,9 +11,12 @@ import {
   getDefaultClassNames,
   type DayButton,
 } from "react-day-picker"
+import { useLocale } from "next-intl"
 
 import { cn } from "components/lib/utils"
 import { Button, buttonVariants } from "components/ui/button"
+import { DATE_FNS_LOCALE } from "i18n/dateFnsLocale"
+import { AppLocale } from "i18n/config"
 
 function Calendar({
   className,
@@ -23,11 +26,14 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
+  locale,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const defaultClassNames = getDefaultClassNames()
+  const appLocale = useLocale() as AppLocale
+  const dateFnsLocale = locale ?? DATE_FNS_LOCALE[appLocale] ?? DATE_FNS_LOCALE.en
 
   return (
     <DayPicker
@@ -39,9 +45,10 @@ function Calendar({
         className
       )}
       captionLayout={captionLayout}
+      locale={dateFnsLocale}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+          date.toLocaleString(appLocale, { month: "short" }),
         ...formatters,
       }}
       classNames={{

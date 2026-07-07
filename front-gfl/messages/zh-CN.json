@@ -130,7 +130,8 @@
       "exitLive": "退出实时模式",
       "switchLive": "切换到实时模式",
       "showPlayers": "显示玩家",
-      "loadError": "图表工具栏无法加载。"
+      "loadError": "图表工具栏无法加载。",
+      "time": "时间"
     },
     "graph": {
       "timeAxis": "时间",
