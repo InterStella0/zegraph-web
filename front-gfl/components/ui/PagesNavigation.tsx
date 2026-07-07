@@ -13,7 +13,6 @@ export const pagesSelection = {
         {key: 'players', href: '/servers/:server_id/players'},
         {key: 'maps', href: '/servers/:server_id/maps'},
         {key: 'models', href: '/servers/:server_id/models'},
-        {key: 'guides', href: '/servers/:server_id/guides'},
         {key: 'radar', href: '/servers/:server_id/radar'},
     ],
     'Community': [
