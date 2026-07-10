@@ -5,7 +5,7 @@ import {
     getServerSlug, getSessionInfo, MutualSessionReturn,
     PlayerSessionMapPlayed, ServerGraphType, SessionInfo
 } from "../../../../util";
-import {fetchServerUrl, fetchUrl, formatHours, formatTitle, getMapImage} from "utils/generalUtils";
+import {fetchServerUrl, fetchUrl, formatHours, formatTitle, getMapImage, socialMeta} from "utils/generalUtils";
 import {getPlayerDetailed, PlayerInfo} from "../../util";
 import {Metadata} from "next";
 import { PlayerProfilePicture} from "types/players.ts";
@@ -94,18 +94,7 @@ export async function generateMetadata({ params}: {
         alternates: {
             canonical: `/servers/${server.gotoLink}/players/${player.id}/sessions/${session_id}`,
         },
-        openGraph: {
-            type: "website",
-            title,
-            description,
-            images: [image],
-        },
-        twitter: {
-            card: "summary_large_image",
-            title,
-            description,
-            images: [image],
-        },
+        ...socialMeta({title, description, images: [image]}),
     }
 }
 export default async function Page({ params }){

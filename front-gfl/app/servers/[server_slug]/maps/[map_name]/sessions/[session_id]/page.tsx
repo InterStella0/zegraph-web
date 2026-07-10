@@ -5,7 +5,7 @@ import {
     getSessionInfo,
     SessionInfo
 } from "../../../../util";
-import {fetchServerUrl, formatHours, formatTitle, getMapImage, GetMapImageReturn} from "utils/generalUtils";
+import {fetchServerUrl, formatHours, formatTitle, getMapImage, GetMapImageReturn, socialMeta} from "utils/generalUtils";
 import { MapSessionMatch} from "types/maps";
 import {Metadata} from "next";
 import dayjs from "dayjs";
@@ -95,18 +95,7 @@ export async function generateMetadata({ params }: {
         alternates: {
             canonical: `/servers/${server.gotoLink}/maps/${map_name}/sessions/${session_id}`,
         },
-        openGraph: {
-            type: "website",
-            title,
-            description,
-            images: [image],
-        },
-        twitter: {
-            card: "summary_large_image",
-            title,
-            description,
-            images: [image],
-        },
+        ...socialMeta({title, description, images: [image]}),
     }
 }
 

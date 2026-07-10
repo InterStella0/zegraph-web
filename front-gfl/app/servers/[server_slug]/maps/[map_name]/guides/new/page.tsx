@@ -20,9 +20,7 @@ export async function generateMetadata({ params }: {
     return {
         title: formatTitle(t('createGuideTitle', {map: map_name})),
         description: t('createGuideDescription', {map: map_name}),
-        alternates: {
-            canonical: `/servers/${server.gotoLink}/maps/${map_name}/guides/new`
-        }
+        robots: { index: false, follow: false }
     };
 }
 

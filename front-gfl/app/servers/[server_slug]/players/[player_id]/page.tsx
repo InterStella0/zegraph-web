@@ -6,6 +6,7 @@ import {
     fetchUrl,
     formatHours,
     formatTitle,
+    socialMeta,
     StillCalculate
 } from "utils/generalUtils";
 import {getPlayerDetailed, PlayerInfo} from "./util";
@@ -101,13 +102,7 @@ export async function generateMetadata({ params}: {
     return {
         title: title,
         description: description,
-        openGraph: {
-            type: "website",
-            title,
-            description,
-            images: [image],
-        },
-        twitter: {},
+        ...socialMeta({title, description, images: [image]}),
         alternates: {
             canonical: `/servers/${server.gotoLink}/players/${player.id}`,
             types: {

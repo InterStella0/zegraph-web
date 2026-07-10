@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import type {Metadata} from "next";
 import {MapImage} from "types/maps";
 import {cookies} from "next/dist/server/request/cookies";
 
@@ -399,6 +400,33 @@ export function formatFlagName(flagName: string): string {
 
 export function formatTitle(title: string): string{
     return `${title} | ZE Graph`
+}
+
+export const SITE_NAME = "ZE Graph"
+export const TWITTER_CREATOR = "@queeniemella"
+
+export function socialMeta(
+    {title, description, url, images}:
+    {title: string, description: string, url?: string, images?: string[]}
+): Pick<Metadata, "openGraph" | "twitter">{
+    return {
+        openGraph: {
+            type: "website",
+            siteName: SITE_NAME,
+            locale: "en_US",
+            title,
+            description,
+            ...(url !== undefined && {url}),
+            ...(images !== undefined && {images}),
+        },
+        twitter: {
+            card: "summary_large_image",
+            creator: TWITTER_CREATOR,
+            title,
+            description,
+            ...(images !== undefined && {images}),
+        },
+    }
 }
 export function getIntervalCallback(selectedInterval: SelectionIntervals): (date: dayjs.Dayjs) => dayjs.Dayjs {
     return (date: dayjs.Dayjs) => {

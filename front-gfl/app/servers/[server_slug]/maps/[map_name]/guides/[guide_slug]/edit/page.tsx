@@ -23,19 +23,18 @@ export async function generateMetadata({ params }: {
         const guide = await getGuideBySlug(map_name, guide_slug, server.id);
 
         if (!guide) {
-            return { title: formatTitle(t('editGuideTitle')) };
+            return { title: formatTitle(t('editGuideTitle')), robots: { index: false, follow: false } };
         }
 
         return {
             title: formatTitle(t('editGuideTitleNamed', {title: guide.title})),
             description: t('editGuideDescription', {map: map_name}),
-            alternates: {
-                canonical: `/servers/${server.gotoLink}/maps/${map_name}/guides/${guide.slug}/edit`
-            }
+            robots: { index: false, follow: false }
         };
     } catch (error) {
         return {
-            title: formatTitle(t('editGuideTitle'))
+            title: formatTitle(t('editGuideTitle')),
+            robots: { index: false, follow: false }
         };
     }
 }

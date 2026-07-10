@@ -20,13 +20,48 @@ import {DayjsLocaleProvider} from "components/providers/DayjsLocaleProvider";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
+    const description = t('rootDescription');
     return {
         title: 'ZE Graph',
-        description: t('rootDescription'),
+        description,
         metadataBase: new URL(DOMAIN),
-        alternates: {
-            canonical: '/'
-        }
+        applicationName: 'ZE Graph',
+        category: 'Games',
+        creator: 'InterStella0',
+        publisher: 'ZE Graph',
+        authors: [{name: 'InterStella0'}],
+        keywords: [
+            'zombie escape',
+            'ze',
+            'cs2 zombie escape',
+            'cs2ze',
+            'cs zombie escape',
+            'counter-strike zombie escape',
+            'counter-strike zombie escape graph',
+            'csgo zombie escape',
+            'css zombie escape',
+            'zombie escape servers',
+            'zombie escape communities',
+            'zombie escape stats',
+            'zombie escape analytics',
+            'ze graph',
+            'zombie escape graph',
+            'cs zombie escape graph',
+        ],
+        openGraph: {
+            type: 'website',
+            siteName: 'ZE Graph',
+            title: 'ZE Graph',
+            description,
+            url: '/',
+            locale: 'en_US',
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: 'ZE Graph',
+            description,
+            creator: '@queeniemella',
+        },
     }
 }
 
@@ -39,13 +74,19 @@ export default async function RootLayout({
     const communities = getCommunity();
     const user = getServerUser();
     const locale = await getLocale();
+    // AdSpot renders an <amp-ad> element, which needs the AMP runtime. Only pull in that
+    // third-party script when AdSpot will actually render one.
+    const adsEnabled = process.env.NEXT_PUBLIC_AD_SHOW?.toUpperCase() !== "FALSE"
+        && !!process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
+        && !!process.env.NEXT_PUBLIC_ADSENSE_AD_SLOT;
     return (
         <html lang={locale} className={inter.variable} suppressHydrationWarning>
             <head>
                 <link rel="icon" href="/favicon.ico" sizes="any" />
                 <meta name="theme-color" content="#f48fb1" />
-                <meta name="twitter:creator" content="@queeniemella" />
-                <script async custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js"></script>
+                {adsEnabled && (
+                    <script async custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js"></script>
+                )}
             </head>
             <body>
                 <NextIntlClientProvider>

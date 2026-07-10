@@ -6,7 +6,10 @@ import { CONTACT_EMAIL } from "utils/generalUtils";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | ZE Graph",
-  description: "Privacy Policy for ZEGraph - Counter-Strike 2 Zombie Escape Statistics",
+  description: "Privacy Policy for ZEGraph - Counter-Strike Zombie Escape statistics across CS2, CS:GO and CS:S.",
+  alternates: {
+    canonical: '/privacy'
+  },
 };
 
 export default async function PrivacyPage() {

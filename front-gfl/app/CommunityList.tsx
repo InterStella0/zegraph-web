@@ -6,6 +6,7 @@ import {Gamepad2} from 'lucide-react';
 import CommunityServerGroup from "components/home/CommunityServerGroup";
 import {simpleRandom} from "utils/generalUtils.ts";
 import {Community} from "types/community.ts";
+import {useTranslations} from "next-intl";
 
 export function CommunityListLoading() {
     const [isClient, setIsClient] = useState(false);
@@ -23,6 +24,7 @@ export function CommunityListLoading() {
 
 export default function CommunityList({ communitiesDataPromise }: { communitiesDataPromise: Promise<Community[]>}): ReactElement {
     const communities = use(communitiesDataPromise);
+    const t = useTranslations('home');
     const serverCount = useMemo(
         () => communities.reduce((sum, c) => sum + c.servers.length, 0),
         [communities],
@@ -30,7 +32,7 @@ export default function CommunityList({ communitiesDataPromise }: { communitiesD
 
     return <>
         <div className="flex flex-row items-baseline gap-3 mb-3">
-            <h2 className="text-2xl font-bold">Servers</h2>
+            <h2 className="text-2xl font-bold">{t('title')}</h2>
             {communities.length > 0 && (
                 <span className="text-sm text-muted-foreground">
                     {serverCount} {serverCount === 1 ? 'server' : 'servers'} · {communities.length}{' '}

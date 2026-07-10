@@ -4,7 +4,8 @@ import {
     fetchServerUrl,
     formatHours, formatNumber,
     formatTitle,
-    getMapImage, secondsToHours,
+    getMapImage,
+    socialMeta,
     StillCalculate
 } from "utils/generalUtils";
 import { Card } from "components/ui/card";
@@ -102,18 +103,7 @@ export async function generateMetadata({ params }: {
     return {
         title,
         description: description,
-        openGraph: {
-            type: "website",
-            title,
-            description,
-            images: [image],
-        },
-        twitter: {
-            card: "summary_large_image",
-            title,
-            description,
-            images: [image],
-        },
+        ...socialMeta({title, description, images: [image]}),
         alternates: {
             canonical: `/servers/${server.gotoLink}/maps/${map_name}`,
             types: {
@@ -136,20 +126,19 @@ export default async function Page({ params }){
         const analyze = mapInfo.analyze;
         const info = mapInfo.info;
 
+        // A ZE map is a level, not a game: model it as a CreativeWork that is part of the
+        // Counter-Strike VideoGame. No aggregateRating here — playtime is not a 1-5 review
+        // score, and emitting one is a structured-data guidelines violation.
         jsonLd = {
             "@context": "https://schema.org",
-            "@type": "VideoGame",
+            "@type": "CreativeWork",
             "name": map_name,
-            "gamePlatform": "PC",
             "genre": "Zombie Escape",
             "description": `Zombie Escape map with ${formatHours(analyze.cum_player_hours || 0)} of cumulative playtime on ${server.community_name}`,
-            "aggregateRating": {
-                "@type": "AggregateRating",
-                "ratingValue": secondsToHours(analyze.cum_player_hours),
-                "ratingCount": analyze.unique_players || 0,
-                "reviewCount": analyze.unique_players || 0,
-                "bestRating": "5",
-                "worstRating": "1"
+            "isPartOf": {
+                "@type": "VideoGame",
+                "name": "Counter-Strike",
+                "gamePlatform": "PC"
             },
             "interactionStatistic": {
                 "@type": "InteractionCounter",
