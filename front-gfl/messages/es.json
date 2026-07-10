@@ -341,7 +341,7 @@
         "recalculating": "Recalculando",
         "outOfDate": "Desactualizado",
         "ofTotalPlayers": "de {total} jugadores",
-        "notEnoughPlaytime": "Aún no hay suficiente tiempo de juego",
+        "notEnoughPlaytime": "Sin calcular",
         "shareProfile": "Compartir perfil",
         "avatarAlt": "Foto de perfil de {name}"
       },
@@ -351,7 +351,7 @@
         "never": "Nunca",
         "sessionHours": "Sesión de {hours} h",
         "unranked": "Sin clasificar",
-        "notEnoughPlaytime": "Aún no hay suficiente tiempo de juego",
+        "notEnoughPlaytime": "Sin calcular",
         "totalPlaytime": "Tiempo total de juego",
         "hoursUnit": "hrs",
         "acrossCommunities": "en {count, plural, one {# comunidad} other {# comunidades}}",

@@ -341,7 +341,7 @@
         "recalculating": "재계산 중",
         "outOfDate": "오래된 데이터",
         "ofTotalPlayers": "{total}명 중",
-        "notEnoughPlaytime": "아직 플레이 시간이 충분하지 않습니다",
+        "notEnoughPlaytime": "계산되지 않음",
         "shareProfile": "프로필 공유",
         "avatarAlt": "{name}의 프로필 사진"
       },
@@ -351,7 +351,7 @@
         "never": "없음",
         "sessionHours": "{hours}시간 세션",
         "unranked": "순위 없음",
-        "notEnoughPlaytime": "아직 플레이 시간이 충분하지 않습니다",
+        "notEnoughPlaytime": "계산되지 않음",
         "totalPlaytime": "총 플레이 시간",
         "hoursUnit": "시간",
         "acrossCommunities": "{count, plural, one {# 커뮤니티} other {# 커뮤니티}}에서",

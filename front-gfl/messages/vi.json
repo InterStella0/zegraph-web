@@ -341,7 +341,7 @@
         "recalculating": "Đang tính lại",
         "outOfDate": "Đã lỗi thời",
         "ofTotalPlayers": "trong tổng số {total} người chơi",
-        "notEnoughPlaytime": "Chưa đủ thời gian chơi",
+        "notEnoughPlaytime": "Chưa tính toán",
         "shareProfile": "Chia sẻ hồ sơ",
         "avatarAlt": "Ảnh đại diện của {name}"
       },
@@ -351,7 +351,7 @@
         "never": "Chưa bao giờ",
         "sessionHours": "Phiên {hours} giờ",
         "unranked": "Chưa xếp hạng",
-        "notEnoughPlaytime": "Chưa đủ thời gian chơi",
+        "notEnoughPlaytime": "Chưa tính toán",
         "totalPlaytime": "Tổng thời gian chơi",
         "hoursUnit": "giờ",
         "acrossCommunities": "trên {count, plural, one {# cộng đồng} other {# cộng đồng}}",

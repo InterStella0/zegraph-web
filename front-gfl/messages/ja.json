@@ -341,7 +341,7 @@
         "recalculating": "再計算中",
         "outOfDate": "古いデータ",
         "ofTotalPlayers": "{total}人中",
-        "notEnoughPlaytime": "プレイ時間がまだ不足しています",
+        "notEnoughPlaytime": "未計算",
         "shareProfile": "プロフィールを共有",
         "avatarAlt": "{name}のプロフィール画像"
       },
@@ -351,7 +351,7 @@
         "never": "なし",
         "sessionHours": "{hours}時間のセッション",
         "unranked": "ランク外",
-        "notEnoughPlaytime": "プレイ時間がまだ不足しています",
+        "notEnoughPlaytime": "未計算",
         "totalPlaytime": "合計プレイ時間",
         "hoursUnit": "時間",
         "acrossCommunities": "{count, plural, one {# コミュニティ} other {# コミュニティ}}にわたって",

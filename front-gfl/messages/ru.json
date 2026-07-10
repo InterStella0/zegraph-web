@@ -341,7 +341,7 @@
         "recalculating": "Пересчитывается",
         "outOfDate": "Устарело",
         "ofTotalPlayers": "из {total} игроков",
-        "notEnoughPlaytime": "Пока недостаточно времени игры",
+        "notEnoughPlaytime": "Не рассчитано",
         "shareProfile": "Поделиться профилем",
         "avatarAlt": "Изображение профиля {name}"
       },
@@ -351,7 +351,7 @@
         "never": "Никогда",
         "sessionHours": "Сессия {hours} ч",
         "unranked": "Без ранга",
-        "notEnoughPlaytime": "Пока недостаточно времени игры",
+        "notEnoughPlaytime": "Не рассчитано",
         "totalPlaytime": "Общее время игры",
         "hoursUnit": "ч",
         "acrossCommunities": "в {count, plural, one {# сообществе} other {# сообществах}}",

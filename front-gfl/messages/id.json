@@ -341,7 +341,7 @@
         "recalculating": "Menghitung ulang",
         "outOfDate": "Kedaluwarsa",
         "ofTotalPlayers": "dari {total} pemain",
-        "notEnoughPlaytime": "Waktu bermain belum cukup",
+        "notEnoughPlaytime": "Belum dihitung",
         "shareProfile": "Bagikan Profil",
         "avatarAlt": "Foto profil {name}"
       },
@@ -351,7 +351,7 @@
         "never": "Tidak pernah",
         "sessionHours": "Sesi {hours} jam",
         "unranked": "Tidak berperingkat",
-        "notEnoughPlaytime": "Waktu bermain belum cukup",
+        "notEnoughPlaytime": "Belum dihitung",
         "totalPlaytime": "Total Waktu Bermain",
         "hoursUnit": "jam",
         "acrossCommunities": "di {count, plural, one {# komunitas} other {# komunitas}}",

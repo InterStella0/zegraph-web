@@ -341,7 +341,7 @@
         "recalculating": "重新计算中",
         "outOfDate": "数据已过期",
         "ofTotalPlayers": "共 {total} 名玩家",
-        "notEnoughPlaytime": "游戏时长尚不足",
+        "notEnoughPlaytime": "尚未计算",
         "shareProfile": "分享个人资料",
         "avatarAlt": "{name} 的头像"
       },
@@ -351,7 +351,7 @@
         "never": "从未",
         "sessionHours": "{hours} 小时场次",
         "unranked": "未排名",
-        "notEnoughPlaytime": "游戏时长尚不足",
+        "notEnoughPlaytime": "尚未计算",
         "totalPlaytime": "总游戏时长",
         "hoursUnit": "小时",
         "acrossCommunities": "跨 {count, plural, one {# 个社区} other {# 个社区}}",
