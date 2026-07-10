@@ -173,6 +173,78 @@ pub struct ServerPlayerDetail {
 
 pub type CommunityPlayerDetail = BaseCommunity<ServerPlayerDetail>;
 
+#[derive(Object)]
+pub struct LinkedName {
+    pub name: String,
+    pub total_playtime: f64,
+    pub is_current: bool,
+}
+
+#[derive(Object)]
+pub struct ProfileServerEntry {
+    pub server_id: String,
+    pub server_name: String,
+    pub map: Option<String>,
+    pub by_id: bool,
+    pub online_count: i64,
+    pub max_players: i64,
+    pub is_online: bool,
+    pub last_played: Option<DateTime<Utc>>,
+    pub last_played_duration: Option<f64>,
+    pub player: DetailedPlayer,
+    pub linked_names: Vec<LinkedName>,
+}
+
+pub type ProfileCommunityDetail = BaseCommunity<ProfileServerEntry>;
+
+#[derive(Object)]
+pub struct GlobalMapRank {
+    pub position: i64,
+    pub map: String,
+    pub rank: i64,
+}
+
+
+#[derive(Object, Clone, Default)]
+pub struct GlobalPlaytimeSummary {
+    pub total_playtime: f64,
+    pub casual_playtime: f64,
+    pub tryhard_playtime: f64,
+    pub category: Option<String>,
+    pub rank: Option<i64>,
+    pub casual_rank: Option<i64>,
+    pub tryhard_rank: Option<i64>,
+    pub total_ranked_players: i64,
+    pub server_count: i64,
+    pub community_count: i64,
+    pub is_outdated: bool,
+    pub is_calculating: bool,
+    pub calculated_at: Option<DateTime<Utc>>,
+    pub rank_calculated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Object)]
+pub struct ProfileSummary {
+    pub total_playtime: f64,
+    pub community_count: i64,
+    pub server_count: i64,
+    pub is_online: bool,
+    pub last_online: Option<DateTime<Utc>>,
+    pub last_session_duration: Option<f64>,
+    pub best_rank: Option<GlobalMapRank>,
+    pub global: GlobalPlaytimeSummary,
+}
+
+#[derive(Object)]
+pub struct ProfileResponse {
+    pub steamid: String, // String to avoid JS precision loss with large i64
+    pub name: Option<String>,
+    pub summary: ProfileSummary,
+    pub communities: Vec<ProfileCommunityDetail>,
+    pub is_owner: bool,
+    pub anonymization: Option<Vec<UserAnonymization>>,
+}
+
 impl Eq for Community {
 
 }

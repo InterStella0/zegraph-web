@@ -13,7 +13,8 @@ import { Badge } from "components/ui/badge";
 import dayjs from "dayjs";
 import { PlayerAvatar } from "./PlayerAvatar";
 import CategoryChip from "../ui/CategoryChip";
-import { Clock } from "lucide-react";
+import { Clock, UserRound } from "lucide-react";
+import Link from "next/link";
 
 import relativeTime from 'dayjs/plugin/relativeTime'
 import ErrorCatch from "../ui/ErrorMessage.tsx";
@@ -99,8 +100,8 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
 
                 <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-left justify-between sm:min-h-[120px]">
                     <div>
-                        <div className="flex items-center mb-2 justify-center sm:justify-start">
-                            <h1 className="text-xl font-normal flex items-center mr-2">
+                        <div className="flex flex-wrap items-center gap-2 mb-2 justify-center sm:justify-start">
+                            <h1 className="text-xl font-normal flex items-center">
                                 {player.name}
                             </h1>
                             {steamId && (
@@ -127,6 +128,14 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
+                            )}
+                            {steamId && (
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={`/users/${steamId}/profile`}>
+                                        <UserRound />
+                                        {t('globalProfile')}
+                                    </Link>
+                                </Button>
                             )}
                         </div>
 

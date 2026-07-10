@@ -200,6 +200,7 @@
       "lastOnline": "Последний раз в сети {ago} ({hours}ч)",
       "playingSince": "Играет с {ago}",
       "viewSteamProfile": "Просмотреть профиль Steam",
+      "globalProfile": "Глобальный профиль",
       "ranked": "Ранг",
       "global": "Глобально",
       "globalTitle": "Общее время игры независимо от сообществ",
@@ -323,7 +324,68 @@
       "yearlySummary": "Активность игрока за {periods, plural, one {# период} few {# периода} other {# периодов}}. Всего: {total} часов. Пик: {peak} часов.",
       "matrixSummary": "Тепловая карта активности игрока, показывающая {total} часов за {days, plural, one {# активный день} few {# активных дня} other {# активных дней}}. Пиковая суточная активность: {peak} часов.",
       "yearlyAriaLabel": "Ежегодная тепловая карта активности игрока",
-      "matrixAriaLabel": "Тепловая карта активности игрока {groupBy}"
+      "matrixAriaLabel": "Тепловая карта активности игрока {groupBy}",
+      "totalPlayTime": "Общее время игры",
+      "hoursUnit": "ч",
+      "inYear": "в {year}"
+    },
+    "profile": {
+      "header": {
+        "unknownUser": "Неизвестный пользователь",
+        "shareLinkCopied": "Ссылка на профиль скопирована в буфер обмена",
+        "shareLinkCopyFailed": "Не удалось скопировать ссылку на профиль",
+        "viewSteamProfile": "Открыть профиль Steam",
+        "online": "В сети",
+        "offline": "Не в сети",
+        "globalRank": "Глобальный рейтинг",
+        "recalculating": "Пересчитывается",
+        "outOfDate": "Устарело",
+        "ofTotalPlayers": "из {total} игроков",
+        "notEnoughPlaytime": "Пока недостаточно времени игры",
+        "shareProfile": "Поделиться профилем",
+        "avatarAlt": "Изображение профиля {name}"
+      },
+      "stats": {
+        "recalculating": "Пересчитывается",
+        "outOfDate": "Устарело",
+        "never": "Никогда",
+        "sessionHours": "Сессия {hours} ч",
+        "unranked": "Без ранга",
+        "notEnoughPlaytime": "Пока недостаточно времени игры",
+        "totalPlaytime": "Общее время игры",
+        "hoursUnit": "ч",
+        "acrossCommunities": "в {count, plural, one {# сообществе} other {# сообществах}}",
+        "bestMapRank": "Лучший рейтинг по карте",
+        "communities": "Сообщества",
+        "joinedAndTracked": "присоединился и отслеживается",
+        "servers": "Серверы",
+        "acrossAllCommunities": "по всем сообществам",
+        "lastOnline": "Последний раз в сети",
+        "onlineNow": "В сети сейчас",
+        "lastVerified": "Последняя проверка {ago}.",
+        "neverVerified": "Эти итоги ещё никогда не проверялись.",
+        "recalculatingPlaytime": "Пересчёт времени игры…",
+        "playtimeOutOfDate": "Время игры устарело",
+        "staleNoticeBody": "Вы играли после последнего подсчёта, поэтому время игры и рейтинг могут быть занижены. {verified}",
+        "freshFiguresNote": "Актуальные данные появятся автоматически."
+      },
+      "communities": {
+        "heading": "Связи сообществ",
+        "empty": "Связи с сообществами не найдены."
+      },
+      "connectionCard": {
+        "linkedNames": "СВЯЗАННЫЕ ИМЕНА · {count}",
+        "hoursUnit": "ч",
+        "current": "ТЕКУЩИЙ",
+        "renameNotice": "Переименование создаёт отдельную запись на этом сервере.",
+        "online": "{count} в сети",
+        "hideRadar": "Скрыть радар",
+        "anonymize": "Анонимизировать",
+        "servers": "Серверы",
+        "steamId": "Steam ID",
+        "nameMatched": "Совпадение по имени",
+        "noPlaytime": "Нет времени игры"
+      }
     }
   },
   "sessions": {

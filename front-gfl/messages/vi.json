@@ -200,6 +200,7 @@
       "lastOnline": "Lần cuối trực tuyến {ago} ({hours}h)",
       "playingSince": "Chơi từ {ago}",
       "viewSteamProfile": "Xem hồ sơ Steam",
+      "globalProfile": "Hồ sơ toàn cầu",
       "ranked": "Xếp hạng",
       "global": "Toàn cầu",
       "globalTitle": "Tổng thời gian chơi bất kể cộng đồng",
@@ -323,7 +324,68 @@
       "yearlySummary": "Hoạt động của người chơi trên {periods, plural, one {# khoảng thời gian} other {# khoảng thời gian}}. Tổng: {total} giờ. Đỉnh: {peak} giờ.",
       "matrixSummary": "Bản đồ nhiệt hoạt động người chơi cho thấy {total} giờ trên {days, plural, one {# ngày hoạt động} other {# ngày hoạt động}}. Hoạt động hàng ngày đỉnh: {peak} giờ.",
       "yearlyAriaLabel": "Bản đồ nhiệt hoạt động người chơi hàng năm",
-      "matrixAriaLabel": "Bản đồ nhiệt hoạt động người chơi {groupBy}"
+      "matrixAriaLabel": "Bản đồ nhiệt hoạt động người chơi {groupBy}",
+      "totalPlayTime": "Tổng thời gian chơi",
+      "hoursUnit": "giờ",
+      "inYear": "trong năm {year}"
+    },
+    "profile": {
+      "header": {
+        "unknownUser": "Người dùng không xác định",
+        "shareLinkCopied": "Đã sao chép liên kết hồ sơ vào bộ nhớ tạm",
+        "shareLinkCopyFailed": "Không thể sao chép liên kết hồ sơ",
+        "viewSteamProfile": "Xem hồ sơ Steam",
+        "online": "Đang trực tuyến",
+        "offline": "Ngoại tuyến",
+        "globalRank": "Xếp hạng toàn cầu",
+        "recalculating": "Đang tính lại",
+        "outOfDate": "Đã lỗi thời",
+        "ofTotalPlayers": "trong tổng số {total} người chơi",
+        "notEnoughPlaytime": "Chưa đủ thời gian chơi",
+        "shareProfile": "Chia sẻ hồ sơ",
+        "avatarAlt": "Ảnh đại diện của {name}"
+      },
+      "stats": {
+        "recalculating": "Đang tính lại",
+        "outOfDate": "Đã lỗi thời",
+        "never": "Chưa bao giờ",
+        "sessionHours": "Phiên {hours} giờ",
+        "unranked": "Chưa xếp hạng",
+        "notEnoughPlaytime": "Chưa đủ thời gian chơi",
+        "totalPlaytime": "Tổng thời gian chơi",
+        "hoursUnit": "giờ",
+        "acrossCommunities": "trên {count, plural, one {# cộng đồng} other {# cộng đồng}}",
+        "bestMapRank": "Xếp hạng bản đồ tốt nhất",
+        "communities": "Cộng đồng",
+        "joinedAndTracked": "đã tham gia & được theo dõi",
+        "servers": "Máy chủ",
+        "acrossAllCommunities": "trên tất cả các cộng đồng",
+        "lastOnline": "Trực tuyến lần cuối",
+        "onlineNow": "Đang trực tuyến",
+        "lastVerified": "Xác minh lần cuối {ago}.",
+        "neverVerified": "Các tổng số này chưa từng được xác minh.",
+        "recalculatingPlaytime": "Đang tính lại thời gian chơi…",
+        "playtimeOutOfDate": "Thời gian chơi đã lỗi thời",
+        "staleNoticeBody": "Bạn đã chơi kể từ lần tính toán các số liệu này, vì vậy thời gian chơi và xếp hạng có thể quá thấp. {verified}",
+        "freshFiguresNote": "Số liệu mới sẽ tự động xuất hiện."
+      },
+      "communities": {
+        "heading": "Kết nối cộng đồng",
+        "empty": "Không tìm thấy kết nối cộng đồng nào."
+      },
+      "connectionCard": {
+        "linkedNames": "TÊN LIÊN KẾT · {count}",
+        "hoursUnit": "giờ",
+        "current": "HIỆN TẠI",
+        "renameNotice": "Việc đổi tên sẽ tạo một bản ghi riêng biệt trên máy chủ này.",
+        "online": "{count} đang trực tuyến",
+        "hideRadar": "Ẩn radar",
+        "anonymize": "Ẩn danh",
+        "servers": "Máy chủ",
+        "steamId": "Steam ID",
+        "nameMatched": "Trùng tên",
+        "noPlaytime": "Không có thời gian chơi"
+      }
     }
   },
   "sessions": {

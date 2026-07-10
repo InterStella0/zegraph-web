@@ -200,6 +200,7 @@
       "lastOnline": "{ago}前にラストオンライン({hours}時間)",
       "playingSince": "{ago}からプレイ中",
       "viewSteamProfile": "Steamプロファイルを表示",
+      "globalProfile": "グローバルプロフィール",
       "ranked": "ランク",
       "global": "グローバル",
       "globalTitle": "コミュニティ全体のプレイ時間",
@@ -323,7 +324,68 @@
       "yearlySummary": "{periods, plural, one {# 期間} other {# 期間}}のプレイヤーアクティビティ。合計：{total}時間。ピーク：{peak}時間。",
       "matrixSummary": "{days, plural, one {# 活動日} other {# 活動日}}にわたるプレイヤーアクティビティヒートマップ、合計{total}時間。ピーク日次アクティビティ：{peak}時間。",
       "yearlyAriaLabel": "年間プレイヤーアクティビティヒートマップ",
-      "matrixAriaLabel": "プレイヤー{groupBy}アクティビティヒートマップ"
+      "matrixAriaLabel": "プレイヤー{groupBy}アクティビティヒートマップ",
+      "totalPlayTime": "合計プレイ時間",
+      "hoursUnit": "時間",
+      "inYear": "{year}年"
+    },
+    "profile": {
+      "header": {
+        "unknownUser": "不明なユーザー",
+        "shareLinkCopied": "プロフィールリンクをクリップボードにコピーしました",
+        "shareLinkCopyFailed": "プロフィールリンクのコピーに失敗しました",
+        "viewSteamProfile": "Steamプロフィールを見る",
+        "online": "オンライン",
+        "offline": "オフライン",
+        "globalRank": "グローバルランク",
+        "recalculating": "再計算中",
+        "outOfDate": "古いデータ",
+        "ofTotalPlayers": "{total}人中",
+        "notEnoughPlaytime": "プレイ時間がまだ不足しています",
+        "shareProfile": "プロフィールを共有",
+        "avatarAlt": "{name}のプロフィール画像"
+      },
+      "stats": {
+        "recalculating": "再計算中",
+        "outOfDate": "古いデータ",
+        "never": "なし",
+        "sessionHours": "{hours}時間のセッション",
+        "unranked": "ランク外",
+        "notEnoughPlaytime": "プレイ時間がまだ不足しています",
+        "totalPlaytime": "合計プレイ時間",
+        "hoursUnit": "時間",
+        "acrossCommunities": "{count, plural, one {# コミュニティ} other {# コミュニティ}}にわたって",
+        "bestMapRank": "最高マップランク",
+        "communities": "コミュニティ",
+        "joinedAndTracked": "参加・追跡済み",
+        "servers": "サーバー",
+        "acrossAllCommunities": "すべてのコミュニティにわたって",
+        "lastOnline": "最終オンライン",
+        "onlineNow": "現在オンライン",
+        "lastVerified": "最終確認：{ago}。",
+        "neverVerified": "この合計はまだ確認されていません。",
+        "recalculatingPlaytime": "プレイ時間を再計算中…",
+        "playtimeOutOfDate": "プレイ時間が古くなっています",
+        "staleNoticeBody": "これらの数値が計算されてからプレイしているため、プレイ時間とランクが低く表示されている可能性があります。{verified}",
+        "freshFiguresNote": "最新の数値は自動的に表示されます。"
+      },
+      "communities": {
+        "heading": "コミュニティ接続",
+        "empty": "コミュニティ接続が見つかりません。"
+      },
+      "connectionCard": {
+        "linkedNames": "リンクされた名前 · {count}",
+        "hoursUnit": "時間",
+        "current": "現在",
+        "renameNotice": "名前を変更すると、このサーバーで別の記録が分岐します。",
+        "online": "{count}人オンライン",
+        "hideRadar": "レーダーを非表示",
+        "anonymize": "匿名化",
+        "servers": "サーバー",
+        "steamId": "Steam ID",
+        "nameMatched": "名前が一致",
+        "noPlaytime": "プレイ時間なし"
+      }
     }
   },
   "sessions": {

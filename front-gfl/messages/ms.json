@@ -200,6 +200,7 @@
       "lastOnline": "Dalam talian terakhir {ago} ({hours}j)",
       "playingSince": "Bermain sejak {ago}",
       "viewSteamProfile": "Lihat Profil Steam",
+      "globalProfile": "Profil Global",
       "ranked": "Kedudukan",
       "global": "Global",
       "globalTitle": "Masa bermain global tanpa mengira komuniti",
@@ -323,7 +324,68 @@
       "yearlySummary": "Aktiviti pemain merangkumi {periods, plural, other {# tempoh}}. Jumlah: {total} jam. Puncak: {peak} jam.",
       "matrixSummary": "Map haba aktiviti pemain menunjukkan {total} jam merangkumi {days, plural, other {# hari aktif}}. Aktiviti harian puncak: {peak} jam.",
       "yearlyAriaLabel": "Map haba aktiviti tahunan pemain",
-      "matrixAriaLabel": "Map haba aktiviti {groupBy} pemain"
+      "matrixAriaLabel": "Map haba aktiviti {groupBy} pemain",
+      "totalPlayTime": "Jumlah Masa Bermain",
+      "hoursUnit": "jam",
+      "inYear": "pada {year}"
+    },
+    "profile": {
+      "header": {
+        "unknownUser": "Pengguna Tidak Dikenali",
+        "shareLinkCopied": "Pautan profil disalin ke papan keratan",
+        "shareLinkCopyFailed": "Gagal menyalin pautan profil",
+        "viewSteamProfile": "Lihat Profil Steam",
+        "online": "Dalam Talian",
+        "offline": "Luar Talian",
+        "globalRank": "Kedudukan Global",
+        "recalculating": "Mengira semula",
+        "outOfDate": "Lapuk",
+        "ofTotalPlayers": "daripada {total} pemain",
+        "notEnoughPlaytime": "Masa bermain belum mencukupi",
+        "shareProfile": "Kongsi Profil",
+        "avatarAlt": "Gambar profil {name}"
+      },
+      "stats": {
+        "recalculating": "Mengira semula",
+        "outOfDate": "Lapuk",
+        "never": "Tidak pernah",
+        "sessionHours": "Sesi {hours} jam",
+        "unranked": "Tiada kedudukan",
+        "notEnoughPlaytime": "Masa bermain belum mencukupi",
+        "totalPlaytime": "Jumlah Masa Bermain",
+        "hoursUnit": "jam",
+        "acrossCommunities": "merentasi {count, plural, one {# komuniti} other {# komuniti}}",
+        "bestMapRank": "Kedudukan Map Terbaik",
+        "communities": "Komuniti",
+        "joinedAndTracked": "menyertai & dijejaki",
+        "servers": "Pelayan",
+        "acrossAllCommunities": "merentasi semua komuniti",
+        "lastOnline": "Dalam Talian Terakhir",
+        "onlineNow": "Dalam talian sekarang",
+        "lastVerified": "Terakhir disahkan {ago}.",
+        "neverVerified": "Jumlah ini belum pernah disahkan.",
+        "recalculatingPlaytime": "Mengira semula masa bermain…",
+        "playtimeOutOfDate": "Masa bermain sudah lapuk",
+        "staleNoticeBody": "Anda telah bermain sejak angka ini dikira, jadi masa bermain dan kedudukan mungkin terlalu rendah. {verified}",
+        "freshFiguresNote": "Angka terkini akan dipaparkan secara automatik."
+      },
+      "communities": {
+        "heading": "Sambungan Komuniti",
+        "empty": "Tiada sambungan komuniti dijumpai."
+      },
+      "connectionCard": {
+        "linkedNames": "NAMA BERTAUT · {count}",
+        "hoursUnit": "jam",
+        "current": "SEMASA",
+        "renameNotice": "Penukaran nama mencipta rekod berasingan di pelayan ini.",
+        "online": "{count} dalam talian",
+        "hideRadar": "Sembunyikan Radar",
+        "anonymize": "Nyahkenal pasti",
+        "servers": "Pelayan",
+        "steamId": "Steam ID",
+        "nameMatched": "Sepadan nama",
+        "noPlaytime": "Tiada masa bermain"
+      }
     }
   },
   "sessions": {

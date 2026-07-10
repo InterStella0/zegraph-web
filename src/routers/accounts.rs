@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
 use poem::web::Data;
 use poem_openapi::payload::Json;
@@ -6,6 +6,8 @@ use poem_openapi::{Object, OpenApi};
 use poem_openapi::param::{Path, Query};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use sqlx::types::time::OffsetDateTime;
 use tokio::time::sleep;
 use uuid::Uuid;
 
@@ -16,6 +18,7 @@ use crate::workers::PlayerContext;
 use crate::{response, AppData};
 use crate::core::push_service::NotificationType;
 use crate::routers::players::{get_player, get_player_cache_key};
+use crate::FastCache;
 
 pub struct AccountsApi;
 
@@ -74,6 +77,90 @@ fn validate_push_subscription(dto: &PushSubscriptionDto) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Renamed accounts fork into their own player row pointing back at the original, so playtime is
+/// only whole once collapsed onto the canonical id. Returns None when no player row exists.
+async fn resolve_canonical_player_id(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    steam_id: &str,
+) -> Option<String> {
+    sqlx::query_scalar!(
+        "SELECT COALESCE(associated_player_id, player_id) AS \"canonical!\"
+         FROM player WHERE player_id = $1",
+        steam_id
+    ).fetch_optional(pool).await.ok().flatten()
+}
+
+fn resolve_user_id<T: poem_openapi::types::ParseFromJSON + poem_openapi::types::ToJSON + Send + Sync>(
+    user_id_param: &str,
+    requester: &Option<UserToken>,
+) -> Result<i64, Response<T>> {
+    if user_id_param == "me" {
+        match requester {
+            Some(token) => Ok(token.id),
+            None => Err(response!(err "Login required to view your own profile", ErrorCode::Forbidden)),
+        }
+    } else {
+        match user_id_param.parse::<i64>() {
+            Ok(id) => Ok(id),
+            Err(_) => Err(response!(err "Invalid user id", ErrorCode::BadRequest)),
+        }
+    }
+}
+
+async fn get_global_best_rank(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    cache: &FastCache,
+    steam_id: &str,
+) -> Option<GlobalMapRank> {
+    let func = || sqlx::query_as!(
+        DbGlobalMapRankEntry,
+        "WITH qualifying AS (
+            SELECT pmr.player_id, pmr.map, pmr.map_rank
+            FROM website.player_map_rank pmr
+            JOIN website.player_map_time pmt
+                ON pmt.player_id = pmr.player_id
+                AND pmt.map = pmr.map
+                AND pmt.server_id = pmr.server_id
+            WHERE pmt.total_playtime > interval '1 hour'
+        ),
+        best AS (
+            SELECT player_id, MIN(map_rank) AS best_rank
+            FROM qualifying
+            GROUP BY player_id
+        ),
+        positioned AS (
+            SELECT player_id, best_rank, RANK() OVER (ORDER BY best_rank ASC) AS global_position
+            FROM best
+        )
+        SELECT DISTINCT ON (q.player_id)
+            q.player_id AS \"player_id!\",
+            p.global_position AS \"global_position\",
+            q.map AS \"map\",
+            q.map_rank AS \"rank\"
+        FROM positioned p
+        JOIN qualifying q ON q.player_id = p.player_id AND q.map_rank = p.best_rank
+        ORDER BY q.player_id, q.map_rank"
+    ).fetch_all(pool);
+
+    let entries = cached_response("global-best-map-rank-table", cache, 900, func).await.ok()?.result;
+
+    let merged_ids: HashSet<String> = sqlx::query_scalar!(
+        "SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1",
+        steam_id
+    ).fetch_all(pool).await.unwrap_or_default().into_iter().collect();
+
+    let best = entries.into_iter()
+        .filter(|e| merged_ids.contains(&e.player_id))
+        .min_by_key(|e| e.global_position.unwrap_or(i64::MAX))?;
+
+    let map = best.map?;
+    Some(GlobalMapRank {
+        position: best.global_position.unwrap_or_default(),
+        map,
+        rank: best.rank.unwrap_or_default(),
+    })
 }
 
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
@@ -413,6 +500,317 @@ impl AccountsApi {
         }
 
         response!(ok results.into_values().collect())
+    }
+    #[oai(path="/accounts/:user_id/profile", method="get")]
+    async fn get_user_profile(
+        &self,
+        Data(app): Data<&AppData>,
+        OptionalTokenBearer(requester): OptionalTokenBearer,
+        user_id: Path<String>,
+    ) -> Response<ProfileResponse> {
+        let pool = &*app.pool;
+        let target_user_id = match resolve_user_id(&user_id.0, &requester) {
+            Ok(id) => id,
+            Err(e) => return e,
+        };
+        let steam_id = target_user_id.to_string();
+        let is_owner = requester.map(|t| t.id) == Some(target_user_id);
+
+        let servers_played = sqlx::query_as!(
+            DbCommunityServerEntry,
+            "WITH user_players AS (
+                SELECT DISTINCT player_id
+                FROM player
+                WHERE player_id = $1 OR associated_player_id = $1
+            )
+            SELECT DISTINCT ON (s.server_id)
+                s.server_id,
+                pss.player_id,
+                c.community_id,
+                c.community_name,
+                c.community_shorten_name,
+                c.community_icon_url
+            FROM player_server_session pss
+            JOIN user_players up ON up.player_id = pss.player_id
+            JOIN server s ON s.server_id = pss.server_id
+            JOIN community c ON c.community_id = s.community_id
+            ORDER BY s.server_id",
+            steam_id
+        ).fetch_all(pool).await;
+
+        let Ok(servers_played) = servers_played else {
+            return response!(internal_server_error);
+        };
+
+        let anonymization_settings = sqlx::query_as!(
+            DbUserAnonymization,
+            "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
+            target_user_id
+        ).fetch_all(pool).await.unwrap_or_default();
+
+        let anonymized_community_ids: HashSet<Uuid> = anonymization_settings.iter()
+            .filter(|s| s.anonymized)
+            .filter_map(|s| s.community_id)
+            .collect();
+
+        let current_name = get_player(pool, &app.cache, &steam_id).await.map(|p| p.player_name);
+
+        // Only users who have signed in to the site have a steam_user row.
+        let persona_name = sqlx::query_scalar!(
+            "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
+            target_user_id
+        ).fetch_optional(pool).await.ok().flatten();
+
+        let mut results: IndexMap<String, ProfileCommunityDetail> = IndexMap::new();
+        let mut total_playtime = 0f64;
+        let mut is_online = false;
+        let mut last_online: Option<DateTime<Utc>> = None;
+        let mut last_session_duration: Option<f64> = None;
+        let mut latest_started_at: Option<OffsetDateTime> = None;
+
+        for entry in servers_played {
+            if !is_owner && anonymized_community_ids.contains(&entry.community_id) {
+                continue;
+            }
+
+            let server_id = &entry.server_id;
+            let player_id = &entry.player_id;
+
+            let Some(server) = get_server(pool, &app.cache, server_id).await else { continue };
+            let Some(player) = get_player(pool, &app.cache, player_id).await else { continue };
+
+            let cache_key = get_player_cache_key(pool, &app.cache, server_id, player_id).await;
+            let ctx = PlayerContext { player, server: server.clone(), cache_key };
+
+            let Ok(mut detail) = app.player_worker.get_detail_stored(&ctx).await else { continue };
+
+            let stat = sqlx::query_as!(
+                DbProfileServerStat,
+                "WITH user_players AS (
+                    SELECT player_id FROM player WHERE player_id = $2 OR associated_player_id = $2
+                )
+                SELECT
+                    LEAST(
+                        (SELECT COUNT(DISTINCT player_id) FROM player_server_session p
+                            WHERE p.server_id = s.server_id AND p.ended_at IS NULL
+                            AND CURRENT_TIMESTAMP - p.started_at < INTERVAL '24 hours'),
+                        COALESCE(s.max_players, 64)
+                    ) AS online_count,
+                    smp.map,
+                    ls.started_at AS last_started_at,
+                    ls.ended_at AS last_ended_at
+                FROM server s
+                LEFT JOIN LATERAL (
+                    SELECT map FROM server_map_played WHERE server_id = s.server_id AND ended_at IS NULL
+                    ORDER BY started_at DESC LIMIT 1
+                ) smp ON true
+                LEFT JOIN LATERAL (
+                    SELECT started_at, ended_at FROM player_server_session
+                    WHERE server_id = s.server_id AND player_id IN (SELECT player_id FROM user_players)
+                    ORDER BY started_at DESC LIMIT 1
+                ) ls ON true
+                WHERE s.server_id = $1",
+                server_id,
+                steam_id
+            ).fetch_optional(pool).await.ok().flatten();
+
+            let by_id = server.source_by_id.unwrap_or(false);
+            let mut linked_names: Vec<LinkedName> = vec![];
+            if !by_id {
+                let names = sqlx::query_as!(
+                    DbLinkedName,
+                    "SELECT p.player_id, p.player_name, pp.total_playtime
+                     FROM player p
+                     JOIN website.player_playtime pp ON pp.player_id = p.player_id AND pp.server_id = $1
+                     WHERE (p.player_id = $2 OR p.associated_player_id = $2)
+                        AND pp.total_playtime > interval '0'
+                     ORDER BY pp.total_playtime DESC",
+                    server_id,
+                    steam_id
+                ).fetch_all(pool).await.unwrap_or_default();
+
+                linked_names = names.into_iter().map(|n| LinkedName {
+                    is_current: Some(&n.player_name) == current_name.as_ref(),
+                    name: n.player_name,
+                    total_playtime: n.total_playtime.map(|i| i.to_f64()).unwrap_or(0.0),
+                }).collect();
+
+                if !linked_names.is_empty() {
+                    detail.total_playtime = linked_names.iter().map(|n| n.total_playtime).sum();
+                }
+            }
+
+            let (server_online, server_last_played, server_duration) = match &stat {
+                Some(s) => {
+                    let online = s.last_ended_at.is_none() && s.last_started_at.is_some();
+                    let last_played = s.last_ended_at.or(s.last_started_at).map(db_to_utc);
+                    let duration = s.last_started_at.map(|start| {
+                        let end = s.last_ended_at.unwrap_or_else(OffsetDateTime::now_utc);
+                        (end - start).as_seconds_f64()
+                    });
+                    (online, last_played, duration)
+                }
+                None => (false, None, None),
+            };
+
+            if server_online {
+                is_online = true;
+            }
+            if let Some(started) = stat.as_ref().and_then(|s| s.last_started_at) {
+                let is_newer = match latest_started_at {
+                    Some(latest) => started > latest,
+                    None => true,
+                };
+                if is_newer {
+                    latest_started_at = Some(started);
+                    last_online = server_last_played;
+                    last_session_duration = server_duration;
+                }
+            }
+
+            total_playtime += detail.total_playtime;
+
+            let server_entry = ProfileServerEntry {
+                server_id: server_id.clone(),
+                server_name: server.server_name.clone().unwrap_or_default(),
+                map: stat.as_ref().and_then(|s| s.map.clone()),
+                by_id,
+                online_count: stat.as_ref().and_then(|s| s.online_count).unwrap_or(0),
+                max_players: server.max_players.unwrap_or(64) as i64,
+                is_online: server_online,
+                last_played: server_last_played,
+                last_played_duration: server_duration,
+                player: detail,
+                linked_names,
+            };
+
+            let community_id = entry.community_id.to_string();
+            let com = results.entry(community_id.clone()).or_insert(ProfileCommunityDetail {
+                id: community_id.clone(),
+                name: entry.community_name.clone().unwrap_or_default(),
+                shorten_name: entry.community_shorten_name.clone(),
+                icon_url: entry.community_icon_url.clone(),
+                servers: vec![]
+            });
+            com.servers.push(server_entry);
+        }
+
+        let communities: Vec<ProfileCommunityDetail> = results.into_values().collect();
+        let community_count = communities.len() as i64;
+        let server_count = communities.iter().map(|c| c.servers.len() as i64).sum();
+
+        let best_rank = get_global_best_rank(pool, &app.cache, &steam_id).await;
+
+        let global = match resolve_canonical_player_id(pool, &steam_id).await {
+            Some(canonical_id) => app.player_worker
+                .get_global_playtime(&canonical_id).await
+                .unwrap_or_default(),
+            None => GlobalPlaytimeSummary::default(),
+        };
+
+        let anonymization = if is_owner {
+            Some(anonymization_settings.iter_into())
+        } else {
+            None
+        };
+
+        response!(ok ProfileResponse {
+            steamid: steam_id,
+            name: persona_name.or(current_name),
+            summary: ProfileSummary {
+                total_playtime,
+                community_count,
+                server_count,
+                is_online,
+                last_online,
+                last_session_duration,
+                best_rank,
+                global,
+            },
+            communities,
+            is_owner,
+            anonymization,
+        })
+    }
+
+    /// Lightweight counterpart to the profile endpoint, so the client can poll for the verified
+    /// numbers while a background recompute is running.
+    #[oai(path="/accounts/:user_id/global-playtime", method="get")]
+    async fn get_user_global_playtime(
+        &self,
+        Data(app): Data<&AppData>,
+        OptionalTokenBearer(requester): OptionalTokenBearer,
+        user_id: Path<String>,
+    ) -> Response<GlobalPlaytimeSummary> {
+        let pool = &*app.pool;
+        let target_user_id = match resolve_user_id(&user_id.0, &requester) {
+            Ok(id) => id,
+            Err(e) => return e,
+        };
+
+        let Some(canonical_id) = resolve_canonical_player_id(pool, &target_user_id.to_string()).await else {
+            return response!(ok GlobalPlaytimeSummary::default());
+        };
+
+        let result = app.player_worker.get_global_playtime(&canonical_id).await;
+        handle_worker_result(result, "Player not found")
+    }
+
+    #[oai(path="/accounts/:user_id/playtime-heatmap", method="get")]
+    async fn get_user_playtime_heatmap(
+        &self,
+        Data(app): Data<&AppData>,
+        OptionalTokenBearer(requester): OptionalTokenBearer,
+        user_id: Path<String>,
+    ) -> Response<Vec<PlayerSessionTime>> {
+        let pool = &*app.pool;
+        let target_user_id = match resolve_user_id(&user_id.0, &requester) {
+            Ok(id) => id,
+            Err(e) => return e,
+        };
+        let steam_id = target_user_id.to_string();
+        let is_owner = requester.map(|t| t.id) == Some(target_user_id);
+
+        let anonymization_settings = sqlx::query_as!(
+            DbUserAnonymization,
+            "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
+            target_user_id
+        ).fetch_all(pool).await.unwrap_or_default();
+
+        let excluded_community_ids: Vec<Uuid> = if is_owner {
+            vec![]
+        } else {
+            anonymization_settings.iter()
+                .filter(|s| s.anonymized)
+                .filter_map(|s| s.community_id)
+                .collect()
+        };
+
+        let result = sqlx::query_as!(
+            DbPlayerSessionTime,
+            "WITH user_players AS (
+                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+            )
+            SELECT
+                DATE_TRUNC('day', pss.started_at) AS bucket_time,
+                ROUND((
+                    SUM(EXTRACT(EPOCH FROM (pss.ended_at - pss.started_at))) / 3600
+                )::numeric, 2)::double precision AS hour_duration
+            FROM player_server_session pss
+            JOIN user_players up ON up.player_id = pss.player_id
+            JOIN server s ON s.server_id = pss.server_id
+            WHERE NOT (s.community_id = ANY($2))
+            GROUP BY bucket_time
+            ORDER BY bucket_time",
+            steam_id,
+            &excluded_community_ids
+        ).fetch_all(pool).await;
+
+        let Ok(result) = result else {
+            return response!(internal_server_error);
+        };
+
+        response!(ok result.iter_into())
     }
     #[oai(path="/accounts/me/anonymize", method="post")]
     async fn set_user_anonymization(

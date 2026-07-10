@@ -428,6 +428,32 @@ pub async fn acquire_redis_lock(
     None // couldn't acquire lock
 }
 
+/// Single non-blocking attempt, unlike `acquire_redis_lock` which sleeps between retries.
+/// `SET NX EX` is atomic, so the key can never outlive its expiry.
+pub async fn try_redis_lock(pool: &Pool, key: &str, ttl_secs: i64) -> Option<String> {
+    let lock_value = generate_lock_id();
+    let mut conn = pool.get().await.ok()?;
+
+    let acquired: Option<String> = redis::cmd("SET")
+        .arg(key)
+        .arg(&lock_value)
+        .arg("NX")
+        .arg("EX")
+        .arg(ttl_secs)
+        .query_async(&mut conn)
+        .await
+        .ok()?;
+
+    acquired.map(|_| lock_value)
+}
+
+pub async fn redis_key_exists(pool: &Pool, key: &str) -> bool {
+    let Ok(mut conn) = pool.get().await else {
+        return false;
+    };
+    conn.exists(key).await.unwrap_or(false)
+}
+
 pub async fn release_redis_lock(pool: &Pool, key: &str, value: &str) {
     let mut conn = match pool.get().await {
         Ok(c) => c,

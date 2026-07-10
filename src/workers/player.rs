@@ -5,9 +5,12 @@ use async_trait::async_trait;
 use sqlx::{Pool, Postgres};
 use sqlx::postgres::PgQueryResult;
 use sqlx::postgres::types::PgInterval;
+use sqlx::types::time::OffsetDateTime;
+use tokio::sync::Semaphore;
 use crate::core::model::*;
 use crate::core::utils::*;
 use crate::core::api_models::*;
+use crate::routers::players::{get_player, get_player_cache_key};
 use crate::FastCache;
 use super::{BackgroundWorker, PlayerContext, PlayerData, PlayerSessionData, Query, QueryPriority, WorkError, WorkResult, WorkerQuery};
 
@@ -720,6 +723,7 @@ impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerBasicQuery<Vec<DbPlayerHourCo
 pub struct PlayerWorker {
     background_worker: Arc<BackgroundWorker>,
     pool: Arc<Pool<Postgres>>,
+    global_semaphore: Arc<Semaphore>,
 }
 
 impl PlayerWorker {
@@ -727,6 +731,9 @@ impl PlayerWorker {
         Self {
             background_worker: Arc::new(BackgroundWorker::new(cache, 5)),
             pool,
+            // A global refresh drives its per-server queries through execute_get, which takes no
+            // permit from the heavy semaphore, so it needs its own bound.
+            global_semaphore: Arc::new(Semaphore::new(3)),
         }
     }
 
@@ -813,6 +820,46 @@ impl PlayerWorker {
     pub async fn get_detail(&self, context: &PlayerContext) -> WorkResult<DetailedPlayer>{
         let detail_db: DbPlayerDetail = self.query_player(context).await?;
         let mut detail: DetailedPlayer = detail_db.into();
+        self.attach_ranks_and_aliases(context, &mut detail, false).await?;
+        Ok(detail)
+    }
+
+    pub async fn get_detail_stored(&self, context: &PlayerContext) -> WorkResult<DetailedPlayer>{
+        let player_id = &context.player.player_id;
+        let server_id = &context.server.server_id;
+
+        let detail_db = sqlx::query_as!(DbPlayerDetail, "
+            SELECT
+                su.player_id,
+                su.player_name,
+                su.created_at,
+                su.associated_player_id,
+                pp.total_playtime AS \"total_playtime?\",
+                pp.casual_playtime AS \"casual_playtime?\",
+                pp.tryhard_playtime AS \"tryhard_playtime?\",
+                0::int AS rank,
+                pp.category,
+                NULL::TIMESTAMPTZ AS online_since,
+                NULL::TIMESTAMPTZ AS last_played,
+                NULL::interval AS last_played_duration
+            FROM player su
+            LEFT JOIN website.player_playtime pp
+                ON pp.player_id = su.player_id AND pp.server_id = $2
+            WHERE su.player_id = $1
+            LIMIT 1
+        ", player_id, server_id).fetch_optional(&*self.pool).await?;
+
+        let Some(detail_db) = detail_db else {
+            return Err(WorkError::NotFound);
+        };
+        let mut detail: DetailedPlayer = detail_db.into();
+        self.attach_ranks_and_aliases(context, &mut detail, true).await?;
+        Ok(detail)
+    }
+
+    async fn attach_ranks_and_aliases(
+        &self, context: &PlayerContext, detail: &mut DetailedPlayer, forced: bool,
+    ) -> WorkResult<()>{
         let playtime_ranks: Option<DbPlayerRank> = self.query_player_execute(context).await?;
         if let Some(playtime_ranks) = playtime_ranks {
             let mut ranks: PlayerRanks = playtime_ranks.into();
@@ -823,7 +870,11 @@ impl PlayerWorker {
                 .map(Into::into);
             detail.ranks = Some(ranks)
         }
-        let aliases: Vec<DbPlayerAlias> = self.query_player(context).await?;
+        let aliases: Vec<DbPlayerAlias> = if forced {
+            self.query_player_execute(context).await?
+        } else {
+            self.query_player(context).await?
+        };
         let mut aliases_filtered = vec![];
         let mut last_seen = String::from("");
         for alias in aliases{ // due to buggy impl lol
@@ -834,8 +885,140 @@ impl PlayerWorker {
         }
         aliases_filtered.reverse();
         detail.aliases = aliases_filtered.iter_into();
-        Ok(detail)
+        Ok(())
     }
+    // TODO: Rewrite this dogshit
+    pub async fn get_global_playtime(&self, canonical_id: &str) -> WorkResult<GlobalPlaytimeSummary> {
+        let cache = &self.background_worker.cache;
+        let lock_key = global_lock_key(canonical_id);
+        let mut is_calculating = redis_key_exists(&cache.redis_pool, &lock_key).await;
+
+        let stored = sqlx::query_as!(DbPlayerGlobalPlaytime, "
+            SELECT total_playtime, casual_playtime, tryhard_playtime, category,
+                   server_count, community_count, global_rank, casual_rank, tryhard_rank,
+                   rank_calculated_at, calculated_at
+            FROM website.player_global_playtime
+            WHERE player_id = $1
+        ", canonical_id).fetch_optional(&*self.pool).await?;
+
+        // Completed sessions only: an in-progress session would otherwise peg the player as
+        // permanently outdated, and player_playtime is derived from completed data anyway.
+        let latest_ended_at: Option<OffsetDateTime> = sqlx::query_scalar!("
+            WITH user_players AS (
+                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+            )
+            SELECT MAX(pss.ended_at)
+            FROM player_server_session pss
+            JOIN user_players up ON up.player_id = pss.player_id
+            WHERE pss.ended_at IS NOT NULL
+        ", canonical_id).fetch_one(&*self.pool).await?;
+
+        let is_outdated = match stored.as_ref().and_then(|s| s.calculated_at) {
+            None => true,
+            Some(calculated_at) => latest_ended_at.is_some_and(|ended| ended > calculated_at),
+        };
+
+        if is_outdated && !is_calculating {
+            self.spawn_global_refresh(canonical_id);
+            // A refresh is running by the time this response lands, so say so rather than
+            // leaving the client to discover it on the next poll.
+            is_calculating = true;
+        }
+
+        let summary = match (is_outdated, stored) {
+            (false, Some(row)) => GlobalPlaytimeSummary {
+                total_playtime: row.total_playtime.to_f64(),
+                casual_playtime: row.casual_playtime.to_f64(),
+                tryhard_playtime: row.tryhard_playtime.to_f64(),
+                category: row.category,
+                rank: row.global_rank,
+                casual_rank: row.casual_rank,
+                tryhard_rank: row.tryhard_rank,
+                total_ranked_players: self.total_ranked_players().await,
+                server_count: row.server_count as i64,
+                community_count: row.community_count as i64,
+                is_outdated: false,
+                is_calculating,
+                calculated_at: row.calculated_at.map(db_to_utc),
+                rank_calculated_at: row.rank_calculated_at.map(db_to_utc),
+            },
+            (_, stored) => {
+                let sums = self.live_global_sums(canonical_id).await?;
+                GlobalPlaytimeSummary {
+                    total_playtime: sums.total_playtime.to_f64(),
+                    casual_playtime: sums.casual_playtime.to_f64(),
+                    tryhard_playtime: sums.tryhard_playtime.to_f64(),
+                    category: sums.category,
+                    // Ranks always come from the stored row: they are only recomputed daily.
+                    rank: stored.as_ref().and_then(|r| r.global_rank),
+                    casual_rank: stored.as_ref().and_then(|r| r.casual_rank),
+                    tryhard_rank: stored.as_ref().and_then(|r| r.tryhard_rank),
+                    total_ranked_players: self.total_ranked_players().await,
+                    server_count: sums.server_count.unwrap_or(0),
+                    community_count: sums.community_count.unwrap_or(0),
+                    is_outdated: true,
+                    is_calculating,
+                    calculated_at: stored.as_ref().and_then(|r| r.calculated_at).map(db_to_utc),
+                    rank_calculated_at: stored.and_then(|r| r.rank_calculated_at).map(db_to_utc),
+                }
+            }
+        };
+        Ok(summary)
+    }
+
+    async fn live_global_sums(&self, canonical_id: &str) -> WorkResult<DbGlobalSums> {
+        let sums = sqlx::query_as!(DbGlobalSums, "
+            WITH user_players AS (
+                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+            ),
+            sums AS (
+                SELECT SUM(pp.total_playtime) AS total_playtime,
+                       SUM(pp.casual_playtime) AS casual_playtime,
+                       SUM(pp.tryhard_playtime) AS tryhard_playtime,
+                       COUNT(DISTINCT pp.server_id) AS server_count,
+                       COUNT(DISTINCT s.community_id) AS community_count
+                FROM website.player_playtime pp
+                JOIN user_players up ON up.player_id = pp.player_id
+                JOIN server s ON s.server_id = pp.server_id
+            )
+            SELECT total_playtime, casual_playtime, tryhard_playtime,
+                   server_count, community_count,
+                   CASE
+                       WHEN total_playtime < INTERVAL '5 hours' THEN NULL
+                       WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'casual'
+                       WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'tryhard'
+                       WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
+                       ELSE NULL
+                   END AS category
+            FROM sums
+        ", canonical_id).fetch_one(&*self.pool).await?;
+        Ok(sums)
+    }
+
+    async fn total_ranked_players(&self) -> i64 {
+        let pool = self.pool.clone();
+        let func = || sqlx::query_scalar!("
+            SELECT COUNT(*) FROM website.player_global_playtime WHERE total_playtime > INTERVAL '0'
+        ").fetch_one(&*pool);
+
+        cached_response("global-playtime-ranked-count", &self.background_worker.cache, 900, func)
+            .await
+            .ok()
+            .and_then(|cached: CachedResult<Option<i64>>| cached.result)
+            .unwrap_or(0)
+    }
+
+    fn spawn_global_refresh(&self, canonical_id: &str) {
+        let pool = self.pool.clone();
+        let background_worker = self.background_worker.clone();
+        let semaphore = self.global_semaphore.clone();
+        let canonical_id = canonical_id.to_string();
+
+        tokio::spawn(async move {
+            refresh_global_playtime(pool, background_worker, semaphore, canonical_id).await;
+        });
+    }
+
     pub async fn get_hour_of_day(&self, context: &PlayerContext) -> WorkResult<Vec<PlayerHourDay>> {
         let result: Vec<DbPlayerHourCount> = self.query_player(context).await?;
 
@@ -847,4 +1030,134 @@ impl PlayerWorker {
         }
         Ok(to_return)
     }
+}
+
+fn global_lock_key(canonical_id: &str) -> String {
+    format!("lock:player_global_playtime:{canonical_id}")
+}
+
+/// Re-derives every server's `player_playtime` for this player, then stores the summation.
+///
+/// The redis lock is what makes this safe: `BackgroundWorker::active_tasks` only dedupes within a
+/// single process, so without it two instances would run the loop and race on the upsert. Its
+/// presence is also what `get_global_playtime` reports as `is_calculating`, and it expires on its
+/// own if this task dies.
+async fn refresh_global_playtime(
+    pool: Arc<Pool<Postgres>>,
+    background_worker: Arc<BackgroundWorker>,
+    semaphore: Arc<Semaphore>,
+    canonical_id: String,
+) {
+    let cache = background_worker.cache.clone();
+    let lock_key = global_lock_key(&canonical_id);
+
+    let Some(lock_id) = try_redis_lock(&cache.redis_pool, &lock_key, 60 * 15).await else {
+        tracing::debug!("GLOBAL PLAYTIME ALREADY CALCULATING {canonical_id}");
+        return;
+    };
+
+    // Taken after the lock so queued tasks still report as calculating rather than piling up
+    // behind the semaphore and then discovering they lost the race.
+    let permit = semaphore.acquire().await;
+    if permit.is_ok() {
+        if let Err(e) = run_global_refresh(&pool, &background_worker, &cache, &canonical_id).await {
+            tracing::warn!("GLOBAL PLAYTIME REFRESH FAILED {canonical_id}: {e}");
+        }
+    }
+    drop(permit);
+
+    release_redis_lock(&cache.redis_pool, &lock_key, &lock_id).await;
+    tracing::debug!("GLOBAL PLAYTIME LOCK RELEASED {canonical_id}");
+}
+
+async fn run_global_refresh(
+    pool: &Arc<Pool<Postgres>>,
+    background_worker: &Arc<BackgroundWorker>,
+    cache: &Arc<FastCache>,
+    canonical_id: &str,
+) -> Result<(), sqlx::Error> {
+    // Every fork on every server, not one fork per server: renamed accounts keep their own
+    // player_playtime row and the summation below counts all of them.
+    let targets = sqlx::query_as!(DbGlobalRefreshTarget, "
+        WITH user_players AS (
+            SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+        )
+        SELECT DISTINCT pss.player_id, pss.server_id
+        FROM player_server_session pss
+        JOIN user_players up ON up.player_id = pss.player_id
+    ", canonical_id).fetch_all(&**pool).await?;
+
+    tracing::info!("GLOBAL PLAYTIME REFRESH {canonical_id}: {} server(s)", targets.len());
+
+    for target in targets {
+        let Some(server) = get_server(pool, cache, &target.server_id).await else { continue };
+        let Some(player) = get_player(pool, cache, &target.player_id).await else { continue };
+
+        let cache_key = get_player_cache_key(pool, cache, &target.server_id, &target.player_id).await;
+        let context = PlayerContext { player, server, cache_key };
+
+        // execute_get waits for the recompute rather than deferring it, and short-circuits on a
+        // cache hit, so servers that are already fresh cost nothing. The upsert into
+        // player_playtime is this query's side effect.
+        let query: PlayerBasicQuery<DbPlayerDetail> =
+            PlayerBasicQuery::new(&context, pool.clone(), cache.clone());
+
+        if let Err(e) = background_worker
+            .execute_get::<DbPlayerDetail, _>(query, &context.cache_key.current)
+            .await
+        {
+            tracing::warn!(
+                "GLOBAL PLAYTIME: {} on {} failed: {e:?}", target.player_id, target.server_id
+            );
+        }
+    }
+
+    // Leaves the rank columns alone; those belong to the daily update-global-playtime-rank job.
+    sqlx::query!("
+        WITH user_players AS (
+            SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+        ),
+        sums AS (
+            SELECT SUM(pp.total_playtime) AS total_playtime,
+                   SUM(pp.casual_playtime) AS casual_playtime,
+                   SUM(pp.tryhard_playtime) AS tryhard_playtime,
+                   COUNT(DISTINCT pp.server_id) AS server_count,
+                   COUNT(DISTINCT s.community_id) AS community_count
+            FROM website.player_playtime pp
+            JOIN user_players up ON up.player_id = pp.player_id
+            JOIN server s ON s.server_id = pp.server_id
+        )
+        INSERT INTO website.player_global_playtime(
+            player_id, total_playtime, casual_playtime, tryhard_playtime, category,
+            server_count, community_count, calculated_at, synced_at
+        )
+        SELECT $1,
+               COALESCE(total_playtime, INTERVAL '0'),
+               COALESCE(casual_playtime, INTERVAL '0'),
+               COALESCE(tryhard_playtime, INTERVAL '0'),
+               CASE
+                   WHEN total_playtime < INTERVAL '5 hours' THEN NULL
+                   WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'casual'
+                   WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'tryhard'
+                   WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
+                   ELSE NULL
+               END,
+               COALESCE(server_count, 0)::INT,
+               COALESCE(community_count, 0)::INT,
+               CURRENT_TIMESTAMP,
+               CURRENT_TIMESTAMP
+        FROM sums
+        ON CONFLICT (player_id) DO UPDATE
+        SET total_playtime = EXCLUDED.total_playtime,
+            casual_playtime = EXCLUDED.casual_playtime,
+            tryhard_playtime = EXCLUDED.tryhard_playtime,
+            category = EXCLUDED.category,
+            server_count = EXCLUDED.server_count,
+            community_count = EXCLUDED.community_count,
+            calculated_at = EXCLUDED.calculated_at,
+            synced_at = EXCLUDED.synced_at
+    ", canonical_id).execute(&**pool).await?;
+
+    tracing::info!("GLOBAL PLAYTIME REFRESH DONE {canonical_id}");
+    Ok(())
 }

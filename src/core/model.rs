@@ -1378,6 +1378,57 @@ pub struct DbCommunityServerEntry {
     pub community_icon_url: Option<String>,
 }
 
+pub struct DbProfileServerStat {
+    pub online_count: Option<i64>,
+    pub map: Option<String>,
+    pub last_started_at: Option<OffsetDateTime>,
+    pub last_ended_at: Option<OffsetDateTime>,
+}
+
+pub struct DbLinkedName {
+    pub player_id: String,
+    pub player_name: String,
+    pub total_playtime: Option<PgInterval>,
+}
+
+/// A stored row of website.player_global_playtime, keyed by canonical player.
+pub struct DbPlayerGlobalPlaytime {
+    pub total_playtime: PgInterval,
+    pub casual_playtime: PgInterval,
+    pub tryhard_playtime: PgInterval,
+    pub category: Option<String>,
+    pub server_count: i32,
+    pub community_count: i32,
+    pub global_rank: Option<i64>,
+    pub casual_rank: Option<i64>,
+    pub tryhard_rank: Option<i64>,
+    pub rank_calculated_at: Option<OffsetDateTime>,
+    pub calculated_at: Option<OffsetDateTime>,
+}
+
+/// Live summation over website.player_playtime, used when the stored row is outdated.
+pub struct DbGlobalSums {
+    pub total_playtime: Option<PgInterval>,
+    pub casual_playtime: Option<PgInterval>,
+    pub tryhard_playtime: Option<PgInterval>,
+    pub server_count: Option<i64>,
+    pub community_count: Option<i64>,
+    pub category: Option<String>,
+}
+
+pub struct DbGlobalRefreshTarget {
+    pub player_id: String,
+    pub server_id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DbGlobalMapRankEntry {
+    pub player_id: String,
+    pub global_position: Option<i64>,
+    pub map: Option<String>,
+    pub rank: Option<i64>,
+}
+
 pub struct DbGuideBanStatus {
     pub reason: String,
     pub expires_at: Option<OffsetDateTime>,

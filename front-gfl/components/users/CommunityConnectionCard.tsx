@@ -1,22 +1,59 @@
 'use client';
 
-import { CommunityPlayerDetail } from "types/community";
+import { ProfileCommunityDetail, UserAnonymization } from "types/community";
 import { getServerAvatarText } from "../ui/CommunitySelector";
 import { secondsToHours } from "utils/generalUtils";
 import Link from "next/link";
-import { UserAnonymization } from "components/users/UserCommunityConnections.tsx";
 import { Card, CardContent } from "components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 import { Switch } from "components/ui/switch";
 import { Label } from "components/ui/label";
 import { Separator } from "components/ui/separator";
-import { Clock } from "lucide-react";
+import { Badge } from "components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
+import { Clock, Users, ChevronDown, Info } from "lucide-react";
+import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 interface CommunityConnectionCardProps {
-    community: CommunityPlayerDetail;
+    community: ProfileCommunityDetail;
     settings: UserAnonymization | null;
     onToggleAnonymize: (communityId: string | number, type: "location" | "anonymous", value: boolean, settings: UserAnonymization | null) => void;
     showAnonymizeToggle?: boolean;
+}
+
+function LinkedNamesPanel({ names }: { names: { name: string; total_playtime: number; is_current: boolean }[] }) {
+    const t = useTranslations('players.profile.connectionCard');
+    const [open, setOpen] = useState(false);
+    if (names.length <= 1) return null;
+
+    return (
+        <Collapsible open={open} onOpenChange={setOpen} className="mt-2">
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-amber-500 hover:underline">
+                {t('linkedNames', { count: names.length })}
+                <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+                <div className="mt-2 space-y-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {names.map((n) => (
+                            <div key={n.name} className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs">
+                                <span className="font-medium">{n.name}</span>
+                                <span className="text-muted-foreground">{secondsToHours(n.total_playtime)} {t('hoursUnit')}</span>
+                                {n.is_current && (
+                                    <Badge variant="secondary" className="h-4 px-1 text-[10px]">{t('current')}</Badge>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                        <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                        <span>{t('renameNotice')}</span>
+                    </div>
+                </div>
+            </CollapsibleContent>
+        </Collapsible>
+    );
 }
 
 export default function CommunityConnectionCard({
@@ -25,9 +62,12 @@ export default function CommunityConnectionCard({
     onToggleAnonymize,
     showAnonymizeToggle = false,
 }: CommunityConnectionCardProps) {
-    // Compute total playtime from pre-fetched server data
+    const t = useTranslations('players.profile.connectionCard');
     const totalPlaytime = community.servers.reduce(
         (sum, s) => sum + s.player.total_playtime, 0
+    );
+    const totalOnline = community.servers.reduce(
+        (sum, s) => sum + s.online_count, 0
     );
     const hasAnyPlaytime = totalPlaytime > 0;
 
@@ -49,11 +89,21 @@ export default function CommunityConnectionCard({
                                 <h3 className="text-base sm:text-xl font-semibold break-words">
                                     {community.name}
                                 </h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <Clock className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm text-muted-foreground">
-                                        {secondsToHours(totalPlaytime)} hrs
-                                    </span>
+                                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                    <div className="flex items-center gap-1">
+                                        <Clock className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-sm text-muted-foreground">
+                                            {secondsToHours(totalPlaytime)} {t('hoursUnit')}
+                                        </span>
+                                    </div>
+                                    {totalOnline > 0 && (
+                                        <div className="flex items-center gap-1">
+                                            <span className="h-2 w-2 rounded-full bg-green-500" />
+                                            <span className="text-sm text-muted-foreground">
+                                                {t('online', { count: totalOnline })}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -72,7 +122,7 @@ export default function CommunityConnectionCard({
                                         htmlFor={`hide-location-${community.id}`}
                                         className="text-sm text-muted-foreground cursor-pointer"
                                     >
-                                        Hide Radar Location
+                                        {t('hideRadar')}
                                     </Label>
                                 </div>
 
@@ -88,7 +138,7 @@ export default function CommunityConnectionCard({
                                         htmlFor={`anonymize-${community.id}`}
                                         className="text-sm text-muted-foreground cursor-pointer"
                                     >
-                                        Anonymize
+                                        {t('anonymize')}
                                     </Label>
                                 </div>
                             </div>
@@ -100,7 +150,7 @@ export default function CommunityConnectionCard({
                     {/* Server Details */}
                     <div className="space-y-3">
                         <h4 className="text-sm font-medium text-muted-foreground">
-                            Servers
+                            {t('servers')}
                         </h4>
                         {community.servers.map((serverPlayer) => (
                             <div
@@ -110,33 +160,53 @@ export default function CommunityConnectionCard({
                                 }`}
                             >
                                 <div className="space-y-1">
-                                    {serverPlayer.player.total_playtime > 0 ? (
-                                        <Link
-                                            href={`/servers/${serverPlayer.server_id}/players/${serverPlayer.player.id}`}
-                                            className="text-sm font-medium hover:underline"
-                                        >
-                                            {serverPlayer.server_name}
-                                        </Link>
-                                    ) : (
-                                        <p className="text-sm font-medium">
-                                            {serverPlayer.server_name}
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {serverPlayer.player.total_playtime > 0 ? (
+                                            <Link
+                                                href={`/servers/${serverPlayer.server_id}/players/${serverPlayer.player.id}`}
+                                                className="text-sm font-medium hover:underline"
+                                            >
+                                                {serverPlayer.server_name}
+                                            </Link>
+                                        ) : (
+                                            <p className="text-sm font-medium">
+                                                {serverPlayer.server_name}
+                                            </p>
+                                        )}
+                                        <Badge variant={serverPlayer.by_id ? "secondary" : "outline"} className="text-[10px]">
+                                            {serverPlayer.by_id ? t('steamId') : t('nameMatched')}
+                                        </Badge>
+                                    </div>
+                                    {serverPlayer.map && (
+                                        <p className="text-xs text-muted-foreground/80">
+                                            {serverPlayer.map}
                                         </p>
                                     )}
 
-                                    <div className="flex flex-wrap gap-3">
-                                        {serverPlayer.player.total_playtime > 0 ? (
-                                            <div className="flex items-center gap-1">
-                                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                                                <span className="text-xs text-muted-foreground">
-                                                    {secondsToHours(serverPlayer.player.total_playtime)} hrs
+                                    <div className="flex items-center justify-between flex-wrap gap-3">
+                                        <div className="flex items-center gap-3">
+                                            {serverPlayer.player.total_playtime > 0 ? (
+                                                <div className="flex items-center gap-1">
+                                                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {secondsToHours(serverPlayer.player.total_playtime)} {t('hoursUnit')}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground/60">
+                                                    {t('noPlaytime')}
                                                 </span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-xs text-muted-foreground/60">
-                                                No playtime
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                            <span className="text-xs text-muted-foreground">
+                                                {serverPlayer.online_count}/{serverPlayer.max_players}
                                             </span>
-                                        )}
+                                        </div>
                                     </div>
+
+                                    <LinkedNamesPanel names={serverPlayer.linked_names} />
                                 </div>
                             </div>
                         ))}

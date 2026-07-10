@@ -200,6 +200,7 @@
       "lastOnline": "上次在线 {ago}（{hours}小时）",
       "playingSince": "从 {ago} 开始游玩",
       "viewSteamProfile": "查看 Steam 个人资料",
+      "globalProfile": "全局个人资料",
       "ranked": "排名",
       "global": "全局",
       "globalTitle": "不分社区的全局游戏时长",
@@ -323,7 +324,68 @@
       "yearlySummary": "玩家在 {periods} 个时段内的活动情况。总计：{total} 小时。峰值：{peak} 小时。",
       "matrixSummary": "玩家活动热力图显示了 {days} 个活跃天内共 {total} 小时。单日最高活跃度：{peak} 小时。",
       "yearlyAriaLabel": "玩家年度活动热力图",
-      "matrixAriaLabel": "玩家 {groupBy} 活动热力图"
+      "matrixAriaLabel": "玩家 {groupBy} 活动热力图",
+      "totalPlayTime": "总游戏时长",
+      "hoursUnit": "小时",
+      "inYear": "{year}年"
+    },
+    "profile": {
+      "header": {
+        "unknownUser": "未知用户",
+        "shareLinkCopied": "个人资料链接已复制到剪贴板",
+        "shareLinkCopyFailed": "复制个人资料链接失败",
+        "viewSteamProfile": "查看 Steam 个人资料",
+        "online": "在线",
+        "offline": "离线",
+        "globalRank": "全球排名",
+        "recalculating": "重新计算中",
+        "outOfDate": "数据已过期",
+        "ofTotalPlayers": "共 {total} 名玩家",
+        "notEnoughPlaytime": "游戏时长尚不足",
+        "shareProfile": "分享个人资料",
+        "avatarAlt": "{name} 的头像"
+      },
+      "stats": {
+        "recalculating": "重新计算中",
+        "outOfDate": "数据已过期",
+        "never": "从未",
+        "sessionHours": "{hours} 小时场次",
+        "unranked": "未排名",
+        "notEnoughPlaytime": "游戏时长尚不足",
+        "totalPlaytime": "总游戏时长",
+        "hoursUnit": "小时",
+        "acrossCommunities": "跨 {count, plural, one {# 个社区} other {# 个社区}}",
+        "bestMapRank": "最佳地图排名",
+        "communities": "社区",
+        "joinedAndTracked": "已加入并被追踪",
+        "servers": "服务器",
+        "acrossAllCommunities": "跨所有社区",
+        "lastOnline": "最后在线",
+        "onlineNow": "当前在线",
+        "lastVerified": "最后验证于 {ago}。",
+        "neverVerified": "这些统计数据从未被验证过。",
+        "recalculatingPlaytime": "正在重新计算游戏时长…",
+        "playtimeOutOfDate": "游戏时长数据已过期",
+        "staleNoticeBody": "自上次计算这些数据以来您又进行了游戏，因此游戏时长和排名可能偏低。{verified}",
+        "freshFiguresNote": "最新数据将自动显示。"
+      },
+      "communities": {
+        "heading": "社区关联",
+        "empty": "未找到社区关联。"
+      },
+      "connectionCard": {
+        "linkedNames": "关联名称 · {count}",
+        "hoursUnit": "小时",
+        "current": "当前",
+        "renameNotice": "重命名会在此服务器上分叉出一条独立记录。",
+        "online": "{count} 人在线",
+        "hideRadar": "隐藏雷达",
+        "anonymize": "匿名化",
+        "servers": "服务器",
+        "steamId": "Steam ID",
+        "nameMatched": "名称匹配",
+        "noPlaytime": "无游戏时长"
+      }
     }
   },
   "sessions": {

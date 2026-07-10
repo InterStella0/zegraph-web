@@ -333,6 +333,23 @@ CREATE TABLE website.player_playtime(
     PRIMARY KEY(player_id, server_id)
 );
 
+CREATE TABLE website.player_global_playtime(
+    player_id VARCHAR(100) PRIMARY KEY REFERENCES player(player_id) ON DELETE CASCADE,
+    total_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
+    casual_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
+    tryhard_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
+    category VARCHAR(8),
+    server_count INT NOT NULL DEFAULT 0,
+    community_count INT NOT NULL DEFAULT 0,
+    global_rank BIGINT,
+    casual_rank BIGINT,
+    tryhard_rank BIGINT,
+    rank_calculated_at TIMESTAMP WITH TIME ZONE,
+    calculated_at TIMESTAMP WITH TIME ZONE,
+    synced_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX player_global_playtime_total_idx ON website.player_global_playtime(total_playtime DESC);
+
 
 CREATE TABLE website.kofi_donors (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1219,6 +1236,65 @@ SELECT cron.schedule_in_database(
     '0 0 * * *',  -- Every day
     $$
         REFRESH MATERIALIZED VIEW CONCURRENTLY website.player_playtime_ranks;
+    $$,
+    'cs2_tracker_db'  -- INSERT YOUR DB NAME
+);
+
+SELECT cron.schedule_in_database(
+    'update-global-playtime-rank',
+    '10 0 * * *',  -- Every day
+    $$
+        WITH sums AS (
+            SELECT COALESCE(p.associated_player_id, p.player_id) AS player_id,
+                   SUM(pp.total_playtime) AS total_playtime,
+                   SUM(pp.casual_playtime) AS casual_playtime,
+                   SUM(pp.tryhard_playtime) AS tryhard_playtime,
+                   COUNT(DISTINCT pp.server_id) AS server_count,
+                   COUNT(DISTINCT s.community_id) AS community_count
+            FROM website.player_playtime pp
+            JOIN player p ON p.player_id = pp.player_id
+            JOIN server s ON s.server_id = pp.server_id
+            GROUP BY 1
+        ),
+        categorized AS (
+            SELECT sums.*,
+                CASE
+                    WHEN total_playtime < INTERVAL '5 hours' THEN NULL
+                    WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'casual'
+                    WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'tryhard'
+                    WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
+                    ELSE NULL
+                END AS category
+            FROM sums
+        ),
+        ranked AS (
+            SELECT categorized.*,
+                   RANK() OVER (ORDER BY total_playtime DESC) AS global_rank,
+                   RANK() OVER (ORDER BY casual_playtime DESC) AS casual_rank,
+                   RANK() OVER (ORDER BY tryhard_playtime DESC) AS tryhard_rank
+            FROM categorized
+        )
+        INSERT INTO website.player_global_playtime(
+            player_id, total_playtime, casual_playtime, tryhard_playtime, category,
+            server_count, community_count, global_rank, casual_rank, tryhard_rank,
+            rank_calculated_at, synced_at
+        )
+        SELECT player_id, total_playtime, casual_playtime, tryhard_playtime, category,
+               server_count, community_count, global_rank, casual_rank, tryhard_rank,
+               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        FROM ranked
+        ON CONFLICT (player_id) DO UPDATE
+        SET total_playtime = EXCLUDED.total_playtime,
+            casual_playtime = EXCLUDED.casual_playtime,
+            tryhard_playtime = EXCLUDED.tryhard_playtime,
+            category = EXCLUDED.category,
+            server_count = EXCLUDED.server_count,
+            community_count = EXCLUDED.community_count,
+            global_rank = EXCLUDED.global_rank,
+            casual_rank = EXCLUDED.casual_rank,
+            tryhard_rank = EXCLUDED.tryhard_rank,
+            rank_calculated_at = EXCLUDED.rank_calculated_at,
+            synced_at = EXCLUDED.synced_at;
     $$,
     'cs2_tracker_db'  -- INSERT YOUR DB NAME
 );

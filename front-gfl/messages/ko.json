@@ -200,6 +200,7 @@
       "lastOnline": "{ago} 전 마지막 온라인 ({hours}시간)",
       "playingSince": "{ago}부터 플레이 중",
       "viewSteamProfile": "Steam 프로필 보기",
+      "globalProfile": "글로벌 프로필",
       "ranked": "랭크",
       "global": "글로벌",
       "globalTitle": "커뮤니티와 관계없이 전체 플레이 시간",
@@ -323,7 +324,68 @@
       "yearlySummary": "{periods, plural, one {# 기간} other {# 기간}} 동안의 플레이어 활동. 총합: {total}시간. 최고: {peak}시간.",
       "matrixSummary": "{days, plural, one {# 활성 날짜} other {# 활성 날짜}} 동안의 플레이어 활동 히트맵, 총 {total}시간. 최고 일일 활동: {peak}시간.",
       "yearlyAriaLabel": "연간 플레이어 활동 히트맵",
-      "matrixAriaLabel": "플레이어 {groupBy} 활동 히트맵"
+      "matrixAriaLabel": "플레이어 {groupBy} 활동 히트맵",
+      "totalPlayTime": "총 플레이 시간",
+      "hoursUnit": "시간",
+      "inYear": "{year}년"
+    },
+    "profile": {
+      "header": {
+        "unknownUser": "알 수 없는 사용자",
+        "shareLinkCopied": "프로필 링크가 클립보드에 복사되었습니다",
+        "shareLinkCopyFailed": "프로필 링크 복사에 실패했습니다",
+        "viewSteamProfile": "Steam 프로필 보기",
+        "online": "온라인",
+        "offline": "오프라인",
+        "globalRank": "글로벌 순위",
+        "recalculating": "재계산 중",
+        "outOfDate": "오래된 데이터",
+        "ofTotalPlayers": "{total}명 중",
+        "notEnoughPlaytime": "아직 플레이 시간이 충분하지 않습니다",
+        "shareProfile": "프로필 공유",
+        "avatarAlt": "{name}의 프로필 사진"
+      },
+      "stats": {
+        "recalculating": "재계산 중",
+        "outOfDate": "오래된 데이터",
+        "never": "없음",
+        "sessionHours": "{hours}시간 세션",
+        "unranked": "순위 없음",
+        "notEnoughPlaytime": "아직 플레이 시간이 충분하지 않습니다",
+        "totalPlaytime": "총 플레이 시간",
+        "hoursUnit": "시간",
+        "acrossCommunities": "{count, plural, one {# 커뮤니티} other {# 커뮤니티}}에서",
+        "bestMapRank": "최고 맵 순위",
+        "communities": "커뮤니티",
+        "joinedAndTracked": "가입 및 추적됨",
+        "servers": "서버",
+        "acrossAllCommunities": "모든 커뮤니티에서",
+        "lastOnline": "마지막 온라인",
+        "onlineNow": "현재 온라인",
+        "lastVerified": "마지막 확인: {ago}.",
+        "neverVerified": "이 합계는 아직 확인된 적이 없습니다.",
+        "recalculatingPlaytime": "플레이 시간 재계산 중…",
+        "playtimeOutOfDate": "플레이 시간이 오래되었습니다",
+        "staleNoticeBody": "이 수치가 계산된 이후 플레이하셨으므로 플레이 시간과 순위가 너무 낮을 수 있습니다. {verified}",
+        "freshFiguresNote": "최신 수치가 자동으로 표시됩니다."
+      },
+      "communities": {
+        "heading": "커뮤니티 연결",
+        "empty": "커뮤니티 연결을 찾을 수 없습니다."
+      },
+      "connectionCard": {
+        "linkedNames": "연결된 이름 · {count}",
+        "hoursUnit": "시간",
+        "current": "현재",
+        "renameNotice": "이름을 변경하면 이 서버에서 별도의 기록이 분리됩니다.",
+        "online": "{count}명 온라인",
+        "hideRadar": "레이더 숨기기",
+        "anonymize": "익명화",
+        "servers": "서버",
+        "steamId": "Steam ID",
+        "nameMatched": "이름 일치",
+        "noPlaytime": "플레이 시간 없음"
+      }
     }
   },
   "sessions": {

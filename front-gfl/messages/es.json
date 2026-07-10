@@ -200,6 +200,7 @@
       "lastOnline": "Última conexión {ago} ({hours}h)",
       "playingSince": "Jugando desde {ago}",
       "viewSteamProfile": "Ver perfil de Steam",
+      "globalProfile": "Perfil global",
       "ranked": "Clasificado",
       "global": "Global",
       "globalTitle": "Tiempo de juego global independientemente de las comunidades",
@@ -323,7 +324,68 @@
       "yearlySummary": "Actividad del jugador en {periods, plural, one {# período} other {# períodos}}. Total: {total} horas. Máximo: {peak} horas.",
       "matrixSummary": "Mapa de calor de actividad del jugador con {total} horas en {days, plural, one {# día activo} other {# días activos}}. Máxima actividad diaria: {peak} horas.",
       "yearlyAriaLabel": "Mapa de calor de actividad anual del jugador",
-      "matrixAriaLabel": "Mapa de calor de actividad {groupBy} del jugador"
+      "matrixAriaLabel": "Mapa de calor de actividad {groupBy} del jugador",
+      "totalPlayTime": "Tiempo total de juego",
+      "hoursUnit": "hrs",
+      "inYear": "en {year}"
+    },
+    "profile": {
+      "header": {
+        "unknownUser": "Usuario desconocido",
+        "shareLinkCopied": "Enlace del perfil copiado al portapapeles",
+        "shareLinkCopyFailed": "No se pudo copiar el enlace del perfil",
+        "viewSteamProfile": "Ver perfil de Steam",
+        "online": "En línea",
+        "offline": "Desconectado",
+        "globalRank": "Clasificación global",
+        "recalculating": "Recalculando",
+        "outOfDate": "Desactualizado",
+        "ofTotalPlayers": "de {total} jugadores",
+        "notEnoughPlaytime": "Aún no hay suficiente tiempo de juego",
+        "shareProfile": "Compartir perfil",
+        "avatarAlt": "Foto de perfil de {name}"
+      },
+      "stats": {
+        "recalculating": "Recalculando",
+        "outOfDate": "Desactualizado",
+        "never": "Nunca",
+        "sessionHours": "Sesión de {hours} h",
+        "unranked": "Sin clasificar",
+        "notEnoughPlaytime": "Aún no hay suficiente tiempo de juego",
+        "totalPlaytime": "Tiempo total de juego",
+        "hoursUnit": "hrs",
+        "acrossCommunities": "en {count, plural, one {# comunidad} other {# comunidades}}",
+        "bestMapRank": "Mejor clasificación de mapa",
+        "communities": "Comunidades",
+        "joinedAndTracked": "unidas y registradas",
+        "servers": "Servidores",
+        "acrossAllCommunities": "en todas las comunidades",
+        "lastOnline": "Última conexión",
+        "onlineNow": "En línea ahora",
+        "lastVerified": "Última verificación {ago}.",
+        "neverVerified": "Estos totales nunca se han verificado.",
+        "recalculatingPlaytime": "Recalculando tiempo de juego…",
+        "playtimeOutOfDate": "El tiempo de juego está desactualizado",
+        "staleNoticeBody": "Has jugado desde que se calcularon estos números, por lo que el tiempo de juego y la clasificación pueden ser demasiado bajos. {verified}",
+        "freshFiguresNote": "Las cifras actualizadas aparecerán automáticamente."
+      },
+      "communities": {
+        "heading": "Conexiones de comunidad",
+        "empty": "No se encontraron conexiones de comunidad."
+      },
+      "connectionCard": {
+        "linkedNames": "NOMBRES VINCULADOS · {count}",
+        "hoursUnit": "hrs",
+        "current": "ACTUAL",
+        "renameNotice": "Un cambio de nombre crea un registro independiente en este servidor.",
+        "online": "{count} en línea",
+        "hideRadar": "Ocultar radar",
+        "anonymize": "Anonimizar",
+        "servers": "Servidores",
+        "steamId": "ID de Steam",
+        "nameMatched": "Coincidencia por nombre",
+        "noPlaytime": "Sin tiempo de juego"
+      }
     }
   },
   "sessions": {

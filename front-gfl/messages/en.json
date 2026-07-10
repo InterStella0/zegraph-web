@@ -200,6 +200,7 @@
       "lastOnline": "Last online {ago} ({hours}hr)",
       "playingSince": "Playing since {ago}",
       "viewSteamProfile": "View Steam Profile",
+      "globalProfile": "Global Profile",
       "ranked": "Ranked",
       "global": "Global",
       "globalTitle": "Global playtime regardless of communities",
@@ -323,7 +324,68 @@
       "yearlySummary": "Player activity across {periods, plural, one {# period} other {# periods}}. Total: {total} hours. Peak: {peak} hours.",
       "matrixSummary": "Player activity heatmap showing {total} hours across {days, plural, one {# active day} other {# active days}}. Peak daily activity: {peak} hours.",
       "yearlyAriaLabel": "Yearly player activity heatmap",
-      "matrixAriaLabel": "Player {groupBy} activity heatmap"
+      "matrixAriaLabel": "Player {groupBy} activity heatmap",
+      "totalPlayTime": "Total Play Time",
+      "hoursUnit": "hrs",
+      "inYear": "in {year}"
+    },
+    "profile": {
+      "header": {
+        "unknownUser": "Unknown User",
+        "shareLinkCopied": "Profile link copied to clipboard",
+        "shareLinkCopyFailed": "Failed to copy profile link",
+        "viewSteamProfile": "View Steam Profile",
+        "online": "Online",
+        "offline": "Offline",
+        "globalRank": "Global Rank",
+        "recalculating": "Recalculating",
+        "outOfDate": "Out of date",
+        "ofTotalPlayers": "of {total} players",
+        "notEnoughPlaytime": "Not enough playtime yet",
+        "shareProfile": "Share Profile",
+        "avatarAlt": "{name}'s profile picture"
+      },
+      "stats": {
+        "recalculating": "Recalculating",
+        "outOfDate": "Out of date",
+        "never": "Never",
+        "sessionHours": "{hours} hr session",
+        "unranked": "Unranked",
+        "notEnoughPlaytime": "Not enough playtime yet",
+        "totalPlaytime": "Total Playtime",
+        "hoursUnit": "hrs",
+        "acrossCommunities": "across {count, plural, one {# community} other {# communities}}",
+        "bestMapRank": "Best Map Rank",
+        "communities": "Communities",
+        "joinedAndTracked": "joined & tracked",
+        "servers": "Servers",
+        "acrossAllCommunities": "across all communities",
+        "lastOnline": "Last Online",
+        "onlineNow": "Online now",
+        "lastVerified": "Last verified {ago}.",
+        "neverVerified": "These totals have never been verified.",
+        "recalculatingPlaytime": "Recalculating playtime…",
+        "playtimeOutOfDate": "Playtime is out of date",
+        "staleNoticeBody": "You have played since these numbers were worked out, so playtime and rank may be too low. {verified}",
+        "freshFiguresNote": "Fresh figures will appear automatically."
+      },
+      "communities": {
+        "heading": "Community Connections",
+        "empty": "No community connections found."
+      },
+      "connectionCard": {
+        "linkedNames": "LINKED NAMES · {count}",
+        "hoursUnit": "hrs",
+        "current": "CURRENT",
+        "renameNotice": "A rename forks a separate record on this server.",
+        "online": "{count} online",
+        "hideRadar": "Hide Radar",
+        "anonymize": "Anonymize",
+        "servers": "Servers",
+        "steamId": "Steam ID",
+        "nameMatched": "Name-matched",
+        "noPlaytime": "No playtime"
+      }
     }
   },
   "sessions": {

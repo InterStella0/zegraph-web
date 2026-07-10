@@ -1,4 +1,3 @@
-import {DiscordUser} from "types/users";
 import {auth} from "../auth.ts";
 import {SteamProfile} from "../next-auth-steam/steam.ts";
 

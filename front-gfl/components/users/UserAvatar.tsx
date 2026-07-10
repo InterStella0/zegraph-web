@@ -3,28 +3,25 @@ import { useEffect, useState } from "react";
 import { fetchUrl } from "utils/generalUtils";
 import { ErrorBoundary } from "react-error-boundary";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 
-function UserAvatarDisplay({ userId, name, avatarUrl, width = 120, height = 120, className = "", ...props }) {
+function UserAvatarDisplay({ userId, name, width = 120, height = 120, className = "", ...props }) {
+    const t = useTranslations('players.profile.header');
     const [playerImage, setPlayerImage] = useState(null);
 
     useEffect(() => {
-        if (avatarUrl) {
-            // If we have a direct avatar URL (from Discord/Steam), use it
-            setPlayerImage({ full: avatarUrl });
-        } else if (userId && !playerImage) {
-            // Otherwise try to fetch from backend
-            fetchUrl(`/players/${userId}/pfp`)
-                .then(image => {
-                    setPlayerImage(image);
-                })
-                .catch(error => {
-                    if (error.code !== 404)
-                        console.error(`Failed to fetch avatar for user ${userId}:`, error);
-                    setPlayerImage(null);
-                });
-        }
-    }, [userId, avatarUrl]);
+        if (!userId) return;
+        fetchUrl(`/players/${userId}/pfp`)
+            .then(image => {
+                setPlayerImage(image);
+            })
+            .catch(error => {
+                if (error.code !== 404)
+                    console.error(`Failed to fetch avatar for user ${userId}:`, error);
+                setPlayerImage(null);
+            });
+    }, [userId]);
 
     const getAvatarColor = (name: string) => {
         if (!name) return 'hsl(var(--muted))';
@@ -63,7 +60,7 @@ function UserAvatarDisplay({ userId, name, avatarUrl, width = 120, height = 120,
                 <AvatarImage
                     key={avatarKey}
                     src={playerImage.full}
-                    alt={`${name}'s profile picture`}
+                    alt={t('avatarAlt', { name })}
                 />
             )}
             <AvatarFallback
