@@ -28,8 +28,11 @@ const dateReducer = (state, action) => {
             return state;
     }
 };
+
+const roundedNow = () => dayjs().startOf('minute');
+
 const getInitialDates = () => {
-    const now = dayjs();
+    const now = roundedNow();
     return {
         start: now.subtract(6, 'hours'),
         end: now,
@@ -67,7 +70,7 @@ export function DateProvider({ children }) {
     const goLive = useCallback(() => {
         const { start, end } = dateStateRef.current;
         const durationMs = end.diff(start);
-        const now = dayjs();
+        const now = roundedNow();
         setDates(now.subtract(durationMs, 'ms'), now, DateSources.LIVE);
     }, [setDates]);
 
