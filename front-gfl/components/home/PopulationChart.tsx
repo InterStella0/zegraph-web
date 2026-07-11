@@ -100,6 +100,11 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
         const time = cursor.toJSON();
         const results: (Line | null)[] = new Array(selectedCommunities.length).fill(null);
         let remaining = selectedCommunities.length;
+        let flushTimer: ReturnType<typeof setTimeout> | null = null;
+        const flush = () => {
+            flushTimer = null;
+            setLines(results.filter((l): l is Line => l !== null));
+        };
         selectedCommunities.forEach((c, i) => {
             fetchCommunityPopulation(c.id, timeType, time, controller.signal).then(data => {
                 if (controller.signal.aborted) return;
@@ -109,11 +114,19 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                     color: c.color,
                     points: data.map(d => ({x: d.bucket_time, y: d.player_count})),
                 };
-                setLines(results.filter((l): l is Line => l !== null));
-                if (--remaining === 0) setLoading(false);
+                if (flushTimer) clearTimeout(flushTimer);
+                if (--remaining === 0) {
+                    flush(); // last one in: no point waiting
+                    setLoading(false);
+                } else {
+                    flushTimer = setTimeout(flush, 500);
+                }
             });
         });
-        return () => controller.abort();
+        return () => {
+            controller.abort();
+            if (flushTimer) clearTimeout(flushTimer);
+        };
     }, [selectedCommunities, timeType, cursor]);
 
     const handlePanComplete = useCallback(({chart}: {chart: {scales: {x: {max: number}}}}) => {
