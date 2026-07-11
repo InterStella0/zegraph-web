@@ -9,7 +9,7 @@ mod workers;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Pool, Postgres};
 use core::utils::get_env_default;
-use crate::routers::graphs::GraphApi;
+use crate::routers::graphs::{CountChunkCache, GraphApi};
 use crate::routers::players::PlayerApi;
 use core::utils::get_env;
 use std::env;
@@ -53,6 +53,7 @@ struct AppData{
     push_service: Arc<PushNotificationService>,
     map_storage: Arc<MapStorage>,
     character_storage: Arc<CharacterStorage>,
+    count_chunk_cache: Arc<CountChunkCache>,
 }
 #[derive(Clone)]
 struct FastCache{
@@ -114,6 +115,12 @@ async fn run_main() {
 
     let character_storage = Arc::new(CharacterStorage::new(storage_backend));
 
+    // Hour-chunked player count cache for short-span graph queries (memory only).
+    let count_chunk_cache = Arc::new(Cache::builder()
+        .time_to_live(Duration::from_secs(2 * 24 * 60 * 60))
+        .max_capacity(8192)
+        .build());
+
     let data = AppData {
         pool,
         steam_provider: Some("http://pfp-provider:3000/api".to_string()),
@@ -123,6 +130,7 @@ async fn run_main() {
         push_service,
         map_storage,
         character_storage,
+        count_chunk_cache,
     };
 
     let apis = (

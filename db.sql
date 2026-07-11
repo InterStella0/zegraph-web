@@ -885,8 +885,8 @@ CREATE TABLE server_player_counts (
     player_count INT,
     PRIMARY KEY (server_id, bucket_time)
 );
-CREATE INDEX idx_server_bucket_time_desc
-    ON server_player_counts (server_id, bucket_time DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_server_bucket_time_count
+    ON server_player_counts (server_id, bucket_time DESC) INCLUDE (player_count);
 
 CREATE TABLE community_player_counts (
     community_id UUID NOT NULL REFERENCES community(community_id) ON DELETE CASCADE,

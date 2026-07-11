@@ -1,13 +1,114 @@
 use chrono::{DateTime, Duration, Utc};
 use poem_openapi::{param::Query, Enum, OpenApi};
+use std::collections::HashMap;
 use std::fmt::Display;
+use std::sync::Arc;
 
+use moka::future::Cache;
 use poem::web::Data;
 use poem_openapi::param::Path;
+use sqlx::{Pool, Postgres};
+use time::OffsetDateTime;
 use crate::core::model::*;
 use crate::core::api_models::*;
 use crate::core::utils::*;
 use crate::{response, AppData};
+
+pub type CountChunkCache = Cache<String, Arc<Vec<DbServerCountData>>>;
+
+const HOUR_SECS: i64 = 3600;
+
+
+const CHUNK_COMPLETE_LAG_SECS: i64 = 10 * 60;
+
+fn count_bucket_width_mins(span: Duration) -> i32 {
+	const HOUR: i64 = 60;
+	const DAY: i64 = 24 * HOUR;
+	let mins = span.num_minutes();
+	match mins {
+		m if m <= 12 * HOUR => 5,
+		m if m <= DAY => 10,
+		m if m <= 3 * DAY => 30,
+		m if m <= 7 * DAY => 60,
+		m if m <= 14 * DAY => 120,
+		m if m <= 31 * DAY => 240,
+		m if m <= 92 * DAY => 720,
+		m if m <= 183 * DAY => 1440,
+		m if m <= 275 * DAY => 2160,
+		_ => 2880,
+	}
+}
+
+async fn get_counts_hour_chunked(
+	pool: &Pool<Postgres>, cache: &CountChunkCache, server_id: &str,
+	start: DateTime<Utc>, end: DateTime<Utc>,
+) -> Result<Vec<DbServerCountData>, sqlx::Error> {
+	let first_hour = start.timestamp().div_euclid(HOUR_SECS) * HOUR_SECS;
+	let last_hour = end.timestamp().div_euclid(HOUR_SECS) * HOUR_SECS;
+	let mut chunks = Vec::new();
+	let mut hour = first_hour;
+	while hour <= last_hour {
+		let cached = cache.get(&format!("{server_id}:{hour}")).await;
+		chunks.push((hour, cached));
+		hour += HOUR_SECS;
+	}
+
+	let mut missing_ranges: Vec<(i64, i64)> = Vec::new();
+	for (hour, cached) in &chunks {
+		if cached.is_some() {
+			continue;
+		}
+		match missing_ranges.last_mut() {
+			Some((_, range_end)) if *range_end + HOUR_SECS == *hour => *range_end = *hour,
+			_ => missing_ranges.push((*hour, *hour)),
+		}
+	}
+
+	let mut fetched: HashMap<i64, Vec<DbServerCountData>> = HashMap::new();
+	for (range_start, range_end) in missing_ranges {
+		let range_start_time = OffsetDateTime::from_unix_timestamp(range_start)
+			.map_err(|e| sqlx::Error::Decode(e.into()))?;
+		let range_end_time = OffsetDateTime::from_unix_timestamp(range_end + HOUR_SECS)
+			.map_err(|e| sqlx::Error::Decode(e.into()))?;
+		let rows = sqlx::query_as!(DbServerCountData,
+			"SELECT server_id, bucket_time, player_count::bigint player_count
+			 FROM server_player_counts
+			 WHERE server_id = $1 AND bucket_time >= $2 AND bucket_time < $3",
+			server_id, range_start_time, range_end_time
+		).fetch_all(pool).await?;
+		let mut hour = range_start;
+		while hour <= range_end {
+			fetched.insert(hour, Vec::new());
+			hour += HOUR_SECS;
+		}
+		for row in rows {
+			let Some(bucket_time) = row.bucket_time else { continue };
+			let hour = bucket_time.unix_timestamp().div_euclid(HOUR_SECS) * HOUR_SECS;
+			fetched.entry(hour).or_default().push(row);
+		}
+	}
+
+	let now = Utc::now().timestamp();
+	let mut result = Vec::new();
+	for (hour, cached) in chunks {
+		match cached {
+			Some(rows) => result.extend(rows.iter().cloned()),
+			None => {
+				let rows = fetched.remove(&hour).unwrap_or_default();
+				if hour + HOUR_SECS <= now - CHUNK_COMPLETE_LAG_SECS {
+					cache.insert(format!("{server_id}:{hour}"), Arc::new(rows.clone())).await;
+				}
+				result.extend(rows);
+			}
+		}
+	}
+	let (start_ts, end_ts) = (start.timestamp(), end.timestamp());
+	result.retain(|r| r.bucket_time
+		.map(|t| (start_ts..=end_ts).contains(&t.unix_timestamp()))
+		.unwrap_or(false));
+	result.sort_by(|a, b| b.bucket_time.cmp(&a.bucket_time));
+	Ok(result)
+}
 
 #[derive(Enum)]
 #[oai(rename_all = "lowercase")]
@@ -176,32 +277,40 @@ impl GraphApi {
 		Query(start): Query<DateTime<Utc>>, Query(end): Query<DateTime<Utc>>
 	) -> Response<Vec<ServerCountData>> {
 		let pool = &*data.pool.clone();
-		if end.signed_duration_since(start) > Duration::days(366) {
+		let span = end.signed_duration_since(start);
+		if span > Duration::days(366) {
 			return response!(err "You can only get data within 1 year", ErrorCode::BadRequest);
 		};
+		if span <= Duration::hours(6) {
+			let Ok(result) = get_counts_hour_chunked(
+				pool, &data.count_chunk_cache, &server.server_id, start, end
+			).await else {
+				return response!(internal_server_error);
+			};
+			return response!(ok result.iter_into());
+		}
 		let Ok(result) = sqlx::query_as!(DbServerCountData,
-			"WITH numbered AS MATERIALIZED (
-			  SELECT *, row_number() OVER (ORDER BY bucket_time) AS rn
+			"WITH agg AS (
+			  SELECT
+				date_bin(make_interval(mins => $4), bucket_time, 'epoch'::timestamptz) AS bucket,
+				MIN((player_count::bigint << 32) | EXTRACT(EPOCH FROM bucket_time)::bigint) AS min_enc,
+				MAX((player_count::bigint << 32) | EXTRACT(EPOCH FROM bucket_time)::bigint) AS max_enc
 			  FROM server_player_counts
 			  WHERE
 				server_id = $1
 				AND bucket_time BETWEEN $2 AND $3
-			),
-			total_rows AS (
-			  SELECT count(*) AS cnt FROM numbered
-			),
-			downsampled AS (
-			  SELECT n.*, t.cnt, GREATEST(FLOOR(t.cnt::float / 360)::int, 1) AS step
-			  FROM numbered n CROSS JOIN total_rows t
+			  GROUP BY 1
 			)
-			SELECT COALESCE(server_id, server_id) server_id,
-			       COALESCE(bucket_time, bucket_time) bucket_time,
-			       COALESCE(player_count, player_count)::bigint player_count
-			FROM downsampled
-			WHERE rn % step = 0
+			SELECT DISTINCT
+			       $1 AS server_id,
+			       to_timestamp((v.enc & ((1::bigint << 32) - 1))::double precision) AS bucket_time,
+			       (v.enc >> 32) AS player_count
+			FROM agg
+			CROSS JOIN LATERAL (VALUES (min_enc), (max_enc)) AS v(enc)
 			ORDER BY bucket_time DESC;
 			",
-			server.server_id, start.to_db_time(), end.to_db_time()
+			server.server_id, start.to_db_time(), end.to_db_time(),
+			count_bucket_width_mins(span)
 		)
 		.fetch_all(pool)
 		.await else {
