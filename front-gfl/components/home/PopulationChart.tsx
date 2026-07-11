@@ -63,9 +63,6 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
 
     const communities = communityData?.communities ?? [];
 
-    // Which communities the user has chosen to plot. Defaults to the top 5 by player
-    // count (getCommunity() already sorts desc) the first time communities load, since
-    // they arrive asynchronously and may be [] on first client render.
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const didInitSelection = useRef(false);
     useEffect(() => {
@@ -76,7 +73,6 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
     }, [communities]);
 
     const selectedCommunities = useMemo(() => {
-        // Preserve selection order so a community's color stays stable as the user toggles.
         return selectedIds
             .map((id, i) => {
                 const community = communities.find(c => c.id === id);
@@ -88,7 +84,6 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
     }, [selectedIds, communities]);
 
     const [timeType, setTimeType] = useState<PopulationTimeType>('OneHour');
-    // `cursor` is the right edge of the visible window. Panning moves it, which refetches.
     const [cursor, setCursor] = useState(() => dayjs());
     const [lines, setLines] = useState<Line[]>([]);
     const [loading, setLoading] = useState(true);
@@ -103,26 +98,24 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
         const controller = new AbortController();
         setLoading(true);
         const time = cursor.toJSON();
-        Promise.all(
-            selectedCommunities.map(c =>
-                fetchCommunityPopulation(c.id, timeType, time, controller.signal)
-                    .then(data => ({
-                        id: c.id,
-                        name: c.name,
-                        color: c.color,
-                        points: data.map(d => ({x: d.bucket_time, y: d.player_count})),
-                    })),
-            ),
-        ).then(result => {
-            if (controller.signal.aborted) return;
-            setLines(result);
-            setLoading(false);
+        const results: (Line | null)[] = new Array(selectedCommunities.length).fill(null);
+        let remaining = selectedCommunities.length;
+        selectedCommunities.forEach((c, i) => {
+            fetchCommunityPopulation(c.id, timeType, time, controller.signal).then(data => {
+                if (controller.signal.aborted) return;
+                results[i] = {
+                    id: c.id,
+                    name: c.name,
+                    color: c.color,
+                    points: data.map(d => ({x: d.bucket_time, y: d.player_count})),
+                };
+                setLines(results.filter((l): l is Line => l !== null));
+                if (--remaining === 0) setLoading(false);
+            });
         });
         return () => controller.abort();
     }, [selectedCommunities, timeType, cursor]);
 
-    // On pan-complete, take the new right edge of the axis as the cursor and refetch
-    // (debounced). This is the time lookup: dragging left walks back through history.
     const handlePanComplete = useCallback(({chart}: {chart: {scales: {x: {max: number}}}}) => {
         const edge = chart.scales.x.max;
         if (panTimeout.current) clearTimeout(panTimeout.current);
@@ -134,8 +127,6 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
         }, 400);
     }, []);
 
-    // Allow zooming in on X, but never zoom out past the 32-interval window: if a zoom
-    // leaves a range wider than windowMs, snap it back to exactly windowMs.
     const clampGuard = useRef(false);
     const handleZoomComplete = useCallback(({chart}: {chart: any}) => {
         if (clampGuard.current) {
@@ -156,7 +147,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
 
     const selectTimeType = (value: PopulationTimeType) => {
         setTimeType(value);
-        setCursor(dayjs()); // new granularity → fresh window ending now
+        setCursor(dayjs());
     };
 
     const hasData = lines.some(l => l.points.length > 0);
@@ -201,9 +192,6 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                 borderColor: gridColor,
                 borderWidth: 1,
             },
-            // Horizontal pan (onPanComplete drives the time lookup, see handlePanComplete)
-            // + zoom in on X. Zoom-out is capped at the 32-interval window: minRange floors
-            // the zoom-in, handleZoomComplete snaps any over-zoom-out back to windowMs.
             zoom: {
                 pan: {enabled: true, mode: 'x', onPanComplete: handlePanComplete},
                 zoom: {
