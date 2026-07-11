@@ -94,7 +94,7 @@ export async function generateMetadata({ params}: {
         alternates: {
             canonical: `/servers/${server.gotoLink}/players/${player.id}/sessions/${session_id}`,
         },
-        ...socialMeta({title, description, images: [image]}),
+        ...socialMeta({title, description, images: [image], noTwitter: true}),
     }
 }
 export default async function Page({ params }){

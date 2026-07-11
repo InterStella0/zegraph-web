@@ -1,5 +1,5 @@
 import CurrentMatch from "components/maps/CurrentMatch";
-import {fetchServerUrl, formatTitle} from "utils/generalUtils";
+import {fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils";
 import {getServerSlug, threeMinutes} from "../util";
 import MapsSearchIndex from "./MapsSearchIndex";
 import getServerUser from "../../../getServerUser";
@@ -33,12 +33,14 @@ export async function generateMetadata({ params}: {
         description += ' ' + t('mapsPlayedLast', {count: data.total_maps, map: latestMap.map, time: dayjs(latestMap.last_played).fromNow()});
     }catch(e){}
 
+    const title = formatTitle(t('mapsTitle', {name: server.community_name}))
     return {
-        title: formatTitle(t('mapsTitle', {name: server.community_name})),
-        description: description,
+        title,
+        description,
         alternates: {
             canonical: `/servers/${server.gotoLink}/maps`
-        }
+        },
+        ...socialMeta({title, description})
     }
 }
 

@@ -1,6 +1,6 @@
 import {getServerSlug} from "./util";
 import {Metadata} from "next";
-import {fetchServerUrl, formatTitle} from "utils/generalUtils.ts";
+import {fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils.ts";
 import {AdSpot} from "components/ui/AdSpot";
 import {ServerContentWrapper} from "./ServerContentWrapper.tsx";
 import {Server} from "types/community.ts";
@@ -38,12 +38,15 @@ export async function generateMetadata({ params}: {
     const { server_slug } = await params
     const server = await getServerSlug(server_slug)
     const description = await createServerDescription(server);
+    const title = formatTitle(server.community_name)
+    const image = server.community_icon
     return {
-        title: formatTitle(server.community_name),
+        title: title,
         description: description,
         alternates: {
             canonical: `/servers/${server.gotoLink}`
-        }
+        },
+        ...socialMeta({title, description, images: image? [image]: null, noTwitter: true})
     }
 }
 

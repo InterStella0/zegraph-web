@@ -324,7 +324,7 @@ export const InfractionFlags = Object.freeze({
     SESSION: 1n << 12n,
     ONLINE_DECREMENT: 1n << 13n,
 });
-export function addOrdinalSuffix(num: number): string {
+export function ordinalSuffix(num: number): string {
     let suffix = "th";
     if (num % 100 < 11 || num % 100 > 13) {
         switch (num % 10) {
@@ -333,7 +333,13 @@ export function addOrdinalSuffix(num: number): string {
             case 3: suffix = "rd"; break;
         }
     }
-    return num + suffix;
+    return suffix;
+}
+export function addOrdinalSuffix(num: number): string {
+    return num + ordinalSuffix(num);
+}
+export function formatOrdinal(num: number, locale: string = 'en-US'): string {
+    return num.toLocaleString(locale) + ordinalSuffix(num);
 }
 
 type FlagBitMap = ReadonlyArray<readonly [bigint, bigint]>;
@@ -406,9 +412,18 @@ export const SITE_NAME = "ZE Graph"
 export const TWITTER_CREATOR = "@queeniemella"
 
 export function socialMeta(
-    {title, description, url, images}:
-    {title: string, description: string, url?: string, images?: string[]}
+    {title, description, url, images, noTwitter}:
+    {title: string, description: string, url?: string, images?: string[], noTwitter?: boolean}
 ): Pick<Metadata, "openGraph" | "twitter">{
+    let twitter = {}
+    if (!noTwitter)
+        twitter = {
+            card: "summary_large_image",
+            creator: TWITTER_CREATOR,
+            title,
+            description,
+            ...(images !== undefined && {images}),
+        }
     return {
         openGraph: {
             type: "website",
@@ -419,13 +434,7 @@ export function socialMeta(
             ...(url !== undefined && {url}),
             ...(images !== undefined && {images}),
         },
-        twitter: {
-            card: "summary_large_image",
-            creator: TWITTER_CREATOR,
-            title,
-            description,
-            ...(images !== undefined && {images}),
-        },
+        twitter,
     }
 }
 export function getIntervalCallback(selectedInterval: SelectionIntervals): (date: dayjs.Dayjs) => dayjs.Dayjs {

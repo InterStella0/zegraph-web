@@ -102,7 +102,7 @@ export async function generateMetadata({ params}: {
     return {
         title: title,
         description: description,
-        ...socialMeta({title, description, images: [image]}),
+        ...socialMeta({title, description, images: [image], noTwitter: true}),
         alternates: {
             canonical: `/servers/${server.gotoLink}/players/${player.id}`,
             types: {

@@ -8,7 +8,7 @@ import type {ServerPageProps} from "../page";
 import {Metadata} from "next";
 import {getTranslations} from "next-intl/server";
 import {BriefPlayers, ServerPlayersStatistic} from "types/players.ts";
-import {fetchServerUrl, fetchUrl, formatHours, formatTitle} from "utils/generalUtils.ts";
+import {fetchServerUrl, fetchUrl, formatHours, formatTitle, socialMeta} from "utils/generalUtils.ts";
 import {Suspense} from "react";
 import {getCachedPlayerStats, getCachedTopPlayers} from "lib/cachedFetches";
 import {AdSpot} from "components/ui/AdSpot";
@@ -36,12 +36,15 @@ export async function generateMetadata({ params}: ServerPageProps): Promise<Meta
 
     if (server.players)
         description += ' ' + t('playersOnline', {count: server.players});
+    const title = formatTitle(t('playersTitle', {name: server.community_name}))
+    const image = server.community_icon
     return {
-        title: formatTitle(t('playersTitle', {name: server.community_name})),
+        title: title,
         description: description,
         alternates: {
             canonical: `/servers/${server.gotoLink}/players`
-        }
+        },
+        ...socialMeta({title, description, images: image? [image]: null, noTwitter: true})
     }
 }
 
