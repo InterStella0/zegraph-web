@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 240 240">
+  <defs>
+    <clipPath id="badge"><circle cx="120" cy="120" r="120"></circle></clipPath>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#F7CDD6" stroke-opacity="0.8" stroke-width="1"></path>
+    </pattern>
+  </defs>
+  <g clip-path="url(#badge)">
+    <circle cx="120" cy="120" r="120" fill="#FFF6F4"></circle>
+    <rect width="240" height="240" fill="url(#grid)"></rect>
+    <polygon points="0,240 0,192 76,140 130,166 240,80 240,240" fill="#F7CDD6" fill-opacity="0.45"></polygon>
+    <polyline points="0,192 76,140 130,166 240,80" fill="none" stroke="#F2A9B8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+    <path d="M118.76 86.77L88.13 130.16L119.52 130.16L119.52 146L55.49 146L55.49 139.18L86.12 95.79L57.80 95.79L57.80 79.95L118.76 79.95L118.76 86.77Z" fill="#C4526E"></path>
+    <path d="M124.60 146L124.60 79.95L181.72 79.95L181.72 95.79L145.82 95.79L145.82 104.91L176.54 104.91L176.54 120.08L145.82 120.08L145.82 130.16L182.40 130.16L182.40 146L124.60 146Z" fill="#C4526E"></path>
+  </g>
+  <circle cx="120" cy="120" r="116" fill="none" stroke="#F7CDD6" stroke-width="8"></circle>
+</svg>
