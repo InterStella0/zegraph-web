@@ -116,15 +116,6 @@ struct OEmbedPlayerResponse {
     url: String,
 }
 
-#[derive(ApiResponse)]
-enum OEmbedResponseType{
-    #[oai(status = 200, content_type = "application/json+oembed")]
-    Player(Json<OEmbedPlayerResponse>),
-    #[oai(status = 200, content_type = "application/json+oembed")]
-    Map(Json<OEmbedMapResponse>),
-    #[oai(status = 400)]
-    Err(PlainText<String>)
-}
 
 pub struct MiscApi;
 
@@ -388,67 +379,6 @@ impl MiscApi {
         } ;
         response!(ok value.result.iter_into())
     }
-    #[oai(path="/oembed/", method="get")]
-    async fn get_oembed(&self, req: &Request, Data(app): Data<&AppData>, Query(url): Query<String>) -> OEmbedResponseType {
-        let rand = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos().to_string();
-        let raw_host = req.header("Host").unwrap_or_else(|| &rand);
-        let host = format!("{}://{raw_host}", req.uri().scheme_str().unwrap_or("http"));
-        let Ok(parsed) = url::Url::parse(&url) else {
-            return OEmbedResponseType::Err(PlainText("Error".to_string()));
-        };
-
-        let domain = parsed.host_str().unwrap_or("");
-        if !host.contains(&domain) {
-            return OEmbedResponseType::Err(PlainText("Error".to_string()));
-        }
-
-        let path_segments = parsed.path_segments().map(|c| c.collect::<Vec<_>>()).unwrap_or_default();
-
-        match path_segments.as_slice() {
-            [server_id, "maps", map_name] => {
-                let response = OEmbedMapResponse {
-                    r#type: "photo".to_string(),
-                    version: "1.0".to_string(),
-                    title: map_name.to_string(),
-                    description: format!("{} activity and its performance in ZE Server.", map_name),
-                    author_name:  map_name.to_string(),
-                    author_url: format!("{host}/{server_id}/maps/{map_name}"),
-                    url: format!("{host}/thumbnails/large/{map_name}.jpg"),
-                    width: 240,
-                    height: 160,
-                };
-                OEmbedResponseType::Map(Json(response))
-            },
-            [server_id, "players", player_id] => {
-                let pool = &*app.pool.clone();
-                let func = || sqlx::query_as!(
-                    DbPlayer, "SELECT  player_id, player_name, created_at, associated_player_id
-                                FROM player WHERE player_id=$1 LIMIT 1", player_id
-                ).fetch_one(pool);
-                let key = format!("info:{player_id}");
-
-                let Ok(result) = cached_response(&key, &app.cache, 7 * DAY, func).await else {
-                    return OEmbedResponseType::Err(PlainText("Invalid player id".to_string()))
-                };
-                let player = result.result;
-                let base_path = req.uri().path().replacen("/oembed/", "", 1);
-                let response = OEmbedPlayerResponse {
-                    r#type: "link".to_string(),
-                    version: "1.0".to_string(),
-                    description: format!("{}'s activity on ZE Server", &player.player_name),
-                    title: player.player_name.clone(),
-                    author_name: player.player_name,
-                    author_url: format!("{host}/{server_id}/players/{player_id}"),
-                    url: format!("{base_path}/meta_thumbnails?url={host}/players/{player_id}"),
-                };
-                OEmbedResponseType::Player(Json(response))
-            },
-            _ => OEmbedResponseType::Err(PlainText("Invalid URL".to_string()))
-        }
-    }
     #[oai(path = "/events/data-updates", method = "get")]
     async fn sse_new_rows(&self, Data(app): Data<&AppData>) -> EventStream<BoxStream<'static, NewRowEvent>> {
         let Some(db_url) = get_env_default("DATABASE_URL") else {
@@ -516,7 +446,6 @@ impl MiscApi {
 impl UriPatternExt for MiscApi{
     fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
         vec![
-            "/oembed/",
             "/meta_thumbnails",
             "/thumbnails/{thumbnail_type}/{filename}",
             "/health",
