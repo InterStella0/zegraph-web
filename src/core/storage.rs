@@ -169,6 +169,31 @@ fn join_url(base: &str, key: &str) -> String {
     format!("{base}/{key}")
 }
 
+/// Supported image uploads. Returns `None` for anything else so callers reject
+/// the upload instead of storing it under a wrong extension.
+pub(crate) fn image_ext_from_content_type(content_type: &str) -> Option<&'static str> {
+    let content_type = content_type
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    match content_type.as_str() {
+        "image/png" => Some("png"),
+        "image/webp" => Some("webp"),
+        "image/jpeg" | "image/jpg" => Some("jpg"),
+        _ => None,
+    }
+}
+
+fn image_content_type(ext: &str) -> &'static str {
+    match ext {
+        "png" => "image/png",
+        "webp" => "image/webp",
+        _ => "image/jpeg",
+    }
+}
+
 #[derive(Clone)]
 struct StorageNamespace {
     backend: Arc<StorageBackend>,
@@ -325,17 +350,42 @@ impl CharacterStorage {
     }
 
     pub async fn store_thumbnail(&self, model_id: &str, ext: &str, bytes: &[u8]) -> Result<String, String> {
-        let content_type = match ext {
-            "png" => "image/png",
-            "webp" => "image/webp",
-            _ => "image/jpeg",
-        };
-        self.ns.store_bytes(&Self::thumbnail_path(model_id, ext), bytes, content_type).await
+        self.ns
+            .store_bytes(&Self::thumbnail_path(model_id, ext), bytes, image_content_type(ext))
+            .await
+    }
+
+    /// Extension of a thumbnail we stored ourselves, or `None` when `stored` points
+    /// somewhere we don't own (an external URL, a stale format).
+    fn stored_thumbnail_ext(&self, model_id: &str, stored: &str) -> Option<&'static str> {
+        let prefix = self.ns.public_url(&Self::thumbnail_path(model_id, ""));
+        let ext = stored.trim().strip_prefix(&prefix)?;
+        ["png", "webp", "jpg"].into_iter().find(|known| *known == ext)
     }
 
     pub async fn delete_thumbnail(&self, model_id: &str, stored: &str) -> Result<(), String> {
-        let ext = stored.rsplit('.').next().unwrap_or("jpg");
+        let Some(ext) = self.stored_thumbnail_ext(model_id, stored) else {
+            return Ok(());
+        };
         self.ns.delete(&Self::thumbnail_path(model_id, ext)).await
+    }
+
+    /// Deletes the thumbnail a model used to have. No-op when the previous thumbnail
+    /// lives at the key we just wrote, which would otherwise delete the fresh upload.
+    pub async fn delete_previous_thumbnail(
+        &self,
+        model_id: &str,
+        previous: &str,
+        new_ext: &str,
+    ) -> Result<bool, String> {
+        let Some(ext) = self.stored_thumbnail_ext(model_id, previous) else {
+            return Ok(false);
+        };
+        if ext == new_ext {
+            return Ok(false);
+        }
+        self.ns.delete(&Self::thumbnail_path(model_id, ext)).await?;
+        Ok(true)
     }
 }
 
@@ -356,16 +406,111 @@ impl CommunityStorage {
     }
 
     pub async fn store_icon(&self, community_id: &str, ext: &str, bytes: &[u8]) -> Result<String, String> {
-        let content_type = match ext {
-            "png" => "image/png",
-            "webp" => "image/webp",
-            _ => "image/jpeg",
-        };
-        self.ns.store_bytes(&Self::icon_path(community_id, ext), bytes, content_type).await
+        self.ns
+            .store_bytes(&Self::icon_path(community_id, ext), bytes, image_content_type(ext))
+            .await
+    }
+
+    /// Extension of an icon we stored ourselves, or `None` when `stored_url` points
+    /// somewhere we don't own (a community using an externally hosted icon).
+    fn stored_icon_ext(&self, community_id: &str, stored_url: &str) -> Option<&'static str> {
+        let prefix = self.ns.public_url(&Self::icon_path(community_id, ""));
+        let ext = stored_url.trim().strip_prefix(&prefix)?;
+        ["png", "webp", "jpg"].into_iter().find(|known| *known == ext)
     }
 
     pub async fn delete_icon(&self, community_id: &str, stored_url: &str) -> Result<(), String> {
-        let ext = stored_url.rsplit('.').next().unwrap_or("jpg");
+        let Some(ext) = self.stored_icon_ext(community_id, stored_url) else {
+            return Ok(());
+        };
         self.ns.delete(&Self::icon_path(community_id, ext)).await
+    }
+
+    /// Deletes the icon a community used to have. No-op when the previous icon lives at
+    /// the key we just wrote, which would otherwise delete the fresh upload.
+    pub async fn delete_previous_icon(
+        &self,
+        community_id: &str,
+        previous_url: &str,
+        new_ext: &str,
+    ) -> Result<bool, String> {
+        let Some(ext) = self.stored_icon_ext(community_id, previous_url) else {
+            return Ok(false);
+        };
+        if ext == new_ext {
+            return Ok(false);
+        }
+        self.ns.delete(&Self::icon_path(community_id, ext)).await?;
+        Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const COMMUNITY: &str = "fc92d546-9335-47ad-9116-889125373658";
+
+    fn storage(root: &Path) -> CommunityStorage {
+        CommunityStorage::new(Arc::new(StorageBackend::Local {
+            root: root.to_string_lossy().into_owned(),
+        }))
+    }
+
+    fn temp_root(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("gfl-storage-test-{name}"));
+        let _ = std::fs::remove_dir_all(&root);
+        root
+    }
+
+    fn icon_exists(root: &Path, ext: &str) -> bool {
+        root.join("communities").join(COMMUNITY).join(format!("icon.{ext}")).exists()
+    }
+
+    #[tokio::test]
+    async fn reupload_same_extension_keeps_the_new_icon() {
+        let root = temp_root("same-ext");
+        let storage = storage(&root);
+
+        let previous = storage.store_icon(COMMUNITY, "jpg", b"old").await.unwrap();
+        storage.store_icon(COMMUNITY, "jpg", b"new").await.unwrap();
+
+        assert_eq!(storage.delete_previous_icon(COMMUNITY, &previous, "jpg").await, Ok(false));
+        assert!(icon_exists(&root, "jpg"));
+    }
+
+    #[tokio::test]
+    async fn external_previous_icon_is_left_alone() {
+        let root = temp_root("external");
+        let storage = storage(&root);
+
+        storage.store_icon(COMMUNITY, "jpg", b"new").await.unwrap();
+
+        let external = "https://cdn.example.com/branding/logo.jpg";
+        assert_eq!(storage.delete_previous_icon(COMMUNITY, external, "jpg").await, Ok(false));
+        assert!(icon_exists(&root, "jpg"));
+    }
+
+    #[tokio::test]
+    async fn changing_extension_removes_the_stale_icon() {
+        let root = temp_root("change-ext");
+        let storage = storage(&root);
+
+        let previous = storage.store_icon(COMMUNITY, "png", b"old").await.unwrap();
+        storage.store_icon(COMMUNITY, "jpg", b"new").await.unwrap();
+
+        assert_eq!(storage.delete_previous_icon(COMMUNITY, &previous, "jpg").await, Ok(true));
+        assert!(!icon_exists(&root, "png"));
+        assert!(icon_exists(&root, "jpg"));
+    }
+
+    #[test]
+    fn only_supported_image_types_are_accepted() {
+        assert_eq!(image_ext_from_content_type("image/jpeg"), Some("jpg"));
+        assert_eq!(image_ext_from_content_type("IMAGE/JPEG"), Some("jpg"));
+        assert_eq!(image_ext_from_content_type("image/png; charset=binary"), Some("png"));
+        assert_eq!(image_ext_from_content_type("image/webp"), Some("webp"));
+        assert_eq!(image_ext_from_content_type("application/octet-stream"), None);
+        assert_eq!(image_ext_from_content_type(""), None);
     }
 }

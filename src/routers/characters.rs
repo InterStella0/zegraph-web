@@ -4,6 +4,7 @@ use poem_openapi::param::Path;
 use crate::{response, AppData, FastCache};
 use crate::core::model::DbCharacter3DModel;
 use crate::core::api_models::*;
+use crate::core::storage::image_ext_from_content_type;
 use crate::core::utils::*;
 
 pub struct CharacterApi;
@@ -657,13 +658,15 @@ impl CharacterApi {
                 let content_type = field.content_type()
                     .map(|ct| ct.to_string())
                     .unwrap_or_default();
-                let ext = match content_type.as_str() {
-                    "image/png" => "png",
-                    "image/webp" => "webp",
-                    _ => "jpg",
+                let Some(ext) = image_ext_from_content_type(&content_type) else {
+                    return response!(err "Thumbnail must be a PNG, WebP or JPEG image", ErrorCode::BadRequest);
                 };
-                if let Ok(bytes) = field.bytes().await {
-                    thumbnail_data = Some((bytes.to_vec(), ext.to_string()));
+                match field.bytes().await {
+                    Ok(bytes) => thumbnail_data = Some((bytes.to_vec(), ext.to_string())),
+                    Err(e) => {
+                        tracing::error!("Failed to read character thumbnail upload: {}", e);
+                        return response!(err "Failed to read thumbnail upload", ErrorCode::BadRequest);
+                    }
                 }
             }
         }
@@ -672,6 +675,17 @@ impl CharacterApi {
             return response!(err "Missing thumbnail field", ErrorCode::BadRequest);
         };
 
+        let previous_thumbnail = sqlx::query_scalar!(
+            "SELECT thumbnail_path FROM website.character_3d_model WHERE server_id = $1 AND model_id = $2",
+            server_id,
+            model_id
+        )
+        .fetch_optional(&*app.pool)
+        .await
+        .ok()
+        .flatten()
+        .flatten();
+
         let filename = match app.character_storage.store_thumbnail(&model_id, &ext, &thumb_bytes).await {
             Ok(path) => path,
             Err(e) => {
@@ -679,6 +693,12 @@ impl CharacterApi {
                 return response!(internal_server_error);
             }
         };
+
+        if let Some(previous) = previous_thumbnail {
+            if let Err(e) = app.character_storage.delete_previous_thumbnail(&model_id, &previous, &ext).await {
+                tracing::warn!("Failed to delete previous character thumbnail: {}", e);
+            }
+        }
 
         let updated = sqlx::query_as!(
             DbCharacter3DModel,

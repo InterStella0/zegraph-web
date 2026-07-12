@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::core::api_models::*;
+use crate::core::storage::image_ext_from_content_type;
 use crate::core::utils::*;
 use crate::{response, AppData};
 
@@ -356,13 +357,15 @@ impl AdminServersApi {
                 let content_type = field.content_type()
                     .map(|ct| ct.to_string())
                     .unwrap_or_default();
-                let ext = match content_type.as_str() {
-                    "image/png" => "png",
-                    "image/webp" => "webp",
-                    _ => "jpg",
+                let Some(ext) = image_ext_from_content_type(&content_type) else {
+                    return response!(err "Icon must be a PNG, WebP or JPEG image", ErrorCode::BadRequest);
                 };
-                if let Ok(bytes) = field.bytes().await {
-                    icon_data = Some((bytes.to_vec(), ext.to_string()));
+                match field.bytes().await {
+                    Ok(bytes) => icon_data = Some((bytes.to_vec(), ext.to_string())),
+                    Err(e) => {
+                        tracing::error!("Failed to read community icon upload: {}", e);
+                        return response!(err "Failed to read icon upload", ErrorCode::BadRequest);
+                    }
                 }
             }
         }
@@ -380,8 +383,10 @@ impl AdminServersApi {
         };
 
         if let Some(old_icon) = existing_icon_url {
-            if let Err(e) = data.community_storage.delete_icon(&id.to_string(), &old_icon).await {
-                tracing::warn!("Failed to delete previous community icon: {}", e);
+            match data.community_storage.delete_previous_icon(&id.to_string(), &old_icon, &ext).await {
+                Ok(true) => (),
+                Ok(false) => tracing::debug!("Kept previous community icon {}: same key as the new upload, or not ours", old_icon),
+                Err(e) => tracing::warn!("Failed to delete previous community icon: {}", e),
             }
         }
 
