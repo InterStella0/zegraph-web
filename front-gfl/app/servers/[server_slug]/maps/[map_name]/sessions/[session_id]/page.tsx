@@ -1,7 +1,7 @@
 import {
     getMutualSessions,
     getServerGraph,
-    getServerSlug,
+    getServerSlugOrNotFound,
     getSessionInfo,
     SessionInfo
 } from "../../../../util";
@@ -14,6 +14,7 @@ import timezone from "dayjs/plugin/timezone";
 import MapSessionWrapper from "./MapSessionWrapper.tsx";
 import getSessionData from "./utils.ts";
 import { getTranslations } from 'next-intl/server';
+import { notFound } from 'next/navigation';
 
 dayjs.extend(relativeTime);
 dayjs.extend(timezone)
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string, map_name: string, session_id: string }>
 }): Promise<Metadata> {
     const { server_slug, map_name, session_id } = await params;
-    const server = await getServerSlug(server_slug);
+    const server = await getServerSlugOrNotFound(server_slug);
     const t = await getTranslations('metadata');
     let info: SessionInfo<"map"> | null = null;
     try{
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: {
                 title: formatTitle(map_name),
                 description: t('mapCalculating'),
             }
-        }else if (error.code === 404){
+        }else if (error.code === 404 || error.code === 400){
             return {
                 title: "ZE Graph",
                 description: t('viewMapActivities', {name: server.community_name})
@@ -102,8 +103,15 @@ export async function generateMetadata({ params }: {
 
 export default async function Page({ params }) {
     const { session_id, server_slug, map_name } = await params;
-    const sessionPromise = getServerSlug(server_slug)
-        .then(server => getSessionData(server, map_name, session_id))
+    const server = await getServerSlugOrNotFound(server_slug);
 
-    return <MapSessionWrapper sessionPromise={sessionPromise} />
+    let sessionData
+    try{
+        sessionData = await getSessionData(server, map_name, session_id)
+    }catch(error: any){
+        if (error?.code === 404 || error?.code === 400) notFound()
+        throw error
+    }
+
+    return <MapSessionWrapper sessionPromise={Promise.resolve(sessionData)} />
 }

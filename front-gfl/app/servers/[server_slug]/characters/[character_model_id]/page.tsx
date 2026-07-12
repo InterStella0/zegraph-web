@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { getServerSlug } from "../../util"
+import { getServerSlugOrNotFound } from "../../util"
 import { formatTitle, fetchServerUrl } from "utils/generalUtils"
 import { Character3DModel } from "types/maps"
 import { Badge } from "components/ui/badge"
@@ -14,8 +14,7 @@ export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string, character_model_id: string }>
 }): Promise<Metadata> {
     const { server_slug, character_model_id } = await params
-    const server = await getServerSlug(server_slug)
-    if (!server) return {}
+    const server = await getServerSlugOrNotFound(server_slug)
     const t = await getTranslations('metadata');
     return {
         title: formatTitle(t('characterTitle', {id: character_model_id})),
@@ -28,8 +27,7 @@ export default async function Page({ params }: {
     params: Promise<{ server_slug: string, character_model_id: string }>
 }) {
     const { server_slug, character_model_id } = await params
-    const server = await getServerSlug(server_slug)
-    if (!server) notFound()
+    const server = await getServerSlugOrNotFound(server_slug)
 
     let model: Character3DModel | null = null
     try {

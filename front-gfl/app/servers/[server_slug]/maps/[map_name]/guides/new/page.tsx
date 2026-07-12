@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { formatTitle } from 'utils/generalUtils';
-import { getServerSlug } from '../../../../util';
+import { getServerSlugOrNotFound } from '../../../../util';
 import GuideEditor from 'components/maps/guides/GuideEditor';
 import {GuideContextDataInsert, GuideContextProvider} from "lib/GuideContextProvider.tsx";
 import {auth, SteamSession} from "auth";
@@ -11,11 +11,7 @@ export async function generateMetadata({ params }: {
 }): Promise<Metadata> {
     const { server_slug, map_name } = await params;
     const t = await getTranslations('metadata');
-    const server = await getServerSlug(server_slug);
-
-    if (!server) {
-        return {};
-    }
+    await getServerSlugOrNotFound(server_slug);
 
     return {
         title: formatTitle(t('createGuideTitle', {map: map_name})),

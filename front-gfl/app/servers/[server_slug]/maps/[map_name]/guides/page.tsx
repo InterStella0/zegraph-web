@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import {fetchServerUrl, formatTitle, StillCalculate} from 'utils/generalUtils';
-import { getServerSlug } from '../../../util';
+import { getServerSlugOrNotFound } from '../../../util';
 import { auth } from '../../../../../../auth';
 import MapGuidesList from 'components/maps/guides/MapGuidesList';
 import {MapContextProvider} from "../MapContext.tsx";
@@ -19,11 +19,7 @@ export async function generateMetadata({ params }: {
 }): Promise<Metadata> {
     const { server_slug, map_name } = await params;
     const t = await getTranslations('metadata');
-    const server = await getServerSlug(server_slug);
-
-    if (!server) {
-        return {};
-    }
+    const server = await getServerSlugOrNotFound(server_slug);
 
     return {
         title: formatTitle(t('guidesTitle', {map: map_name})),
@@ -41,7 +37,7 @@ export default async function GuidesPage({ params }: {
     const session = await auth();
     const mapDetail = {
         serverSlug: server_slug, mapName: map_name,
-        serverIdPromise: getServerSlug(server_slug).then(s => s.id),
+        serverIdPromise: getServerSlugOrNotFound(server_slug).then(s => s.id),
         insideServer: true
     } as GuideContextDataInsert
     const t = await getTranslations('guides.pages');

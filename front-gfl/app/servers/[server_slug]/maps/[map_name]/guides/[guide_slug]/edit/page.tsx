@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import {formatTitle} from 'utils/generalUtils';
-import { getServerSlug } from '../../../../../util';
+import { getServerSlugOrNotFound } from '../../../../../util';
 import { auth, SteamSession } from 'auth';
 import GuideEditor from 'components/maps/guides/GuideEditor';
 import {GuideContextProvider} from "lib/GuideContextProvider.tsx";
@@ -12,14 +12,9 @@ export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string; map_name: string; guide_slug: string }>
 }): Promise<Metadata> {
     const t = await getTranslations('metadata');
+    const { server_slug, map_name, guide_slug } = await params;
+    const server = await getServerSlugOrNotFound(server_slug);
     try {
-        const { server_slug, map_name, guide_slug } = await params;
-        const server = await getServerSlug(server_slug);
-
-        if (!server) {
-            return {};
-        }
-
         const guide = await getGuideBySlug(map_name, guide_slug, server.id);
 
         if (!guide) {
@@ -48,7 +43,7 @@ export default async function EditGuidePage({ params }: {
     if (!session?.user) {
         redirect(`/servers/${server_slug}/maps/${map_name}/guides`);
     }
-    const server = getServerSlug(server_slug)
+    const server = getServerSlugOrNotFound(server_slug)
     const guide = await server.then(s => getGuideBySlug(map_name, guide_slug, s.id))
 
     if (!guide){

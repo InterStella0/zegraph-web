@@ -1,5 +1,6 @@
 import {ServerPlayerDetailedWithError} from "./page.tsx";
 import {use} from "react";
+import {notFound} from "next/navigation";
 import {StillCalculate} from "utils/generalUtils.ts";
 import PlayerCardDetail from "components/players/PlayerCardDetail.tsx";
 import PlayerSessionList from "components/players/PlayerSessionList.tsx";
@@ -15,6 +16,10 @@ export default function ResolvePlayerInformation({ serverPlayerPromise }: { serv
 
     if (error && error.code === 403) {
         return <AccessDenied />;
+    }
+
+    if (error && error.code === 404) {
+        notFound();
     }
 
     if (player === null || player === undefined || player instanceof StillCalculate || !player.id) {

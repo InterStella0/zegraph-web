@@ -19,7 +19,7 @@ import MapTopPlayerList from "components/maps/MapTopPlayerList.tsx";
 import MapAverageSessionDistribution from "components/maps/MapAverageSessionDistribution.tsx";
 import MapPlayerType from "components/maps/MapPlayerType.tsx";
 import MapMusicSection from "components/maps/MapMusicSection.tsx";
-import {getServerSlug} from "../../util";
+import {getServerSlugOrNotFound} from "../../util";
 import { MapRegion, ServerMapDetail} from "types/maps";
 import {MapContextProvider} from "./MapContext";
 import {AdSpot} from "components/ui/AdSpot";
@@ -28,6 +28,7 @@ import {
     PlayerBrief,
 } from "types/players.ts";
 import { getTranslations } from 'next-intl/server';
+import { notFound } from 'next/navigation';
 
 async function getMapInfoDetails(serverId: string, mapName: string): Promise<ServerMapDetail>{
     const toReturn = { info: null, analyze: null, notReady: false, name: mapName}
@@ -45,8 +46,13 @@ async function getMapInfoDetails(serverId: string, mapName: string): Promise<Ser
         toReturn.info = info
         toReturn.analyze = analyze
     }catch(e){
+        // Still calculating is the only "expected" failure here; a 404 (or
+        // anything else) means the map genuinely doesn't exist and callers
+        // need to see that instead of a silently blank page.
         if (e instanceof StillCalculate){
             toReturn.notReady = true
+        }else{
+            throw e
         }
     }
     return toReturn as ServerMapDetail
@@ -55,7 +61,7 @@ export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string, map_name: string }>
 }): Promise<Metadata> {
     const { server_slug, map_name } = await params;
-    const server = await getServerSlug(server_slug);
+    const server = await getServerSlugOrNotFound(server_slug);
     const t = await getTranslations('metadata');
     let mapInfo: ServerMapDetail | null = null
     const title = formatTitle(t('mapOnServer', {map: map_name, name: server.community_name}))
@@ -115,8 +121,14 @@ export async function generateMetadata({ params }: {
 
 export default async function Page({ params }){
     const { map_name, server_slug } = await params
-    const server = await getServerSlug(server_slug);
-    const mapInfo = await getMapInfoDetails(server?.id, map_name);
+    const server = await getServerSlugOrNotFound(server_slug);
+    let mapInfo: ServerMapDetail
+    try{
+        mapInfo = await getMapInfoDetails(server.id, map_name);
+    }catch(error: any){
+        if (error?.code === 404) notFound()
+        throw error
+    }
 
     const mapDetail = Promise.resolve(mapInfo);
 

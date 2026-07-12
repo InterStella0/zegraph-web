@@ -2,7 +2,7 @@ import {
     getMapsDataSession,
     getMutualSessions,
     getServerGraph,
-    getServerSlug, getSessionInfo, MutualSessionReturn,
+    getServerSlugOrNotFound, getSessionInfo, MutualSessionReturn,
     PlayerSessionMapPlayed, ServerGraphType, SessionInfo
 } from "../../../../util";
 import {fetchServerUrl, fetchUrl, formatHours, formatTitle, getMapImage, socialMeta} from "utils/generalUtils";
@@ -15,6 +15,7 @@ import {Server} from "types/community.ts";
 import SessionPlayerWrapper from "./SessionPlayerWrapper.tsx";
 import {getSessionData} from "./utils.ts";
 import { getTranslations } from 'next-intl/server';
+import { notFound } from 'next/navigation';
 
 dayjs.extend(relativeTime)
 
@@ -22,7 +23,7 @@ export async function generateMetadata({ params}: {
     params: Promise<{ server_slug: string, player_id: string, session_id: string }>
 }): Promise<Metadata> {
     const { server_slug, player_id, session_id } = await params;
-    const server = await getServerSlug(server_slug);
+    const server = await getServerSlugOrNotFound(server_slug);
     const t = await getTranslations('metadata');
     let player: PlayerInfo | null = null
     let info: SessionInfo<"player"> | null = null;
@@ -99,7 +100,18 @@ export async function generateMetadata({ params}: {
 }
 export default async function Page({ params }){
     const { player_id, server_slug, session_id } = await params
-    const sessionPromise = getServerSlug(server_slug)
-        .then((server) => getSessionData(server, player_id, session_id))
-    return <SessionPlayerWrapper sessionPromise={sessionPromise} />
+    const server = await getServerSlugOrNotFound(server_slug);
+
+    // Resolve server-side (instead of streaming the promise into the client
+    // wrapper) so an invalid player_id/session_id 404s properly instead of a
+    // raw rejection crossing the server/client boundary.
+    let sessionData
+    try{
+        sessionData = await getSessionData(server, player_id, session_id)
+    }catch(error: any){
+        if (error?.code === 404) notFound()
+        throw error
+    }
+
+    return <SessionPlayerWrapper sessionPromise={Promise.resolve(sessionData)} />
 }

@@ -1,4 +1,4 @@
-import {getServerSlug} from "./util";
+import {getServerSlug, getServerSlugOrNotFound} from "./util";
 import {Metadata} from "next";
 import {fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils.ts";
 import {AdSpot} from "components/ui/AdSpot";
@@ -11,7 +11,7 @@ import { getTranslations } from 'next-intl/server';
 
 export async function createServerDescription(server: Server): Promise<string> {
     const t = await getTranslations('metadata');
-    let description = t('serverIntro', {name: server.community_name, ip: server.fullIp});
+    let description = t('serverIntro', {name: server?.community_name, ip: server.fullIp});
     try{
         const stats: ServerPlayersStatistic = await getCachedPlayerStats(server.id);
         const allTime = stats.all_time
@@ -36,7 +36,7 @@ export async function generateMetadata({ params}: {
     params: { server_slug: string }
 }): Promise<Metadata> {
     const { server_slug } = await params
-    const server = await getServerSlug(server_slug)
+    const server = await getServerSlugOrNotFound(server_slug)
     const description = await createServerDescription(server);
     const title = formatTitle(server.community_name)
     const image = server.community_icon

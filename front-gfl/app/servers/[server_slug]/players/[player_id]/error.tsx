@@ -2,7 +2,7 @@
 import { notFound } from "next/navigation";
 
 export default function ErrorBoundary({ error }: { error: Error }) {
-    if (error.message === "Player not found")
+    if (error.message === "Not Found")
         notFound();
 
     if (error.message === "Data is not ready")

@@ -4,7 +4,7 @@ import {ReactNode, Suspense} from "react";
 import 'leaflet/dist/leaflet.css';
 import ResponsiveAppSelector from "./ResponsiveAppSelector";
 import Loading from "./loading.tsx";
-import {getServerSlug} from "./util.ts";
+import {getServerSlugOrNotFound} from "./util.ts";
 
 export default async function ServerLayout({
     children,
@@ -14,7 +14,8 @@ export default async function ServerLayout({
     params: Promise<{ server_slug: string }>;
 }) {
     const { server_slug } = await params
-    const serverPromise = getServerSlug(server_slug)
+    const server = await getServerSlugOrNotFound(server_slug)
+    const serverPromise = Promise.resolve(server)
     const user = getServerUser();
 
     return <>

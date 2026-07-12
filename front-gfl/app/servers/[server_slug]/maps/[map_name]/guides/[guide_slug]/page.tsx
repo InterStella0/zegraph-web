@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { formatTitle} from 'utils/generalUtils';
-import { getServerSlug } from '../../../../util';
+import { getServerSlugOrNotFound } from '../../../../util';
 import { auth } from 'auth';
 import GuideDetail from 'components/maps/guides/GuideDetail';
 import GuideComments from 'components/maps/guides/GuideComments';
@@ -12,14 +12,9 @@ export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string; map_name: string; guide_slug: string }>
 }): Promise<Metadata> {
     const t = await getTranslations('metadata');
+    const { server_slug, map_name, guide_slug } = await params;
+    const server = await getServerSlugOrNotFound(server_slug);
     try {
-        const { server_slug, map_name, guide_slug } = await params;
-        const server = await getServerSlug(server_slug);
-
-        if (!server) {
-            return {};
-        }
-
         const guide = await getGuideBySlug(map_name, guide_slug, server.id);
 
         if (!guide) {
@@ -54,7 +49,7 @@ export default async function GuidePage({ params }: {
     const { map_name, server_slug, guide_slug } = await params;
     const session = await auth()
     const guideData = {
-        guidePromise: getServerSlug(server_slug).then(s => getGuideBySlug(map_name, guide_slug, s.id)),
+        guidePromise: getServerSlugOrNotFound(server_slug).then(s => getGuideBySlug(map_name, guide_slug, s.id)),
         serverSlug: server_slug,
         mapName: map_name,
         insideServer: true

@@ -1,4 +1,4 @@
-import {getServerSlug, oneDay, oneHour, threeMinutes} from "../../util";
+import {getServerSlugOrNotFound, oneDay, oneHour, threeMinutes} from "../../util";
 import {
     addOrdinalSuffix,
     DOMAIN,
@@ -24,7 +24,7 @@ export async function generateMetadata({ params}: {
     params: Promise<{ server_slug: string, player_id: string }>
 }): Promise<Metadata> {
     const { server_slug, player_id } = await params;
-    const server = await getServerSlug(server_slug);
+    const server = await getServerSlugOrNotFound(server_slug);
     const t = await getTranslations('metadata');
     let player: PlayerInfo | null = null
     try{
@@ -105,9 +105,6 @@ export async function generateMetadata({ params}: {
         ...socialMeta({title, description, images: [image], noTwitter: true}),
         alternates: {
             canonical: `/servers/${server.gotoLink}/players/${player.id}`,
-            types: {
-                "application/json+oembed": `/api/oembed?url=${DOMAIN}/api/${server.id}/players/${player.id}`,
-            },
         },
     }
 }
@@ -120,22 +117,23 @@ export type ServerPlayerDetailedWithError = ServerPlayerDetailed & { error?: { c
 export default async function Page({ params }: { params: Promise<{ server_slug: string, player_id: string }>}){
     const { server_slug, player_id } = await params;
 
-    const serverPlayerPromise = getServerSlug(server_slug)
-        .then(async server => {
-            try {
-                const player = await getPlayerDetailed(server.id, player_id, "return")
-                return {player, server} as ServerPlayerDetailedWithError
-            } catch (error: any) {
-                return {
-                    player: null,
-                    server,
-                    error: {
-                        code: error?.code || 500,
-                        message: error?.message || "An error occurred"
-                    }
-                } as ServerPlayerDetailedWithError
-            }
-        })
+    const server = await getServerSlugOrNotFound(server_slug);
+
+    const serverPlayerPromise = (async () => {
+        try {
+            const player = await getPlayerDetailed(server.id, player_id, "return")
+            return {player, server} as ServerPlayerDetailedWithError
+        } catch (error: any) {
+            return {
+                player: null,
+                server,
+                error: {
+                    code: error?.code || 500,
+                    message: error?.message || "An error occurred"
+                }
+            } as ServerPlayerDetailedWithError
+        }
+    })()
 
     // Generate JSON-LD structured data for SEO
     const serverPlayer = await serverPlayerPromise;

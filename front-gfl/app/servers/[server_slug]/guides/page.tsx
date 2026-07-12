@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { formatTitle } from 'utils/generalUtils';
-import { getServerSlug } from '../util';
+import { getServerSlug, getServerSlugOrNotFound } from '../util';
 import { auth } from '../../../../auth';
 import ServerGuidesList from 'components/guides/ServerGuidesList';
 import { getTranslations } from 'next-intl/server';
@@ -10,11 +10,7 @@ export async function generateMetadata({ params }: {
 }): Promise<Metadata> {
     const { server_slug } = await params;
     const t = await getTranslations('metadata');
-    const server = await getServerSlug(server_slug);
-
-    if (!server) {
-        return {};
-    }
+    const server = await getServerSlugOrNotFound(server_slug);
 
     return {
         title: formatTitle(t('guidesHubTitle', {name: server.community_name})),

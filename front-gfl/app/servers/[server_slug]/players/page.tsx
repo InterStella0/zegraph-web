@@ -3,7 +3,7 @@ import PlayerRankings from "components/players/PlayerRankings";
 import TopPerformers from "components/players/TopPerformers";
 import PlayersOnline from "components/players/PlayersOnline.tsx";
 import PlayerByCountries from "components/players/PlayerByCountries.tsx";
-import {getServerSlug, oneHour} from "../util";
+import {getServerSlugOrNotFound, getServerSlug} from "../util";
 import type {ServerPageProps} from "../page";
 import {Metadata} from "next";
 import {getTranslations} from "next-intl/server";
@@ -16,9 +16,7 @@ import {AdSpot} from "components/ui/AdSpot";
 export async function generateMetadata({ params}: ServerPageProps): Promise<Metadata> {
     const { server_slug } = await params
 
-    const server = await getServerSlug(server_slug)
-    if (!server)
-        return {}
+    const server = await getServerSlugOrNotFound(server_slug)
 
     const t = await getTranslations('metadata');
     let description = t('playIntro', {name: server.community_name, ip: server.fullIp});

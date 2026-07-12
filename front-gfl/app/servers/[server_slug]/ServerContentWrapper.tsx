@@ -11,9 +11,10 @@ import {Server} from "types/community.ts";
 export function ServerContentWrapper({ serverPromise }: { serverPromise: Promise<Server> }) {
     const t = useTranslations('servers.content')
     const server = use(serverPromise)
-    const description = use(createServerDescription(server))
 
     if (!server) throw notFound()
+
+    const description = use(createServerDescription(server))
 
     return <>
         <ErrorCatch message={t('pageBroken')}>

@@ -3,7 +3,7 @@ import {notFound} from "next/navigation";
 import * as React from "react";
 
 export default function ErrorBoundary({ error }: { error: Error }){
-    if (error.message === "Map not found")
+    if (error.message === "Not Found")
         notFound()
 
     if (error.message === "Data is not ready")

@@ -3,6 +3,7 @@ import {Server} from "types/community";
 import {PlayerBrief, PlayerSeen, PlayerSession} from "types/players";
 import {fetchApiServerUrl, fetchServerUrl, fetchUrl} from "utils/generalUtils";
 import {ServerMapPlayed} from "types/maps";
+import {notFound} from "next/navigation";
 
 export type ServerSlugPromise = Promise<Server | null>;
 
@@ -16,6 +17,12 @@ export const sevenDay = oneDay * 7
 export async function getServerSlug(slug: string): ServerSlugPromise {
     const data = await getCommunityData();
     return data.serversMapped.get(slug) ?? null
+}
+
+export async function getServerSlugOrNotFound(slug: string): Promise<Server> {
+    const server = await getServerSlug(slug)
+    if (!server) notFound()
+    return server
 }
 
 export type SessionType = "player" | "map"

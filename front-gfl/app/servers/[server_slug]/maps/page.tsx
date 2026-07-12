@@ -1,6 +1,6 @@
 import CurrentMatch from "components/maps/CurrentMatch";
 import {fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils";
-import {getServerSlug, threeMinutes} from "../util";
+import {getServerSlugOrNotFound, threeMinutes} from "../util";
 import MapsSearchIndex from "./MapsSearchIndex";
 import getServerUser from "../../../getServerUser";
 import {Metadata} from "next";
@@ -18,12 +18,8 @@ export async function generateMetadata({ params}: {
 }): Promise<Metadata> {
     const { server_slug } = await params
 
-    const server = await getServerSlug(server_slug)
+    const server = await getServerSlugOrNotFound(server_slug)
     const t = await getTranslations('metadata');
-    if (!server)
-        return {
-        title: formatTitle(t('mapsTitleFallback'))
-    }
 
     let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
     try{
@@ -46,7 +42,7 @@ export async function generateMetadata({ params}: {
 
 export default async function Page({ params }){
     const { server_slug } = await params;
-    const server = getServerSlug(server_slug)
+    const server = getServerSlugOrNotFound(server_slug)
     const user = getServerUser()
     const matchData = server.then(e => getMatchNow(e.id))
     const playerContinents = server.then(e => getContinentStatsNow(e.id))
