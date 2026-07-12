@@ -732,9 +732,6 @@ impl AccountsApi {
             anonymization,
         })
     }
-
-    /// Lightweight counterpart to the profile endpoint, so the client can poll for the verified
-    /// numbers while a background recompute is running.
     #[oai(path="/accounts/:user_id/global-playtime", method="get")]
     async fn get_user_global_playtime(
         &self,
@@ -2865,6 +2862,9 @@ impl UriPatternExt for AccountsApi{
             "/accounts/me/anonymize",
             "/accounts/me/guide-ban",
             "/accounts/{user_id}/anonymize",
+            "/accounts/{user_id}/profile",
+            "/accounts/{user_id}/global-playtime",
+            "/accounts/{user_id}/playtime-heatmap",
             "/admin/reports/guides",
             "/admin/reports/comments",
             "/admin/reports/music",
