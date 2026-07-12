@@ -82,6 +82,7 @@ function CommunityDialog({
   const [shortenName, setShortenName] = useState('');
   const [iconUrl, setIconUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
 
   useEffect(() => {
     if (community) {
@@ -125,6 +126,28 @@ function CommunityDialog({
     }
   };
 
+  const handleIconUpload = async (file: File) => {
+    if (!community) return;
+    const formData = new FormData();
+    formData.append('icon', file);
+    setUploadingIcon(true);
+    try {
+      const res = await fetch(`/api/admin/servers/communities/${community.id}/icon`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const updated: AdminCommunity = await res.json();
+      setIconUrl(updated.icon_url ?? '');
+      toast.success('Icon uploaded');
+      onSuccess();
+    } catch {
+      toast.error('Failed to upload icon');
+    } finally {
+      setUploadingIcon(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -147,6 +170,27 @@ function CommunityDialog({
             <Label>Icon URL</Label>
             <Input value={iconUrl} onChange={e => setIconUrl(e.target.value)} placeholder="https://..." />
           </div>
+          {isEdit && (
+            <div className="space-y-2">
+              <Label>Upload Icon</Label>
+              <div className="flex items-center gap-3">
+                {iconUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={iconUrl} alt="icon" className="w-10 h-10 rounded object-cover border" />
+                )}
+                <Input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={uploadingIcon}
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleIconUpload(file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={submitting}>

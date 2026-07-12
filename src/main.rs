@@ -33,7 +33,7 @@ use moka::future::Cache;
 use crate::core::utils::*;
 use crate::workers::*;
 use crate::core::push_service::*;
-use crate::core::storage::{MapStorage, CharacterStorage, StorageBackend};
+use crate::core::storage::{MapStorage, CharacterStorage, CommunityStorage, StorageBackend};
 use crate::routers::accounts::AccountsApi;
 use crate::routers::characters::CharacterApi;
 use crate::routers::servers::ServerApi;
@@ -53,6 +53,7 @@ struct AppData{
     push_service: Arc<PushNotificationService>,
     map_storage: Arc<MapStorage>,
     character_storage: Arc<CharacterStorage>,
+    community_storage: Arc<CommunityStorage>,
     count_chunk_cache: Arc<CountChunkCache>,
 }
 #[derive(Clone)]
@@ -113,7 +114,9 @@ async fn run_main() {
 
     let map_storage = Arc::new(MapStorage::new(storage_backend.clone()));
 
-    let character_storage = Arc::new(CharacterStorage::new(storage_backend));
+    let character_storage = Arc::new(CharacterStorage::new(storage_backend.clone()));
+
+    let community_storage = Arc::new(CommunityStorage::new(storage_backend));
 
     // Hour-chunked player count cache for short-span graph queries (memory only).
     let count_chunk_cache = Arc::new(Cache::builder()
@@ -130,6 +133,7 @@ async fn run_main() {
         push_service,
         map_storage,
         character_storage,
+        community_storage,
         count_chunk_cache,
     };
 

@@ -11,6 +11,7 @@ services:
       - tile_cache:/var/cache/nginx/qgis_tiles
       - ${STORAGE_PATH}/maps:/var/www/frontend/public:ro
       - ${STORAGE_PATH}/characters:/var/www/characters:ro
+      - ${STORAGE_PATH}/communities:/var/www/communities:ro
     depends_on:
       backend:
         condition: service_healthy

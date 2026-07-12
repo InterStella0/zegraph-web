@@ -335,3 +335,34 @@ impl CharacterStorage {
         self.ns.delete(&Self::thumbnail_path(model_id, ext)).await
     }
 }
+
+#[derive(Clone)]
+pub struct CommunityStorage {
+    ns: StorageNamespace,
+}
+// TODO: Rename prefix from models to uploads
+impl CommunityStorage {
+    pub fn new(backend: Arc<StorageBackend>) -> Self {
+        Self {
+            ns: StorageNamespace { backend, object_prefix: "communities" },
+        }
+    }
+
+    fn icon_path(community_id: &str, ext: &str) -> String {
+        format!("{community_id}/icon.{ext}")
+    }
+
+    pub async fn store_icon(&self, community_id: &str, ext: &str, bytes: &[u8]) -> Result<String, String> {
+        let content_type = match ext {
+            "png" => "image/png",
+            "webp" => "image/webp",
+            _ => "image/jpeg",
+        };
+        self.ns.store_bytes(&Self::icon_path(community_id, ext), bytes, content_type).await
+    }
+
+    pub async fn delete_icon(&self, community_id: &str, stored_url: &str) -> Result<(), String> {
+        let ext = stored_url.rsplit('.').next().unwrap_or("jpg");
+        self.ns.delete(&Self::icon_path(community_id, ext)).await
+    }
+}

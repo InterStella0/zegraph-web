@@ -317,6 +317,120 @@ impl AdminServersApi {
         })
     }
 
+    #[oai(path = "/admin/communities/:id/icon", method = "post")]
+    async fn upload_community_icon(
+        &self,
+        Data(data): Data<&AppData>,
+        TokenBearer(user_token): TokenBearer,
+        Path(id): Path<String>,
+        multipart: poem::web::Multipart,
+    ) -> Response<AdminCommunity> {
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
+        let id = match Uuid::parse_str(&id) {
+            Ok(u) => u,
+            Err(_) => return response!(err "Invalid community ID", ErrorCode::BadRequest),
+        };
+
+        let existing_icon_url = match sqlx::query_scalar!(
+            "SELECT community_icon_url FROM community WHERE community_id = $1",
+            id
+        )
+        .fetch_optional(&*data.pool)
+        .await
+        {
+            Ok(Some(icon)) => icon,
+            Ok(None) => return response!(err "Community not found", ErrorCode::NotFound),
+            Err(e) => {
+                tracing::error!("Failed to look up community: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+
+        let mut multipart = multipart;
+        let mut icon_data: Option<(Vec<u8>, String)> = None;
+
+        while let Ok(Some(field)) = multipart.next_field().await {
+            if field.name().map(|n| n == "icon").unwrap_or(false) {
+                let content_type = field.content_type()
+                    .map(|ct| ct.to_string())
+                    .unwrap_or_default();
+                let ext = match content_type.as_str() {
+                    "image/png" => "png",
+                    "image/webp" => "webp",
+                    _ => "jpg",
+                };
+                if let Ok(bytes) = field.bytes().await {
+                    icon_data = Some((bytes.to_vec(), ext.to_string()));
+                }
+            }
+        }
+
+        let Some((icon_bytes, ext)) = icon_data else {
+            return response!(err "Missing icon field", ErrorCode::BadRequest);
+        };
+
+        let icon_url = match data.community_storage.store_icon(&id.to_string(), &ext, &icon_bytes).await {
+            Ok(url) => url,
+            Err(e) => {
+                tracing::error!("Failed to store community icon: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+
+        if let Some(old_icon) = existing_icon_url {
+            if let Err(e) = data.community_storage.delete_icon(&id.to_string(), &old_icon).await {
+                tracing::warn!("Failed to delete previous community icon: {}", e);
+            }
+        }
+
+        struct DbRow {
+            community_id: Uuid,
+            community_name: Option<String>,
+            community_shorten_name: Option<String>,
+            community_icon_url: Option<String>,
+        }
+
+        let row = match sqlx::query_as!(
+            DbRow,
+            r#"
+            UPDATE community SET community_icon_url = $2
+            WHERE community_id = $1
+            RETURNING community_id, community_name, community_shorten_name, community_icon_url
+            "#,
+            id,
+            icon_url,
+        )
+        .fetch_optional(&*data.pool)
+        .await
+        {
+            Ok(Some(r)) => r,
+            Ok(None) => return response!(err "Community not found", ErrorCode::NotFound),
+            Err(e) => {
+                tracing::error!("Failed to update community icon: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+
+        let server_count = sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM server WHERE community_id = $1",
+            id
+        )
+        .fetch_one(&*data.pool)
+        .await
+        .unwrap_or(Some(0))
+        .unwrap_or(0);
+
+        response!(ok AdminCommunity {
+            id: row.community_id.to_string(),
+            name: row.community_name,
+            shorten_name: row.community_shorten_name,
+            icon_url: row.community_icon_url,
+            server_count,
+        })
+    }
+
     #[oai(path = "/admin/communities/:id", method = "delete")]
     async fn delete_community(
         &self,
@@ -331,6 +445,20 @@ impl AdminServersApi {
             Ok(u) => u,
             Err(_) => return response!(err "Invalid community ID", ErrorCode::BadRequest),
         };
+
+        if let Ok(Some(icon_url)) = sqlx::query_scalar!(
+            "SELECT community_icon_url FROM community WHERE community_id = $1",
+            id
+        )
+        .fetch_optional(&*data.pool)
+        .await
+        {
+            if let Some(icon_url) = icon_url {
+                if let Err(e) = data.community_storage.delete_icon(&id.to_string(), &icon_url).await {
+                    tracing::warn!("Failed to delete community icon on community delete: {}", e);
+                }
+            }
+        }
 
         let result = match sqlx::query!("DELETE FROM community WHERE community_id = $1", id)
             .execute(&*data.pool)
