@@ -958,6 +958,7 @@ impl UriPatternExt for AdminServersApi {
         vec![
             "/admin/communities",
             "/admin/communities/{id}",
+            "/admin/communities/{id}/icon",
             "/admin/server-browsers",
             "/admin/servers-list",
             "/admin/servers-list/{server_id}",

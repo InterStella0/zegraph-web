@@ -17,6 +17,7 @@ pub(crate) enum StorageBackend {
 impl StorageBackend {
     pub(crate) async fn from_env() -> Result<Arc<Self>, String> {
         let backend = get_env_default("STORAGE_BACKEND")
+            .filter(|s| !s.trim().is_empty())
             .unwrap_or_else(|| "local".to_string())
             .to_lowercase();
 
@@ -24,6 +25,7 @@ impl StorageBackend {
             "local" => {
                 let root = get_env_default("STORE_UPLOAD")
                     .unwrap_or_else(|| "./storage".to_string());
+                tracing::info!("Storage backend: local (root: {root})");
                 Ok(Arc::new(StorageBackend::Local { root }))
             }
             "r2" | "cloudflare" => {
@@ -47,6 +49,7 @@ impl StorageBackend {
                     .build();
                 let client = Client::from_conf(config);
 
+                tracing::info!("Storage backend: r2 (bucket: {bucket}, public: {public_base_url})");
                 Ok(Arc::new(StorageBackend::R2 { client, bucket, public_base_url }))
             }
             other => Err(format!("Unsupported STORAGE_BACKEND: {other}")),
