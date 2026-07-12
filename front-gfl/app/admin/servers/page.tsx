@@ -287,10 +287,12 @@ function EditServerNameDialog({
   onSuccess: () => void;
 }) {
   const [name, setName] = useState('');
+  const [readableLink, setReadableLink] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setName(server?.server_name ?? '');
+    setReadableLink(server?.readable_link ?? '');
   }, [server, open]);
 
   const handleSubmit = async () => {
@@ -299,13 +301,13 @@ function EditServerNameDialog({
     try {
       await fetchApiUrl(`/admin/servers/raw/${server.server_id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ server_name: name || null }),
+        body: JSON.stringify({ server_name: name || null, readable_link: readableLink.trim() }),
       });
-      toast.success('Server name updated');
+      toast.success('Server updated');
       onSuccess();
       onOpenChange(false);
-    } catch {
-      toast.error('Failed to update server name');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update server');
     } finally {
       setSubmitting(false);
     }
@@ -315,13 +317,25 @@ function EditServerNameDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Edit Server Name</DialogTitle>
+          <DialogTitle>Edit Server</DialogTitle>
           <DialogDescription>{server?.server_fullname ?? server?.server_id}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Display Name</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. ZE Server #1" />
+          </div>
+          <div className="space-y-2">
+            <Label>Readable Link (URL slug)</Label>
+            <Input
+              value={readableLink}
+              onChange={e => setReadableLink(e.target.value)}
+              placeholder="e.g. gfl-ze"
+              maxLength={20}
+            />
+            <p className="text-xs text-muted-foreground">
+              Changes the server&apos;s URL. Leave empty to clear (URL falls back to the server ID).
+            </p>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -742,10 +756,12 @@ export default function ServersAdminPage() {
                 const community = communities.find(c => c.id === s.community_id);
                 return (
                   <TableRow key={s.server_id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium max-w-70 truncate" title={s.server_fullname ?? s.server_id}>
                       {s.server_fullname ?? <span className="text-muted-foreground font-mono text-xs">{s.server_id}</span>}
                     </TableCell>
-                    <TableCell>{s.server_name ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="max-w-50 truncate" title={s.server_name ?? undefined}>
+                      {s.server_name ?? <span className="text-muted-foreground">—</span>}
+                    </TableCell>
                     <TableCell className="font-mono text-sm">
                       {s.server_ip && s.server_port ? `${s.server_ip}:${s.server_port}` : '—'}
                     </TableCell>
@@ -767,7 +783,7 @@ export default function ServersAdminPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => { setEditingServer(s); setEditNameDialog(true); }}>
-                            <Pencil className="mr-2 h-4 w-4" /> Edit Name
+                            <Pencil className="mr-2 h-4 w-4" /> Edit Name & Link
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { setMetadataServer(s); setMetadataDialog(true); }}>
                             <Settings className="mr-2 h-4 w-4" /> Edit Metadata

@@ -564,6 +564,15 @@ impl AdminServersApi {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 
+        let readable_link = payload.readable_link.as_ref().map(|l| l.trim().to_string());
+        if let Some(link) = &readable_link {
+            if link.len() > 20 {
+                return response!(err "Readable link must be 20 characters or fewer", ErrorCode::BadRequest);
+            }
+        }
+        let set_readable_link = readable_link.is_some();
+        let readable_link = readable_link.filter(|l| !l.is_empty());
+
         let row = match sqlx::query_as!(
             AdminServerRow,
             r#"
@@ -584,8 +593,8 @@ impl AdminServersApi {
             "#,
             server_id,
             payload.server_name,
-            payload.readable_link.is_some(),
-            payload.readable_link,
+            set_readable_link,
+            readable_link,
         )
         .fetch_optional(&*data.pool)
         .await
@@ -593,6 +602,9 @@ impl AdminServersApi {
             Ok(Some(r)) => r,
             Ok(None) => return response!(err "Server not found", ErrorCode::NotFound),
             Err(e) => {
+                if e.as_database_error().is_some_and(|d| d.is_unique_violation()) {
+                    return response!(err "That readable link is already in use", ErrorCode::BadRequest);
+                }
                 tracing::error!("Failed to update server: {}", e);
                 return response!(internal_server_error);
             }
