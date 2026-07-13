@@ -32,6 +32,7 @@ use core::updater::*;
 use moka::future::Cache;
 use crate::core::utils::*;
 use crate::workers::*;
+use crate::workers::consumer;
 use crate::core::push_service::*;
 use crate::core::storage::{MapStorage, CharacterStorage, CommunityStorage, StorageBackend};
 use crate::routers::accounts::AccountsApi;
@@ -69,9 +70,38 @@ fn make_redis_pool() -> deadpool_redis::Pool {
         .expect("Failed to create pool")
 }
 
+/// Which half of the app this process runs. `All` is the default and reproduces the original
+/// single-process behavior, so splitting the containers is opt-in and rolling back is an env var.
+#[derive(Clone, Copy, PartialEq)]
+enum Role {
+    Api,
+    Worker,
+    All,
+}
+
+impl Role {
+    fn from_env() -> Self {
+        match get_env_default("ROLE").unwrap_or_default().to_uppercase().as_str() {
+            "API" => Role::Api,
+            "WORKER" => Role::Worker,
+            "" | "ALL" => Role::All,
+            other => panic!("Unknown ROLE '{other}', expected one of: api, worker, all"),
+        }
+    }
+
+    fn serves_api(&self) -> bool {
+        matches!(self, Role::Api | Role::All)
+    }
+
+    fn runs_workers(&self) -> bool {
+        matches!(self, Role::Worker | Role::All)
+    }
+}
+
 async fn run_main() {
     let environment = get_env_default("ENVIRONMENT").unwrap_or(String::from("DEVELOPMENT"));
     let pre_calculate = get_env_bool("PRECALCULATE", false);
+    let role = Role::from_env();
     let tracing_filter = EnvFilter::default()
         .add_directive(LevelFilter::INFO.into());
 
@@ -80,6 +110,11 @@ async fn run_main() {
         .with(tracing_filter)
         .init();
     tracing::info!("ENVIRONMENT: {environment}");
+    tracing::info!("ROLE: {}", match role {
+        Role::Api => "api (http only)",
+        Role::Worker => "worker (background only)",
+        Role::All => "all (http + background)",
+    });
     let pg_conn = get_env("DATABASE_URL");
     let pool = PgPoolOptions::new()
         .max_connections(20)
@@ -106,7 +141,9 @@ async fn run_main() {
             .expect("Failed to initialize push notification service")
     );
 
-    init_map_change_listener(pool.clone(), push_service.clone()).await;
+    let worker_pool = pool.clone();
+    let worker_cache = cache.clone();
+    let worker_push_service = push_service.clone();
 
     let storage_backend = StorageBackend::from_env()
         .await
@@ -183,17 +220,29 @@ async fn run_main() {
         .with(CookieSession::new(CookieConfig::default()))
         .data(data);
 
-    if pre_calculate{
-        init_precalculate(port).await;
+    if role.runs_workers() {
+        consumer::spawn_consumers(worker_pool.clone(), worker_cache.clone());
+
+        init_map_change_listener(worker_pool.clone(), worker_push_service.clone()).await;
+
+        if pre_calculate {
+            init_precalculate(port).await;
+        }
+
+        if environment.to_uppercase() == "PRODUCTION" {
+            tokio::spawn(async move {
+                listen_new_update(&pg_conn, port).await;
+            });
+        }
     }
 
-    if environment.to_uppercase() == "PRODUCTION"{
-        tokio::spawn(async move {
-            listen_new_update(&pg_conn, port).await;
-        });
+    if !role.serves_api() {
+        // A worker-only process has no OpenAPI listener, so compose has nothing to probe. Serve
+        // just /health on its own port to keep the existing healthcheck shape.
+        return run_worker_health_server().await;
     }
 
-    // Spawn cleanup task for stale upload sessions
+    // Shares {STORE_UPLOAD}/.tmp with the upload handlers, so it belongs wherever they do.
     let store_upload_clone = get_env_default("STORE_UPLOAD")
         .unwrap_or_else(|| "./maps".to_string());
     tokio::spawn(async move {
@@ -205,6 +254,18 @@ async fn run_main() {
         .await
         .expect("Couldn't run the server!");
 }
+
+const WORKER_HEALTH_PORT: &str = "3001";
+
+async fn run_worker_health_server() {
+    let route = Route::new().at("/health", poem::endpoint::make_sync(|_| "OK"));
+    tracing::info!("Worker health endpoint on 0.0.0.0:{WORKER_HEALTH_PORT}/health");
+    Server::new(TcpListener::bind(format!("0.0.0.0:{WORKER_HEALTH_PORT}")))
+        .run(route)
+        .await
+        .expect("Couldn't run the worker health server!");
+}
+
 async fn init_map_change_listener(pool: Arc<PgPool>, push_service: Arc<PushNotificationService>) {
     let pg_conn = get_env("DATABASE_URL");
     tokio::spawn(async move {

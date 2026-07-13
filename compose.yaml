@@ -80,6 +80,7 @@ services:
       args:
         DATABASE_URL: ${DATABASE_URL}
     environment:
+      ROLE: api
       DATABASE_URL: ${DATABASE_URL}
       CACHE_THUMBNAIL: /var/www/thumbnails
       STORE_UPLOAD: /var/www/storage
@@ -101,6 +102,45 @@ services:
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  # Same image as backend, other half of the split: consumes the refresh queues and runs the
+  # push/precalculate loops. Keep this at one replica -- its heavy-job semaphore is the global
+  # concurrency limit, and a second replica would silently double it.
+  worker:
+    image: interstella0/ze-graph:backend
+    restart: always
+    user: "10001:956"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    env_file:
+      - .env
+    build:
+      context: .
+      target: final
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+    environment:
+      ROLE: worker
+      DATABASE_URL: ${DATABASE_URL}
+      INTERNAL_API_BASE: http://backend:3000
+    volumes:
+      - ${VAPIDS_PATH}:/app/vapids:ro
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3001/health" ]
       interval: 10s
       timeout: 5s
       retries: 5

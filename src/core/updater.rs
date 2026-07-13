@@ -16,7 +16,7 @@ use crate::core::push_service::{PushNotificationService, NotificationType};
 
 struct Updater{
     client: Client,
-    port: String,
+    base: String,
 }
 #[derive(Deserialize)]
 #[allow(dead_code)]
@@ -53,20 +53,28 @@ type UpdatedResult<T> = Result<T, UpdaterError>;
 type Updated = UpdatedResult<()>;
 
 impl Updater{
+    /// These calls are pokes, not fetches: hitting an endpoint makes the API enqueue a refresh and
+    /// answer "calculating", and the result lands in the cache later. That was already true when
+    /// the work was spawned in-process, so it stays true across a container boundary — only the
+    /// host changes. When the worker runs apart from the API, `INTERNAL_API_BASE` points at it
+    /// (e.g. `http://backend:3000`); loopback is the default for a single-container deployment.
     pub fn new(port: &str) -> Self{
+        let base = get_env_default("INTERNAL_API_BASE")
+            .unwrap_or_else(|| format!("http://127.0.0.1:{port}"));
+        tracing::info!("Updater targeting {base}");
         Self{
             client: Client::builder()
                 .user_agent("trigger-robot/1.0 (Rust)")
                 .build()
                 .expect("Could not build client"),
-            port: port.to_string(),
+            base,
         }
     }
     async fn call<T>(&self, endpoint: T)
     where
         T: AsRef<str>,
     {
-        let url = format!("http://127.0.0.1:{}{}", self.port, endpoint.as_ref());
+        let url = format!("{}{}", self.base, endpoint.as_ref());
         tracing::debug!("Updater call {}", url);
         let Ok(resp) = self.client
             .get(&url)

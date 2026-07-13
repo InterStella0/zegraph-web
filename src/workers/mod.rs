@@ -1,22 +1,27 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::future::Future;
 use redis::{AsyncCommands, RedisResult};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use tokio::sync::{RwLock, Semaphore};
 use async_trait::async_trait;
 use crate::core::model::*;
 use crate::core::utils::*;
 use crate::FastCache;
 
+pub mod consumer;
+pub mod job;
 pub mod map;
 pub mod player;
 pub use map::MapWorker;
 pub use player::PlayerWorker;
+pub use job::{JobKind, RefreshJob};
 
-#[derive(Clone, Copy)]
+/// How long a queued-or-running marker survives without the worker clearing it. Bounds how long a
+/// key stays stuck as "calculating" if the worker dies mid-job.
+const JOB_INFLIGHT_TTL: i64 = 300;
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum QueryPriority {
     Light,
     Heavy,
@@ -30,21 +35,17 @@ pub trait WorkerQuery<T>: Send + Sync {
     fn cache_key_pattern(&self) -> String;
     fn ttl(&self) -> u64;
     fn priority(&self) -> QueryPriority;
+    /// The serializable descriptor a worker process needs to rebuild and re-run this query.
+    fn job_kind(&self) -> JobKind;
 }
 
 pub struct BackgroundWorker {
     pub(crate) cache: Arc<FastCache>,
-    heavy_semaphore: Arc<Semaphore>,
-    active_tasks: Arc<RwLock<HashMap<String, tokio::task::JoinHandle<()>>>>,
 }
 
 impl BackgroundWorker {
-    pub fn new(cache: Arc<FastCache>, max_heavy_concurrent: usize) -> Self {
-        Self {
-            cache,
-            heavy_semaphore: Arc::new(Semaphore::new(max_heavy_concurrent)),
-            active_tasks: Arc::new(RwLock::new(HashMap::new())),
-        }
+    pub fn new(cache: Arc<FastCache>) -> Self {
+        Self { cache }
     }
 
     pub async fn execute_with_session_fallback<T, Q>(
@@ -62,16 +63,14 @@ impl BackgroundWorker {
         let current_key = pattern.replace("{session}", current_session);
         let fallback_key = previous_session.map(|prev| pattern.replace("{session}", prev));
 
-        self.get_with_fallback(
-            &current_key,
-            fallback_key.as_deref(),
-            query.ttl(),
-            query.priority(),
-            move || {
-                let query = query.clone();
-                async move { query.execute().await }
-            },
-        ).await
+        let job = RefreshJob {
+            kind: query.job_kind(),
+            cache_key: current_key.clone(),
+            ttl: query.ttl(),
+            priority: query.priority(),
+        };
+
+        self.get_with_fallback(&current_key, fallback_key.as_deref(), job).await
     }
     pub async fn execute_get<T, Q>(
         &self,
@@ -120,21 +119,15 @@ impl BackgroundWorker {
         self.cache_result(&current_key, &result, ttl).await;
         Ok(CachedResult::new_data(result))
     }
-    pub async fn get_with_fallback<T, E, F, Fut>(
+    pub async fn get_with_fallback<T>(
         &self,
         current_key: &str,
         fallback_key: Option<&str>,
-        ttl: u64,
-        priority: QueryPriority,
-        query_fn: F,
+        job: RefreshJob,
     ) -> WorkResult<CachedResult<T>>
     where
         T: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
-        E: Send + 'static + std::fmt::Display,
-        F: Fn() -> Fut + Send + Clone + 'static,
-        Fut: Future<Output = Result<T, E>> + Send + 'static,
     {
-
         if let Ok(result) = self.try_cache_lookup(current_key).await {
             tracing::debug!("FOUND FIRST CACHE");
             return Ok(CachedResult::current_data(result));
@@ -143,82 +136,56 @@ impl BackgroundWorker {
         if let Some(fallback) = fallback_key {
             if let Ok(result) = self.try_cache_lookup(fallback).await {
                 tracing::debug!("FOUND SECOND CACHE");
-                self.spawn_refresh_task(current_key, ttl, priority, query_fn).await;
+                self.enqueue_refresh_job(job).await;
                 return Ok(CachedResult::backup_data(result));
             }
         }
 
         tracing::debug!("CALCULATING INSTEAD");
 
-        self.spawn_refresh_task(current_key, ttl, priority, query_fn).await;
+        self.enqueue_refresh_job(job).await;
         Err(WorkError::Calculating)
     }
 
-    async fn spawn_refresh_task<T, E, F, Fut>(
-        &self,
-        key: &str,
-        ttl: u64,
-        priority: QueryPriority,
-        query_fn: F,
-    ) where
-        T: Serialize + DeserializeOwned + Send + Sync + 'static,
-        E: Send + 'static + std::fmt::Display,
-        F: Fn() -> Fut + Send + 'static,
-        Fut: Future<Output = Result<T, E>> + Send + 'static,
-    {
-        let task_key = format!("refresh:{}", key);
-        let mut tasks = self.active_tasks.write().await;
-
-        if let Some(handle) = tasks.get(&task_key) {
-            if !handle.is_finished() {
+    /// Hands the query to the worker process and returns immediately.
+    ///
+    /// The `SET NX EX` marker is the dedup: it replaces the old in-process `active_tasks` map,
+    /// which only ever deduped within one process and so double-ran every heavy query as soon as
+    /// the API was scaled past one replica. Its TTL is also the crash guard — if the worker dies
+    /// holding a job, the marker expires and the next reader re-enqueues, which is why a plain
+    /// `BRPOP` (at-most-once) is enough here and an ack/redelivery protocol is not.
+    pub async fn enqueue_refresh_job(&self, job: RefreshJob) {
+        // Serialize before claiming the marker: a failure afterwards would strand the key as
+        // "calculating" with nothing queued to clear it.
+        let payload = match serde_json::to_string(&job) {
+            Ok(payload) => payload,
+            Err(e) => {
+                tracing::error!("Failed to serialize job {}: {e}", job.cache_key);
                 return;
-            } else {
-                tasks.remove(&task_key);
             }
+        };
+
+        let marker = job::inflight_key(&job.cache_key);
+        if try_redis_lock(&self.cache.redis_pool, &marker, JOB_INFLIGHT_TTL).await.is_none() {
+            tracing::debug!("ALREADY QUEUED: {}", job.cache_key);
+            return;
         }
 
-        let semaphore = match priority {
-            QueryPriority::Heavy => Some(self.heavy_semaphore.clone()),
-            QueryPriority::Light => None,
+        let Ok(mut conn) = self.cache.redis_pool.get().await else {
+            tracing::warn!("Failed to reach redis to enqueue {}", job.cache_key);
+            return;
         };
-        let cache = self.cache.clone();
-        let active_tasks = self.active_tasks.clone();
-        let key_owned = key.to_string();
-        let task_key_clone = task_key.clone();
 
-        let handle = tokio::spawn(async move {
-            let _permit = if let Some(ref sem) = semaphore {
-                Some(sem.acquire().await.expect("Failed to acquire semaphore?"))
-            } else {
-                None
-            };
-
-            tracing::info!("Starting background refresh ({}): {}",
-                match priority {
-                    QueryPriority::Heavy => "heavy",
-                    QueryPriority::Light => "light",
-                }, key_owned);
-
-            match query_fn().await {
-                Ok(result) => {
-                    let temp_worker = BackgroundWorker {
-                        cache,
-                        heavy_semaphore: Arc::new(Semaphore::new(1)),
-                        active_tasks: Arc::new(RwLock::new(HashMap::new())),
-                    };
-                    temp_worker.cache_result(&key_owned, &result, ttl).await;
-                    tracing::info!("Background refresh completed: {}", key_owned);
-                }
-                Err(e) => {
-                    tracing::warn!("Background refresh failed: {}:{}", key_owned, e);
-                }
+        let queued: RedisResult<()> = conn.lpush(job.queue(), &payload).await;
+        match queued {
+            Ok(_) => tracing::info!("Queued {:?} refresh: {}", job.priority, job.cache_key),
+            // Leaving the marker set would stall this key until the TTL expires, so drop it and
+            // let the next request retry immediately.
+            Err(e) => {
+                tracing::warn!("Failed to enqueue {}: {e}", job.cache_key);
+                let _: RedisResult<()> = conn.del(&marker).await;
             }
-
-            let mut tasks = active_tasks.write().await;
-            tasks.remove(&task_key_clone);
-        });
-
-        tasks.insert(task_key, handle);
+        }
     }
 
     async fn try_cache_lookup<T>(&self, key: &str) -> Result<T, ()>
@@ -249,12 +216,18 @@ impl BackgroundWorker {
         T: Serialize,
     {
         if let Ok(json_value) = serde_json::to_string(data) {
-            let cache_key = format!("gfl-ze-watcher:{key}");
-            self.cache.memory.insert(key.to_string(), json_value.clone()).await;
+            self.cache_raw(key, &json_value, ttl).await;
+        }
+    }
 
-            if let Ok(mut conn) = self.cache.redis_pool.get().await {
-                let _: RedisResult<()> = conn.set_ex(&cache_key, &json_value, ttl).await;
-            }
+    /// Stores an already-serialized result. The consumer runs `dispatch`, which erases the concrete
+    /// `T` into JSON, so it has no typed value left to hand `cache_result`.
+    pub async fn cache_raw(&self, key: &str, json_value: &str, ttl: u64) {
+        let cache_key = format!("gfl-ze-watcher:{key}");
+        self.cache.memory.insert(key.to_string(), json_value.to_string()).await;
+
+        if let Ok(mut conn) = self.cache.redis_pool.get().await {
+            let _: RedisResult<()> = conn.set_ex(&cache_key, json_value, ttl).await;
         }
     }
 }
@@ -279,20 +252,20 @@ pub struct Query<T>{
     pub data: T
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlayerData{
     pub player_id: String,
     pub server_id: String,
     pub current_session: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlayerSessionData{
     pub player_id: String,
     pub server_id: String,
     pub session_id: String,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MapData{
     pub map_name: String,
     pub server_id: String,

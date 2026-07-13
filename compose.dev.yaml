@@ -72,6 +72,7 @@ services:
       args:
         DATABASE_URL: ${DATABASE_URL}
     environment:
+      ROLE: api
       DATABASE_URL: ${DATABASE_URL}
       CACHE_THUMBNAIL: /var/www/thumbnails
       STORE_UPLOAD: /var/www/storage
@@ -87,6 +88,46 @@ services:
       - thumbnails:/var/www/thumbnails
       - ${STORAGE_PATH}:/var/www/storage:rw
       - ${VAPIDS_PATH}:/app/vapids:ro
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+          ignore:
+            - front-gfl
+            - target
+            - thumbs
+            - db.sql
+  # Same image as backend, other half of the split. Defined in full rather than relying on the
+  # compose.yaml merge so this file also stands on its own.
+  worker:
+    restart: always
+    user: "10001:956"
+    env_file:
+      - .env
+    build:
+      context: .
+      target: final
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+    environment:
+      ROLE: worker
+      DATABASE_URL: ${DATABASE_URL}
+      # The precalculate loops warm caches by poking API endpoints, which are no longer in this
+      # process, so they have to reach the API over the network.
+      INTERNAL_API_BASE: http://backend:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://worker:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      # No STORAGE_PATH mount: uploads and the .tmp cleanup stay with the API. VAPIDs are needed
+      # because this is the process that actually sends push notifications.
+      - ${VAPIDS_PATH}:/app/vapids:ro
+    # Without this, a code change rebuilds backend and leaves the worker running stale code.
     develop:
       watch:
         - action: rebuild

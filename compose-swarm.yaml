@@ -61,6 +61,7 @@ services:
     env_file:
       - .env
     environment:
+      ROLE: api
       DATABASE_URL: ${DATABASE_URL}
       CACHE_THUMBNAIL: /var/www/thumbnails
       STORE_UPLOAD: /var/www/storage
@@ -93,6 +94,47 @@ services:
           memory: 512M
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  worker:
+    image: interstella0/ze-graph:backend
+    user: "10001:956"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    env_file:
+      - .env
+    environment:
+      ROLE: worker
+      DATABASE_URL: ${DATABASE_URL}
+      INTERNAL_API_BASE: http://backend:3000
+      STORAGE_BACKEND: ${STORAGE_BACKEND}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
+      # This is the process that sends push notifications, so it needs the signing keys.
+      VAPID_PRIVATE_KEY_PATH: /run/secrets/vapid_private
+      VAPID_PUBLIC_KEY_PATH: /run/secrets/vapid_public
+    secrets:
+      - vapid_private
+      - vapid_public
+    logging: *default-logging
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3001/health" ]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -7,7 +7,7 @@ use crate::core::model::*;
 use crate::core::utils::*;
 use crate::core::api_models::*;
 use crate::FastCache;
-use super::{BackgroundWorker, MapContext, MapData, Query, QueryPriority, WorkResult, WorkerQuery};
+use super::{BackgroundWorker, JobKind, MapContext, MapData, Query, QueryPriority, WorkResult, WorkerQuery};
 
 #[derive(Clone)]
 pub struct MapBasicQuery<T> {
@@ -17,17 +17,20 @@ pub struct MapBasicQuery<T> {
 
 impl<T> MapBasicQuery<T> {
     fn new(ctx: &MapContext, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
-        Self {
-            context: Query {
-                pool,
-                cache,
-                data: MapData{
-                    map_name: ctx.map.map.clone(),
-                    server_id: ctx.server.server_id.clone(),
-                },
+        Self::raw(Query {
+            pool,
+            cache,
+            data: MapData{
+                map_name: ctx.map.map.clone(),
+                server_id: ctx.server.server_id.clone(),
             },
-            _phantom: std::marker::PhantomData,
-        }
+        })
+    }
+
+    /// Rebuilds the query straight from its data, with no `MapContext` to hand. This is the path a
+    /// worker process takes: it has a deserialized `MapData` and nothing else.
+    pub(crate) fn raw(context: Query<MapData>) -> Self {
+        Self { context, _phantom: std::marker::PhantomData }
     }
 }
 #[async_trait]
@@ -143,6 +146,10 @@ impl WorkerQuery<Vec<DbMapRegion>> for MapBasicQuery<Vec<DbMapRegion>> {
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapRegions(self.context.data.clone())
+    }
 }
 #[async_trait]
 impl WorkerQuery<Vec<DbMapRegionDate>> for MapBasicQuery<Vec<DbMapRegionDate>> {
@@ -252,6 +259,10 @@ impl WorkerQuery<Vec<DbMapRegionDate>> for MapBasicQuery<Vec<DbMapRegionDate>> {
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapHeatRegions(self.context.data.clone())
+    }
 }
 #[async_trait]
 impl WorkerQuery<Vec<DbEvent>> for MapBasicQuery<Vec<DbEvent>> {
@@ -292,6 +303,10 @@ impl WorkerQuery<Vec<DbEvent>> for MapBasicQuery<Vec<DbEvent>> {
 
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
+    }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapEvents(self.context.data.clone())
     }
 }
 #[async_trait]
@@ -363,6 +378,10 @@ impl WorkerQuery<Vec<DbMapSessionDistribution>> for MapBasicQuery<Vec<DbMapSessi
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapSessionDistribution(self.context.data.clone())
+    }
 }
 #[async_trait]
 impl WorkerQuery<DbServerMapPartial> for MapBasicQuery<DbServerMapPartial> {
@@ -396,6 +415,10 @@ impl WorkerQuery<DbServerMapPartial> for MapBasicQuery<DbServerMapPartial> {
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapPartial(self.context.data.clone())
+    }
 }
 #[async_trait]
 impl WorkerQuery<Option<DbMapMeta>> for MapBasicQuery<Option<DbMapMeta>> {
@@ -417,6 +440,10 @@ impl WorkerQuery<Option<DbMapMeta>> for MapBasicQuery<Option<DbMapMeta>> {
 
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
+    }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapMetadata(self.context.data.clone())
     }
 }
 #[async_trait]
@@ -447,6 +474,10 @@ impl WorkerQuery<Vec<DbMapPlayerTypeTime>> for MapBasicQuery<Vec<DbMapPlayerType
 
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
+    }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapPlayerTypeTime(self.context.data.clone())
     }
 }
 #[async_trait]
@@ -490,6 +521,10 @@ impl WorkerQuery<DbMapInfo> for MapBasicQuery<DbMapInfo> {
 
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
+    }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapInfo(self.context.data.clone())
     }
 }
 #[async_trait]
@@ -624,6 +659,10 @@ impl WorkerQuery<DbMapAnalyze> for MapBasicQuery<DbMapAnalyze> {
     fn priority(&self) -> QueryPriority {
         QueryPriority::Heavy
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapAnalyze(self.context.data.clone())
+    }
 }
 
 pub struct MapWorker {
@@ -634,7 +673,7 @@ pub struct MapWorker {
 impl MapWorker {
     pub fn new(cache: Arc<FastCache>, pool: Arc<Pool<Postgres>>) -> Self {
         Self {
-            background_worker: Arc::new(BackgroundWorker::new(cache, 5)),
+            background_worker: Arc::new(BackgroundWorker::new(cache)),
             pool,
         }
     }
