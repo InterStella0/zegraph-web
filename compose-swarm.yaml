@@ -31,7 +31,11 @@ services:
       - tile_cache:/var/cache/nginx/qgis_tiles
     logging: *default-logging
     deploy:
-      replicas: 2
+      # Reservations are hard scheduling guarantees, and the manager is 2 CPU / 4G. Two replicas
+      # reserving 1 CPU / 2G each claimed the whole node, so the second never scheduled and the
+      # backend had nowhere left to go. One replica, modest floor -- the limits below are what
+      # actually cap it under load.
+      replicas: 1
 #      placement:
 #        # Cap 1 replica per node: when both nodes are up you get 1 each (uses
 #        # spare worker compute); when the worker is down only 1 runs on the
@@ -48,8 +52,8 @@ services:
           cpus: "2"
           memory: 3G
         reservations:
-          cpus: "1"
-          memory: 2048M
+          cpus: "0.5"
+          memory: 1G
     networks:
       - default
 
@@ -131,8 +135,8 @@ services:
           cpus: '2'
           memory: 2G
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '0.25'
+          memory: 256M
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:3001/health" ]
       interval: 10s
