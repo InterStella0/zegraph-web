@@ -14,8 +14,6 @@ pub struct AdminServersApi;
 
 const VALID_COOLDOWN_TYPES: &[&str] = &["unknown", "datetime", "map_count"];
 
-// ─── Community ────────────────────────────────────────────────────────────────
-
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct AdminCommunity {
     pub id: String,
@@ -39,7 +37,6 @@ pub struct UpdateCommunityPayload {
     pub icon_url: Option<String>,
 }
 
-// ─── Server Browser ───────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct AdminServerBrowser {
@@ -63,8 +60,6 @@ pub struct UpdateServerBrowserPayload {
     pub cooldown_type: Option<String>,
 }
 
-// ─── Scraped Server ───────────────────────────────────────────────────────────
-
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct AdminServer {
     pub server_id: String,
@@ -83,7 +78,6 @@ pub struct AdminServer {
     pub source_by_id: Option<bool>,
 }
 
-/// Row shape shared by every endpoint that returns an `AdminServer`.
 struct AdminServerRow {
     server_id: String,
     server_name: Option<String>,
@@ -146,7 +140,6 @@ pub struct SetServerCommunityPayload {
 
 #[OpenApi]
 impl AdminServersApi {
-    // ─── Community CRUD ───────────────────────────────────────────────────────
 
     #[oai(path = "/admin/communities", method = "get")]
     async fn list_communities(
@@ -482,8 +475,6 @@ impl AdminServersApi {
         response!(ok true)
     }
 
-    // ─── Server Browser CRUD ──────────────────────────────────────────────────
-
     #[oai(path = "/admin/server-browsers", method = "get")]
     async fn list_server_browsers(
         &self,
@@ -647,8 +638,6 @@ impl AdminServersApi {
         }
         response!(ok true)
     }
-
-    // ─── Scraped Server endpoints ─────────────────────────────────────────────
 
     #[oai(path = "/admin/servers-list", method = "get")]
     async fn list_servers_admin(

@@ -11,7 +11,6 @@ pub struct CharacterApi;
 
 #[OpenApi]
 impl CharacterApi {
-    /// List all character 3D models for a server
     #[oai(path = "/servers/:server_id/characters", method = "get")]
     async fn list_character_3d_models(
         &self,
@@ -59,7 +58,6 @@ impl CharacterApi {
         }
     }
 
-    /// Get 3D model info for a character on a server
     #[oai(path = "/servers/:server_id/characters/:model_id/3d", method = "get")]
     async fn get_character_3d_model(
         &self,
@@ -105,7 +103,6 @@ impl CharacterApi {
         }
     }
 
-    /// Upload a 3D model for a character on a server (single request, max 500MB)
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload", method = "post")]
     async fn upload_character_3d_model(
         &self,
@@ -115,6 +112,7 @@ impl CharacterApi {
         TokenBearer(user_token): TokenBearer,
         multipart: poem::web::Multipart,
     ) -> Response<Character3DModel> {
+        // Max 500MB per
         if !check_superuser(&app, user_token.id).await {
             return response!(err "Forbidden", ErrorCode::Forbidden);
         }
@@ -220,7 +218,6 @@ impl CharacterApi {
         }
     }
 
-    /// Initiate a chunked upload session for a large character 3D model
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload/initiate", method = "post")]
     async fn initiate_character_chunked_upload(
         &self,
@@ -295,7 +292,6 @@ impl CharacterApi {
         })
     }
 
-    /// Upload an individual chunk for a character model
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload/chunk/:session_id", method = "post")]
     async fn upload_character_chunk(
         &self,
@@ -394,7 +390,6 @@ impl CharacterApi {
         })
     }
 
-    /// Complete chunked upload and assemble the character model file
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload/complete/:session_id", method = "post")]
     async fn complete_character_chunked_upload(
         &self,
@@ -540,7 +535,6 @@ impl CharacterApi {
         }
     }
 
-    /// Cancel a chunked character model upload
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload/cancel/:session_id", method = "delete")]
     async fn cancel_character_chunked_upload(
         &self,
@@ -583,7 +577,6 @@ impl CharacterApi {
         response!(ok "Upload cancelled".to_string())
     }
 
-    /// Delete a character 3D model (superuser only)
     #[oai(path = "/servers/:server_id/characters/:model_id/3d", method = "delete")]
     async fn delete_character_3d_model(
         &self,
@@ -636,7 +629,6 @@ impl CharacterApi {
         }
     }
 
-    /// Upload a thumbnail image for a character 3D model (superuser only)
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/thumbnail", method = "post")]
     async fn upload_character_thumbnail(
         &self,
@@ -745,10 +737,6 @@ impl CharacterApi {
             }
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Upload session helpers
-    // -------------------------------------------------------------------------
 
     async fn get_char_upload_session(
         cache: &FastCache,

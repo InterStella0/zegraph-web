@@ -11,8 +11,6 @@ use crate::{response, AppData};
 
 pub struct AdminMapsApi;
 
-// ─── Response types ───────────────────────────────────────────────────────────
-
 #[derive(Object, Serialize)]
 pub struct AdminMapServerEntry {
     pub server_id: String,
@@ -43,7 +41,6 @@ pub struct AdminMapMetadataResponse {
     pub maps: Vec<AdminMapEntry>,
 }
 
-// ─── Request DTOs ─────────────────────────────────────────────────────────────
 
 #[derive(Object, Deserialize)]
 pub struct UpdateGlobalMapMetadataDto {
@@ -59,23 +56,15 @@ pub struct UpdateGlobalMapMetadataDto {
 pub struct UpdateServerMapMetadataDto {
     pub server_id: String,
     pub map_name: String,
-    /// null = clear override (inherit from global)
     pub is_tryhard: Option<bool>,
-    /// null = clear override (inherit from global)
     pub is_casual: Option<bool>,
-    /// null = clear override (inherit from global)
     pub workshop_id: Option<i64>,
-    /// null = clear override (inherit from global)
     pub resolved_workshop_id: Option<i64>,
-    /// null = keep existing value
     pub no_noms: Option<bool>,
-    /// null = keep existing value
     pub min_players: Option<i16>,
-    /// null = no player limit
     pub max_players: Option<i16>,
 }
 
-// ─── Internal DB row types ────────────────────────────────────────────────────
 
 struct DbAdminMapRow {
     map_name: String,
@@ -99,8 +88,6 @@ struct DbAdminMapServerRow {
     min_players: Option<i16>,
     max_players: Option<i16>,
 }
-
-// ─── API ──────────────────────────────────────────────────────────────────────
 
 #[OpenApi]
 impl AdminMapsApi {
@@ -230,7 +217,6 @@ impl AdminMapsApi {
         response!(ok AdminMapMetadataResponse { total, maps })
     }
 
-    /// Update global map metadata (applies to all servers unless overridden)
     #[oai(path = "/admin/maps/metadata/global", method = "put")]
     async fn update_global_map_metadata(
         &self,
@@ -271,7 +257,6 @@ impl AdminMapsApi {
         }
     }
 
-    /// Delete a map and all associated data (play history, per-server config, metadata)
     #[oai(path = "/admin/maps/:map_name", method = "delete")]
     async fn delete_map(
         &self,
@@ -314,7 +299,6 @@ impl AdminMapsApi {
         response!(ok true)
     }
 
-    /// Update server-specific map metadata overrides
     #[oai(path = "/admin/maps/metadata/server", method = "put")]
     async fn update_server_map_metadata(
         &self,
