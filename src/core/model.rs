@@ -277,6 +277,7 @@ pub struct DbPlayerDetail{
     pub category: Option<String>,
     pub tryhard_playtime: Option<PgInterval>,
     pub casual_playtime: Option<PgInterval>,
+    pub mixed_playtime: Option<PgInterval>,
     pub total_playtime: Option<PgInterval>,
     #[default(-1)]
     #[cast(i64)]
@@ -367,6 +368,8 @@ pub struct DbPlayerRank{
     pub casual_playtime: Option<i64>,
     #[unwrap_default]
     pub tryhard_playtime: Option<i64>,
+    #[unwrap_default]
+    pub mixed_playtime: Option<i64>,
 }
 #[derive(Clone, DbInto)]
 #[auto_serde_with]

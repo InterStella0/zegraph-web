@@ -265,10 +265,11 @@ impl WorkerQuery<Option<DbPlayerRank>> for PlayerBasicQuery<Option<DbPlayerRank>
     type Error = sqlx::Error;
     async fn execute(&self) -> Result<Option<DbPlayerRank>, Self::Error> {
         sqlx::query_as!(DbPlayerRank, "
-            SELECT global_playtime_rank AS global_playtime,
+            SELECT global_playtime_rank AS global_playtime ,
                 playtime_rank AS total_playtime,
                 casual_rank AS casual_playtime,
-                tryhard_rank AS tryhard_playtime
+                tryhard_rank AS tryhard_playtime,
+                mixed_rank AS mixed_playtime
             FROM website.player_playtime_ranks
             WHERE server_id=$1 AND player_id=$2
         ", self.context.data.server_id, self.context.data.player_id)
@@ -431,26 +432,33 @@ impl WorkerQuery<DbPlayerDetail> for PlayerBasicQuery<DbPlayerDetail>{
         let mut total = Duration::from_micros(0);
         let mut casual = Duration::from_micros(0);
         let mut tryhard = Duration::from_micros(0);
+        let mut mixed = Duration::from_micros(0);
         for (map_name, duration) in durations{
             total += duration;
             let Some(info) = infos.get(&map_name) else {
                 continue;
             };
-            if info.is_casual.unwrap_or_default(){
+            let is_casual = info.is_casual.unwrap_or_default();
+            let is_tryhard = info.is_tryhard.unwrap_or_default();
+            let is_mixed = is_casual && is_tryhard;
+            if is_mixed {
+                mixed += duration;
+            } else if is_casual{
                 casual += duration;
-            }
-            if info.is_tryhard.unwrap_or_default(){
+            } else if is_tryhard{
                 tryhard += duration;
             }
         }
         let total_playtime: PgInterval = total.try_into().unwrap_or_default();
         let casual_playtime: PgInterval = casual.try_into().unwrap_or_default();
         let tryhard_playtime: PgInterval = tryhard.try_into().unwrap_or_default();
+        let mixed_playtime: PgInterval = mixed.try_into().unwrap_or_default();
         sqlx::query!("
             WITH pre_var AS (
                 SELECT $3::INTERVAL AS total,
                 $4::INTERVAL AS casual,
-                $5::INTERVAL AS tryhard
+                $5::INTERVAL AS tryhard,
+                $6::INTERVAL AS mixed
             ),
             category_calc AS (
                 SELECT
@@ -458,16 +466,16 @@ impl WorkerQuery<DbPlayerDetail> for PlayerBasicQuery<DbPlayerDetail>{
                         WHEN pre_var.total < INTERVAL '5 hours' THEN null
                         WHEN EXTRACT(EPOCH FROM pre_var.casual) / NULLIF(EXTRACT(EPOCH FROM pre_var.total), 1) >= 0.6 THEN 'casual'
                         WHEN EXTRACT(EPOCH FROM pre_var.tryhard) / NULLIF(EXTRACT(EPOCH FROM pre_var.total), 1) >= 0.6 THEN 'tryhard'
-                        WHEN EXTRACT(EPOCH FROM pre_var.tryhard) / NULLIF(EXTRACT(EPOCH FROM pre_var.total), 1) BETWEEN 0.4 AND 0.6 THEN 'mixed'
+                        WHEN EXTRACT(EPOCH FROM pre_var.mixed) / NULLIF(EXTRACT(EPOCH FROM pre_var.total), 1) >= 0.6 THEN 'mixed'
                         ELSE null
                     END AS category
                 FROM pre_var
             )
             INSERT INTO website.player_playtime(
-                player_id, server_id, total_playtime, casual_playtime, tryhard_playtime, sum_key, category
+                player_id, server_id, total_playtime, casual_playtime, tryhard_playtime, mixed_playtime, sum_key, category
             )
             SELECT
-                $1, $2, $3, $4, $5, $6, c.category
+                $1, $2, $3, $4, $5, $6, $7, c.category
             FROM category_calc AS c
             ON CONFLICT (player_id, server_id)
             DO UPDATE
@@ -475,10 +483,11 @@ impl WorkerQuery<DbPlayerDetail> for PlayerBasicQuery<DbPlayerDetail>{
                 total_playtime = EXCLUDED.total_playtime,
                 casual_playtime = EXCLUDED.casual_playtime,
                 tryhard_playtime = EXCLUDED.tryhard_playtime,
+                mixed_playtime = EXCLUDED.mixed_playtime,
                 category = EXCLUDED.category,
                 sum_key = EXCLUDED.sum_key;
         ", ctx.data.player_id, ctx.data.server_id, total_playtime,
-            casual_playtime, tryhard_playtime, sum_key
+            casual_playtime, tryhard_playtime, mixed_playtime, sum_key
         ).execute(&*ctx.pool).await?;
 
         if !has_no_completed_session{
@@ -491,7 +500,7 @@ impl WorkerQuery<DbPlayerDetail> for PlayerBasicQuery<DbPlayerDetail>{
                 su.player_name,
                 su.created_at,
                 su.associated_player_id,
-                pp.total_playtime, pp.casual_playtime, pp.tryhard_playtime,
+                pp.total_playtime, pp.casual_playtime, pp.tryhard_playtime, pp.mixed_playtime,
                 0::int AS rank,
                 pp.category,
                 NULL::TIMESTAMPTZ AS online_since,
@@ -868,6 +877,7 @@ impl PlayerWorker {
                 pp.total_playtime AS \"total_playtime?\",
                 pp.casual_playtime AS \"casual_playtime?\",
                 pp.tryhard_playtime AS \"tryhard_playtime?\",
+                pp.mixed_playtime AS \"mixed_playtime?\",
                 0::int AS rank,
                 pp.category,
                 NULL::TIMESTAMPTZ AS online_since,

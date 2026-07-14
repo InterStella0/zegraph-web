@@ -361,6 +361,7 @@ pub struct PlayerRanks{
     pub server_playtime: i64,
     pub casual_playtime: i64,
     pub tryhard_playtime: i64,
+    pub mixed_playtime: i64,
     pub highest_map_rank: Option<MapRank>,
 }
 #[derive(Object)]
@@ -372,6 +373,7 @@ pub struct DetailedPlayer{
     pub category: Option<String>,
     pub tryhard_playtime: f64,
     pub casual_playtime: f64,
+    pub mixed_playtime: f64,
     pub total_playtime: f64,
     pub rank: i64,
     pub ranks: Option<PlayerRanks>,

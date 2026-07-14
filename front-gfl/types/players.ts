@@ -13,6 +13,7 @@ export interface PlayerTableRank{
     name: string,
     tryhard_playtime: number,
     casual_playtime: number,
+    mixed_playtime: number,
     total_playtime: number
     is_anonymous: boolean,
 }
@@ -78,6 +79,7 @@ export type PlayerRanks = {
     global_playtime: number,
     server_playtime: number,
     casual_playtime: number,
+    mixed_playtime: number,
     tryhard_playtime: number,
     highest_map_rank: MapRank | null,
 }
@@ -87,6 +89,7 @@ export interface DetailedPlayer extends PlayerBase{
     aliases: string[],
     category: "casual" | "mixed" | "tryhard" | "unknown" | null,
     tryhard_playtime: number,
+    mixed_playtime: number,
     casual_playtime: number,
     total_playtime: number,
     rank: number,

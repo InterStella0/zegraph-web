@@ -328,6 +328,7 @@ CREATE TABLE website.player_playtime(
     total_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
     casual_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
     tryhard_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
+    mixed_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
     category VARCHAR(8),
     sum_key TEXT,
     PRIMARY KEY(player_id, server_id)
@@ -435,6 +436,7 @@ SELECT player_id,
        RANK() OVER (PARTITION BY server_id ORDER BY total_playtime DESC) AS playtime_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY casual_playtime DESC) AS casual_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY tryhard_playtime DESC) AS tryhard_rank
+       RANK() OVER (PARTITION BY server_id ORDER BY mixed_playtime DESC) AS mixed_rank
 FROM website.player_playtime;
 
 CREATE UNIQUE INDEX CONCURRENTLY player_playtime_ranks_idx
@@ -1249,6 +1251,7 @@ SELECT cron.schedule_in_database(
                    SUM(pp.total_playtime) AS total_playtime,
                    SUM(pp.casual_playtime) AS casual_playtime,
                    SUM(pp.tryhard_playtime) AS tryhard_playtime,
+                   SUM(pp.mixed_playtime) AS mixed_playtime,
                    COUNT(DISTINCT pp.server_id) AS server_count,
                    COUNT(DISTINCT s.community_id) AS community_count
             FROM website.player_playtime pp
@@ -1262,7 +1265,7 @@ SELECT cron.schedule_in_database(
                     WHEN total_playtime < INTERVAL '5 hours' THEN NULL
                     WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'casual'
                     WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'tryhard'
-                    WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
+                    WHEN EXTRACT(EPOCH FROM mixed_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'mixed'
                     ELSE NULL
                 END AS category
             FROM sums
@@ -1271,7 +1274,8 @@ SELECT cron.schedule_in_database(
             SELECT categorized.*,
                    RANK() OVER (ORDER BY total_playtime DESC) AS global_rank,
                    RANK() OVER (ORDER BY casual_playtime DESC) AS casual_rank,
-                   RANK() OVER (ORDER BY tryhard_playtime DESC) AS tryhard_rank
+                   RANK() OVER (ORDER BY tryhard_playtime DESC) AS tryhard_rank,
+                   RANK() OVER (ORDER BY mixed_playtime DESC) AS mixed_playtime,
             FROM categorized
         )
         INSERT INTO website.player_global_playtime(
