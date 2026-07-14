@@ -29,7 +29,6 @@ pub struct AnonymizationRequest {
     pub hide_location: Option<bool>,
 }
 
-// Helper function to extract YouTube video ID from various URL formats
 fn extract_youtube_id(url: &str) -> Option<String> {
     // Handle different YouTube URL formats:
     // - https://www.youtube.com/watch?v=VIDEO_ID
@@ -52,26 +51,22 @@ fn extract_youtube_id(url: &str) -> Option<String> {
     }
 }
 
-// Helper function to validate push subscription keys
 fn validate_push_subscription(dto: &PushSubscriptionDto) -> Result<(), String> {
     use base64::Engine;
     let engine = base64::engine::general_purpose::URL_SAFE_NO_PAD;
 
-    // Validate p256dh key
     let p256dh = engine.decode(&dto.keys.p256dh)
         .map_err(|_| "Invalid p256dh key encoding".to_string())?;
     if p256dh.len() != 65 {
         return Err("p256dh key must be 65 bytes".to_string());
     }
 
-    // Validate auth key
     let auth = engine.decode(&dto.keys.auth)
         .map_err(|_| "Invalid auth key encoding".to_string())?;
     if auth.len() != 16 {
         return Err("auth key must be 16 bytes".to_string());
     }
 
-    // Validate endpoint URL
     if !dto.endpoint.starts_with("https://") {
         return Err("Endpoint must use HTTPS".to_string());
     }
@@ -79,8 +74,6 @@ fn validate_push_subscription(dto: &PushSubscriptionDto) -> Result<(), String> {
     Ok(())
 }
 
-/// Renamed accounts fork into their own player row pointing back at the original, so playtime is
-/// only whole once collapsed onto the canonical id. Returns None when no player row exists.
 async fn resolve_canonical_player_id(
     pool: &sqlx::Pool<sqlx::Postgres>,
     steam_id: &str,

@@ -6,13 +6,12 @@ use sqlx::{Pool, Postgres};
 use sqlx::postgres::PgQueryResult;
 use sqlx::postgres::types::PgInterval;
 use sqlx::types::time::OffsetDateTime;
-use tokio::sync::Semaphore;
 use crate::core::model::*;
 use crate::core::utils::*;
 use crate::core::api_models::*;
 use crate::routers::players::{get_player, get_player_cache_key};
 use crate::FastCache;
-use super::{BackgroundWorker, PlayerContext, PlayerData, PlayerSessionData, Query, QueryPriority, WorkError, WorkResult, WorkerQuery};
+use super::{BackgroundWorker, JobKind, PlayerContext, PlayerData, PlayerSessionData, Query, QueryPriority, RefreshJob, WorkError, WorkResult, WorkerQuery};
 
 #[allow(dead_code)]
 struct DbWorkerLastCalculated{
@@ -29,18 +28,21 @@ pub struct PlayerSessionQuery<T> {
 }
 impl<T> PlayerSessionQuery<T> {
     fn new(ctx: &PlayerContext, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>, session_id: &str) -> Self {
-        Self {
-            context: Query {
-                pool,
-                cache,
-                data: PlayerSessionData{
-                    player_id: ctx.player.player_id.clone(),
-                    server_id: ctx.server.server_id.clone(),
-                    session_id: session_id.to_string(),
-                },
+        Self::raw(Query {
+            pool,
+            cache,
+            data: PlayerSessionData{
+                player_id: ctx.player.player_id.clone(),
+                server_id: ctx.server.server_id.clone(),
+                session_id: session_id.to_string(),
             },
-            _phantom: std::marker::PhantomData,
-        }
+        })
+    }
+
+    /// Rebuilds the query straight from its data, with no `PlayerContext` to hand — the path a
+    /// worker process takes after deserializing a job.
+    pub(crate) fn raw(context: Query<PlayerSessionData>) -> Self {
+        Self { context, _phantom: std::marker::PhantomData }
     }
 }
 #[derive(Clone)]
@@ -50,20 +52,17 @@ pub struct PlayerBasicQuery<T> {
 }
 impl<T> PlayerBasicQuery<T> {
     fn new(ctx: &PlayerContext, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
-        Self {
-            context: Query {
-                pool,
-                cache,
-                data: PlayerData{
-                    player_id: ctx.player.player_id.clone(),
-                    server_id: ctx.server.server_id.clone(),
-                    current_session: ctx.cache_key.current.clone()
-                },
+        Self::raw(Query {
+            pool,
+            cache,
+            data: PlayerData{
+                player_id: ctx.player.player_id.clone(),
+                server_id: ctx.server.server_id.clone(),
+                current_session: ctx.cache_key.current.clone()
             },
-            _phantom: std::marker::PhantomData,
-        }
+        })
     }
-    fn raw(context: Query<PlayerData>) -> Self {
+    pub(crate) fn raw(context: Query<PlayerData>) -> Self {
         Self {
             context, _phantom: std::marker::PhantomData,
         }
@@ -95,6 +94,10 @@ impl WorkerQuery<Vec<DbPlayerSessionTime>> for PlayerBasicQuery<Vec<DbPlayerSess
 
     fn ttl(&self) -> u64 { 60 * DAY }
     fn priority(&self) -> QueryPriority { QueryPriority::Light }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerSessionTime(self.context.data.clone())
+    }
 }
 
 async fn calculate_db_player_map(ctx: &Query<PlayerData>, worker_type: &str) -> Result<(), sqlx::Error> {
@@ -252,6 +255,10 @@ impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerBasicQuery<Vec<DbPlayerMapPla
     fn priority(&self) -> QueryPriority {
         QueryPriority::Heavy
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerMapPlayed(self.context.data.clone())
+    }
 }
 #[async_trait]
 impl WorkerQuery<Option<DbPlayerRank>> for PlayerBasicQuery<Option<DbPlayerRank>> {
@@ -278,6 +285,10 @@ impl WorkerQuery<Option<DbPlayerRank>> for PlayerBasicQuery<Option<DbPlayerRank>
 
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
+    }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerPlaytimeRanks(self.context.data.clone())
     }
 }
 #[async_trait]
@@ -308,6 +319,10 @@ impl WorkerQuery<Vec<DbMapRank>> for PlayerBasicQuery<Vec<DbMapRank>> {
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerMapRanks(self.context.data.clone())
+    }
 }
 #[async_trait]
 impl WorkerQuery<Vec<DbPlayerAlias>> for PlayerBasicQuery<Vec<DbPlayerAlias>>{
@@ -333,6 +348,10 @@ impl WorkerQuery<Vec<DbPlayerAlias>> for PlayerBasicQuery<Vec<DbPlayerAlias>>{
 
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
+    }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerAliases(self.context.data.clone())
     }
 }
 struct DbServerMapState{
@@ -497,6 +516,10 @@ impl WorkerQuery<DbPlayerDetail> for PlayerBasicQuery<DbPlayerDetail>{
     fn priority(&self) -> QueryPriority {
         QueryPriority::Heavy
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerDetail(self.context.data.clone())
+    }
 }
 #[async_trait]
 impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerBasicQuery<Vec<DbPlayerRegionTime>>{
@@ -585,6 +608,10 @@ impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerBasicQuery<Vec<DbPlayerRegio
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerRegionTime(self.context.data.clone())
+    }
 }
 
 struct LastWorkerCalculate{
@@ -672,6 +699,10 @@ impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerSessionQuery<Vec<DbPlayerSeen>> {
 
     fn ttl(&self) -> u64 { 130 * DAY }
     fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerSeen(self.context.data.clone())
+    }
 }
 
 
@@ -719,21 +750,21 @@ impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerBasicQuery<Vec<DbPlayerHourCo
     fn priority(&self) -> QueryPriority {
         QueryPriority::Light
     }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerHourCount(self.context.data.clone())
+    }
 }
 pub struct PlayerWorker {
     background_worker: Arc<BackgroundWorker>,
     pool: Arc<Pool<Postgres>>,
-    global_semaphore: Arc<Semaphore>,
 }
 
 impl PlayerWorker {
     pub fn new(cache: Arc<FastCache>, pool: Arc<Pool<Postgres>>) -> Self {
         Self {
-            background_worker: Arc::new(BackgroundWorker::new(cache, 5)),
+            background_worker: Arc::new(BackgroundWorker::new(cache)),
             pool,
-            // A global refresh drives its per-server queries through execute_get, which takes no
-            // permit from the heavy semaphore, so it needs its own bound.
-            global_semaphore: Arc::new(Semaphore::new(3)),
         }
     }
 
@@ -919,8 +950,8 @@ impl PlayerWorker {
         };
 
         if is_outdated && !is_calculating {
-            self.spawn_global_refresh(canonical_id);
-            // A refresh is running by the time this response lands, so say so rather than
+            self.enqueue_global_refresh(canonical_id).await;
+            // A refresh is queued by the time this response lands, so say so rather than
             // leaving the client to discover it on the next poll.
             is_calculating = true;
         }
@@ -1008,15 +1039,17 @@ impl PlayerWorker {
             .unwrap_or(0)
     }
 
-    fn spawn_global_refresh(&self, canonical_id: &str) {
-        let pool = self.pool.clone();
-        let background_worker = self.background_worker.clone();
-        let semaphore = self.global_semaphore.clone();
-        let canonical_id = canonical_id.to_string();
-
-        tokio::spawn(async move {
-            refresh_global_playtime(pool, background_worker, semaphore, canonical_id).await;
-        });
+    /// Hands the refresh to the worker instead of running it here. This is the heaviest job in the
+    /// app, and it used to loop `execute_get` per server on the API's own runtime and connection
+    /// pool while requests were being served.
+    async fn enqueue_global_refresh(&self, canonical_id: &str) {
+        self.background_worker.enqueue_refresh_job(RefreshJob {
+            kind: JobKind::PlayerGlobalPlaytime { canonical_id: canonical_id.to_string() },
+            // Nothing reads this key; it exists so the in-flight marker dedupes per player.
+            cache_key: format!("global-playtime-refresh:{canonical_id}"),
+            ttl: 0,
+            priority: QueryPriority::Heavy,
+        }).await;
     }
 
     pub async fn get_hour_of_day(&self, context: &PlayerContext) -> WorkResult<Vec<PlayerHourDay>> {
@@ -1036,38 +1069,32 @@ fn global_lock_key(canonical_id: &str) -> String {
     format!("lock:player_global_playtime:{canonical_id}")
 }
 
-/// Re-derives every server's `player_playtime` for this player, then stores the summation.
+/// Re-derives every server's `player_playtime` for this player, then stores the summation. Runs in
+/// the worker process, off the back of a `PlayerGlobalPlaytime` job.
 ///
-/// The redis lock is what makes this safe: `BackgroundWorker::active_tasks` only dedupes within a
-/// single process, so without it two instances would run the loop and race on the upsert. Its
-/// presence is also what `get_global_playtime` reports as `is_calculating`, and it expires on its
-/// own if this task dies.
-async fn refresh_global_playtime(
+/// The redis lock still matters even though the queue already dedupes: the in-flight marker expires
+/// after 5 minutes and this loop can outlive that, so a second job could otherwise be picked up and
+/// race on the upsert. Its presence is also what `get_global_playtime` reports as `is_calculating`.
+/// No semaphore here — the heavy queue's concurrency limit is what bounds this now.
+pub(crate) async fn run_global_playtime_job(
     pool: Arc<Pool<Postgres>>,
-    background_worker: Arc<BackgroundWorker>,
-    semaphore: Arc<Semaphore>,
-    canonical_id: String,
-) {
-    let cache = background_worker.cache.clone();
-    let lock_key = global_lock_key(&canonical_id);
+    cache: Arc<FastCache>,
+    canonical_id: &str,
+) -> Result<(), sqlx::Error> {
+    let lock_key = global_lock_key(canonical_id);
 
     let Some(lock_id) = try_redis_lock(&cache.redis_pool, &lock_key, 60 * 15).await else {
         tracing::debug!("GLOBAL PLAYTIME ALREADY CALCULATING {canonical_id}");
-        return;
+        return Ok(());
     };
 
-    // Taken after the lock so queued tasks still report as calculating rather than piling up
-    // behind the semaphore and then discovering they lost the race.
-    let permit = semaphore.acquire().await;
-    if permit.is_ok() {
-        if let Err(e) = run_global_refresh(&pool, &background_worker, &cache, &canonical_id).await {
-            tracing::warn!("GLOBAL PLAYTIME REFRESH FAILED {canonical_id}: {e}");
-        }
-    }
-    drop(permit);
+    let background_worker = Arc::new(BackgroundWorker::new(cache.clone()));
+    let result = run_global_refresh(&pool, &background_worker, &cache, canonical_id).await;
 
     release_redis_lock(&cache.redis_pool, &lock_key, &lock_id).await;
     tracing::debug!("GLOBAL PLAYTIME LOCK RELEASED {canonical_id}");
+
+    result
 }
 
 async fn run_global_refresh(

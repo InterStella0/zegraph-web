@@ -1,0 +1,124 @@
+use std::sync::Arc;
+use std::time::Duration;
+use redis::{AsyncCommands, RedisResult};
+use sqlx::{Pool, Postgres};
+use tokio::sync::Semaphore;
+
+use crate::FastCache;
+use super::job::{dispatch, inflight_key, RefreshJob, QUEUE_HEAVY, QUEUE_LIGHT};
+use super::BackgroundWorker;
+
+/// Heavy queries are the ones that used to contend with request handling. With a single worker
+/// replica this bound is the true global limit — the old in-process semaphore never was one,
+/// because every API replica had its own.
+const HEAVY_CONCURRENCY: usize = 5;
+const LIGHT_CONCURRENCY: usize = 20;
+
+/// How long a `BRPOP` parks before looping. It only exists so the redis connection is returned to
+/// the pool periodically; a job still wakes the consumer immediately, it does not wait this out.
+const POP_TIMEOUT_SECS: usize = 5;
+
+pub fn spawn_consumers(pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) {
+    for (queue, concurrency) in [
+        (QUEUE_HEAVY, HEAVY_CONCURRENCY),
+        (QUEUE_LIGHT, LIGHT_CONCURRENCY),
+    ] {
+        let pool = pool.clone();
+        let cache = cache.clone();
+        tokio::spawn(async move {
+            consume(queue, concurrency, pool, cache).await;
+        });
+    }
+}
+
+/// One loop per queue rather than a single `BRPOP` over both, so a backlog of heavy jobs cannot
+/// starve the light ones behind it.
+async fn consume(
+    queue: &'static str,
+    concurrency: usize,
+    pool: Arc<Pool<Postgres>>,
+    cache: Arc<FastCache>,
+) {
+    let semaphore = Arc::new(Semaphore::new(concurrency));
+    tracing::info!("Worker consuming {queue} (concurrency {concurrency})");
+
+    loop {
+        // Taken before the pop so we never hold more jobs than we can run: a job pulled off the
+        // list is off it for good, so popping past our capacity would risk losing it on a crash.
+        let Ok(permit) = semaphore.clone().acquire_owned().await else {
+            tracing::error!("{queue}: semaphore closed, consumer stopping");
+            return;
+        };
+
+        let payload = match pop(queue, &cache).await {
+            Ok(Some(payload)) => payload,
+            Ok(None) => continue, // pop timed out, nothing queued
+            Err(e) => {
+                tracing::warn!("{queue}: pop failed: {e}");
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                continue;
+            }
+        };
+
+        let job: RefreshJob = match serde_json::from_str(&payload) {
+            Ok(job) => job,
+            Err(e) => {
+                tracing::error!("{queue}: undeserializable job dropped: {e}");
+                continue;
+            }
+        };
+
+        let pool = pool.clone();
+        let cache = cache.clone();
+        tokio::spawn(async move {
+            run_job(job, pool, cache).await;
+            drop(permit);
+        });
+    }
+}
+
+async fn pop(queue: &str, cache: &FastCache) -> RedisResult<Option<String>> {
+    let mut conn = cache.redis_pool.get().await.map_err(|e| {
+        redis::RedisError::from((redis::ErrorKind::IoError, "redis pool", e.to_string()))
+    })?;
+
+    // BRPOP against LPUSH gives FIFO. Returns (queue_name, payload), or nil on timeout.
+    let popped: Option<(String, String)> = redis::cmd("BRPOP")
+        .arg(queue)
+        .arg(POP_TIMEOUT_SECS)
+        .query_async(&mut *conn)
+        .await?;
+
+    Ok(popped.map(|(_, payload)| payload))
+}
+
+async fn run_job(job: RefreshJob, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) {
+    let started = std::time::Instant::now();
+    tracing::info!("Starting refresh ({:?}): {}", job.priority, job.cache_key);
+
+    match dispatch(&job.kind, pool, cache.clone()).await {
+        Ok(Some(json)) => {
+            let worker = BackgroundWorker::new(cache.clone());
+            worker.cache_raw(&job.cache_key, &json, job.ttl).await;
+            tracing::info!("Refresh completed in {:?}: {}", started.elapsed(), job.cache_key);
+        }
+        // Side-effecting job (its work landed in Postgres); there is no value to cache.
+        Ok(None) => {
+            tracing::info!("Job completed in {:?}: {}", started.elapsed(), job.cache_key);
+        }
+        Err(e) => {
+            tracing::warn!("Refresh failed: {}: {e}", job.cache_key);
+        }
+    }
+
+    // Cleared whether the job succeeded or failed. On success the result is already cached, so the
+    // next reader gets data; on failure the next reader re-enqueues rather than waiting out the TTL.
+    clear_marker(&job.cache_key, &cache).await;
+}
+
+async fn clear_marker(cache_key: &str, cache: &FastCache) {
+    let marker = inflight_key(cache_key);
+    if let Ok(mut conn) = cache.redis_pool.get().await {
+        let _: RedisResult<()> = conn.del(&marker).await;
+    }
+}
