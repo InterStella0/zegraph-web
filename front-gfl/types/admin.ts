@@ -179,3 +179,32 @@ export interface UpdateServerMapMetadataDto {
   /** null = no player limit */
   max_players: number | null;
 }
+
+// ─── Audit log admin types ────────────────────────────────────────────────────
+
+export type AuditLogAction = 'update_global' | 'update_server' | 'delete_map';
+
+export interface AuditFieldChange {
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+}
+
+export interface AuditLogEntry {
+  id: number;
+  category: string;
+  action: AuditLogAction | string;
+  map_name: string | null;
+  server_id: string | null;
+  server_name: string | null;
+  user_id: string;
+  user_name: string | null;
+  user_avatar: string | null;
+  changes: AuditFieldChange[];
+  created_at: string;
+}
+
+export interface AuditLogsResponse {
+  total: number;
+  logs: AuditLogEntry[];
+}

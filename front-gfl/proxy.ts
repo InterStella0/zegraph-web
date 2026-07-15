@@ -11,8 +11,11 @@ export async function proxy(request: NextRequest) {
   }
 
   if (steam?.is_map_manager) {
-    const isMapsRoute = request.nextUrl.pathname === '/admin/maps' || request.nextUrl.pathname.startsWith('/admin/maps/');
-    if (!isMapsRoute) {
+    const allowedRoutes = ['/admin/maps', '/admin/audit-logs'];
+    const isAllowedRoute = allowedRoutes.some(
+      (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(route + '/')
+    );
+    if (!isAllowedRoute) {
       return NextResponse.redirect(new URL('/admin/maps', request.url));
     }
   }

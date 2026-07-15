@@ -5,7 +5,13 @@ use poem_openapi::param::Query;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use serde_json::{json, Value};
+
 use crate::core::api_models::*;
+use crate::core::audit::{
+    diff_changes, insert_audit_log, ACTION_DELETE_MAP, ACTION_UPDATE_GLOBAL,
+    ACTION_UPDATE_SERVER, CATEGORY_MAP_METADATA,
+};
 use crate::core::utils::*;
 use crate::{response, AppData};
 
@@ -228,7 +234,37 @@ impl AdminMapsApi {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 
-        match sqlx::query!(
+        let mut tx = match data.pool.begin().await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to begin transaction for global map metadata update: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+
+        macro_rules! exec {
+            ($query:expr) => {
+                match $query.await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!("Failed to update global map metadata for {}: {}", dto.map_name, e);
+                        let _ = tx.rollback().await;
+                        return response!(internal_server_error);
+                    }
+                }
+            };
+        }
+
+        let old_row = exec!(sqlx::query!(
+            r#"
+            SELECT is_tryhard, is_casual, has_lasers, workshop_id, resolved_workshop_id
+            FROM map_metadata WHERE name = $1
+            "#,
+            dto.map_name
+        )
+        .fetch_optional(&mut *tx));
+
+        exec!(sqlx::query!(
             r#"
             INSERT INTO map_metadata (name, workshop_id, is_tryhard, is_casual, resolved_workshop_id, has_lasers)
             VALUES ($1, COALESCE($4::BIGINT, 0), $2, $3, $5, $6)
@@ -246,15 +282,53 @@ impl AdminMapsApi {
             dto.resolved_workshop_id,
             dto.has_lasers,
         )
-        .execute(&*data.pool)
-        .await
-        {
-            Ok(_) => response!(ok true),
-            Err(e) => {
-                tracing::error!("Failed to update global map metadata for {}: {}", dto.map_name, e);
-                response!(internal_server_error)
-            }
+        .execute(&mut *tx));
+
+        let new_row = exec!(sqlx::query!(
+            r#"
+            SELECT is_tryhard, is_casual, has_lasers, workshop_id, resolved_workshop_id
+            FROM map_metadata WHERE name = $1
+            "#,
+            dto.map_name
+        )
+        .fetch_one(&mut *tx));
+
+        let (old_tryhard, old_casual, old_lasers, old_workshop, old_resolved) = match &old_row {
+            Some(r) => (
+                json!(r.is_tryhard),
+                json!(r.is_casual),
+                json!(r.has_lasers),
+                json!(r.workshop_id),
+                json!(r.resolved_workshop_id),
+            ),
+            None => (Value::Null, Value::Null, Value::Null, Value::Null, Value::Null),
+        };
+        let changes = diff_changes(vec![
+            ("is_tryhard", old_tryhard, json!(new_row.is_tryhard)),
+            ("is_casual", old_casual, json!(new_row.is_casual)),
+            ("has_lasers", old_lasers, json!(new_row.has_lasers)),
+            ("workshop_id", old_workshop, json!(new_row.workshop_id)),
+            ("resolved_workshop_id", old_resolved, json!(new_row.resolved_workshop_id)),
+        ]);
+
+        if changes.as_object().is_some_and(|o| !o.is_empty()) {
+            exec!(insert_audit_log(
+                &mut *tx,
+                CATEGORY_MAP_METADATA,
+                ACTION_UPDATE_GLOBAL,
+                Some(&dto.map_name),
+                None,
+                user_token.id,
+                &changes,
+            ));
         }
+
+        if let Err(e) = tx.commit().await {
+            tracing::error!("Failed to commit global map metadata update for {}: {}", dto.map_name, e);
+            return response!(internal_server_error);
+        }
+
+        response!(ok true)
     }
 
     #[oai(path = "/admin/maps/:map_name", method = "delete")]
@@ -286,6 +360,50 @@ impl AdminMapsApi {
             };
         }
 
+        macro_rules! fetch {
+            ($query:expr) => {
+                match $query.await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!("Failed to snapshot map data for {}: {}", map_name, e);
+                        let _ = tx.rollback().await;
+                        return response!(internal_server_error);
+                    }
+                }
+            };
+        }
+
+        let metadata_snapshot = fetch!(sqlx::query_scalar!(
+            "SELECT to_jsonb(m) FROM map_metadata m WHERE name = $1",
+            map_name
+        )
+        .fetch_optional(&mut *tx))
+        .flatten()
+        .unwrap_or(Value::Null);
+
+        let server_ids = fetch!(sqlx::query_scalar!(
+            r#"SELECT array_agg(server_id) AS "server_ids" FROM server_map WHERE map = $1"#,
+            map_name
+        )
+        .fetch_one(&mut *tx))
+        .unwrap_or_default();
+
+        let changes = json!({
+            "map": {
+                "old": { "metadata": metadata_snapshot, "servers": server_ids },
+                "new": null
+            }
+        });
+        fetch!(insert_audit_log(
+            &mut *tx,
+            CATEGORY_MAP_METADATA,
+            ACTION_DELETE_MAP,
+            Some(&map_name),
+            None,
+            user_token.id,
+            &changes,
+        ));
+
         exec!(sqlx::query!("DELETE FROM website.player_map_time WHERE map = $1", map_name));
         exec!(sqlx::query!("DELETE FROM server_map_played WHERE map = $1", map_name));
         exec!(sqlx::query!("DELETE FROM server_map WHERE map = $1", map_name));
@@ -310,21 +428,46 @@ impl AdminMapsApi {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 
-        let exists = sqlx::query_scalar!(
-            "SELECT EXISTS(SELECT 1 FROM server_map WHERE server_id = $1 AND map = $2)",
+        let mut tx = match data.pool.begin().await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to begin transaction for server map metadata update: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+
+        macro_rules! exec {
+            ($query:expr) => {
+                match $query.await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!(
+                            "Failed to update server map metadata for {} / {}: {}",
+                            dto.server_id, dto.map_name, e
+                        );
+                        let _ = tx.rollback().await;
+                        return response!(internal_server_error);
+                    }
+                }
+            };
+        }
+
+        let old_row = exec!(sqlx::query!(
+            r#"
+            SELECT is_tryhard, is_casual, workshop_id, resolved_workshop_id, no_noms, min_players, max_players
+            FROM server_map WHERE server_id = $1 AND map = $2
+            "#,
             dto.server_id,
             dto.map_name
         )
-        .fetch_one(&*data.pool)
-        .await
-        .unwrap_or(Some(false))
-        .unwrap_or(false);
+        .fetch_optional(&mut *tx));
 
-        if !exists {
+        let Some(old_row) = old_row else {
+            let _ = tx.rollback().await;
             return response!(err "Map not found for this server", ErrorCode::NotFound);
-        }
+        };
 
-        match sqlx::query!(
+        exec!(sqlx::query!(
             r#"
             UPDATE server_map SET
                 is_tryhard           = $3,
@@ -346,18 +489,49 @@ impl AdminMapsApi {
             dto.min_players,
             dto.max_players,
         )
-        .execute(&*data.pool)
-        .await
-        {
-            Ok(_) => response!(ok true),
-            Err(e) => {
-                tracing::error!(
-                    "Failed to update server map metadata for {} / {}: {}",
-                    dto.server_id, dto.map_name, e
-                );
-                response!(internal_server_error)
-            }
+        .execute(&mut *tx));
+
+        let new_row = exec!(sqlx::query!(
+            r#"
+            SELECT is_tryhard, is_casual, workshop_id, resolved_workshop_id, no_noms, min_players, max_players
+            FROM server_map WHERE server_id = $1 AND map = $2
+            "#,
+            dto.server_id,
+            dto.map_name
+        )
+        .fetch_one(&mut *tx));
+
+        let changes = diff_changes(vec![
+            ("is_tryhard", json!(old_row.is_tryhard), json!(new_row.is_tryhard)),
+            ("is_casual", json!(old_row.is_casual), json!(new_row.is_casual)),
+            ("workshop_id", json!(old_row.workshop_id), json!(new_row.workshop_id)),
+            ("resolved_workshop_id", json!(old_row.resolved_workshop_id), json!(new_row.resolved_workshop_id)),
+            ("no_noms", json!(old_row.no_noms), json!(new_row.no_noms)),
+            ("min_players", json!(old_row.min_players), json!(new_row.min_players)),
+            ("max_players", json!(old_row.max_players), json!(new_row.max_players)),
+        ]);
+
+        if changes.as_object().is_some_and(|o| !o.is_empty()) {
+            exec!(insert_audit_log(
+                &mut *tx,
+                CATEGORY_MAP_METADATA,
+                ACTION_UPDATE_SERVER,
+                Some(&dto.map_name),
+                Some(&dto.server_id),
+                user_token.id,
+                &changes,
+            ));
         }
+
+        if let Err(e) = tx.commit().await {
+            tracing::error!(
+                "Failed to commit server map metadata update for {} / {}: {}",
+                dto.server_id, dto.map_name, e
+            );
+            return response!(internal_server_error);
+        }
+
+        response!(ok true)
     }
 }
 

@@ -471,6 +471,20 @@ CREATE TABLE website.user_roles (
 CREATE INDEX idx_user_roles_user_id ON website.user_roles(user_id);
 CREATE INDEX idx_user_roles_community ON website.user_roles(community_id) WHERE community_id IS NOT NULL;
 
+CREATE TABLE website.audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    category VARCHAR(40) NOT NULL,       -- 'map_metadata' (extensible: future categories)
+    action VARCHAR(40) NOT NULL,         -- 'update_global' | 'update_server' | 'delete_map'
+    map_name TEXT,                       -- nullable so future non-map categories fit
+    server_id VARCHAR(100),              -- set for per-server edits; no FK so audit survives server deletion
+    user_id BIGINT NOT NULL,             -- actor steam id; no FK so audit survives user deletion
+    changes JSONB NOT NULL DEFAULT '{}'::jsonb,  -- { "<field>": {"old": <json>, "new": <json>} }
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_audit_logs_category_created ON website.audit_logs (category, created_at DESC);
+CREATE INDEX idx_audit_logs_map_created ON website.audit_logs (map_name, created_at DESC) WHERE map_name IS NOT NULL;
+
 CREATE TABLE website.user_anonymization (
     user_id BIGINT REFERENCES website.steam_user(user_id) ON DELETE CASCADE,
     community_id UUID REFERENCES community(community_id) ON DELETE CASCADE,

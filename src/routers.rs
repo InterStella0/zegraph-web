@@ -10,4 +10,5 @@ pub mod donations;
 pub mod special_thanks;
 pub mod ze_community_links;
 pub mod admin_maps;
+pub mod admin_audit;
 pub mod admin_servers;

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { fetchApiUrl, getMapImage } from 'utils/generalUtils'
+import { MapAuditHistory } from '../components/MapAuditHistory'
 import { uploadFileChunked, CHUNKED_UPLOAD_THRESHOLD, UploadProgress } from 'utils/uploadUtils'
 import type { Map3DModel, MapWithModels } from 'types/maps'
 import type {
@@ -456,6 +457,7 @@ function EditMapDialog({
   const [globalResolvedWorkshopId, setGlobalResolvedWorkshopId] = useState('')
   const [savingGlobal, setSavingGlobal] = useState(false)
   const [savedGlobal, setSavedGlobal] = useState(false)
+  const [historyKey, setHistoryKey] = useState(0)
 
   useEffect(() => {
     if (map) {
@@ -486,6 +488,7 @@ function EditMapDialog({
       })
       setSavedGlobal(true)
       setTimeout(() => setSavedGlobal(false), 2000)
+      setHistoryKey((k) => k + 1)
       onSaved()
     } catch (e) {
       console.error('Failed to save global map metadata:', e)
@@ -498,11 +501,12 @@ function EditMapDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-mono text-sm">{map.map_name}</DialogTitle>
         </DialogHeader>
 
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 overflow-y-auto lg:overflow-y-visible">
         <Tabs defaultValue="global" className="flex-1 flex flex-col min-h-0">
           <TabsList className="shrink-0">
             <TabsTrigger value="global">Global</TabsTrigger>
@@ -575,9 +579,23 @@ function EditMapDialog({
           </TabsContent>
 
           <TabsContent value="servers" className="flex-1 overflow-auto">
-            <ServerEditor map={map} onSaved={onSaved} />
+            <ServerEditor
+              map={map}
+              onSaved={() => {
+                setHistoryKey((k) => k + 1)
+                onSaved()
+              }}
+            />
           </TabsContent>
         </Tabs>
+
+        <div className="min-h-0 flex flex-col lg:border-l lg:pl-4 max-lg:border-t max-lg:pt-4">
+          <h3 className="text-sm font-medium mb-2 shrink-0">Edit History</h3>
+          <div className="flex-1 min-h-0 lg:overflow-y-auto max-lg:max-h-56 max-lg:overflow-y-auto">
+            <MapAuditHistory mapName={map.map_name} refreshKey={historyKey} />
+          </div>
+        </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

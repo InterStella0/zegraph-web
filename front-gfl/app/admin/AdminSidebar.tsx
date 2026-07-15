@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Sheet, SheetContent } from 'components/ui/sheet';
 import { ScrollArea } from 'components/ui/scroll-area';
 import { Button } from 'components/ui/button';
-import { FileText, MessageSquare, Music, Ban, Shield, Megaphone, Bell, Settings, Box, Heart, Server, Menu, Link2, Award } from 'lucide-react';
+import { FileText, MessageSquare, Music, Ban, Shield, Megaphone, Bell, Settings, Box, Heart, Server, Menu, Link2, Award, History } from 'lucide-react';
 
 type NavItem = {
   label: string;
@@ -56,9 +56,12 @@ const navSections: NavSection[] = [
     icon: Settings,
     items: [
       { label: 'Push Notifications', href: '/admin/notifications', icon: Bell },
+      { label: 'Audit Log', href: '/admin/audit-logs', icon: History },
     ],
   },
 ];
+
+const MAP_MANAGER_ROUTES = ['/admin/maps', '/admin/audit-logs'];
 
 function SidebarContent({ onNavigate, mapManagerOnly }: { onNavigate?: () => void; mapManagerOnly?: boolean }) {
   const pathname = usePathname();
@@ -66,7 +69,7 @@ function SidebarContent({ onNavigate, mapManagerOnly }: { onNavigate?: () => voi
     ? navSections
         .map((section) => ({
           ...section,
-          items: section.items.filter((item) => item.href === '/admin/maps'),
+          items: section.items.filter((item) => MAP_MANAGER_ROUTES.includes(item.href)),
         }))
         .filter((section) => section.items.length > 0)
     : navSections;

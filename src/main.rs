@@ -42,6 +42,7 @@ use crate::routers::donations::DonationsApi;
 use crate::routers::special_thanks::SpecialThanksApi;
 use crate::routers::ze_community_links::ZeCommunityLinksApi;
 use crate::routers::admin_maps::AdminMapsApi;
+use crate::routers::admin_audit::AdminAuditApi;
 use crate::routers::admin_servers::AdminServersApi;
 
 #[derive(Clone)]
@@ -187,6 +188,7 @@ async fn run_main() {
         SpecialThanksApi,
         ZeCommunityLinksApi,
         AdminMapsApi,
+        AdminAuditApi,
         AdminServersApi,
     );
     // For logging endpoints, because poem dev rly makes it hard for me
@@ -203,6 +205,7 @@ async fn run_main() {
         Arc::new(SpecialThanksApi),
         Arc::new(ZeCommunityLinksApi),
         Arc::new(AdminMapsApi),
+        Arc::new(AdminAuditApi),
         Arc::new(AdminServersApi),
     ];
     let port = "3000";
