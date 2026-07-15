@@ -398,6 +398,7 @@ pub struct PlayerTableRank{
     pub name: String,
     pub tryhard_playtime: f64,
     pub casual_playtime: f64,
+    pub mixed_playtime: f64,
     pub total_playtime: f64,
     pub is_anonymous: bool
 }

@@ -68,6 +68,7 @@ async fn fetch_infraction(id: &str, source: &str) -> Result<PlayerInfractionUpda
 enum PlayerTableMode{
     Casual,
     TryHard,
+    Mixed,
     Total
 }
 impl Display for PlayerTableMode{
@@ -75,6 +76,7 @@ impl Display for PlayerTableMode{
         let value = match self {
             PlayerTableMode::Casual => "casual",
             PlayerTableMode::TryHard => "tryhard",
+            PlayerTableMode::Mixed => "mixed",
             PlayerTableMode::Total => "total",
         };
         write!(f, "{value}")
@@ -291,6 +293,14 @@ impl PlayerApi{
         OptionalTokenBearer(user_token): OptionalTokenBearer,
     ) -> Response<Vec<SearchPlayer>>{
         let user_id = user_token.as_ref().map(|t| t.id);
+        let player_name = player_name.trim();
+        if player_name.len() < 3 {
+            return response!(ok vec![])
+        }
+        let escaped = player_name
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
         let Ok(result) = sqlx::query_as!(DbPlayerAnonymized, r#"
             WITH server_community AS (
                 SELECT community_id FROM server WHERE server_id = $3
@@ -302,16 +312,17 @@ impl PlayerApi{
                 WHERE $4 IS NOT NULL
             ),
             matched_players AS (
-                SELECT p.*,
-                       CASE WHEN p.player_id = $2 THEN 0 ELSE 1 END AS id_rank,
-                       NULLIF(STRPOS(LOWER(p.player_name), LOWER($2)), 0) AS name_rank
-                FROM player p
-                WHERE p.player_id = $2 OR p.player_name ILIKE '%' || $1 || '%'
+                SELECT spn.player_id, spn.player_name, spn.is_anonymous,
+                       CASE WHEN spn.player_id = $2 THEN 0 ELSE 1 END AS id_rank,
+                       NULLIF(STRPOS(LOWER(spn.player_name), LOWER($2)), 0) AS name_rank
+                FROM server_player_names spn
+                WHERE spn.server_id = $3
+                  AND (spn.player_id = $2 OR LOWER(spn.player_name) LIKE $1)
             )
             SELECT
                 a.player_id AS "player_id!",
                 CASE
-                    WHEN ua.anonymized = TRUE
+                    WHEN a.is_anonymous = TRUE
                          AND $4::TEXT IS DISTINCT FROM a.player_id
                          AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                          AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
@@ -319,7 +330,7 @@ impl PlayerApi{
                     ELSE a.player_name
                 END AS "player_name!",
                 CASE
-                    WHEN ua.anonymized = TRUE
+                    WHEN a.is_anonymous = TRUE
                          AND $4::TEXT IS DISTINCT FROM a.player_id
                          AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                          AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
@@ -327,18 +338,9 @@ impl PlayerApi{
                     ELSE FALSE
                 END AS "is_anonymous!"
             FROM matched_players a
-            CROSS JOIN server_community sc
-            LEFT JOIN website.user_anonymization ua
-                ON ua.user_id::TEXT = a.player_id AND ua.community_id = sc.community_id
-            WHERE EXISTS (
-                SELECT 1
-                FROM player_server_session pss
-                WHERE pss.player_id = a.player_id
-                  AND pss.server_id = $3
-            )
             ORDER BY a.id_rank ASC, a.name_rank ASC NULLS LAST
             LIMIT 20;
-        "#, format!("%{}%", player_name.to_lowercase()), player_name, server.server_id, user_id
+        "#, format!("%{}%", escaped.to_lowercase()), player_name, server.server_id, user_id
         ).fetch_all(&*data.pool.clone()).await else {
             return response!(ok vec![])
         };
@@ -367,7 +369,11 @@ impl PlayerApi{
                     return response!(ok PlayersTableRanked{ players: vec![], total_players: 0 })
                 }
                 let player_name_clean = player_name;
-                let player_name = format!("%{player_name}%");
+                let escaped = player_name
+                    .replace('\\', "\\\\")
+                    .replace('%', "\\%")
+                    .replace('_', "\\_");
+                let player_name = format!("%{}%", escaped.to_lowercase());
                 sqlx::query_as!(DbPlayerTable, r#"
                     WITH server_community AS (
                         SELECT community_id FROM server WHERE server_id = $4
@@ -379,46 +385,47 @@ impl PlayerApi{
                         WHERE $7 IS NOT NULL
                     )
                     SELECT
-                        COUNT(*) OVER(PARTITION BY pp.server_id) AS total_players,
+                        COUNT(*) OVER() AS total_players,
                         CASE
                             WHEN $5='total' THEN ppr.playtime_rank
                             WHEN $5='casual' THEN ppr.casual_rank
                             WHEN $5='tryhard' THEN ppr.tryhard_rank
+                            WHEN $5='mixed' THEN ppr.mixed_rank
                             ELSE ppr.playtime_rank
                         END AS ranked,
-                        p.player_id AS "player_id!",
+                        spn.player_id AS "player_id!",
                         CASE
-                            WHEN ua.anonymized = TRUE
-                                 AND $7::TEXT IS DISTINCT FROM p.player_id
+                            WHEN spn.is_anonymous = TRUE
+                                 AND $7::TEXT IS DISTINCT FROM spn.player_id
                                  AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                                  AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                             THEN 'Anonymous'
-                            ELSE p.player_name
+                            ELSE spn.player_name
                         END AS "player_name",
-                        total_playtime,
-                        casual_playtime,
-                        tryhard_playtime,
+                        COALESCE(pp.total_playtime, INTERVAL '0') AS "total_playtime!",
+                        COALESCE(pp.casual_playtime, INTERVAL '0') AS "casual_playtime!",
+                        COALESCE(pp.tryhard_playtime, INTERVAL '0') AS "tryhard_playtime!",
+                        COALESCE(pp.mixed_playtime, INTERVAL '0') AS "mixed_playtime!",
                         CASE
-                            WHEN ua.anonymized = TRUE
-                                 AND $7::TEXT IS DISTINCT FROM p.player_id
+                            WHEN spn.is_anonymous = TRUE
+                                 AND $7::TEXT IS DISTINCT FROM spn.player_id
                                  AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                                  AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                             THEN TRUE
                             ELSE FALSE
                         END AS "is_anonymous!"
-                    FROM website.player_playtime pp
-                    JOIN player p ON p.player_id=pp.player_id
-                    CROSS JOIN server_community sc
-                    LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=pp.server_id AND ppr.player_id=pp.player_id
-                    LEFT JOIN website.user_anonymization ua ON ua.user_id::TEXT = p.player_id AND ua.community_id = sc.community_id
-                    WHERE pp.server_id=$4 AND (p.player_id=$6 OR p.player_name ILIKE $1)
+                    FROM server_player_names spn
+                    LEFT JOIN website.player_playtime pp ON pp.server_id=spn.server_id AND pp.player_id=spn.player_id
+                    LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=spn.server_id AND ppr.player_id=spn.player_id
+                    WHERE spn.server_id=$4 AND (spn.player_id=$6 OR LOWER(spn.player_name) LIKE $1)
                     ORDER BY
                          CASE
-                            WHEN $5='total' THEN total_playtime
-                            WHEN $5='casual' THEN casual_playtime
-                            WHEN $5='tryhard' THEN tryhard_playtime
-                            ELSE total_playtime
-                        END DESC
+                            WHEN $5='total' THEN COALESCE(pp.total_playtime, INTERVAL '0')
+                            WHEN $5='casual' THEN COALESCE(pp.casual_playtime, INTERVAL '0')
+                            WHEN $5='tryhard' THEN COALESCE(pp.tryhard_playtime, INTERVAL '0')
+                            WHEN $5='mixed' THEN COALESCE(pp.mixed_playtime, INTERVAL '0')
+                            ELSE COALESCE(pp.total_playtime, INTERVAL '0')
+                        END DESC, spn.player_id
                     LIMIT $3 OFFSET $2;
                 "#, player_name, paging, pagination, server.server_id, mode.to_string(), player_name_clean, user_id)
                     .fetch_all(&*data.pool.clone())
@@ -436,46 +443,47 @@ impl PlayerApi{
                         WHERE $5 IS NOT NULL
                     )
                     SELECT
-                        COUNT(*) OVER(PARTITION BY pp.server_id) AS total_players,
+                        COUNT(*) OVER() AS total_players,
                         CASE
                             WHEN $4='total' THEN ppr.playtime_rank
                             WHEN $4='casual' THEN ppr.casual_rank
                             WHEN $4='tryhard' THEN ppr.tryhard_rank
+                            WHEN $4='mixed' THEN ppr.mixed_rank
                             ELSE ppr.playtime_rank
                         END AS ranked,
-                        p.player_id AS "player_id!",
+                        spn.player_id AS "player_id!",
                         CASE
-                            WHEN ua.anonymized = TRUE
-                                 AND $5::TEXT IS DISTINCT FROM p.player_id
+                            WHEN spn.is_anonymous = TRUE
+                                 AND $5::TEXT IS DISTINCT FROM spn.player_id
                                  AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                                  AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                             THEN 'Anonymous'
-                            ELSE p.player_name
+                            ELSE spn.player_name
                         END AS "player_name",
-                        total_playtime,
-                        casual_playtime,
-                        tryhard_playtime,
+                        COALESCE(pp.total_playtime, INTERVAL '0') AS "total_playtime!",
+                        COALESCE(pp.casual_playtime, INTERVAL '0') AS "casual_playtime!",
+                        COALESCE(pp.tryhard_playtime, INTERVAL '0') AS "tryhard_playtime!",
+                        COALESCE(pp.mixed_playtime, INTERVAL '0') AS "mixed_playtime!",
                         CASE
-                            WHEN ua.anonymized = TRUE
-                                 AND $5::TEXT IS DISTINCT FROM p.player_id
+                            WHEN spn.is_anonymous = TRUE
+                                 AND $5::TEXT IS DISTINCT FROM spn.player_id
                                  AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                                  AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                             THEN TRUE
                             ELSE FALSE
                         END AS "is_anonymous!"
-                    FROM website.player_playtime pp
-                    JOIN player p ON p.player_id=pp.player_id
-                    CROSS JOIN server_community sc
-                    LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=pp.server_id AND ppr.player_id=pp.player_id
-                    LEFT JOIN website.user_anonymization ua ON ua.user_id::TEXT = p.player_id AND ua.community_id = sc.community_id
-                    WHERE pp.server_id=$3
+                    FROM server_player_names spn
+                    LEFT JOIN website.player_playtime pp ON pp.server_id=spn.server_id AND pp.player_id=spn.player_id
+                    LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=spn.server_id AND ppr.player_id=spn.player_id
+                    WHERE spn.server_id=$3
                     ORDER BY
                          CASE
-                            WHEN $4='total' THEN total_playtime
-                            WHEN $4='casual' THEN casual_playtime
-                            WHEN $4='tryhard' THEN tryhard_playtime
-                            ELSE total_playtime
-                        END DESC
+                            WHEN $4='total' THEN COALESCE(pp.total_playtime, INTERVAL '0')
+                            WHEN $4='casual' THEN COALESCE(pp.casual_playtime, INTERVAL '0')
+                            WHEN $4='tryhard' THEN COALESCE(pp.tryhard_playtime, INTERVAL '0')
+                            WHEN $4='mixed' THEN COALESCE(pp.mixed_playtime, INTERVAL '0')
+                            ELSE COALESCE(pp.total_playtime, INTERVAL '0')
+                        END DESC, spn.player_id
                     LIMIT $2 OFFSET $1;
                 "#, paging, pagination, server.server_id, mode.to_string(), user_id)
                     .fetch_all(&*data.pool.clone())

@@ -405,6 +405,7 @@ pub struct DbPlayerTable{
     pub total_playtime: PgInterval,
     pub casual_playtime: PgInterval,
     pub tryhard_playtime: PgInterval,
+    pub mixed_playtime: PgInterval,
     #[skip]
     pub total_players: Option<i64>,
     pub is_anonymous: bool

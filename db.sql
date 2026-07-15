@@ -12,7 +12,7 @@ CREATE TABLE player(
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     associated_player_id REFERENCES player(player_id) ON DELETE SET NULL
 );
-CREATE INDEX idx_player_name_trgm ON player USING gin (player_name gin_trgm_ops);
+CREATE INDEX idx_player_name_trgm ON player USING gin (lower(player_name) gin_trgm_ops);
 
 CREATE TABLE player_activity(
     player_id VARCHAR(100) REFERENCES player(player_id) ON DELETE CASCADE,
@@ -1130,6 +1130,19 @@ FROM player_server_session pss
     JOIN player p ON p.player_id::text = pss.player_id::text
 WHERE p.location IS NOT NULL;
 
+
+CREATE MATERIALIZED VIEW server_player_names AS
+SELECT DISTINCT pss.server_id, p.player_id, p.player_name,
+       COALESCE(ua.anonymized, FALSE) AS is_anonymous
+FROM player_server_session pss
+JOIN player p ON p.player_id = pss.player_id
+JOIN server s ON s.server_id = pss.server_id
+LEFT JOIN website.user_anonymization ua
+    ON ua.user_id::TEXT = p.player_id AND ua.community_id = s.community_id;
+
+CREATE UNIQUE INDEX idx_spn_server_player ON server_player_names(server_id, player_id);
+CREATE INDEX idx_spn_name_trgm ON server_player_names USING gin (lower(player_name) gin_trgm_ops);
+
 CREATE SCHEMA external_data;
 CREATE TABLE external_data.gfl_csgo_players (
     steamid64 VARCHAR(19) PRIMARY KEY,
@@ -1222,6 +1235,15 @@ SELECT cron.schedule_in_database(
 );
 
 
+
+SELECT cron.schedule_in_database(
+    'update-server-player-names',
+    '*/30 * * * *',  -- Every 30 minutes
+    $$
+        REFRESH MATERIALIZED VIEW CONCURRENTLY server_player_names;
+    $$,
+    'cs2_tracker_db'  -- INSERT YOUR DB NAME
+);
 
 SELECT cron.schedule_in_database(
     'update-player-map-rank',

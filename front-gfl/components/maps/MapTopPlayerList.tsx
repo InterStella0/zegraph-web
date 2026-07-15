@@ -19,8 +19,8 @@ import PaginationPage from "components/ui/PaginationPage.tsx";
 import {useTranslations} from 'next-intl';
 
 const PAGE_SIZE = 10
-const SUGGESTION_MIN_CHARS = 2
-const SUGGESTION_DEBOUNCE_MS = 300
+const SUGGESTION_MIN_CHARS = 3
+const SUGGESTION_DEBOUNCE_MS = 100
 const COMMIT_DEBOUNCE_MS = 2000
 
 function MapTopPlayerListDisplay(): ReactElement{
