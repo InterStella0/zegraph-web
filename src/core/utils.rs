@@ -179,7 +179,8 @@ async fn check_player_anonymization_internal(
     if is_admin == Some(Some(true)) {
         return Ok(true);
     }
-    // TODO: Why is this returning forbidden i dont rember.
+    // Player is anonymized and the requester is not the player, a superuser, or a community
+    // admin -> deny. The guard turns this into a hard 403 (frontend renders its AccessDenied page).
     Err(StatusCode::FORBIDDEN)
 }
 
@@ -234,6 +235,91 @@ pub async fn is_player_activity_anonymized(app: &AppData, server_id: &str, playe
         .unwrap_or(false)
 }
 
+
+pub struct BriefAnonymizer {
+    reveal_all: bool,
+    viewer_id: Option<String>,
+}
+
+impl BriefAnonymizer {
+    pub async fn new(app: &AppData, server_id: &str, viewer_id: Option<i64>) -> Self {
+        let Some(viewer_id) = viewer_id else {
+            return Self { reveal_all: false, viewer_id: None };
+        };
+        let reveal_all = check_superuser(app, viewer_id).await
+            || is_community_admin_of_server(app, viewer_id, server_id).await;
+        Self { reveal_all, viewer_id: Some(viewer_id.to_string()) }
+    }
+
+    /// Whether the requester may see this player's real identity: superuser, this community's
+    /// admin, or the player themselves.
+    fn reveal(&self, player_id: &str) -> bool {
+        self.reveal_all || self.viewer_id.as_deref() == Some(player_id)
+    }
+
+    /// Mask, in place, every anonymized row the requester isn't allowed to see. Rows that stay
+    /// visible get `is_anonymous` cleared so the frontend renders them normally.
+    pub fn apply<T: AnonRow>(&self, rows: &mut [T]) {
+        for row in rows.iter_mut() {
+            if row.is_anonymous() && !self.reveal(row.row_id()) {
+                row.mask();
+            } else {
+                row.set_anonymous(false);
+            }
+        }
+    }
+
+    /// Drop anonymized rows the requester isn't allowed to see
+    pub fn retain_visible<T: AnonRow>(&self, rows: &mut Vec<T>) {
+        rows.retain(|row| !(row.is_anonymous() && !self.reveal(row.row_id())));
+    }
+}
+
+async fn is_community_admin_of_server(app: &AppData, user_id: i64, server_id: &str) -> bool {
+    sqlx::query_scalar!(
+        "SELECT COALESCE(website.is_community_admin($1, s.community_id), FALSE)
+         FROM server s WHERE s.server_id = $2",
+        user_id, server_id
+    )
+    .fetch_optional(&*app.pool)
+    .await
+    .ok()
+    .flatten()
+    .flatten()
+    .unwrap_or(false)
+}
+
+/// A player-list row whose identity can be masked when the owner has opted out.
+pub trait AnonRow {
+    fn row_id(&self) -> &str;
+    fn is_anonymous(&self) -> bool;
+    fn set_anonymous(&mut self, value: bool);
+    /// Replace identity with an anonymous placeholder and a throwaway id.
+    fn mask(&mut self);
+}
+
+impl AnonRow for PlayerBrief {
+    fn row_id(&self) -> &str { &self.id }
+    fn is_anonymous(&self) -> bool { self.is_anonymous }
+    fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn mask(&mut self) {
+        self.name = "Anonymous".to_string();
+        self.id = Uuid::new_v4().to_string();
+        self.is_anonymous = true;
+    }
+}
+
+impl AnonRow for CountryPlayer {
+    fn row_id(&self) -> &str { &self.id }
+    fn is_anonymous(&self) -> bool { self.is_anonymous }
+    fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn mask(&mut self) {
+        self.name = "Anonymous".to_string();
+        self.id = Uuid::new_v4().to_string();
+        self.is_anonymous = true;
+    }
+}
+
 #[allow(dead_code)]
 pub struct UserTokenAuthorized{
     user_token: UserToken,
@@ -255,6 +341,9 @@ impl<'a> FromRequest<'a> for OptionalAnonymousTokenBearer {
             .ok_or_else(|| poem::Error::from_string("Missing AppData", StatusCode::INTERNAL_SERVER_ERROR))?;
 
         let Some(user_token) = auth.and_then(|bearer| parse_user_from_token(&bearer.token)) else {
+            if is_player_activity_anonymized(data, server_id, player_id).await {
+                return Err(poem::Error::from_string("Access forbidden", StatusCode::FORBIDDEN));
+            }
             return Ok(Self(None));
         };
 
@@ -527,7 +616,8 @@ pub async fn update_online_brief(
               p.created_at,
               online.online_since,
               lp.started_at AS last_played,
-              lp.ended_at - lp.started_at AS last_played_duration
+              lp.ended_at - lp.started_at AS last_played_duration,
+              FALSE AS \"is_anonymous!\"
             FROM player p
             JOIN online
               ON online.player_id = p.player_id

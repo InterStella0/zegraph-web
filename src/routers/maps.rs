@@ -662,7 +662,8 @@ impl MapApi{
     }
     #[oai(path="/servers/:server_id/sessions/:session_id/players", method="get")]
     async fn get_map_player_session(
-        &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>
+        &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>,
+        OptionalTokenBearer(user_token): OptionalTokenBearer,
     ) -> Response<Vec<PlayerBrief>>{
         let pool = &*app.pool.clone();
         let cache = &app.cache;
@@ -727,7 +728,8 @@ impl MapApi{
                     COALESCE(op.started_at, NULL) as online_since,
                     lps.started_at AS last_played,
                     (lps.ended_at - lps.started_at) AS last_played_duration,
-                    0::int AS rank
+                    0::int AS rank,
+                    COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
                 FROM player p
                 JOIN timespent ts
                 ON ts.player_id = p.player_id
@@ -749,6 +751,8 @@ impl MapApi{
         if !rows.is_new{
             update_online_brief(&pool, cache, &server.server_id, &mut players).await;
         }
+        let anonymizer = BriefAnonymizer::new(app, &server.server_id, user_token.as_ref().map(|t| t.id)).await;
+        anonymizer.apply(&mut players);
         response!(ok players)
     }
     #[oai(path="/servers/:server_id/sessions/:session_id/continents", method="get")]
@@ -962,7 +966,8 @@ impl MapApi{
     #[oai(path="/servers/:server_id/maps/:map_name/top_players", method="get")]
     async fn get_map_players(
         &self, Data(app): Data<&AppData>, extract: MapExtractor,
-        Query(page): Query<Option<usize>>, Query(player_name): Query<Option<String>>
+        Query(page): Query<Option<usize>>, Query(player_name): Query<Option<String>>,
+        OptionalTokenBearer(user_token): OptionalTokenBearer,
     ) -> Response<BriefPlayers>{
         let pool = &*app.pool.clone();
         let pagination_size = 10i64;
@@ -998,7 +1003,8 @@ impl MapApi{
                         pg.rank,
                         op.started_at AS \"online_since?\",
                         lp.started_at AS \"last_played?\",
-                        (lp.ended_at - lp.started_at) AS \"last_played_duration?\"
+                        (lp.ended_at - lp.started_at) AS \"last_played_duration?\",
+                        COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
                     FROM pages pg
                     JOIN player p ON p.player_id = pg.player_id
                     LEFT JOIN LATERAL (
@@ -1051,7 +1057,8 @@ impl MapApi{
                         pg.rank,
                         op.started_at AS \"online_since?\",
                         lp.started_at AS \"last_played?\",
-                        (lp.ended_at - lp.started_at) AS \"last_played_duration?\"
+                        (lp.ended_at - lp.started_at) AS \"last_played_duration?\",
+                        COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
                     FROM pages pg
                     JOIN player p ON p.player_id = pg.player_id
                     LEFT JOIN LATERAL (
@@ -1095,6 +1102,13 @@ impl MapApi{
         let mut players: Vec<PlayerBrief> = rows.iter_into();
         if !is_new {
             update_online_brief(pool, &app.cache, &server_id, &mut players).await;
+        }
+        let anonymizer = BriefAnonymizer::new(app, &server_id, user_token.as_ref().map(|t| t.id)).await;
+        if player_name.is_some() {
+            // Name search: an anonymized player must not be discoverable by typing their name.
+            anonymizer.retain_visible(&mut players);
+        } else {
+            anonymizer.apply(&mut players);
         }
         let value = BriefPlayers {
             total_players: total_player_count,

@@ -216,7 +216,8 @@ impl GraphApi {
 	async fn get_server_graph_unique_player_session(
 		&self, Data(app): Data<&AppData>,
 		ServerExtractor(server): ServerExtractor,
-		Path(player_id): Path<String>, Path(session_id): Path<String>
+		Path(player_id): Path<String>, Path(session_id): Path<String>,
+		OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
 	) -> Response<Vec<ServerCountData>> {
 		let pool = &*app.pool.clone();
 		let cache = &app.cache;
@@ -385,7 +386,8 @@ impl GraphApi {
 	}
 	#[oai(path = "/graph/:server_id/top_players", method = "get")]
 	async fn get_server_top_players(
-		&self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(time_frame): Query<TopPlayersTimeFrame>
+		&self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(time_frame): Query<TopPlayersTimeFrame>,
+		OptionalTokenBearer(user_token): OptionalTokenBearer,
 	) -> Response<BriefPlayers> {
 		let pool = &*data.pool.clone();
 		let key = format!("graph-top-players:{}:{}", server.server_id, time_frame);
@@ -449,7 +451,8 @@ impl GraphApi {
 							COALESCE(op.started_at, NULL) AS online_since,
 							lp.ended_at AS last_played,
 							(lp.ended_at - lp.started_at) AS last_played_duration,
-							sp.total_players
+							sp.total_players,
+							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
 						FROM top_players sp
 						JOIN player p
 							ON p.player_id = sp.player_id
@@ -544,7 +547,8 @@ impl GraphApi {
 							COALESCE(op.started_at, NULL) AS online_since,
 							lp.ended_at AS last_played,
 							(lp.ended_at - lp.started_at) AS last_played_duration,
-							sp.total_players
+							sp.total_players,
+							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
 						FROM top_players sp
 						JOIN player p
 							ON p.player_id = sp.player_id
@@ -586,6 +590,9 @@ impl GraphApi {
 			update_online_brief(&data.pool, &data.cache, &server.server_id, &mut briefs).await
 		}
 
+		let anonymizer = BriefAnonymizer::new(data.0, &server.server_id, user_token.as_ref().map(|t| t.id)).await;
+		anonymizer.apply(&mut briefs);
+
 		let value = BriefPlayers {
 			total_players: total_player_count,
 			players: briefs
@@ -595,7 +602,8 @@ impl GraphApi {
 	#[oai(path = "/graph/:server_id/players", method = "get")]
 	async fn get_server_players(
 		&self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor,
-		start: Query<Option<DateTime<Utc>>>, end: Query<DateTime<Utc>>, page: Query<usize>
+		start: Query<Option<DateTime<Utc>>>, end: Query<DateTime<Utc>>, page: Query<usize>,
+		OptionalTokenBearer(user_token): OptionalTokenBearer,
 	) -> Response<BriefPlayers>{
 		let pool = &*data.pool.clone();
 		let pagination_size = 70;
@@ -665,7 +673,8 @@ impl GraphApi {
                 COALESCE(op.started_at, NULL) as online_since,
                 lp.ended_at as last_played,
                 (lp.ended_at - lp.started_at) as last_played_duration,
-                durr.total_players
+                durr.total_players,
+                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $3 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
             FROM player p
             JOIN session_duration durr
             	ON p.player_id=durr.player_id
@@ -693,6 +702,8 @@ impl GraphApi {
 
 		let mut players: Vec<PlayerBrief> = rows.iter_into();
 		update_online_brief(&pool, &data.cache, &server.server_id, &mut players).await;
+		let anonymizer = BriefAnonymizer::new(data.0, &server.server_id, user_token.as_ref().map(|t| t.id)).await;
+		anonymizer.apply(&mut players);
 		let value = BriefPlayers {
 			total_players: total_player_count,
 			players

@@ -546,6 +546,11 @@ impl AccountsApi {
             .filter_map(|s| s.community_id)
             .collect();
 
+        // If a non-owner would see no communities at all because the user is anonymized in every
+        // one they appear in, the top-level name must be hidden too (otherwise the opt-out leaks).
+        let all_community_ids: HashSet<Uuid> = servers_played.iter().map(|e| e.community_id).collect();
+        let has_visible_community = all_community_ids.iter().any(|c| !anonymized_community_ids.contains(c));
+
         let current_name = get_player(pool, &app.cache, &steam_id).await.map(|p| p.player_name);
 
         // Only users who have signed in to the site have a steam_user row.
@@ -707,9 +712,15 @@ impl AccountsApi {
             None
         };
 
+        let profile_name = if is_owner || all_community_ids.is_empty() || has_visible_community {
+            persona_name.or(current_name)
+        } else {
+            Some("Anonymous".to_string())
+        };
+
         response!(ok ProfileResponse {
             steamid: steam_id,
-            name: persona_name.or(current_name),
+            name: profile_name,
             summary: ProfileSummary {
                 total_playtime,
                 community_count,

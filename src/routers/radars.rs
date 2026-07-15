@@ -311,7 +311,8 @@ impl RadarApi {
         ServerExtractor(server): ServerExtractor,
         Query(latitude): Query<f64>,
         Query(longitude): Query<f64>,
-        Query(page): Query<usize>
+        Query(page): Query<usize>,
+        OptionalTokenBearer(user_token): OptionalTokenBearer,
     ) -> Response<CountryPlayers> {
         let pool = &*app.pool.clone();
         let offset = (page * 10) as i64;
@@ -335,7 +336,8 @@ impl RadarApi {
                 pst.location_country,
                 SUM(CURRENT_TIMESTAMP - pst.started_at) total_playtime,
                 1::bigint session_count,
-                COUNT(*) OVER () total_player_count
+                COUNT(*) OVER () total_player_count,
+                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = pst.player_id), FALSE) AS \"is_anonymous!\"
             FROM public.player_server_mapped pst
             RIGHT JOIN filtered_country fc
                 ON fc.country_code = pst.location_country
@@ -376,12 +378,16 @@ impl RadarApi {
             return response!(internal_server_error)
         };
         let country_geometry = country_geometry.result;
+        let total_player_count = player.total_player_count.unwrap_or_default();
+        let anonymizer = BriefAnonymizer::new(app, &server_id, user_token.as_ref().map(|t| t.id)).await;
+        let mut players_out: Vec<CountryPlayer> = result.result.iter_into();
+        anonymizer.apply(&mut players_out);
         response!(ok CountryPlayers{
             geojson: country_geometry.geometry.unwrap_or(String::from("{}")),
-            count: player.total_player_count.unwrap_or_default(),
+            count: total_player_count,
             code: country_geometry.country_code.unwrap_or_default(),
             name: country_geometry.country_name.unwrap_or_default(),
-            players: result.result.iter_into(),
+            players: players_out,
         })
     }
     #[oai(path="/radars/:server_id/query", method="get")]
@@ -392,7 +398,8 @@ impl RadarApi {
         Query(longitude): Query<f64>,
         Query(time): Query<DateTime<Utc>>,
         Query(interval): Query<TimeInterval>,
-        Query(page): Query<usize>
+        Query(page): Query<usize>,
+        OptionalTokenBearer(user_token): OptionalTokenBearer,
     ) -> Response<CountryPlayers> {
         let pool = &*app.pool.clone();
         let offset = (page * 10) as i64;
@@ -418,7 +425,8 @@ impl RadarApi {
                 pst.location_country,
                 SUM(COALESCE(pst.ended_at, CURRENT_TIMESTAMP) - pst.started_at) total_playtime,
                 COUNT(pst.fid) session_count,
-                COUNT(*) OVER () total_player_count
+                COUNT(*) OVER () total_player_count,
+                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = pst.player_id), FALSE) AS \"is_anonymous!\"
             FROM public.player_server_timed pst
             RIGHT JOIN filtered_country fc
                 ON fc.country_code = pst.location_country
@@ -466,12 +474,16 @@ impl RadarApi {
             return response!(internal_server_error)
         };
         let country_geometry = country_geometry.result;
+        let total_player_count = player.total_player_count.unwrap_or_default();
+        let anonymizer = BriefAnonymizer::new(app, &server_id, user_token.as_ref().map(|t| t.id)).await;
+        let mut players_out: Vec<CountryPlayer> = result.result.iter_into();
+        anonymizer.apply(&mut players_out);
         response!(ok CountryPlayers{
             geojson: country_geometry.geometry.unwrap_or(String::from("{}")),
-            count: player.total_player_count.unwrap_or_default(),
+            count: total_player_count,
             code: country_geometry.country_code.unwrap_or_default(),
             name: country_geometry.country_name.unwrap_or_default(),
-            players: result.result.iter_into(),
+            players: players_out,
         })
     }
 }

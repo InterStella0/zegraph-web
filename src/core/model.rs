@@ -302,6 +302,7 @@ impl Into<DbPlayerBrief> for DbPlayerDetail{
             online_since: self.online_since,
             last_played: self.last_played,
             last_played_duration: self.last_played_duration,
+            is_anonymous: false,
         }
     }
 }
@@ -429,6 +430,7 @@ pub struct DbPlayerBrief{
     #[method(to_utc_time)]
     pub last_played: Option<OffsetDateTime>,
     pub last_played_duration: Option<PgInterval>,
+    pub is_anonymous: bool,
 }
 
 #[derive(Clone, DbInto)]
@@ -835,6 +837,7 @@ pub struct DbCountryPlayer{
     pub total_playtime: Option<PgInterval>,
     #[default(0)]
     pub total_player_count: Option<i64>,
+    pub is_anonymous: bool,
 }
 #[derive(Serialize, Deserialize)]
 pub struct DbCountryGeometry{
@@ -1395,7 +1398,6 @@ pub struct DbLinkedName {
     pub total_playtime: Option<PgInterval>,
 }
 
-/// A stored row of website.player_global_playtime, keyed by canonical player.
 pub struct DbPlayerGlobalPlaytime {
     pub total_playtime: PgInterval,
     pub casual_playtime: PgInterval,

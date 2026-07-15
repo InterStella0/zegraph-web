@@ -417,6 +417,7 @@ pub struct PlayerBrief{
     pub online_since: Option<DateTime<Utc>>,
     pub last_played: DateTime<Utc>,
     pub last_played_duration: f64,
+    pub is_anonymous: bool,
 }
 #[derive(Object)]
 pub struct MapInfo{
@@ -736,6 +737,7 @@ pub struct CountryPlayer{
     pub total_playtime: f64,
     pub total_player_count: i64,
     pub session_count: i64,
+    pub is_anonymous: bool,
 }
 #[derive(Object)]
 pub struct CountryPlayers{

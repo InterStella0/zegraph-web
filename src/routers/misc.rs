@@ -134,13 +134,16 @@ impl MiscApi {
             SELECT server_id, server_readable_link, player_id, recent_online
             FROM (
                 SELECT pss.server_id,
-                       readable_link AS server_readable_link,
-                       player_id,
-                       MAX(started_at) AS recent_online,
+                       s.readable_link AS server_readable_link,
+                       pss.player_id,
+                       MAX(pss.started_at) AS recent_online,
                        ROW_NUMBER() OVER (PARTITION BY pss.server_id ORDER BY MAX(started_at) DESC) AS rn
                 FROM player_server_session pss
                 JOIN server s ON s.server_id=pss.server_id
+                LEFT JOIN server_player_names spn
+                    ON spn.server_id = pss.server_id AND spn.player_id = pss.player_id
                 WHERE started_at >= CURRENT_TIMESTAMP - INTERVAL '1 days'
+                  AND COALESCE(spn.is_anonymous, FALSE) = FALSE
                 GROUP BY pss.server_id, s.readable_link, pss.player_id
             ) ranked
             WHERE rn <= 20",
