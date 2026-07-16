@@ -1,60 +1,18 @@
-use chrono::{DateTime, Utc};
+
 use poem::web::Data;
 use poem_openapi::param::Query;
-use poem_openapi::{Object, OpenApi};
-use serde::Serialize;
+use poem_openapi::OpenApi;
 use serde_json::Value;
-use sqlx::types::time::OffsetDateTime;
 
-use crate::core::api_models::*;
 use crate::core::audit::CATEGORY_MAP_METADATA;
 use crate::core::utils::*;
 use crate::{response, AppData};
+use crate::api_models::admins::*;
+use crate::api_models::common::*;
+use crate::models::admins::DbAuditLogRow;
 
 pub struct AdminAuditApi;
 
-#[derive(Object, Serialize)]
-pub struct AuditFieldChange {
-    pub field: String,
-    pub old_value: Option<String>,
-    pub new_value: Option<String>,
-}
-
-#[derive(Object, Serialize)]
-pub struct AuditLogEntry {
-    pub id: i64,
-    pub category: String,
-    pub action: String,
-    pub map_name: Option<String>,
-    pub server_id: Option<String>,
-    pub server_name: Option<String>,
-    pub user_id: String,
-    pub user_name: Option<String>,
-    pub user_avatar: Option<String>,
-    pub changes: Vec<AuditFieldChange>,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Object, Serialize)]
-pub struct AuditLogsResponse {
-    pub total: i64,
-    pub logs: Vec<AuditLogEntry>,
-}
-
-struct DbAuditLogRow {
-    id: i64,
-    category: String,
-    action: String,
-    map_name: Option<String>,
-    server_id: Option<String>,
-    server_name: Option<String>,
-    user_id: i64,
-    user_name: Option<String>,
-    user_avatar: Option<String>,
-    changes: Value,
-    created_at: OffsetDateTime,
-    total: Option<i64>,
-}
 
 fn json_to_display(value: &Value) -> Option<String> {
     match value {

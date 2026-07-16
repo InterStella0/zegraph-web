@@ -5,9 +5,10 @@ use poem::web::Data;
 use poem_openapi::{Enum, OpenApi};
 use poem_openapi::param::Query;
 use crate::{response, AppData};
-use crate::core::model::*;
-use crate::core::api_models::*;
+use crate::api_models::common::*;
+use crate::api_models::radars::*;
 use crate::core::utils::*;
+use crate::models::radars::*;
 
 pub struct RadarApi;
 

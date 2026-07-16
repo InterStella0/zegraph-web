@@ -7,20 +7,25 @@ use futures::{StreamExt, TryFutureExt};
 use image::imageops::{FilterType};
 use poem::{Request};
 use poem::web::{Data};
-use poem_openapi::{ApiResponse, Object, OpenApi};
+use poem_openapi::{Object, OpenApi};
 use poem_openapi::param::{Path, Query};
-use poem_openapi::payload::{Binary, EventStream, Json, PlainText};
+use poem_openapi::payload::{Binary, EventStream};
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgListener;
 use tokio::fs;
 use tokio::time::interval;
-use crate::core::model::*;
-use crate::core::model;  // for sqlx! macros
 use crate::{response, AppData};
 use crate::core::utils::*;
 use url;
+use crate::api_models::common::*;
+use crate::api_models::misc::Announcement;
+use crate::models::admins::DbAnnouncement;
+use crate::models::players::DbPlayer;
+use crate::models::admins::AnnouncementTypeState;
+use crate::models::sitemaps::*;
+
 extern crate rust_fuzzy_search;
-use crate::core::api_models::*;
+
 #[derive(Object, Serialize)]
 struct SitemapServer {
     server_id: String,
@@ -90,32 +95,6 @@ impl Display for ThumbnailError {
         }
     }
 }
-
-
-#[derive(Object)]
-struct OEmbedMapResponse {
-    r#type: String,
-    version: String,
-    title: String,
-    description: String,
-    author_name: String,
-    author_url: String,
-    url: String,
-    width: i32,
-    height: i32,
-}
-
-#[derive(Object)]
-struct OEmbedPlayerResponse {
-    r#type: String,
-    version: String,
-    title: String,
-    description: String,
-    author_name: String,
-    author_url: String,
-    url: String,
-}
-
 
 pub struct MiscApi;
 
@@ -369,7 +348,7 @@ impl MiscApi {
     async fn get_annouce(&self, Data(app): Data<&AppData>) -> Response<Vec<Announcement>>{
         let pool = &*app.pool.clone();
         let func = || sqlx::query_as!(DbAnnouncement, "
-            SELECT id, type AS \"type: model::AnnouncementTypeState\", title, text, created_at, published_at, expires_at, show
+            SELECT id, type AS \"type: AnnouncementTypeState\", title, text, created_at, published_at, expires_at, show
             FROM website.announce
             WHERE show = true
               AND COALESCE(published_at, created_at) <= CURRENT_TIMESTAMP

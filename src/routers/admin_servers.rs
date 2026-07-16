@@ -1,142 +1,20 @@
 use poem::web::Data;
 use poem_openapi::payload::Json;
-use poem_openapi::{Object, OpenApi};
+use poem_openapi::OpenApi;
 use poem_openapi::param::{Path, Query};
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::core::api_models::*;
 use crate::core::storage::image_ext_from_content_type;
 use crate::core::utils::*;
 use crate::{response, AppData};
+use crate::api_models::common::*;
+use crate::models::admins::*;
+use crate::api_models::admins::*;
 
 pub struct AdminServersApi;
 
 const VALID_COOLDOWN_TYPES: &[&str] = &["unknown", "datetime", "map_count"];
 
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct AdminCommunity {
-    pub id: String,
-    pub name: Option<String>,
-    pub shorten_name: Option<String>,
-    pub icon_url: Option<String>,
-    pub server_count: i64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object)]
-pub struct CreateCommunityPayload {
-    pub name: String,
-    pub shorten_name: Option<String>,
-    pub icon_url: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object)]
-pub struct UpdateCommunityPayload {
-    pub name: Option<String>,
-    pub shorten_name: Option<String>,
-    pub icon_url: Option<String>,
-}
-
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct AdminServerBrowser {
-    pub ip: String,
-    pub port: i16,
-    pub tracking: bool,
-    pub cooldown_type: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object)]
-pub struct CreateServerBrowserPayload {
-    pub ip: String,
-    pub port: i16,
-    pub tracking: Option<bool>,
-    pub cooldown_type: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object)]
-pub struct UpdateServerBrowserPayload {
-    pub tracking: Option<bool>,
-    pub cooldown_type: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct AdminServer {
-    pub server_id: String,
-    pub server_name: Option<String>,
-    pub server_fullname: Option<String>,
-    pub server_ip: Option<String>,
-    pub server_port: Option<i32>,
-    pub community_id: Option<String>,
-    pub online: Option<bool>,
-    pub readable_link: Option<String>,
-    pub server_website: Option<String>,
-    pub server_discord_link: Option<String>,
-    pub server_source: Option<String>,
-    pub timezone: Option<String>,
-    pub game: Option<String>,
-    pub source_by_id: Option<bool>,
-}
-
-struct AdminServerRow {
-    server_id: String,
-    server_name: Option<String>,
-    server_fullname: Option<String>,
-    server_ip: Option<String>,
-    server_port: Option<i32>,
-    community_id: Option<Uuid>,
-    online: Option<bool>,
-    readable_link: Option<String>,
-    server_website: Option<String>,
-    server_discord_link: Option<String>,
-    server_source: Option<String>,
-    timezone: Option<String>,
-    game: Option<String>,
-    source_by_id: Option<bool>,
-}
-
-impl From<AdminServerRow> for AdminServer {
-    fn from(r: AdminServerRow) -> Self {
-        AdminServer {
-            server_id: r.server_id,
-            server_name: r.server_name,
-            server_fullname: r.server_fullname,
-            server_ip: r.server_ip,
-            server_port: r.server_port,
-            community_id: r.community_id.map(|u| u.to_string()),
-            online: r.online,
-            readable_link: r.readable_link,
-            server_website: r.server_website,
-            server_discord_link: r.server_discord_link,
-            server_source: r.server_source,
-            timezone: r.timezone,
-            game: r.game,
-            source_by_id: r.source_by_id,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Object)]
-pub struct UpdateServerPayload {
-    pub server_name: Option<String>,
-    pub readable_link: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object)]
-pub struct UpdateServerMetadataPayload {
-    pub server_website: Option<String>,
-    pub server_discord_link: Option<String>,
-    pub server_source: Option<String>,
-    pub timezone: Option<String>,
-    pub game: Option<String>,
-    pub source_by_id: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object)]
-pub struct SetServerCommunityPayload {
-    /// UUID string to assign, or null/empty string to detach
-    pub community_id: Option<String>,
-}
 
 #[OpenApi]
 impl AdminServersApi {

@@ -11,14 +11,19 @@ use sqlx::types::time::OffsetDateTime;
 use tokio::time::sleep;
 use uuid::Uuid;
 
-use crate::core::api_models::*;
-use crate::core::model::*;
 use crate::core::utils::*;
 use crate::workers::PlayerContext;
 use crate::{response, AppData};
+use crate::api_models::admins::*;
+use crate::api_models::common::*;
+use crate::api_models::misc::*;
+use crate::api_models::players::*;
 use crate::core::push_service::NotificationType;
 use crate::routers::players::{get_player, get_player_cache_key};
 use crate::FastCache;
+use crate::models::admins::*;
+use crate::models::maps::{DbMapChangeSubscription, DbMapNotifySubscription};
+use crate::models::players::*;
 
 pub struct AccountsApi;
 
@@ -2539,7 +2544,7 @@ impl AccountsApi {
 
         match result {
             Ok(send_result) => {
-                let api_result = crate::core::api_models::NotificationSendResult {
+                let api_result = NotificationSendResult {
                     success: send_result.success,
                     failed: send_result.failed,
                     total: send_result.total,

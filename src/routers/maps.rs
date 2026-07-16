@@ -7,9 +7,19 @@ use poem_openapi::types::{ParseFromJSON, ToJSON};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use crate::{response, AppData, FastCache};
-use crate::core::model::*;
-use crate::core::api_models::*;
+use crate::api_models::admins::*;
+use crate::api_models::common::*;
+use crate::api_models::maps::*;
+use crate::api_models::misc::*;
+use crate::api_models::players::*;
+use crate::api_models::radars::*;
+use crate::api_models::servers::*;
 use crate::core::utils::*;
+use crate::models::admins::*;
+use crate::models::maps::*;
+use crate::models::servers::*;
+use crate::models::players::*;
+use crate::models::radars::*;
 use crate::workers::*;
 
 #[derive(Enum)]

@@ -7,10 +7,12 @@ use poem_openapi::{Enum, OpenApi};
 use poem_openapi::param::Query;
 use sqlx::Postgres;
 use crate::{response, AppData, FastCache};
-use crate::core::model::*;
-use crate::core::api_models::*;
+use crate::api_models::common::*;
+use crate::api_models::misc::*;
+use crate::api_models::servers::*;
 use crate::core::utils::*;
-use crate::routers::players::get_player;
+use crate::models::admins::DbFetchStatus;
+use crate::models::servers::*;
 
 fn truncate_error(error: &str) -> String {
     let truncated = match error.find(", ") {
@@ -329,7 +331,7 @@ impl ServerApi {
         let entries: Vec<FetchStatusEntry> = response.result.iter_into();
 
         // community_id -> (name, server_id -> (name, track_label -> [(fetched_at, ok, error)]))
-        let mut comm_map: IndexMap<String, (String, IndexMap<String, (String, IndexMap<String, Vec<(chrono::DateTime<Utc>, bool, Option<String>)>>)>)> = IndexMap::new();
+        let mut comm_map: IndexMap<String, (String, IndexMap<String, (String, IndexMap<String, Vec<(DateTime<Utc>, bool, Option<String>)>>)>)> = IndexMap::new();
 
         for e in &entries {
             let comm = comm_map

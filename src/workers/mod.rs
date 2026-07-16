@@ -5,7 +5,6 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use async_trait::async_trait;
-use crate::core::model::*;
 use crate::core::utils::*;
 use crate::FastCache;
 
@@ -16,6 +15,9 @@ pub mod player;
 pub use map::MapWorker;
 pub use player::PlayerWorker;
 pub use job::{JobKind, RefreshJob};
+use crate::models::maps::DbMap;
+use crate::models::players::DbPlayer;
+use crate::models::servers::DbServer;
 
 /// How long a queued-or-running marker survives without the worker clearing it. Bounds how long a
 /// key stays stuck as "calculating" if the worker dies mid-job.

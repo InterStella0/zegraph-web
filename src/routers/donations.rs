@@ -1,63 +1,17 @@
-use chrono::DateTime;
 use chrono::Utc;
 use poem::web::Data;
 use poem_openapi::payload::Json;
-use poem_openapi::{Object, OpenApi};
+use poem_openapi::OpenApi;
 use poem_openapi::param::Path;
-use serde::{Deserialize, Serialize};
-use sqlx::types::time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::core::api_models::*;
 use crate::core::utils::*;
 use crate::{response, AppData};
+use crate::api_models::common::*;
+use crate::models::admins::*;
+use crate::models::misc::DbDonor;
 
 pub struct DonationsApi;
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct DonorResponse {
-    pub id: String,
-    pub display_name: String,
-    pub amount: f64,
-    pub message: Option<String>,
-    pub donated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct CreateDonorPayload {
-    pub display_name: String,
-    pub amount: f64,
-    pub message: Option<String>,
-    pub donated_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct UpdateDonorPayload {
-    pub display_name: Option<String>,
-    pub amount: Option<f64>,
-    pub message: Option<String>,
-    pub donated_at: Option<DateTime<Utc>>,
-}
-
-struct DbDonor {
-    id: Uuid,
-    display_name: String,
-    amount: f64,
-    message: Option<String>,
-    donated_at: OffsetDateTime,
-}
-
-impl From<DbDonor> for DonorResponse {
-    fn from(d: DbDonor) -> Self {
-        DonorResponse {
-            id: d.id.to_string(),
-            display_name: d.display_name,
-            amount: d.amount,
-            message: d.message,
-            donated_at: db_to_utc(d.donated_at),
-        }
-    }
-}
 
 #[OpenApi]
 impl DonationsApi {

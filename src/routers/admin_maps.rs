@@ -1,99 +1,23 @@
 use poem::web::Data;
 use poem_openapi::payload::Json;
-use poem_openapi::{Object, OpenApi};
+use poem_openapi::OpenApi;
 use poem_openapi::param::Query;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
-use crate::core::api_models::*;
 use crate::core::audit::{
     diff_changes, insert_audit_log, ACTION_DELETE_MAP, ACTION_UPDATE_GLOBAL,
     ACTION_UPDATE_SERVER, CATEGORY_MAP_METADATA,
 };
 use crate::core::utils::*;
 use crate::{response, AppData};
+use crate::api_models::admins::*;
+use crate::api_models::common::*;
+use crate::models::admins::*;
 
 pub struct AdminMapsApi;
 
-#[derive(Object, Serialize)]
-pub struct AdminMapServerEntry {
-    pub server_id: String,
-    pub server_name: String,
-    pub is_tryhard: Option<bool>,
-    pub is_casual: Option<bool>,
-    pub workshop_id: Option<i64>,
-    pub resolved_workshop_id: Option<i64>,
-    pub no_noms: bool,
-    pub min_players: Option<i16>,
-    pub max_players: Option<i16>,
-}
-
-#[derive(Object, Serialize)]
-pub struct AdminMapEntry {
-    pub map_name: String,
-    pub global_is_tryhard: Option<bool>,
-    pub global_is_casual: Option<bool>,
-    pub global_has_lasers: Option<bool>,
-    pub global_workshop_id: Option<i64>,
-    pub global_resolved_workshop_id: Option<i64>,
-    pub servers: Vec<AdminMapServerEntry>,
-}
-
-#[derive(Object, Serialize)]
-pub struct AdminMapMetadataResponse {
-    pub total: i64,
-    pub maps: Vec<AdminMapEntry>,
-}
-
-
-#[derive(Object, Deserialize)]
-pub struct UpdateGlobalMapMetadataDto {
-    pub map_name: String,
-    pub is_tryhard: Option<bool>,
-    pub is_casual: Option<bool>,
-    pub has_lasers: Option<bool>,
-    pub workshop_id: Option<i64>,
-    pub resolved_workshop_id: Option<i64>,
-}
-
-#[derive(Object, Deserialize)]
-pub struct UpdateServerMapMetadataDto {
-    pub server_id: String,
-    pub map_name: String,
-    pub is_tryhard: Option<bool>,
-    pub is_casual: Option<bool>,
-    pub workshop_id: Option<i64>,
-    pub resolved_workshop_id: Option<i64>,
-    pub no_noms: Option<bool>,
-    pub min_players: Option<i16>,
-    pub max_players: Option<i16>,
-}
-
-
-struct DbAdminMapRow {
-    map_name: String,
-    total: Option<i64>,
-    global_is_tryhard: Option<bool>,
-    global_is_casual: Option<bool>,
-    global_has_lasers: Option<bool>,
-    global_workshop_id: Option<i64>,  // nullable because LEFT JOIN (no map_metadata row)
-    global_resolved_workshop_id: Option<i64>,
-}
-
-struct DbAdminMapServerRow {
-    map_name: String,
-    server_id: String,
-    server_name: Option<String>,  // server.server_name
-    is_tryhard: Option<bool>,
-    is_casual: Option<bool>,
-    workshop_id: Option<i64>,
-    resolved_workshop_id: Option<i64>,
-    no_noms: bool,
-    min_players: Option<i16>,
-    max_players: Option<i16>,
-}
 
 #[OpenApi]
 impl AdminMapsApi {

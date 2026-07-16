@@ -1,50 +1,17 @@
 use poem::web::Data;
 use poem_openapi::payload::Json;
-use poem_openapi::{Object, OpenApi};
+use poem_openapi::OpenApi;
 use poem_openapi::param::Path;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::core::api_models::*;
 use crate::core::utils::*;
 use crate::{response, AppData};
+use crate::api_models::admins::*;
+use crate::api_models::common::*;
+use crate::models::misc::DbSpecialThanks;
 
 pub struct SpecialThanksApi;
 
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct SpecialThanksResponse {
-    pub id: String,
-    pub display_name: String,
-    pub description: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct CreateSpecialThanksPayload {
-    pub display_name: String,
-    pub description: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct UpdateSpecialThanksPayload {
-    pub display_name: Option<String>,
-    pub description: Option<String>,
-}
-
-struct DbSpecialThanks {
-    id: Uuid,
-    display_name: String,
-    description: String,
-}
-
-impl From<DbSpecialThanks> for SpecialThanksResponse {
-    fn from(d: DbSpecialThanks) -> Self {
-        SpecialThanksResponse {
-            id: d.id.to_string(),
-            display_name: d.display_name,
-            description: d.description,
-        }
-    }
-}
 
 #[OpenApi]
 impl SpecialThanksApi {

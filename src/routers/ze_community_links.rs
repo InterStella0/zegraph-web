@@ -1,66 +1,17 @@
-use chrono::DateTime;
-use chrono::Utc;
 use poem::web::Data;
 use poem_openapi::payload::Json;
-use poem_openapi::{Object, OpenApi};
+use poem_openapi::OpenApi;
 use poem_openapi::param::Path;
-use serde::{Deserialize, Serialize};
-use sqlx::types::time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::core::api_models::*;
 use crate::core::utils::*;
 use crate::{response, AppData};
+use crate::api_models::admins::*;
+use crate::api_models::common::*;
+use crate::models::misc::*;
 
 pub struct ZeCommunityLinksApi;
 
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct CommunityLinkResponse {
-    pub id: String,
-    pub name: String,
-    pub url: String,
-    pub description: Option<String>,
-    pub sort_order: i32,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct CreateCommunityLinkPayload {
-    pub name: String,
-    pub url: String,
-    pub description: Option<String>,
-    pub sort_order: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct UpdateCommunityLinkPayload {
-    pub name: Option<String>,
-    pub url: Option<String>,
-    pub description: Option<String>,
-    pub sort_order: Option<i32>,
-}
-
-struct DbCommunityLink {
-    id: Uuid,
-    name: String,
-    url: String,
-    description: Option<String>,
-    sort_order: i32,
-    created_at: OffsetDateTime,
-}
-
-impl From<DbCommunityLink> for CommunityLinkResponse {
-    fn from(l: DbCommunityLink) -> Self {
-        CommunityLinkResponse {
-            id: l.id.to_string(),
-            name: l.name,
-            url: l.url,
-            description: l.description,
-            sort_order: l.sort_order,
-            created_at: db_to_utc(l.created_at),
-        }
-    }
-}
 
 fn is_valid_url(url: &str) -> bool {
     let url = url.trim();

@@ -10,9 +10,11 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tokio::time::sleep;
 use crate::FastCache;
-use crate::core::model::*;
 use crate::core::utils::*;
 use crate::core::push_service::{PushNotificationService, NotificationType};
+use crate::models::admins::DbServerNameMaxPlayers;
+use crate::models::maps::*;
+use crate::models::players::*;
 
 struct Updater{
     client: Client,
