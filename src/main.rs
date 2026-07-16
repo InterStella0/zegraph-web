@@ -320,14 +320,6 @@ fn main(){
             env::set_var("RUST_LOG", "poem=debug");
         }
     }
-    let environment = get_env_default("ENVIRONMENT").unwrap_or(String::from("DEVELOPMENT"));
-    let sentry_url = get_env_default("SENTRY_URL");
-    let _guard = sentry::init((sentry_url, sentry::ClientOptions {
-        release: sentry::release_name!(),
-        environment: Some(environment.into()),
-        traces_sample_rate: 1.0,
-        ..sentry::ClientOptions::default()
-    }));
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()

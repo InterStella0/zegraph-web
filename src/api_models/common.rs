@@ -9,9 +9,7 @@ use uri_pattern_matcher::UriPattern;
 use poem_openapi::{ApiResponse, Object};
 use poem_openapi::payload::Json;
 use poem_openapi::types::{ParseFromJSON, ToJSON};
-use sentry::{TransactionContext};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use crate::AppData;
 use crate::core::utils::get_server;
 use crate::models::servers::DbServer;
@@ -175,7 +173,6 @@ impl<E> PatternLoggerEndpoint<E>
 where
     E: Endpoint<Output = poem::Response>,
 {
-    #[allow(mismatched_lifetime_syntaxes)]
     fn find_pattern(&self, uri_path: &str) -> Option<RoutePattern> {
         let mut a = vec![];
         for api in &self.apis {
@@ -221,11 +218,6 @@ where
         );
 
         let result = span.in_scope(|| async {
-            let tx_ctx = TransactionContext::new(&transaction_name, "http.server");
-            let transaction = sentry::start_transaction(tx_ctx);
-            transaction.set_tag("http.request.method", req.method().as_str());
-            transaction.set_data("http.uri", json!(uri_path));
-
             let now = Instant::now();
             let res = self.ep.call(req).await;
             let duration = now.elapsed();
@@ -236,9 +228,6 @@ where
 
                     span.record("http.status_code", &status.as_u16());
                     span.record("duration_ms", &duration.as_millis());
-
-                    transaction.set_tag("http.status_code", status.as_str());
-                    transaction.set_data("duration_ms", json!(duration.as_millis()));
 
                     tracing::info!(
                         status = %status,
@@ -253,10 +242,6 @@ where
                     span.record("error", &format!("{}", err));
                     span.record("duration_ms", &duration.as_millis());
 
-                    transaction.set_tag("http.status_code", status.as_str());
-                    transaction.set_data("error", Value::String(format!("{}", err)));
-                    transaction.set_data("duration_ms", json!(duration.as_millis()));
-
                     tracing::error!(
                         status = %status,
                         error = %err,
@@ -266,7 +251,6 @@ where
                 }
             };
 
-            transaction.finish();
             res
         }).await;
 
