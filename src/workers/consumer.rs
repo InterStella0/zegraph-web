@@ -18,15 +18,27 @@ const LIGHT_CONCURRENCY: usize = 20;
 /// the pool periodically; a job still wakes the consumer immediately, it does not wait this out.
 const POP_TIMEOUT_SECS: usize = 5;
 
-pub fn spawn_consumers(pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) {
+/// Connections popping jobs must tolerate the whole `POP_TIMEOUT_SECS` park. redis defaults
+/// `response_timeout` to 500ms, which aborts the park long before the server answers nil, so the
+/// consumer needs its own pool rather than the shared cache one.
+pub const BLOCKING_RESPONSE_TIMEOUT: Duration = Duration::from_secs(POP_TIMEOUT_SECS as u64 + 1);
+
+/// `blocking_redis` is separate from `cache.redis_pool` because only the `BRPOP` here needs a
+/// response timeout long enough to cover the park; see [`BLOCKING_RESPONSE_TIMEOUT`].
+pub fn spawn_consumers(
+    pool: Arc<Pool<Postgres>>,
+    cache: Arc<FastCache>,
+    blocking_redis: deadpool_redis::Pool,
+) {
     for (queue, concurrency) in [
         (QUEUE_HEAVY, HEAVY_CONCURRENCY),
         (QUEUE_LIGHT, LIGHT_CONCURRENCY),
     ] {
         let pool = pool.clone();
         let cache = cache.clone();
+        let blocking_redis = blocking_redis.clone();
         tokio::spawn(async move {
-            consume(queue, concurrency, pool, cache).await;
+            consume(queue, concurrency, pool, cache, blocking_redis).await;
         });
     }
 }
@@ -38,6 +50,7 @@ async fn consume(
     concurrency: usize,
     pool: Arc<Pool<Postgres>>,
     cache: Arc<FastCache>,
+    blocking_redis: deadpool_redis::Pool,
 ) {
     let semaphore = Arc::new(Semaphore::new(concurrency));
     tracing::info!("Worker consuming {queue} (concurrency {concurrency})");
@@ -50,7 +63,7 @@ async fn consume(
             return;
         };
 
-        let payload = match pop(queue, &cache).await {
+        let payload = match pop(queue, &blocking_redis).await {
             Ok(Some(payload)) => payload,
             Ok(None) => continue, // pop timed out, nothing queued
             Err(e) => {
@@ -77,9 +90,9 @@ async fn consume(
     }
 }
 
-async fn pop(queue: &str, cache: &FastCache) -> RedisResult<Option<String>> {
-    let mut conn = cache.redis_pool.get().await.map_err(|e| {
-        redis::RedisError::from((redis::ErrorKind::IoError, "redis pool", e.to_string()))
+async fn pop(queue: &str, blocking_redis: &deadpool_redis::Pool) -> RedisResult<Option<String>> {
+    let mut conn = blocking_redis.get().await.map_err(|e| {
+        redis::RedisError::from((redis::ErrorKind::Io, "redis pool", e.to_string()))
     })?;
 
     // BRPOP against LPUSH gives FIFO. Returns (queue_name, payload), or nil on timeout.

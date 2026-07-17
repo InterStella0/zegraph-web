@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-ARG RUST_VERSION=1.88.0
-ARG APP_NAME=gfl-ze-watcher
+ARG RUST_VERSION=1.97.1
+ARG APP_NAME=zegraph-api
 
 ################################################################################
 # Create a stage for building the application.

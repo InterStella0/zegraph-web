@@ -19,6 +19,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use deadpool_redis::{
     Config,
+    Hook,
+    HookError,
     Runtime,
 };
 use poem::session::{CookieConfig};
@@ -70,6 +72,21 @@ struct FastCache{
 fn make_redis_pool() -> deadpool_redis::Pool {
     let cfg = Config::from_url(get_env("REDIS_URL"));
     cfg.create_pool(Some(Runtime::Tokio1))
+        .expect("Failed to create pool")
+}
+
+/// A pool for blocking reads, kept apart from [`make_redis_pool`] so only the job consumer pays for
+/// the longer `response_timeout`; request-path cache reads keep the short default and fail fast.
+fn make_blocking_redis_pool() -> deadpool_redis::Pool {
+    let cfg = Config::from_url(get_env("REDIS_URL"));
+    cfg.builder()
+        .expect("Failed to build pool")
+        .post_create(Hook::sync_fn(|conn, _| {
+            conn.set_response_timeout(consumer::BLOCKING_RESPONSE_TIMEOUT);
+            Ok::<(), HookError>(())
+        }))
+        .runtime(Runtime::Tokio1)
+        .build()
         .expect("Failed to create pool")
 }
 
@@ -226,7 +243,11 @@ async fn run_main() {
         .data(data);
 
     if role.runs_workers() {
-        consumer::spawn_consumers(worker_pool.clone(), worker_cache.clone());
+        consumer::spawn_consumers(
+            worker_pool.clone(),
+            worker_cache.clone(),
+            make_blocking_redis_pool(),
+        );
 
         init_map_change_listener(worker_pool.clone(), worker_push_service.clone()).await;
 

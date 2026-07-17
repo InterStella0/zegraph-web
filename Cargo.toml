@@ -1,11 +1,17 @@
 [package]
-name = "gfl-ze-watcher"
-version = "0.1.0"
+name = "zegraph-api"
+version = "1.0.0"
 edition = "2024"
 
 [dependencies]
 poem = { version = "3.1.12", features = ["session", "multipart"] }
-poem-openapi={version = "5.1.16", features = ["swagger-ui", "chrono"]}
+# Pinned: 5.1.9+ registers path params positionally (`:param0`), so the custom
+# FromRequest extractors that read them by name via `raw_path_param` get None and 400.
+# This pin only holds the facade; the rewrite lives in poem-openapi-derive, and 5.1.8
+# accepts derive ^5.1.8. Cargo.lock therefore also pins poem-openapi-derive =5.1.8 and
+# darling =0.20.10 (0.20.11 rejects derive 5.1.8's `with = "..."`). Drifting either
+# breaks the build rather than failing silently.
+poem-openapi={version = "=5.1.8", features = ["swagger-ui", "chrono"]}
 tokio={ version = "1.52.3", features = ["rt-multi-thread", "signal"] }
 sqlx = { version = "0.8.6", features = [ "runtime-tokio", "postgres", "time", "uuid", "json"] }
 chrono = { version = "0.4.45", features = ["serde"] }
@@ -13,14 +19,12 @@ tracing-subscriber= { version = "0.3.23", features = ["env-filter"] }
 dotenv="0.15.0"
 serde="1.0.228"
 serde_json = "1.0.150"
-reqwest={version = "0.12.12", features = ["json"]}
+reqwest={version = "0.13.4", default-features = false, features = ["json", "query", "native-tls", "charset", "http2", "system-proxy"]}
 tracing = "0.1.44"
-aws-config = "1.9.0"
 aws-credential-types = "1.3.0"
 aws-sdk-s3 = { version = "1.138.0", features = ["behavior-version-latest"] }
-deadpool-redis = { version = "0.22.1", features = ["rt_tokio_1"] }
-redis-macros = "0.5.0"
-redis="0.32.7"
+deadpool-redis = { version = "0.23.0", features = ["rt_tokio_1"] }
+redis="1.4.0"
 futures = "0.3.32"
 time = { version = "0.3.53", features = ["formatting", "parsing"] }
 serde_macros = { path = "./serde_macros" }
@@ -29,16 +33,14 @@ url = "2.5.8"
 rust-fuzzy-search = { git = "https://gitlab.com/EnricoCh/rust-fuzzy-search"}
 uri-pattern-matcher = "0.1.4"
 async-stream = "0.3.6"
-rand = "0.9.3"
+rand = "0.10.2"
 moka= { version = "0.12.15", features = ["future"] }
 indexmap = "2.14.0"
 async-trait = "0.1.89"
-jsonwebtoken = "9.3.1"
+jsonwebtoken = { version = "10.4.0", default-features = false, features = ["rust_crypto"] }
 uuid = { version = "1.24.0", features = ["v4", "serde"] }
-sha2 = "0.10.8"
-hex = "0.4.3"
-web-push = "0.10"
-base64 = "0.21"
+web-push = "0.11.0"
+base64 = "0.22.1"
 
 [features]
 docker=["openssl"]

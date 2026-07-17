@@ -1,7 +1,6 @@
 use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use poem_openapi::{Enum, Object};
-use redis_macros::{FromRedisValue, ToRedisArgs};
 use serde::{Deserialize, Serialize};
 
 #[derive(Object, Deserialize, Clone)]
@@ -171,7 +170,7 @@ pub struct CharacterUploadSession {
     pub chunks_received: Vec<u32>,
 }
 
-#[derive(Serialize, Deserialize, FromRedisValue, ToRedisArgs)]
+#[derive(Serialize, Deserialize)]
 pub struct ProviderResponse{
     pub provider: String,
     pub url: String

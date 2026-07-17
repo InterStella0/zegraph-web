@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG RUST_VERSION=1.85.0
+ARG RUST_VERSION=1.97.1
 ARG APP_NAME=pfp-provider
 
 ################################################################################

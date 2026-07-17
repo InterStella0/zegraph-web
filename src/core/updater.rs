@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use std::sync::Arc;
 use sqlx::postgres::{PgListener, PgNotification};
-use rand::{rng, Rng};
+use rand::{rng, RngExt};
 use std::time::Duration;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
