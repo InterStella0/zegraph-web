@@ -10,6 +10,7 @@ import ServerProvider from "./ServerProvider";
 import {Server} from "types/community";
 import {usePathname, useRouter} from "next/navigation";
 import {ScrollArea} from "components/ui/scroll-area.tsx";
+import {HoverCard, HoverCardContent, HoverCardTrigger} from "components/ui/hover-card.tsx";
 import {COMMUNITY_COLLAPSE} from "./communityCollapse";
 
 export function Logo() {
@@ -157,6 +158,119 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
 
     const MAX_SERVERS_SHOWN = 3;
 
+    const renderCommunityHeader = (community: (typeof communities)[number]) => (
+        <div className="flex items-center gap-3 p-2 rounded-lg bg-accent/20 border border-border/30">
+            <div className="relative flex-shrink-0">
+                <Avatar className="w-10 h-10 ring-2 ring-background shadow-sm">
+                    <AvatarImage src={community.icon_url} alt={community.name} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                        {getServerAvatarText(community.name).toUpperCase()}
+                    </AvatarFallback>
+                </Avatar>
+                <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background shadow-sm ${getStatusColor(community.status)}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-sm text-foreground truncate mb-0.5">
+                    {community.name}
+                </h3>
+                <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded">
+                        <Users className="h-3 w-3" />
+                        <span className="font-medium">{community.players}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                        {t('serverCount', {count: community.servers.length})}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderServerList = (community: (typeof communities)[number]) => (
+        <div className="space-y-1.5 px-3">
+            {(expandedCommunities.has(community.id)
+                ? community.servers
+                : community.servers.slice(0, MAX_SERVERS_SHOWN)
+            ).map((communityServer) => {
+                const isSelected = communityServer.gotoLink === server?.gotoLink;
+                const playerPercentage = communityServer.max_players > 0
+                    ? (communityServer.players / communityServer.max_players) * 100
+                    : 0;
+
+                return (
+                    <button
+                        key={communityServer.id}
+                        onClick={() => handleSelectServer(communityServer)}
+                        className={`w-full text-left px-3 py-2.5 rounded-md transition-all relative overflow-hidden ${
+                            isSelected
+                                ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20'
+                                : 'hover:bg-accent/60 bg-accent/30'
+                        }`}
+                    >
+                        <div
+                            className={`absolute bottom-0 left-0 h-0.5 transition-all ${
+                                isSelected ? 'bg-primary-foreground/30' : 'bg-primary/30'
+                            }`}
+                            style={{ width: `${playerPercentage}%` }}
+                        />
+
+                        <div className="flex items-start gap-2">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${
+                                communityServer.status ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-gray-400'
+                            }`} />
+
+                            <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className={`text-sm truncate ${
+                                        isSelected ? 'font-semibold' : 'font-medium'
+                                    }`}>
+                                        {communityServer.name}
+                                    </span>
+                                    <div className={`flex items-center gap-1 text-xs flex-shrink-0 font-semibold tabular-nums ${
+                                        isSelected ? 'text-primary-foreground/90' : 'text-foreground/80'
+                                    }`}>
+                                        <Users className="h-3 w-3" />
+                                        {communityServer.players}/{communityServer.max_players}
+                                    </div>
+                                </div>
+
+                                <div className={`flex items-center gap-1 text-xs ${
+                                    isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                                }`}>
+                                    <Map className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">
+                                        {communityServer.map}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </button>
+                );
+            })}
+
+            {community.servers.length > MAX_SERVERS_SHOWN && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleCommunityExpanded(community.id)}
+                    className="w-full text-xs text-muted-foreground hover:text-foreground h-7"
+                >
+                    {expandedCommunities.has(community.id) ? (
+                        <>
+                            <ChevronUp className="mr-1 h-3 w-3" />
+                            {t('showLess')}
+                        </>
+                    ) : (
+                        <>
+                            <ChevronDown className="mr-1 h-3 w-3" />
+                            {t('showMore', {count: community.servers.length - MAX_SERVERS_SHOWN})}
+                        </>
+                    )}
+                </Button>
+            )}
+        </div>
+    );
+
     const drawerContent = (
         <div className="h-full flex flex-col bg-background">
             <div className={`flex items-center ${
@@ -194,138 +308,49 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                         return (
                             <div key={community.id} className={isCollapsed ? "px-2 mb-2" : "mb-4 pb-4 border-b border-border/20 last:border-0"}>
                                 {(!isMobile && isCollapsed) ? (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={handleToggleDrawer}
-                                            title={community.name}
-                                            className="relative cursor-pointer"
-                                        >
-                                            <Avatar className={`w-11 h-11 transition-all ${
-                                                isCommunitySelected
-                                                    ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-                                                    : 'opacity-70 hover:opacity-100'
-                                            }`}>
-                                                <AvatarImage src={community.icon_url} alt={community.name} />
-                                                <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-                                                    {getServerAvatarText(community.name).toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${getStatusColor(community.status)}`} />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="px-4 mb-3">
-                                            <div className="flex items-center gap-3 p-2 rounded-lg bg-accent/20 border border-border/30">
-                                                <div className="relative flex-shrink-0">
-                                                    <Avatar className="w-10 h-10 ring-2 ring-background shadow-sm">
+                                    <HoverCard openDelay={100} closeDelay={100}>
+                                        <div className="flex flex-col items-center gap-2">
+                                            <HoverCardTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    title={community.name}
+                                                    className="relative cursor-pointer outline-none focus:outline-none focus-visible:outline-none"
+                                                >
+                                                    <Avatar className={`w-11 h-11 transition-all ${
+                                                        isCommunitySelected
+                                                            ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                                                            : 'opacity-70 hover:opacity-100'
+                                                    }`}>
                                                         <AvatarImage src={community.icon_url} alt={community.name} />
-                                                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                                                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
                                                             {getServerAvatarText(community.name).toUpperCase()}
                                                         </AvatarFallback>
                                                     </Avatar>
-                                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background shadow-sm ${getStatusColor(community.status)}`} />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-bold text-sm text-foreground truncate mb-0.5">
-                                                        {community.name}
-                                                    </h3>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded">
-                                                            <Users className="h-3 w-3" />
-                                                            <span className="font-medium">{community.players}</span>
-                                                        </div>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {t('serverCount', {count: community.servers.length})}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${getStatusColor(community.status)}`} />
+                                                </button>
+                                            </HoverCardTrigger>
+                                        </div>
+                                        <HoverCardContent
+                                            side="right"
+                                            align="start"
+                                            sideOffset={12}
+                                            className="w-80 p-0 overflow-hidden"
+                                        >
+                                            <div className="px-3 pt-3 pb-2">
+                                                {renderCommunityHeader(community)}
                                             </div>
+                                            <div className="max-h-[60vh] overflow-y-auto pb-3">
+                                                {renderServerList(community)}
+                                            </div>
+                                        </HoverCardContent>
+                                    </HoverCard>
+                                ) : (
+                                    <>
+                                        <div className="px-4 mb-3">
+                                            {renderCommunityHeader(community)}
                                         </div>
 
-                                        <div className="space-y-1.5 px-3">
-                                            {(expandedCommunities.has(community.id)
-                                                ? community.servers
-                                                : community.servers.slice(0, MAX_SERVERS_SHOWN)
-                                            ).map((communityServer) => {
-                                                const isSelected = communityServer.gotoLink === server?.gotoLink;
-                                                const playerPercentage = communityServer.max_players > 0
-                                                    ? (communityServer.players / communityServer.max_players) * 100
-                                                    : 0;
-
-                                                return (
-                                                    <button
-                                                        key={communityServer.id}
-                                                        onClick={() => handleSelectServer(communityServer)}
-                                                        className={`w-full text-left px-3 py-2.5 rounded-md transition-all relative overflow-hidden ${
-                                                            isSelected
-                                                                ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20'
-                                                                : 'hover:bg-accent/60 bg-accent/30'
-                                                        }`}
-                                                    >
-                                                        <div
-                                                            className={`absolute bottom-0 left-0 h-0.5 transition-all ${
-                                                                isSelected ? 'bg-primary-foreground/30' : 'bg-primary/30'
-                                                            }`}
-                                                            style={{ width: `${playerPercentage}%` }}
-                                                        />
-
-                                                        <div className="flex items-start gap-2">
-                                                            <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${
-                                                                communityServer.status ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-gray-400'
-                                                            }`} />
-
-                                                            <div className="flex-1 min-w-0 space-y-1">
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <span className={`text-sm truncate ${
-                                                                        isSelected ? 'font-semibold' : 'font-medium'
-                                                                    }`}>
-                                                                        {communityServer.name}
-                                                                    </span>
-                                                                    <div className={`flex items-center gap-1 text-xs flex-shrink-0 font-semibold tabular-nums ${
-                                                                        isSelected ? 'text-primary-foreground/90' : 'text-foreground/80'
-                                                                    }`}>
-                                                                        <Users className="h-3 w-3" />
-                                                                        {communityServer.players}/{communityServer.max_players}
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className={`flex items-center gap-1 text-xs ${
-                                                                    isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                                                                }`}>
-                                                                    <Map className="h-3 w-3 flex-shrink-0" />
-                                                                    <span className="truncate">
-                                                                        {communityServer.map}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
-
-                                            {community.servers.length > MAX_SERVERS_SHOWN && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => toggleCommunityExpanded(community.id)}
-                                                    className="w-full text-xs text-muted-foreground hover:text-foreground h-7"
-                                                >
-                                                    {expandedCommunities.has(community.id) ? (
-                                                        <>
-                                                            <ChevronUp className="mr-1 h-3 w-3" />
-                                                            {t('showLess')}
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <ChevronDown className="mr-1 h-3 w-3" />
-                                                            {t('showMore', {count: community.servers.length - MAX_SERVERS_SHOWN})}
-                                                        </>
-                                                    )}
-                                                </Button>
-                                            )}
-                                        </div>
+                                        {renderServerList(community)}
                                     </>
                                 )}
                             </div>
