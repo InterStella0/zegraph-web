@@ -1,5 +1,5 @@
 'use client'
-import {useContext, useEffect, useState, useCallback} from 'react';
+import {useContext, useEffect, useLayoutEffect, useState, useCallback, useRef} from 'react';
 import {useTranslations} from "next-intl";
 import {Sheet, SheetContent} from "components/ui/sheet";
 import {Button} from "components/ui/button";
@@ -8,8 +8,9 @@ import {ChevronLeft, ChevronRight, X, Users, Map, ChevronDown, ChevronUp, PlusCi
 import ErrorCatch from "./ErrorMessage.tsx";
 import ServerProvider from "./ServerProvider";
 import {Server} from "types/community";
-import {useRouter} from "next/navigation";
+import {usePathname, useRouter} from "next/navigation";
 import {ScrollArea} from "components/ui/scroll-area.tsx";
+import {COMMUNITY_COLLAPSE} from "./communityCollapse";
 
 export function Logo() {
     return (
@@ -28,75 +29,92 @@ export const getServerAvatarText = (name: string) => {
     return words.length >= 2 ? words[0][0] + words[1][0] : name.substring(0, 2);
 }
 
-const COMMUNITY_COLLAPSE = "community"
-
 const getStatusColor = (status: boolean) => {
     return status ? 'bg-green-500' : 'bg-gray-400';
 };
 
-function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setRequestOpen }: {
-    server: Server | null,
+function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOpen, initialCollapsed }: {
     displayCommunity: boolean,
     setDisplayCommunity: (value: boolean) => void,
-    setRequestOpen: (value: boolean) => void
+    setRequestOpen: (value: boolean) => void,
+    initialCollapsed: boolean | null
 }) {
 
     const t = useTranslations('home');
     const [isClient, setIsClient] = useState(false);
     const router = useRouter();
+    const pathname = usePathname();
     const [isMobile, setIsMobile] = useState(false);
     const {communities, serversMapped } = useContext(ServerProvider);
 
-    const server_id = server?.id
-    const communitySelected = server_id ? serversMapped.get(String(server_id))?.community_id : undefined
+    // The sidebar lives above the [server_slug] segment so it survives server
+    // navigation; the selected server comes from the URL instead of props.
+    const slugPart = pathname.split('/')[2]
+    const server = slugPart ? serversMapped.get(decodeURIComponent(slugPart)) ?? null : null
+    const communitySelected = server?.community_id
     const openDrawer = displayCommunity
     const onClose = () => setDisplayCommunity(false)
 
-    const [userPreference, setUserPreference] = useState<boolean | null>(null); // null = follow auto
+    // Seeded from the cookie server-side so the first frame is already correct;
+    // null = follow auto
+    const [userPreference, setUserPreference] = useState<boolean | null>(initialCollapsed);
     const [autoCollapsed, setAutoCollapsed] = useState(false);
-    const isCollapsed = userPreference !== null ? userPreference : autoCollapsed;
+    // Mobile sheet always shows the full layout; the saved preference still
+    // applies once back on desktop widths
+    const isCollapsed = !isMobile && (userPreference !== null ? userPreference : autoCollapsed);
 
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [expandedCommunities, setExpandedCommunities] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        setIsClient(true);
-        const savedPreference = localStorage.getItem(COMMUNITY_COLLAPSE);
-        if (savedPreference !== null) {
-            setUserPreference(savedPreference === "true");
-        }
+    const checkWidth = useCallback(() => {
+        const width = window.innerWidth;
+        setIsMobile(width <= 750);
+        setAutoCollapsed(width < 1510 && width > 750);
     }, []);
 
+    // Layout effect so the real width (and any legacy localStorage-only
+    // preference, when no cookie was set yet) applies before first paint
+    useLayoutEffect(() => {
+        setIsClient(true);
+        if (initialCollapsed === null) {
+            const savedPreference = localStorage.getItem(COMMUNITY_COLLAPSE);
+            if (savedPreference !== null) {
+                setUserPreference(savedPreference === "true");
+            }
+        }
+        checkWidth();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [checkWidth]);
+
     useEffect(() => {
-        if (isClient && userPreference !== null) {
+        if (!isClient) return;
+        if (userPreference === null) {
+            localStorage.removeItem(COMMUNITY_COLLAPSE);
+            document.cookie = `${COMMUNITY_COLLAPSE}=; path=/; max-age=0; SameSite=Lax`;
+        } else {
             localStorage.setItem(COMMUNITY_COLLAPSE, userPreference.toString());
+            document.cookie = `${COMMUNITY_COLLAPSE}=${userPreference}; path=/; max-age=31536000; SameSite=Lax`;
         }
     }, [userPreference, isClient]);
 
     useEffect(() => {
-        const checkWidth = () => {
-            const width = window.innerWidth;
-            setIsMobile(width <= 750);
-            setAutoCollapsed(width < 1510 && width > 750 );
-        };
-
-        checkWidth();
         window.addEventListener('resize', checkWidth);
         return () => window.removeEventListener('resize', checkWidth);
-    }, []);
+    }, [checkWidth]);
+
+    // Entering the auto-collapse zone (including loading in it) overrides an
+    // explicit "expanded" preference; a "collapsed" preference always sticks
+    const prevAutoCollapsed = useRef(false);
+    useEffect(() => {
+        if (autoCollapsed && !prevAutoCollapsed.current) {
+            setUserPreference(prev => prev === false ? null : prev);
+        }
+        prevAutoCollapsed.current = autoCollapsed;
+    }, [autoCollapsed]);
 
     useEffect(() => {
         setIsMobileOpen(openDrawer);
     }, [openDrawer]);
-
-    // Clear user preference when entering/exiting auto-collapse zone
-    // This ensures sidebar auto-collapses when resizing to smaller widths
-    useEffect(() => {
-        setUserPreference(null);
-        if (isClient) {
-            localStorage.removeItem(COMMUNITY_COLLAPSE);
-        }
-    }, [autoCollapsed, isClient]);
 
     const drawerWidth = isCollapsed ? 72 : 320;
 
@@ -177,7 +195,12 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                             <div key={community.id} className={isCollapsed ? "px-2 mb-2" : "mb-4 pb-4 border-b border-border/20 last:border-0"}>
                                 {(!isMobile && isCollapsed) ? (
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleDrawer}
+                                            title={community.name}
+                                            className="relative cursor-pointer"
+                                        >
                                             <Avatar className={`w-11 h-11 transition-all ${
                                                 isCommunitySelected
                                                     ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
@@ -189,7 +212,7 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${getStatusColor(community.status)}`} />
-                                        </div>
+                                        </button>
                                     </div>
                                 ) : (
                                     <>
@@ -342,8 +365,8 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
 
     return (
         <aside
-            className={`flex-shrink-0 h-screen transition-all duration-300 ease-in-out overflow-hidden border-r border-border/40 ${
-                !isClient ? 'max-[1199px]:hidden' : ''
+            className={`flex-shrink-0 h-screen overflow-hidden border-r border-border/40 ${
+                isClient ? 'transition-all duration-300 ease-in-out' : 'max-[1199px]:hidden'
             } sticky top-0 left-0`}
             style={{ width: drawerWidth }}
         >
@@ -352,11 +375,11 @@ function CommunitySelector({ server, setDisplayCommunity, displayCommunity, setR
     );
 }
 
-function CommunitySelectorDisplay({ server, displayCommunity, setDisplayCommunity, setRequestOpen }
-                                  : { server: Server | null, displayCommunity: boolean, setDisplayCommunity: (value: boolean) => void, setRequestOpen: (value: boolean) => void }) {
+function CommunitySelectorDisplay({ displayCommunity, setDisplayCommunity, setRequestOpen, initialCollapsed }
+                                  : { displayCommunity: boolean, setDisplayCommunity: (value: boolean) => void, setRequestOpen: (value: boolean) => void, initialCollapsed: boolean | null }) {
     return (
         <ErrorCatch message="Community selector has an error :/">
-            <CommunitySelector server={server} displayCommunity={displayCommunity} setDisplayCommunity={setDisplayCommunity} setRequestOpen={setRequestOpen} />
+            <CommunitySelector displayCommunity={displayCommunity} setDisplayCommunity={setDisplayCommunity} setRequestOpen={setRequestOpen} initialCollapsed={initialCollapsed} />
         </ErrorCatch>
     );
 }

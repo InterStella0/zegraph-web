@@ -20,13 +20,11 @@ export default async function ServerLayout({
 
     return <>
         <ServerDataProvider slugPromise={serverPromise}>
-            <div className="flex">
-                <ResponsiveAppSelector serverPromise={serverPromise} user={user}>
-                    <Suspense fallback={<Loading />}>
-                        {children}
-                    </Suspense>
-                </ResponsiveAppSelector>
-            </div>
+            <ResponsiveAppSelector serverPromise={serverPromise} user={user}>
+                <Suspense fallback={<Loading />}>
+                    {children}
+                </Suspense>
+            </ResponsiveAppSelector>
         </ServerDataProvider>
     </>
 }
