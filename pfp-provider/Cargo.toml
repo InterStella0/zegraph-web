@@ -1,11 +1,11 @@
 [package]
-name = "pfp-provider"
-version = "0.1.0"
+name = "zegraph-pfp-provider"
+version = "0.1.1"
 edition = "2024"
 
 [dependencies]
 tracing-subscriber= { version = "0.3.23", features = ["env-filter"] }
-tokio = { version = "1.52.3", features = ["rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.52.3", features = ["rt", "rt-multi-thread", "macros", "sync"] }
 thiserror = "2.0.12"
 tracing = "0.1.44"
 deadpool-redis = { version = "0.23.0", features = ["rt_tokio_1"] }

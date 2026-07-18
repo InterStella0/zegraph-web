@@ -1162,27 +1162,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
-name = "pfp-provider"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "deadpool-redis",
- "openssl",
- "poem",
- "poem-openapi",
- "redis",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "pin-project-lite"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2530,6 +2509,27 @@ dependencies = [
  "quote",
  "syn",
  "synstructure",
+]
+
+[[package]]
+name = "zegraph-pfp-provider"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "deadpool-redis",
+ "openssl",
+ "poem",
+ "poem-openapi",
+ "redis",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

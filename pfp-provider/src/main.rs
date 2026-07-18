@@ -9,7 +9,11 @@ use poem_openapi::{
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use std::{sync::Arc, time::Duration};
 use thiserror::Error;
+use tokio::sync::Semaphore;
 use tracing::level_filters::LevelFilter;
+
+const MAX_CONCURRENT_LOOKUPS: usize = 5;
+const MAX_RETRIES: u32 = 3;
 
 mod providers;
 mod cache;
@@ -64,17 +68,37 @@ enum ApiPfpResponse {
 struct AppState {
     providers: Vec<Box<dyn Provider>>,
     cache: RedisCache,
+    lookup_limit: Semaphore,
 }
 
 struct Api {
     state: Arc<AppState>,
 }
 
+async fn get_pfp_with_retry(provider: &dyn Provider, uuid: u64) -> anyhow::Result<String> {
+    let mut attempt = 1;
+    loop {
+        match provider.get_pfp(uuid).await {
+            Ok(url) => return Ok(url),
+            Err(e) if attempt < MAX_RETRIES => {
+                let backoff = Duration::from_millis(2000 * 2u64.pow(attempt - 1));
+                tracing::debug!(
+                    "Provider {} attempt {}/{} failed: {}; retrying in {:?}",
+                    provider.name(), attempt, MAX_RETRIES, e, backoff
+                );
+                tokio::time::sleep(backoff).await;
+                attempt += 1;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
 #[OpenApi]
 impl Api {
     #[oai(path = "/steams/pfp/:uuid", method = "get")]
-    async fn get_steam_profile(&self, uuid: Path<u64>) -> PoemResult<ApiPfpResponse> {
-        let cache_result = self.state.cache.get(&uuid.0.to_string()).await;
+    async fn get_steam_profile(&self, Path(uuid): Path<u64>) -> PoemResult<ApiPfpResponse> {
+        let cache_result = self.state.cache.get(&uuid.to_string()).await;
         if let Ok(Some(url)) = cache_result {
             let parts: Vec<&str> = url.split(':').collect();
             if parts.len() >= 2 {
@@ -90,12 +114,17 @@ impl Api {
             tracing::warn!("Redis cache error: {}", e);
         }
 
+        let _permit = self.state.lookup_limit
+            .acquire()
+            .await
+            .expect("lookup semaphore never closed");
+
         for provider in &self.state.providers {
-            match provider.get_pfp(uuid.0).await {
+            match get_pfp_with_retry(provider.as_ref(), uuid).await {
                 Ok(url) if !url.is_empty() => {
                     let cache_value = format!("{}:{}", provider.name(), url);
                     if let Err(e) = self.state.cache.set(
-                        &uuid.0.to_string(), &cache_value, Duration::from_secs(60 * 60 * 24 * 3)).await {
+                        &uuid.to_string(), &cache_value, Duration::from_hours(24 * 3)).await {
                         tracing::warn!("Failed to cache result: {}", e);
                     }
 
@@ -134,7 +163,7 @@ async fn main(){
     let cache = RedisCache::new(&redis_url).await
         .expect("Failed to connect to redis");
     let http_client = reqwest::Client::builder()
-        .user_agent("ZEGraph-Pfp-Provider/0.3 (+https://zegraph.xyz)")
+        .user_agent("ZEGraph-Pfp-Provider/0.4 (+https://zegraph.xyz)")
         .timeout(Duration::from_secs(10))
         .build()
         .expect("Failed to create HTTP client");
@@ -152,7 +181,11 @@ async fn main(){
         tracing::warn!("STEAM_API_KEY environment was not set. Final fallback for providing profile does not exist.");
     }
 
-    let app_state = Arc::new(AppState { providers, cache });
+    let app_state = Arc::new(AppState {
+        providers,
+        cache,
+        lookup_limit: Semaphore::new(MAX_CONCURRENT_LOOKUPS),
+    });
 
     let api = Api { state: app_state };
 
