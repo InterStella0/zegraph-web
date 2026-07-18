@@ -25,12 +25,14 @@ pub fn inflight_key(cache_key: &str) -> String {
 /// `cache_key`, `ttl` and `priority` are resolved by the producer rather than re-derived by the
 /// consumer: the producer already substituted `{session}` into `cache_key_pattern()`, and copying
 /// the resolved values removes any chance of the two sides disagreeing about where a result lands.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct RefreshJob {
     pub kind: JobKind,
     pub cache_key: String,
     pub ttl: u64,
     pub priority: QueryPriority,
+    #[serde(default)]
+    pub stale_key: Option<String>,
 }
 
 impl RefreshJob {
@@ -44,7 +46,7 @@ impl RefreshJob {
 
 /// One variant per `WorkerQuery` impl. The `T` that used to be a phantom type parameter becomes a
 /// tag here, because the queue carries bytes and not types.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum JobKind {
     // MapBasicQuery<T>
     MapRegions(MapData),

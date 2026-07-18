@@ -70,6 +70,11 @@ impl BackgroundWorker {
             cache_key: current_key.clone(),
             ttl: query.ttl(),
             priority: query.priority(),
+            // Drop the previous session's key once the refresh lands; guard against evicting the
+            // key we're about to write in case the session id hasn't actually rolled over.
+            stale_key: fallback_key.as_deref()
+                .filter(|k| *k != current_key)
+                .map(str::to_string),
         };
 
         self.get_with_fallback(&current_key, fallback_key.as_deref(), job).await
@@ -230,6 +235,17 @@ impl BackgroundWorker {
 
         if let Ok(mut conn) = self.cache.redis_pool.get().await {
             let _: RedisResult<()> = conn.set_ex(&cache_key, json_value, ttl).await;
+        }
+    }
+
+    /// Evicts a key from both cache tiers. The mirror of `cache_raw`: memory holds the bare key,
+    /// redis the `gfl-ze-watcher:`-prefixed one.
+    pub async fn drop_cached(&self, key: &str) {
+        self.cache.memory.invalidate(key).await;
+
+        if let Ok(mut conn) = self.cache.redis_pool.get().await {
+            let cache_key = format!("gfl-ze-watcher:{key}");
+            let _: RedisResult<()> = conn.del(&cache_key).await;
         }
     }
 }

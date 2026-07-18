@@ -113,6 +113,9 @@ async fn run_job(job: RefreshJob, pool: Arc<Pool<Postgres>>, cache: Arc<FastCach
         Ok(Some(json)) => {
             let worker = BackgroundWorker::new(cache.clone());
             worker.cache_raw(&job.cache_key, &json, job.ttl).await;
+            if let Some(stale) = &job.stale_key {
+                worker.drop_cached(stale).await;
+            }
             tracing::info!("Refresh completed in {:?}: {}", started.elapsed(), job.cache_key);
         }
         // Side-effecting job (its work landed in Postgres); there is no value to cache.

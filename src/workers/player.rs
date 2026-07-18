@@ -1120,6 +1120,7 @@ impl PlayerWorker {
             cache_key: format!("global-playtime-refresh:{canonical_id}"),
             ttl: 0,
             priority: QueryPriority::Heavy,
+            stale_key: None,
         }).await;
     }
 
