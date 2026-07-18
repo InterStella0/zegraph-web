@@ -2370,7 +2370,7 @@ impl MapApi{
 
         let mut multipart = multipart;
         let mut file_data: Option<Vec<u8>> = None;
-        let mut res_type: Option<String> = None;
+        let mut res_type: Option<ResType> = None;
         let mut credit: Option<String> = None;
 
         while let Ok(Some(field)) = multipart.next_field().await {
@@ -2384,9 +2384,7 @@ impl MapApi{
                 }
                 Some("res_type") => {
                     if let Ok(text) = field.text().await {
-                        if text == "low" || text == "high" {
-                            res_type = Some(text);
-                        }
+                        res_type = ResType::parse(&text);
                     }
                 }
                 Some("credit") => {
@@ -2413,7 +2411,7 @@ impl MapApi{
         }
 
         let link_path = match app.map_storage
-            .store_bytes(&map_name, &res_type_val, &file_bytes)
+            .store_bytes(&map_name, res_type_val.as_str(), &file_bytes)
             .await
         {
             Ok(path) => path,
@@ -2439,7 +2437,7 @@ impl MapApi{
             RETURNING *
             "#,
             map_name,
-            res_type_val,
+            res_type_val.as_str(),
             credit,
             link_path,
             user_token.id,
@@ -2490,9 +2488,9 @@ impl MapApi{
         }
 
         // Parse request
-        let res_type = match req.get("res_type").and_then(|v| v.as_str()) {
-            Some(rt) if rt == "low" || rt == "high" => rt.to_string(),
-            _ => return response!(err "Invalid res_type. Must be 'low' or 'high'", ErrorCode::BadRequest),
+        let res_type = match req.get("res_type").and_then(|v| v.as_str()).and_then(ResType::parse) {
+            Some(rt) => rt,
+            None => return response!(err "Invalid res_type. Must be 'low' or 'high'", ErrorCode::BadRequest),
         };
 
         let credit = req.get("credit").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -2513,7 +2511,7 @@ impl MapApi{
         let session = UploadSession {
             session_id: session_id.clone(),
             map_name: map_name.clone(),
-            res_type: res_type.clone(),
+            res_type: res_type.as_str().to_string(),
             credit,
             total_chunks,
             chunk_size: CHUNK_SIZE,

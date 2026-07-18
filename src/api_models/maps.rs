@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
-use poem_openapi::Object;
-use serde::Serialize;
+use poem_openapi::{Enum, Object};
+use serde::{Deserialize, Serialize};
 
 #[derive(Object)]
 pub struct MapRank{
@@ -97,6 +97,31 @@ pub struct MapPlayed{
     pub no_noms: bool,
     pub min_players: Option<i16>,
     pub max_players: Option<i16>,
+}
+
+#[derive(Enum, Serialize, Deserialize, Clone, Copy)]
+pub enum ResType {
+    #[oai(rename = "low")]
+    Low,
+    #[oai(rename = "high")]
+    High,
+}
+
+impl ResType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ResType::Low => "low",
+            ResType::High => "high",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<ResType> {
+        match s {
+            "low" => Some(ResType::Low),
+            "high" => Some(ResType::High),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Object, Serialize)]
