@@ -668,6 +668,12 @@ impl PlayerApi{
         let context = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_hour_of_day(&context).await)
     }
+
+    #[oai(path="/servers/:server_id/players/:player_id/online_heatmap", method="get")]
+    async fn get_online_heatmap_player(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerOnlineHeatmap>>{
+        let context = PlayerContext::from(extract);
+        handle_worker_player_result(app.player_worker.get_online_heatmap(&context).await)
+    }
     #[oai(path="/servers/:server_id/players/:player_id/sessions", method="get")]
     async fn get_list_sessions(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Query(page): Query<usize>,
@@ -984,6 +990,7 @@ impl UriPatternExt for PlayerApi{
             "/servers/{server_id}/players/{player_id}/regions",
             "/servers/{server_id}/players/{player_id}/legacy_stats",
             "/servers/{server_id}/players/{player_id}/hours_of_day",
+            "/servers/{server_id}/players/{player_id}/online_heatmap",
         ].iter_into()
     }
 }

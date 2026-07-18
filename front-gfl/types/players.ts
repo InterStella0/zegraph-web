@@ -28,6 +28,12 @@ export type PlayerHourDay = {
     count: number,
 }
 
+export type PlayerOnlineHeatmap = {
+    hour_of_day: number,
+    hours_online: number,
+    online_count: number,
+}
+
 export type PlayerInfraction = {
     id: string,
     source: string,

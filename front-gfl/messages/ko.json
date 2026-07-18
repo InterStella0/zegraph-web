@@ -307,7 +307,15 @@
       "summary": "세션 활동은 {joins}회의 참가와 {leaves}회의 퇴장을 보여줍니다. 최고 참가 시간: {peakJoinHour}:00{timezone} ({peakJoinCount}회 참가). 최고 퇴장 시간: {peakLeaveHour}:00{timezone} ({peakLeaveCount}회 퇴장).",
       "genericError": "문제가 발생했습니다 :/",
       "myTimezone": "내 시간대",
-      "loadError": "플레이어 하루 중 시간대를 가져올 수 없습니다!"
+      "loadError": "플레이어 하루 중 시간대를 가져올 수 없습니다!",
+      "onlineTitle": "시간대별 온라인 활동",
+      "metricHour": "시간",
+      "metricJoinCount": "접속 횟수",
+      "heatLabel": "히트",
+      "hoursOnlineAxis": "온라인 시간",
+      "hoursOnlineTooltip": "{hours}시간 온라인 ({sessions}회 세션)",
+      "onlineSummary": "이 플레이어는 총 약 {total}시간 동안 온라인이었습니다. {peakHour}:00{timezone}에 가장 활발하며 {peakHours}시간 온라인입니다.",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "플레이 시간 기록({hours}시간)",

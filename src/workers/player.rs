@@ -767,6 +767,64 @@ impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerBasicQuery<Vec<DbPlayerHourCo
         JobKind::PlayerHourCount(self.context.data.clone())
     }
 }
+
+#[async_trait]
+impl WorkerQuery<Vec<DbPlayerOnlineHeatmap>> for PlayerBasicQuery<Vec<DbPlayerOnlineHeatmap>> {
+    type Error = sqlx::Error;
+    async fn execute(&self) -> Result<Vec<DbPlayerOnlineHeatmap>, Self::Error> {
+        let ctx = &self.context;
+        sqlx::query_as!(DbPlayerOnlineHeatmap, "
+            WITH sessions AS (
+                SELECT started_at AT TIME ZONE 'UTC'                AS started_at,
+                       COALESCE(ended_at, now()) AT TIME ZONE 'UTC' AS ended_at
+                FROM public.player_server_session
+                WHERE player_id = $2
+                  AND server_id = $1
+                  AND started_at IS NOT NULL
+                  AND COALESCE(ended_at, now()) > started_at
+            ), expanded AS (
+                SELECT
+                    EXTRACT(hour FROM bucket)::int AS hour_of_day,
+                    -- overlap of this session with this specific hour bucket
+                    EXTRACT(EPOCH FROM (
+                        LEAST(s.ended_at, bucket + INTERVAL '1 hour')
+                      - GREATEST(s.started_at, bucket)
+                    )) AS seconds_online
+                FROM sessions s
+                CROSS JOIN LATERAL generate_series(
+                    date_trunc('hour', s.started_at),
+                    date_trunc('hour', s.ended_at),
+                    INTERVAL '1 hour'
+                ) AS bucket
+            )
+            SELECT
+                gs                                                            AS hour_of_day,
+                ROUND(COALESCE(SUM(e.seconds_online), 0)::numeric / 3600.0, 2)::double precision AS hours_online,
+                COUNT(e.hour_of_day)                                          AS online_count
+            FROM generate_series(0, 23) gs
+            LEFT JOIN expanded e ON e.hour_of_day = gs
+            GROUP BY gs
+            ORDER BY gs
+        ", ctx.data.server_id, ctx.data.player_id).fetch_all(&*ctx.pool).await
+    }
+
+    fn cache_key_pattern(&self) -> String {
+        let ctx = &self.context;
+        format!("player-online-heatmap:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
+    }
+
+    fn ttl(&self) -> u64 {
+        60 * DAY
+    }
+
+    fn priority(&self) -> QueryPriority {
+        QueryPriority::Light
+    }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerOnlineHeatmap(self.context.data.clone())
+    }
+}
 pub struct PlayerWorker {
     background_worker: Arc<BackgroundWorker>,
     pool: Arc<Pool<Postgres>>,
@@ -1063,6 +1121,11 @@ impl PlayerWorker {
             ttl: 0,
             priority: QueryPriority::Heavy,
         }).await;
+    }
+
+    pub async fn get_online_heatmap(&self, context: &PlayerContext) -> WorkResult<Vec<PlayerOnlineHeatmap>> {
+        let result: Vec<DbPlayerOnlineHeatmap> = self.query_player(context).await?;
+        Ok(result.into_iter().map(Into::into).collect())
     }
 
     pub async fn get_hour_of_day(&self, context: &PlayerContext) -> WorkResult<Vec<PlayerHourDay>> {

@@ -307,7 +307,15 @@
       "summary": "Активность сессии показывает {joins} присоединений и {leaves} выходов. Пик присоединений: {peakJoinHour}:00{timezone} ({peakJoinCount} присоединений). Пик выходов: {peakLeaveHour}:00{timezone} ({peakLeaveCount} выходов).",
       "genericError": "Что-то пошло не так :/",
       "myTimezone": "Мой часовой пояс",
-      "loadError": "Ошибка при получении часа дня игрока!"
+      "loadError": "Ошибка при получении часа дня игрока!",
+      "onlineTitle": "Активность онлайн по часам",
+      "metricHour": "Часы",
+      "metricJoinCount": "Входы",
+      "heatLabel": "ТЕПЛО",
+      "hoursOnlineAxis": "Часов онлайн",
+      "hoursOnlineTooltip": "{hours} ч онлайн ({sessions} сессий)",
+      "onlineSummary": "Этот игрок провёл онлайн около {total} часов. Наиболее активен в {peakHour}:00{timezone} — {peakHours} часов онлайн.",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "История времени игры ({hours}ч)",

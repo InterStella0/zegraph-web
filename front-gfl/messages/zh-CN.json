@@ -307,7 +307,15 @@
       "summary": "场次活动显示了 {joins} 次加入和 {leaves} 次离开。加入高峰时段：{peakJoinHour}:00{timezone}（{peakJoinCount} 次加入）。离开高峰时段：{peakLeaveHour}:00{timezone}（{peakLeaveCount} 次离开）。",
       "genericError": "出错了 :/",
       "myTimezone": "我的时区",
-      "loadError": "获取玩家小时数据时出错！"
+      "loadError": "获取玩家小时数据时出错！",
+      "onlineTitle": "每小时在线活跃度",
+      "metricHour": "小时",
+      "metricJoinCount": "加入次数",
+      "heatLabel": "热度",
+      "hoursOnlineAxis": "在线小时数",
+      "hoursOnlineTooltip": "在线 {hours} 小时（{sessions} 场）",
+      "onlineSummary": "该玩家总计在线约 {total} 小时。在 {peakHour}:00{timezone} 最为活跃，在线 {peakHours} 小时。",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "游戏时长历史（{hours}小时）",

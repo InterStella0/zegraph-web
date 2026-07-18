@@ -307,7 +307,15 @@
       "summary": "Hoạt động phiên hiển thị {joins} lần tham gia và {leaves} lần rời khỏi. Giờ tham gia đỉnh: {peakJoinHour}:00{timezone} ({peakJoinCount} lần tham gia). Giờ rời khỏi đỉnh: {peakLeaveHour}:00{timezone} ({peakLeaveCount} lần rời khỏi).",
       "genericError": "Có gì đó không đúng :/",
       "myTimezone": "Múi giờ của tôi",
-      "loadError": "Lỗi khi tìm nạp giờ trong ngày của người chơi!"
+      "loadError": "Lỗi khi tìm nạp giờ trong ngày của người chơi!",
+      "onlineTitle": "Hoạt động trực tuyến theo giờ",
+      "metricHour": "Giờ",
+      "metricJoinCount": "Lượt tham gia",
+      "heatLabel": "NHIỆT",
+      "hoursOnlineAxis": "Giờ trực tuyến",
+      "hoursOnlineTooltip": "{hours} giờ trực tuyến ({sessions} phiên)",
+      "onlineSummary": "Người chơi này đã trực tuyến khoảng {total} giờ. Hoạt động nhiều nhất lúc {peakHour}:00{timezone} với {peakHours} giờ trực tuyến.",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "Lịch sử thời gian chơi ({hours}h)",

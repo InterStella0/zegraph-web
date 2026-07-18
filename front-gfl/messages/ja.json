@@ -307,7 +307,15 @@
       "summary": "セッションアクティビティは{joins}回の参加と{leaves}回の離脱を示しています。ピーク参加時間：{peakJoinHour}:00{timezone}({peakJoinCount}回参加)。ピーク離脱時間：{peakLeaveHour}:00{timezone}({peakLeaveCount}回離脱)。",
       "genericError": "何か問題が発生しました :/",
       "myTimezone": "マイタイムゾーン",
-      "loadError": "プレイヤーの時間帯を取得できません!"
+      "loadError": "プレイヤーの時間帯を取得できません!",
+      "onlineTitle": "時間帯別オンライン状況",
+      "metricHour": "時間",
+      "metricJoinCount": "参加回数",
+      "heatLabel": "ヒート",
+      "hoursOnlineAxis": "オンライン時間",
+      "hoursOnlineTooltip": "{hours}時間オンライン（{sessions}セッション）",
+      "onlineSummary": "このプレイヤーの合計オンライン時間は約{total}時間です。最も活発なのは{peakHour}:00{timezone}で、{peakHours}時間オンラインです。",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "プレイ時間履歴({hours}時間)",

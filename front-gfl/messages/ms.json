@@ -307,7 +307,15 @@
       "summary": "Aktiviti sesi menunjukkan {joins} sertaan dan {leaves} keluaran. Jam sertaan puncak: {peakJoinHour}:00{timezone} ({peakJoinCount} sertaan). Jam keluaran puncak: {peakLeaveHour}:00{timezone} ({peakLeaveCount} keluaran).",
       "genericError": "Sesuatu telah berlaku :/",
       "myTimezone": "Zon Waktu Saya",
-      "loadError": "Ralat mendapatkan jam hari pemain!"
+      "loadError": "Ralat mendapatkan jam hari pemain!",
+      "onlineTitle": "Aktiviti Dalam Talian Mengikut Jam",
+      "metricHour": "Jam",
+      "metricJoinCount": "Jumlah Sertai",
+      "heatLabel": "HABA",
+      "hoursOnlineAxis": "Jam dalam talian",
+      "hoursOnlineTooltip": "{hours} jam dalam talian ({sessions} sesi)",
+      "onlineSummary": "Pemain ini telah dalam talian kira-kira {total} jam kesemuanya. Paling aktif pada {peakHour}:00{timezone} dengan {peakHours} jam dalam talian.",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "Sejarah Masa Bermain ({hours}j)",

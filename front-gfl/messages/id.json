@@ -307,7 +307,15 @@
       "summary": "Aktivitas sesi menunjukkan {joins} bergabung dan {leaves} pergi. Jam bergabung puncak: {peakJoinHour}:00{timezone} ({peakJoinCount} bergabung). Jam pergi puncak: {peakLeaveHour}:00{timezone} ({peakLeaveCount} pergi).",
       "genericError": "Sesuatu tidak beres :/",
       "myTimezone": "Zona Waktu Saya",
-      "loadError": "Kesalahan saat mengambil jam dalam sehari pemain!"
+      "loadError": "Kesalahan saat mengambil jam dalam sehari pemain!",
+      "onlineTitle": "Aktivitas Online per Jam",
+      "metricHour": "Jam",
+      "metricJoinCount": "Jumlah Gabung",
+      "heatLabel": "PANAS",
+      "hoursOnlineAxis": "Jam online",
+      "hoursOnlineTooltip": "{hours} jam online ({sessions} sesi)",
+      "onlineSummary": "Pemain ini telah online sekitar {total} jam secara total. Paling aktif pada {peakHour}:00{timezone} dengan {peakHours} jam online.",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "Riwayat Waktu Bermain ({hours}j)",

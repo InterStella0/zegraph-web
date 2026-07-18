@@ -307,7 +307,15 @@
       "summary": "場次活動顯示了 {joins} 次加入與 {leaves} 次離開。加入高峰時段：{peakJoinHour}:00{timezone}（{peakJoinCount} 次加入）。離開高峰時段：{peakLeaveHour}:00{timezone}（{peakLeaveCount} 次離開）。",
       "genericError": "發生錯誤 :/",
       "myTimezone": "我的時區",
-      "loadError": "取得玩家小時資料時發生錯誤！"
+      "loadError": "取得玩家小時資料時發生錯誤！",
+      "onlineTitle": "每小時線上活躍度",
+      "metricHour": "小時",
+      "metricJoinCount": "加入次數",
+      "heatLabel": "熱度",
+      "hoursOnlineAxis": "線上小時數",
+      "hoursOnlineTooltip": "線上 {hours} 小時（{sessions} 場）",
+      "onlineSummary": "該玩家總計線上約 {total} 小時。在 {peakHour}:00{timezone} 最為活躍，線上 {peakHours} 小時。",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "遊玩時間歷史（{hours}小時）",

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use poem_openapi::{Enum, Object};
+use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
 
 #[derive(Object, Serialize, Deserialize)]
@@ -249,14 +249,6 @@ pub struct CreateMapNotifySubscriptionDto {
 pub struct MapNotifyStatusResponse {
     pub subscribed: bool,
     pub subscription_type: Option<String>, // "server" or "all" or null
-}
-
-#[derive(Enum, Serialize, Deserialize)]
-pub enum ResType {  // TODO: Actually use this
-    #[oai(rename = "low")]
-    Low,
-    #[oai(rename = "high")]
-    High,
 }
 
 #[derive(Object, Serialize, Deserialize, Clone)]

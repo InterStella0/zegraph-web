@@ -168,6 +168,13 @@ pub struct PlayerHourDay{
 }
 
 #[derive(Object)]
+pub struct PlayerOnlineHeatmap{
+    pub hour_of_day: i32,
+    pub hours_online: f64,
+    pub online_count: i64,
+}
+
+#[derive(Object)]
 pub struct PlayerWithLegacyRanks {
     pub steamid64: String,
     pub points: f64,

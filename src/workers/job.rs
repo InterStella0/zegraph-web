@@ -66,6 +66,7 @@ pub enum JobKind {
     PlayerDetail(PlayerData),
     PlayerRegionTime(PlayerData),
     PlayerHourCount(PlayerData),
+    PlayerOnlineHeatmap(PlayerData),
 
     // PlayerSessionQuery<T>
     PlayerSeen(PlayerSessionData),
@@ -118,6 +119,9 @@ pub async fn dispatch(
         JobKind::PlayerDetail(d) => run!(player_query::<DbPlayerDetail>(d, pool, cache)),
         JobKind::PlayerRegionTime(d) => run!(player_query::<Vec<DbPlayerRegionTime>>(d, pool, cache)),
         JobKind::PlayerHourCount(d) => run!(player_query::<Vec<DbPlayerHourCount>>(d, pool, cache)),
+        JobKind::PlayerOnlineHeatmap(d) => {
+            run!(player_query::<Vec<DbPlayerOnlineHeatmap>>(d, pool, cache))
+        }
 
         JobKind::PlayerSeen(d) => run!(player_session_query::<Vec<DbPlayerSeen>>(d, pool, cache)),
 

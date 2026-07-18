@@ -344,6 +344,17 @@ pub struct DbPlayersStatistic{
     #[unwrap_default]
     pub countries: Option<i64>
 }
+#[derive(Clone, DbInto)]
+#[db_into(PlayerOnlineHeatmap)]
+#[auto_serde_with]
+pub struct DbPlayerOnlineHeatmap{
+    #[unwrap_default]
+    pub hour_of_day: Option<i32>,
+    #[unwrap_default]
+    pub hours_online: Option<f64>,
+    #[unwrap_default]
+    pub online_count: Option<i64>,
+}
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DbPlayerHourCount{
     pub hours: Option<i32>,

@@ -307,7 +307,15 @@
       "summary": "La actividad de sesiones muestra {joins} entradas y {leaves} salidas. Hora pico de entradas: {peakJoinHour}:00{timezone} ({peakJoinCount} entradas). Hora pico de salidas: {peakLeaveHour}:00{timezone} ({peakLeaveCount} salidas).",
       "genericError": "Algo salió mal :/",
       "myTimezone": "Mi zona horaria",
-      "loadError": "¡Error al obtener las horas del día del jugador!"
+      "loadError": "¡Error al obtener las horas del día del jugador!",
+      "onlineTitle": "Actividad en línea por hora",
+      "metricHour": "Hora",
+      "metricJoinCount": "Conexiones",
+      "heatLabel": "CALOR",
+      "hoursOnlineAxis": "Horas en línea",
+      "hoursOnlineTooltip": "{hours} h en línea ({sessions} sesiones)",
+      "onlineSummary": "Este jugador ha estado en línea unas {total} horas en total. Más activo a las {peakHour}:00{timezone} con {peakHours} horas en línea.",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "Historial de tiempo de juego ({hours}h)",

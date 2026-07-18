@@ -307,7 +307,15 @@
       "summary": "Session activity shows {joins} joins and {leaves} leaves. Peak join hour: {peakJoinHour}:00{timezone} ({peakJoinCount} joins). Peak leave hour: {peakLeaveHour}:00{timezone} ({peakLeaveCount} leaves).",
       "genericError": "Something went wrong :/",
       "myTimezone": "My Timezone",
-      "loadError": "Error fetching player hour of day!"
+      "loadError": "Error fetching player hour of day!",
+      "onlineTitle": "Online Activity by Hour",
+      "metricHour": "Hour",
+      "metricJoinCount": "Join Count",
+      "heatLabel": "HEAT",
+      "hoursOnlineAxis": "Hours online",
+      "hoursOnlineTooltip": "{hours}h online ({sessions} sessions)",
+      "onlineSummary": "This player has been online for about {total} hours in total. Most active at {peakHour}:00{timezone} with {peakHours} hours online.",
+      "utc": "UTC"
     },
     "hourBar": {
       "title": "Play Time History ({hours}hr)",
