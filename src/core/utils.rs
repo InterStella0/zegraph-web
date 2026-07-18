@@ -950,3 +950,30 @@ pub async fn generate_unique_guide_slug(
     let fallback = format!("{}-{}", &base_slug[..std::cmp::min(base_slug.len(), 112)], uuid_suffix);
     Ok(fallback)
 }
+
+#[cfg(test)]
+mod cached_result_tests {
+    use super::CachedResult;
+
+    /// Callers branch on these two flags — `MapWorker::get_statistics` reads `is_new` to decide
+    /// whether it is looking at a freshly computed value — so the three constructors must keep
+    /// setting them apart from one another.
+    #[test]
+    fn the_constructors_set_distinct_flag_pairs() {
+        let current = CachedResult::current_data(1);
+        assert!(!current.is_new && !current.backup, "a cache hit is neither new nor a backup");
+
+        let fresh = CachedResult::new_data(1);
+        assert!(fresh.is_new && !fresh.backup, "a computed value is new and not a backup");
+
+        let backup = CachedResult::backup_data(1);
+        assert!(!backup.is_new && backup.backup, "a fallback value is a backup and not new");
+    }
+
+    #[test]
+    fn the_result_is_carried_through_untouched() {
+        assert_eq!(CachedResult::new_data("payload").result, "payload");
+        assert_eq!(CachedResult::backup_data("payload").result, "payload");
+        assert_eq!(CachedResult::current_data("payload").result, "payload");
+    }
+}

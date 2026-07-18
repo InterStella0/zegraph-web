@@ -42,6 +42,15 @@ uuid = { version = "1.24.0", features = ["v4", "serde"] }
 web-push = "0.11.0"
 base64 = "0.22.1"
 
+[dev-dependencies]
+# `macros` only reaches the build transitively through poem today, which is what lets the existing
+# `#[tokio::test]`s compile. Depending on that is fragile, so the test target asks for it directly.
+tokio={ version = "1.52.3", features = ["macros", "rt", "rt-multi-thread"] }
+# `poem::test::TestClient`, used by the route tests, lives behind poem's `test` feature. Declared
+# here rather than in [dependencies] so it is enabled only when building test targets — a plain
+# `cargo build` does not pull dev-dependencies, so the release binary is unaffected.
+poem = { version = "3.1.12", features = ["test"] }
+
 [features]
 docker=["openssl"]
 

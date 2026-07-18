@@ -465,7 +465,7 @@ impl UriPatternExt for AdminMapsApi {
             "/admin/maps/metadata",
             "/admin/maps/metadata/global",
             "/admin/maps/metadata/server",
-            "/admin/maps/:map_name",
+            "/admin/maps/{map_name}",
         ].iter_into()
     }
 }

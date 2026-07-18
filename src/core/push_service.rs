@@ -109,6 +109,20 @@ impl PushNotificationService {
         })
     }
 
+    /// A service that can be held but not used, for tests that need to build an [`crate::AppData`]
+    /// without VAPID keys on disk. The keys are placeholders — they are only validated when a
+    /// notification is actually sent, which no offline test does. `IsahcWebPushClient::new` builds
+    /// an HTTP client and dials nothing.
+    #[cfg(test)]
+    pub(crate) fn stub(pool: Arc<PgPool>) -> Self {
+        Self {
+            pool,
+            client: IsahcWebPushClient::new().expect("web push client should not need a server"),
+            vapid_public_key: String::from("test-public-key"),
+            vapid_private_key_pem: String::from("test-private-key-pem"),
+        }
+    }
+
     pub fn get_public_key(&self) -> &str {
         &self.vapid_public_key
     }

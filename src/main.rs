@@ -118,6 +118,74 @@ impl Role {
     }
 }
 
+const DEFAULT_PORT: &str = "3000";
+
+/// The OpenAPI service, split out of [`run_main`] so tests can inspect the generated spec without
+/// standing up the rest of the process. The path shapes in that spec are what the custom
+/// `FromRequest` extractors read by name, so they are worth asserting on — see `route_tests`.
+fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
+    let apis = (
+        ServerApi,
+        PlayerApi,
+        GraphApi,
+        MapApi,
+        RadarApi,
+        MiscApi,
+        AccountsApi,
+        CharacterApi,
+        DonationsApi,
+        SpecialThanksApi,
+        ZeCommunityLinksApi,
+        AdminMapsApi,
+        AdminAuditApi,
+        AdminServersApi,
+    );
+    OpenApiService::new(apis, "ZE Watcher", "0.2")
+        .server(format!("http://127.0.0.1:{DEFAULT_PORT}/"))
+}
+
+/// For logging endpoints, because poem dev rly makes it hard for me.
+///
+/// This list is maintained by hand alongside the `#[oai(path = ...)]` attributes; `route_tests`
+/// cross-checks it against the generated spec so the two cannot drift apart silently.
+fn registered_patterns() -> Vec<Arc<dyn UriPatternExt + Send + Sync>> {
+    vec![
+        Arc::new(MapApi),
+        Arc::new(ServerApi),
+        Arc::new(PlayerApi),
+        Arc::new(GraphApi),
+        Arc::new(RadarApi),
+        Arc::new(MiscApi),
+        Arc::new(AccountsApi),
+        Arc::new(CharacterApi),
+        Arc::new(DonationsApi),
+        Arc::new(SpecialThanksApi),
+        Arc::new(ZeCommunityLinksApi),
+        Arc::new(AdminMapsApi),
+        Arc::new(AdminAuditApi),
+        Arc::new(AdminServersApi),
+    ]
+}
+
+/// The fully assembled HTTP app. Kept separate from [`run_main`] so `poem::test::TestClient` can
+/// drive the real route tree — middleware, extractors and all — rather than a stand-in.
+// `use<>` keeps `environment` out of the returned type; under edition 2024 `impl Trait` would
+// otherwise capture the borrow and the app could not outlive the caller's local.
+fn build_app(data: AppData, environment: &str) -> impl poem::Endpoint + use<> {
+    let api_service = build_api_service();
+
+    let mut route = Route::new();
+    if environment.to_uppercase() == "DEVELOPMENT" {
+        let ui = api_service.swagger_ui();
+        route = route.nest("/ui", ui);
+    }
+    route.nest("/", api_service)
+        .with(Cors::new()) // 600MB limit for large file uploads
+        .with(PatternLogger::new(registered_patterns()))
+        .with(CookieSession::new(CookieConfig::default()))
+        .data(data)
+}
+
 async fn run_main() {
     let environment = get_env_default("ENVIRONMENT").unwrap_or(String::from("DEVELOPMENT"));
     let pre_calculate = get_env_bool("PRECALCULATE", false);
@@ -194,53 +262,8 @@ async fn run_main() {
         count_chunk_cache,
     };
 
-    let apis = (
-        ServerApi,
-        PlayerApi,
-        GraphApi,
-        MapApi,
-        RadarApi,
-        MiscApi,
-        AccountsApi,
-        CharacterApi,
-        DonationsApi,
-        SpecialThanksApi,
-        ZeCommunityLinksApi,
-        AdminMapsApi,
-        AdminAuditApi,
-        AdminServersApi,
-    );
-    // For logging endpoints, because poem dev rly makes it hard for me
-    let registered: Vec<Arc<dyn UriPatternExt + Send + Sync>> = vec![
-        Arc::new(MapApi),
-        Arc::new(ServerApi),
-        Arc::new(PlayerApi),
-        Arc::new(GraphApi),
-        Arc::new(RadarApi),
-        Arc::new(MiscApi),
-        Arc::new(AccountsApi),
-        Arc::new(CharacterApi),
-        Arc::new(DonationsApi),
-        Arc::new(SpecialThanksApi),
-        Arc::new(ZeCommunityLinksApi),
-        Arc::new(AdminMapsApi),
-        Arc::new(AdminAuditApi),
-        Arc::new(AdminServersApi),
-    ];
-    let port = "3000";
-    let api_service = OpenApiService::new(apis, "ZE Watcher", "0.2")
-        .server(format!("http://127.0.0.1:{port}/"));
-
-    let mut route = Route::new();
-    if &environment.to_uppercase() == "DEVELOPMENT"{
-        let ui = api_service.swagger_ui();
-        route = route.nest("/ui", ui);
-    }
-    let app = route.nest("/", api_service)
-        .with(Cors::new()) // 600MB limit for large file uploads
-        .with(PatternLogger::new(registered))
-        .with(CookieSession::new(CookieConfig::default()))
-        .data(data);
+    let port = DEFAULT_PORT;
+    let app = build_app(data, &environment);
 
     if role.runs_workers() {
         consumer::spawn_consumers(
@@ -334,6 +357,306 @@ async fn init_precalculate(port: &str){
         });
     }
 }
+/// HTTP-level tests for the assembled app.
+///
+/// These drive the real route tree through `poem::test::TestClient`, but against the dead fixtures
+/// in [`crate::workers::test_support`] — no postgres, no redis. That bounds what they can assert:
+/// every route behind a database-touching extractor (`ServerExtractor`, `MapExtractor`, …) resolves
+/// to 404 once the lookup fails, so these tests cover only what is decided *before* the database is
+/// reached — route registration, path-param naming, auth rejection, and request validation.
+/// Response bodies of database-backed handlers are deliberately out of scope; asserting on them
+/// would require a live server and break the offline guarantee `run-tests.sh` depends on.
+#[cfg(test)]
+mod route_tests {
+    use super::*;
+    use crate::api_models::common::Claims;
+    use crate::workers::test_support::fake_app_data;
+    use poem::test::TestClient;
+    use std::collections::BTreeSet;
+    use std::sync::Once;
+
+    const TEST_SECRET: &str = "route-tests-secret";
+
+    /// `parse_user_from_token` reads `NEXTAUTH_SECRET` through `get_env`, which panics when unset,
+    /// and it does so on every call rather than once at startup. Tests share one process and run on
+    /// multiple threads, so the variable is set exactly once here instead of per test.
+    fn init_env() {
+        static ONCE: Once = Once::new();
+        ONCE.call_once(|| unsafe {
+            std::env::set_var("NEXTAUTH_SECRET", TEST_SECRET);
+        });
+    }
+
+    fn client() -> TestClient<impl poem::Endpoint> {
+        init_env();
+        // "PRODUCTION" so the swagger UI is not mounted; these tests assert on the API surface.
+        TestClient::new(build_app(fake_app_data(), "PRODUCTION"))
+    }
+
+    fn spec_paths() -> BTreeSet<String> {
+        let spec: serde_json::Value = serde_json::from_str(&build_api_service().spec())
+            .expect("spec should be valid JSON");
+        spec["paths"]
+            .as_object()
+            .expect("spec should have a paths object")
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    fn mint_token() -> String {
+        init_env();
+        let claims = Claims {
+            sub: "76561198000000001".to_string(),
+            name: "route-test-user".to_string(),
+            // Far enough out that the suite cannot fail by sitting on a slow machine.
+            exp: (chrono::Utc::now().timestamp() + 3600) as usize,
+            iss: "ze-graph".to_string(),
+        };
+        jsonwebtoken::encode(
+            &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(TEST_SECRET.as_ref()),
+        )
+        .expect("minting a test token should not fail")
+    }
+
+    /// Routes that require a bearer token and reject before touching the database.
+    const PROTECTED: &[(&str, &str)] = &[
+        ("GET", "/accounts/me"),
+        ("GET", "/accounts/me/communities"),
+        ("POST", "/accounts/create"),
+        ("POST", "/accounts/server-requests"),
+        ("GET", "/accounts/me/push/subscriptions"),
+        ("GET", "/admin/reports/guides"),
+        ("GET", "/admin/bans"),
+        ("GET", "/admin/audit-logs"),
+    ];
+
+    async fn send(cli: &TestClient<impl poem::Endpoint>, method: &str, path: &str, token: Option<&str>) -> poem::http::StatusCode {
+        let builder = match method {
+            "GET" => cli.get(path),
+            "POST" => cli.post(path),
+            "PUT" => cli.put(path),
+            "DELETE" => cli.delete(path),
+            other => panic!("unhandled method {other}"),
+        };
+        let builder = match token {
+            Some(t) => builder.header("Authorization", format!("Bearer {t}")),
+            None => builder,
+        };
+        builder.send().await.0.status()
+    }
+
+    /// Guards the `poem-openapi = "=5.1.8"` pin in Cargo.toml, which exists because 5.1.9+
+    /// registers path parameters positionally (`:param0`). Every custom `FromRequest` extractor
+    /// here reads them by name via `raw_path_param`, so under a newer version they all get `None`.
+    ///
+    /// The generated spec does *not* reveal this — it still renders `{server_id}` on 5.1.16, which
+    /// was verified by actually bumping the dependency. The break is only observable at runtime, in
+    /// the status code: a named lookup that succeeds gives the extractor a value to look up, which
+    /// against the dead pool fails as 404; a lookup that returns `None` short-circuits to 400
+    /// before any database call. So the assertion is on 404, and 400 is the regression.
+    #[tokio::test]
+    async fn path_param_extractors_receive_named_params() {
+        let cli = client();
+        for path in [
+            "/servers/1/maps/autocomplete",
+            "/servers/1/maps/ze_test_map_v1/info",
+            "/graph/1/get_regions",
+        ] {
+            let status = send(&cli, "GET", path, None).await;
+            assert_ne!(
+                status,
+                poem::http::StatusCode::BAD_REQUEST,
+                "GET {path} returned 400, which means the path-param extractor got None rather \
+                 than a value. That is the poem-openapi positional-parameter regression — check \
+                 whether the `=5.1.8` pin in Cargo.toml was relaxed."
+            );
+            assert_eq!(
+                status,
+                poem::http::StatusCode::NOT_FOUND,
+                "GET {path} should reach the database lookup and 404 against the dead test pool"
+            );
+        }
+    }
+
+    /// Documents the shape of the public route surface. Unlike the test above this cannot detect
+    /// the poem-openapi regression, but it does catch a route being renamed or dropped outright.
+    #[test]
+    fn spec_exposes_expected_routes() {
+        let paths = spec_paths();
+        for expected in [
+            "/servers/{server_id}/maps/{map_name}/info",
+            "/graph/{server_id}/unique_players/players/{player_id}/sessions/{session_id}",
+            "/maps/{map_name}/guides/{guide_id}/comments/{comment_id}",
+            "/accounts/{user_id}/profile",
+            "/communities/{community_id}/unique_players",
+        ] {
+            assert!(paths.contains(expected), "expected {expected} in the spec, got {paths:#?}");
+        }
+    }
+
+    /// `registered_patterns()` is maintained by hand and feeds `PatternLogger`; a path missing from
+    /// it is logged as `unknown_pattern` and loses its tracing identity, while a stale entry matches
+    /// nothing. Neither shows up at runtime, so the two lists are compared here.
+    #[test]
+    fn registered_patterns_match_spec() {
+        let patterns = registered_patterns();
+        let declared: BTreeSet<String> = patterns
+            .iter()
+            .flat_map(|api| api.get_all_patterns())
+            .map(|p| p.uri().to_string())
+            .collect();
+        let spec = spec_paths();
+
+        let unregistered: Vec<_> = spec.difference(&declared).collect();
+        assert!(
+            unregistered.is_empty(),
+            "these routes exist but are not in any get_all_patterns(), so PatternLogger will log \
+             them as `unknown_pattern`: {unregistered:#?}"
+        );
+
+        let stale: Vec<_> = declared.difference(&spec).collect();
+        assert!(
+            stale.is_empty(),
+            "these patterns are declared but match no route; they are leftovers from deleted or \
+             renamed endpoints: {stale:#?}"
+        );
+    }
+
+    /// The two rejection codes differ by design of the layering, not by intent: a *missing*
+    /// `Authorization` header is rejected by poem-openapi's security-scheme check before the
+    /// extractor runs (401), while a header that is present but does not yield a valid token is
+    /// rejected by `BearerAuthorization::from_request` itself (403). Both are pinned so a change to
+    /// either layer is visible rather than silent.
+    const MISSING_TOKEN: poem::http::StatusCode = poem::http::StatusCode::UNAUTHORIZED;
+    const INVALID_TOKEN: poem::http::StatusCode = poem::http::StatusCode::FORBIDDEN;
+
+    #[tokio::test]
+    async fn protected_routes_reject_missing_token() {
+        let cli = client();
+        for (method, path) in PROTECTED {
+            let status = send(&cli, method, path, None).await;
+            assert_eq!(
+                status, MISSING_TOKEN,
+                "{method} {path} should reject an unauthenticated request"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn protected_routes_reject_malformed_token() {
+        let cli = client();
+        for (method, path) in PROTECTED {
+            let status = send(&cli, method, path, Some("not-a-real-jwt")).await;
+            assert_eq!(
+                status, INVALID_TOKEN,
+                "{method} {path} should reject a malformed token"
+            );
+        }
+    }
+
+    /// A token signed with the wrong secret must not be accepted. This is the test that would catch
+    /// signature verification being disabled or the issuer check being dropped.
+    #[tokio::test]
+    async fn protected_routes_reject_token_signed_with_wrong_secret() {
+        let cli = client();
+        let claims = Claims {
+            sub: "76561198000000001".to_string(),
+            name: "impostor".to_string(),
+            exp: (chrono::Utc::now().timestamp() + 3600) as usize,
+            iss: "ze-graph".to_string(),
+        };
+        let forged = jsonwebtoken::encode(
+            &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(b"a-different-secret"),
+        )
+        .expect("minting should not fail");
+
+        for (method, path) in PROTECTED {
+            let status = send(&cli, method, path, Some(&forged)).await;
+            assert_eq!(
+                status, INVALID_TOKEN,
+                "{method} {path} accepted a token signed with the wrong secret"
+            );
+        }
+    }
+
+    /// The positive half of the auth tests, and what keeps the two above honest — without it they
+    /// would still pass if every request were rejected for some unrelated reason. A correctly signed
+    /// token must get *past* the auth layer; what happens after is a database call that cannot
+    /// succeed here, so the assertion is only that neither rejection code comes back.
+    /// A subset of [`PROTECTED`] whose next step after auth is a database query, which fails fast
+    /// against the dead pool. The rejection tests can use every protected route because they never
+    /// reach the handler body; this one does reach it, so routes that would call out to Steam (e.g.
+    /// `POST /accounts/create`) are excluded — running them would mean real outbound traffic, which
+    /// is exactly what the offline fixtures exist to prevent.
+    const PROTECTED_DB_BACKED: &[(&str, &str)] = &[
+        ("GET", "/accounts/me"),
+        ("GET", "/accounts/me/communities"),
+        ("GET", "/accounts/me/push/subscriptions"),
+        ("GET", "/admin/reports/guides"),
+        ("GET", "/admin/bans"),
+        ("GET", "/admin/audit-logs"),
+    ];
+
+    #[tokio::test]
+    async fn valid_token_passes_the_auth_layer() {
+        let cli = client();
+        let token = mint_token();
+        for (method, path) in PROTECTED_DB_BACKED {
+            let status = send(&cli, method, path, Some(&token)).await;
+            assert!(
+                status != MISSING_TOKEN && status != INVALID_TOKEN,
+                "{method} {path} rejected a validly signed token with {status}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn unknown_route_is_not_found() {
+        let cli = client();
+        assert_eq!(
+            send(&cli, "GET", "/definitely/not/a/route", None).await,
+            poem::http::StatusCode::NOT_FOUND
+        );
+    }
+
+    #[tokio::test]
+    async fn wrong_method_on_known_route_is_method_not_allowed() {
+        let cli = client();
+        assert_eq!(
+            send(&cli, "POST", "/communities", None).await,
+            poem::http::StatusCode::METHOD_NOT_ALLOWED
+        );
+    }
+
+    /// `/meta_thumbnails` takes a required `Query<String>` and sits behind no database extractor, so
+    /// it is one of the few places the validation layer can be observed in isolation.
+    #[tokio::test]
+    async fn missing_required_query_param_is_bad_request() {
+        let cli = client();
+        assert_eq!(
+            send(&cli, "GET", "/meta_thumbnails", None).await,
+            poem::http::StatusCode::BAD_REQUEST,
+            "omitting the required `url` query param should fail validation"
+        );
+    }
+
+    /// A route that needs neither auth nor the database, proving the fixture really does serve
+    /// traffic and the assertions above are not all passing for the same trivial reason.
+    #[tokio::test]
+    async fn database_free_route_succeeds() {
+        let cli = client();
+        assert_eq!(
+            send(&cli, "GET", "/accounts/me/push/vapid-public-key", None).await,
+            poem::http::StatusCode::OK
+        );
+    }
+}
+
 fn main(){
     dotenv().ok();
     if env::var_os("RUST_LOG").is_none() {
@@ -349,3 +672,4 @@ fn main(){
             run_main().await
         });
 }
+

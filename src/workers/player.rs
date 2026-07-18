@@ -1265,3 +1265,108 @@ async fn run_global_refresh(
     tracing::info!("GLOBAL PLAYTIME REFRESH DONE {canonical_id}");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_support::{player_query, player_session_query, TEST_PLAYER, TEST_SERVER, TEST_SESSION};
+    use super::*;
+
+    /// Every assertion here goes through the pure half of `WorkerQuery`. `execute` is never called,
+    /// which is what keeps these tests free of a database.
+    fn metadata<T, Q: WorkerQuery<T>>(query: &Q) -> (String, u64, QueryPriority, JobKind) {
+        (query.cache_key_pattern(), query.ttl(), query.priority(), query.job_kind())
+    }
+
+    /// Session-scoped keys must carry the placeholder, or `for_session` silently produces one key
+    /// for every session and the cache never rolls over.
+    macro_rules! assert_session_scoped {
+        ($query:expr, $prefix:literal, $priority:pat, $kind:pat) => {{
+            let (pattern, ttl, priority, kind) = metadata(&$query);
+            assert!(
+                pattern.starts_with(concat!($prefix, ":")),
+                "expected {pattern} to start with {}", concat!($prefix, ":"),
+            );
+            assert!(pattern.ends_with(":{session}"), "{pattern} is not session-scoped");
+            assert!(pattern.contains(TEST_PLAYER), "{pattern} does not identify the player");
+            assert!(ttl > 0, "a zero ttl would cache nothing");
+            assert!(matches!(priority, $priority), "unexpected priority for {pattern}");
+            assert!(matches!(kind, $kind), "job_kind does not match the query type for {pattern}");
+        }};
+    }
+
+    #[tokio::test]
+    async fn player_query_metadata_matches_its_type() {
+        assert_session_scoped!(
+            player_query::<Vec<DbPlayerSessionTime>>(),
+            "player-session", QueryPriority::Light, JobKind::PlayerSessionTime(_)
+        );
+        assert_session_scoped!(
+            player_query::<Vec<DbPlayerMapPlayed>>(),
+            "player-map-played", QueryPriority::Heavy, JobKind::PlayerMapPlayed(_)
+        );
+        assert_session_scoped!(
+            player_query::<Option<DbPlayerRank>>(),
+            "player-play-ranks", QueryPriority::Light, JobKind::PlayerPlaytimeRanks(_)
+        );
+        assert_session_scoped!(
+            player_query::<Vec<DbMapRank>>(),
+            "player-map-ranks", QueryPriority::Light, JobKind::PlayerMapRanks(_)
+        );
+        assert_session_scoped!(
+            player_query::<Vec<DbPlayerAlias>>(),
+            "player-aliases", QueryPriority::Light, JobKind::PlayerAliases(_)
+        );
+        assert_session_scoped!(
+            player_query::<DbPlayerDetail>(),
+            "player_detail", QueryPriority::Heavy, JobKind::PlayerDetail(_)
+        );
+        assert_session_scoped!(
+            player_query::<Vec<DbPlayerRegionTime>>(),
+            "player-region", QueryPriority::Light, JobKind::PlayerRegionTime(_)
+        );
+        assert_session_scoped!(
+            player_query::<Vec<DbPlayerHourCount>>(),
+            "player-hour-day", QueryPriority::Light, JobKind::PlayerHourCount(_)
+        );
+        assert_session_scoped!(
+            player_query::<Vec<DbPlayerOnlineHeatmap>>(),
+            "player-online-heatmap", QueryPriority::Light, JobKind::PlayerOnlineHeatmap(_)
+        );
+    }
+
+    /// Aliases follow the player across servers, so this is the one player key deliberately not
+    /// scoped by server. Asserted explicitly so narrowing it later is a conscious change.
+    #[tokio::test]
+    async fn aliases_are_keyed_by_player_only() {
+        let pattern = player_query::<Vec<DbPlayerAlias>>().cache_key_pattern();
+
+        assert_eq!(pattern, format!("player-aliases:{TEST_PLAYER}:{{session}}"));
+        assert!(!pattern.contains(TEST_SERVER), "alias cache is intentionally server-agnostic");
+    }
+
+    /// `PlayerSeen` is the exception to the placeholder rule: its session is part of the query data
+    /// rather than the cache-key pattern, so the pattern is already fully resolved.
+    #[tokio::test]
+    async fn player_seen_embeds_its_session_rather_than_a_placeholder() {
+        let query = player_session_query::<Vec<DbPlayerSeen>>();
+        let (pattern, ttl, priority, kind) = metadata(&query);
+
+        assert_eq!(pattern, format!("player-seen-session:{TEST_SERVER}:{TEST_PLAYER}:{TEST_SESSION}"));
+        assert!(!pattern.contains("{session}"), "the session is already substituted");
+        assert!(ttl > 0);
+        assert!(matches!(priority, QueryPriority::Heavy));
+        assert!(matches!(kind, JobKind::PlayerSeen(_)));
+    }
+
+    #[tokio::test]
+    async fn player_queries_are_scoped_by_server() {
+        for pattern in [
+            player_query::<Vec<DbPlayerSessionTime>>().cache_key_pattern(),
+            player_query::<Vec<DbPlayerMapPlayed>>().cache_key_pattern(),
+            player_query::<DbPlayerDetail>().cache_key_pattern(),
+            player_query::<Vec<DbPlayerRegionTime>>().cache_key_pattern(),
+        ] {
+            assert!(pattern.contains(TEST_SERVER), "{pattern} must not be shared across servers");
+        }
+    }
+}

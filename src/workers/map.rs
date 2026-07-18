@@ -755,3 +755,59 @@ impl MapWorker {
         Ok(value.result.iter_into())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_support::{map_query, TEST_MAP, TEST_SERVER};
+    use super::*;
+
+    /// Only the pure half of `WorkerQuery` is touched — `execute` is never called, so no database
+    /// is involved.
+    macro_rules! assert_map_metadata {
+        ($query:expr, $prefix:literal, $priority:pat, $kind:pat) => {{
+            let query = $query;
+            let pattern = query.cache_key_pattern();
+            assert_eq!(pattern, format!("{}:{TEST_SERVER}:{TEST_MAP}:{{session}}", $prefix));
+            assert!(query.ttl() > 0, "a zero ttl would cache nothing");
+            assert!(matches!(query.priority(), $priority), "unexpected priority for {pattern}");
+            assert!(
+                matches!(query.job_kind(), $kind),
+                "job_kind does not match the query type for {pattern}",
+            );
+        }};
+    }
+
+    #[tokio::test]
+    async fn map_query_metadata_matches_its_type() {
+        assert_map_metadata!(
+            map_query::<Vec<DbMapRegion>>(), "map-regions-2", QueryPriority::Light, JobKind::MapRegions(_)
+        );
+        assert_map_metadata!(
+            map_query::<Vec<DbMapRegionDate>>(), "heat-region", QueryPriority::Light, JobKind::MapHeatRegions(_)
+        );
+        assert_map_metadata!(
+            map_query::<Vec<DbEvent>>(), "map-events", QueryPriority::Light, JobKind::MapEvents(_)
+        );
+        assert_map_metadata!(
+            map_query::<Vec<DbMapSessionDistribution>>(),
+            "sessions_distribution", QueryPriority::Light, JobKind::MapSessionDistribution(_)
+        );
+        assert_map_metadata!(
+            map_query::<DbServerMapPartial>(), "map-partial", QueryPriority::Light, JobKind::MapPartial(_)
+        );
+        assert_map_metadata!(
+            map_query::<Option<DbMapMeta>>(), "map_metadata", QueryPriority::Light, JobKind::MapMetadata(_)
+        );
+        assert_map_metadata!(
+            map_query::<Vec<DbMapPlayerTypeTime>>(),
+            "map_player_type_time", QueryPriority::Light, JobKind::MapPlayerTypeTime(_)
+        );
+        assert_map_metadata!(
+            map_query::<DbMapInfo>(), "map_info_data", QueryPriority::Light, JobKind::MapInfo(_)
+        );
+        // The only heavy map query — it is the one that used to contend with request handling.
+        assert_map_metadata!(
+            map_query::<DbMapAnalyze>(), "map_analyze-2", QueryPriority::Heavy, JobKind::MapAnalyze(_)
+        );
+    }
+}

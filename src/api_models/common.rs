@@ -292,6 +292,12 @@ impl<'a> RoutePattern<'a> {
     pub fn is_match(&self, path: &str) -> bool {
         suppress_panic_logs(|| self.pattern.is_match(path)).unwrap_or(false)
     }
+
+    /// The pattern as written, e.g. `/communities/{community_id}/unique_players`. Same syntax the
+    /// OpenAPI spec uses for path keys, which is what lets `route_tests` compare the two directly.
+    pub fn uri(&self) -> &'a str {
+        self.uri
+    }
 }
 
 impl Eq for RoutePattern<'_> {}

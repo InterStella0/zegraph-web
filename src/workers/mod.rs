@@ -12,6 +12,8 @@ pub mod consumer;
 pub mod job;
 pub mod map;
 pub mod player;
+#[cfg(test)]
+pub mod test_support;
 pub use map::MapWorker;
 pub use player::PlayerWorker;
 pub use job::{JobKind, RefreshJob};
@@ -61,21 +63,8 @@ impl BackgroundWorker {
         Q: WorkerQuery<T> + Send + Sync + Clone + 'static,
         Q::Error: Send + 'static + std::fmt::Display,
     {
-        let pattern = query.cache_key_pattern();
-        let current_key = pattern.replace("{session}", current_session);
-        let fallback_key = previous_session.map(|prev| pattern.replace("{session}", prev));
-
-        let job = RefreshJob {
-            kind: query.job_kind(),
-            cache_key: current_key.clone(),
-            ttl: query.ttl(),
-            priority: query.priority(),
-            // Drop the previous session's key once the refresh lands; guard against evicting the
-            // key we're about to write in case the session id hasn't actually rolled over.
-            stale_key: fallback_key.as_deref()
-                .filter(|k| *k != current_key)
-                .map(str::to_string),
-        };
+        let (job, current_key, fallback_key) =
+            RefreshJob::for_session(&query, current_session, previous_session);
 
         self.get_with_fallback(&current_key, fallback_key.as_deref(), job).await
     }
@@ -300,5 +289,283 @@ pub enum WorkError {
 impl From<sqlx::Error> for WorkError {
     fn from(e: sqlx::Error) -> Self {
         WorkError::Database(e)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::test_support::fake_cache;
+    use super::*;
+
+    /// A `WorkerQuery` with no database behind it. `for_session` only ever calls the metadata
+    /// methods, so `execute` is unreachable here and stays unimplemented.
+    #[derive(Clone)]
+    struct StubQuery {
+        pattern: String,
+        ttl: u64,
+        priority: QueryPriority,
+    }
+
+    impl StubQuery {
+        fn new(pattern: &str) -> Self {
+            Self { pattern: pattern.to_string(), ttl: 1234, priority: QueryPriority::Heavy }
+        }
+    }
+
+    #[async_trait]
+    impl WorkerQuery<Vec<u8>> for StubQuery {
+        type Error = sqlx::Error;
+
+        async fn execute(&self) -> Result<Vec<u8>, Self::Error> {
+            unreachable!("metadata-only stub")
+        }
+        fn cache_key_pattern(&self) -> String { self.pattern.clone() }
+        fn ttl(&self) -> u64 { self.ttl }
+        fn priority(&self) -> QueryPriority { self.priority }
+        fn job_kind(&self) -> JobKind {
+            JobKind::PlayerGlobalPlaytime { canonical_id: "stub".to_string() }
+        }
+    }
+
+    fn for_session(
+        current: &str, previous: Option<&str>,
+    ) -> (RefreshJob, String, Option<String>) {
+        let query = StubQuery::new("thing:server-1:player-1:{session}");
+        RefreshJob::for_session::<Vec<u8>, _>(&query, current, previous)
+    }
+
+    #[test]
+    fn session_id_is_substituted_into_both_keys() {
+        let (job, current_key, fallback_key) = for_session("now", Some("before"));
+
+        assert_eq!(current_key, "thing:server-1:player-1:now");
+        assert_eq!(fallback_key.as_deref(), Some("thing:server-1:player-1:before"));
+        assert_eq!(job.cache_key, current_key);
+    }
+
+    #[test]
+    fn no_previous_session_means_no_fallback_and_nothing_to_evict() {
+        let (job, _, fallback_key) = for_session("now", None);
+
+        assert!(fallback_key.is_none());
+        assert!(job.stale_key.is_none());
+    }
+
+    #[test]
+    fn a_rolled_over_session_evicts_the_previous_key() {
+        let (job, _, _) = for_session("now", Some("before"));
+
+        assert_eq!(job.stale_key.as_deref(), Some("thing:server-1:player-1:before"));
+    }
+
+    /// The guard that matters: when the session has not actually rolled over, the previous key and
+    /// the current key are the same string. Evicting it would delete the result the refresh just
+    /// wrote, leaving the key permanently cold.
+    #[test]
+    fn an_unchanged_session_is_never_evicted() {
+        let (job, current_key, fallback_key) = for_session("now", Some("now"));
+
+        assert_eq!(fallback_key.as_deref(), Some(current_key.as_str()));
+        assert!(
+            job.stale_key.is_none(),
+            "stale_key must not name the key the refresh is about to write",
+        );
+    }
+
+    #[test]
+    fn job_metadata_is_copied_from_the_query() {
+        let (job, _, _) = for_session("now", None);
+
+        assert_eq!(job.ttl, 1234);
+        assert_eq!(job.queue(), job::QUEUE_HEAVY);
+    }
+
+    // --- BackgroundWorker cache behaviour -------------------------------------------------
+    //
+    // These run against `fake_cache()`: a real in-process moka tier and an unreachable redis. Every
+    // path below checks memory first and swallows redis failures, so the observable behaviour is
+    // the same as it would be with redis simply missing the key.
+
+    fn worker() -> BackgroundWorker {
+        BackgroundWorker::new(fake_cache())
+    }
+
+    /// Counts closure invocations so a "cache hit" assertion can prove the query never ran, rather
+    /// than only that the value came back correct.
+    struct CountingQuery(Arc<AtomicUsize>);
+
+    impl CountingQuery {
+        fn new() -> Self { Self(Arc::new(AtomicUsize::new(0))) }
+        fn calls(&self) -> usize { self.0.load(Ordering::SeqCst) }
+        fn func(&self) -> impl Fn() -> std::pin::Pin<Box<dyn Future<Output = Result<String, sqlx::Error>> + Send>> + Clone + use<> {
+            let counter = self.0.clone();
+            move || {
+                let counter = counter.clone();
+                Box::pin(async move {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    Ok("computed".to_string())
+                })
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_computes_and_caches_on_a_miss() {
+        let worker = worker();
+        let query = CountingQuery::new();
+
+        let result: CachedResult<String> =
+            worker.execute("k", 60, query.func()).await.expect("should compute");
+
+        assert_eq!(result.result, "computed");
+        assert!(result.is_new, "a freshly computed value is new");
+        assert_eq!(query.calls(), 1);
+    }
+
+    #[tokio::test]
+    async fn execute_serves_a_cached_value_without_running_the_query() {
+        let worker = worker();
+        let query = CountingQuery::new();
+
+        worker.cache_raw("k", "\"from-cache\"", 60).await;
+        let result: CachedResult<String> =
+            worker.execute("k", 60, query.func()).await.expect("should hit cache");
+
+        assert_eq!(result.result, "from-cache");
+        assert!(!result.is_new, "a cached value is not new");
+        assert_eq!(query.calls(), 0, "the query must not run on a cache hit");
+    }
+
+    #[tokio::test]
+    async fn drop_cached_forces_a_recompute() {
+        let worker = worker();
+        let query = CountingQuery::new();
+
+        worker.cache_raw("k", "\"from-cache\"", 60).await;
+        worker.drop_cached("k").await;
+        let result: CachedResult<String> =
+            worker.execute("k", 60, query.func()).await.expect("should recompute");
+
+        assert_eq!(result.result, "computed");
+        assert_eq!(query.calls(), 1);
+    }
+
+    /// The two tiers key differently — memory on the bare key, redis on the `gfl-ze-watcher:`
+    /// prefixed one. `cache_raw`, `try_cache_lookup` and `drop_cached` each rebuild that pairing
+    /// independently, so pin it down.
+    #[tokio::test]
+    async fn the_memory_tier_is_keyed_on_the_bare_key() {
+        let worker = worker();
+        worker.cache_raw("some-key", "\"v\"", 60).await;
+
+        assert_eq!(worker.cache.memory.get("some-key").await.as_deref(), Some("\"v\""));
+        assert!(worker.cache.memory.get("gfl-ze-watcher:some-key").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn an_undeserializable_cached_value_is_treated_as_a_miss() {
+        let worker = worker();
+        let query = CountingQuery::new();
+
+        worker.cache_raw("k", "this is not json", 60).await;
+        let result: CachedResult<String> =
+            worker.execute("k", 60, query.func()).await.expect("should fall back to computing");
+
+        assert_eq!(result.result, "computed");
+        assert_eq!(query.calls(), 1);
+    }
+
+    #[tokio::test]
+    async fn get_with_fallback_serves_the_previous_session_as_backup() {
+        let worker = worker();
+        worker.cache_raw("thing:before", "\"stale\"", 60).await;
+
+        let (job, _, _) = for_session("now", Some("before"));
+        let result: CachedResult<String> = worker
+            .get_with_fallback("thing:now", Some("thing:before"), job)
+            .await
+            .expect("fallback should be served");
+
+        assert_eq!(result.result, "stale");
+        assert!(result.backup, "a fallback value is flagged as backup");
+        assert!(!result.is_new);
+    }
+
+    #[tokio::test]
+    async fn get_with_fallback_reports_calculating_when_neither_key_is_cached() {
+        let worker = worker();
+        let (job, _, _) = for_session("now", Some("before"));
+
+        let result: WorkResult<CachedResult<String>> =
+            worker.get_with_fallback("thing:now", Some("thing:before"), job).await;
+
+        assert!(matches!(result, Err(WorkError::Calculating)));
+    }
+
+    #[tokio::test]
+    async fn a_current_hit_wins_over_the_fallback() {
+        let worker = worker();
+        worker.cache_raw("thing:now", "\"fresh\"", 60).await;
+        worker.cache_raw("thing:before", "\"stale\"", 60).await;
+
+        let (job, _, _) = for_session("now", Some("before"));
+        let result: CachedResult<String> = worker
+            .get_with_fallback("thing:now", Some("thing:before"), job)
+            .await
+            .expect("current key should be served");
+
+        assert_eq!(result.result, "fresh");
+        assert!(!result.backup);
+    }
+}
+
+/// Spans both workers, so it lives here rather than in `player.rs` or `map.rs`.
+#[cfg(test)]
+mod cache_key_tests {
+    use std::collections::HashSet;
+
+    use crate::models::admins::DbEvent;
+    use crate::models::maps::*;
+    use crate::models::players::*;
+    use crate::models::servers::DbServerMapPartial;
+    use super::test_support::{map_query, player_query, player_session_query};
+    use super::WorkerQuery;
+
+    /// The queries are distinguished only by a phantom type parameter, so two impls returning the
+    /// same key pattern is an easy mistake to make and an invisible one to hit: the second type to
+    /// be written would deserialize the first one's JSON, or silently fail to and recompute
+    /// forever. Nothing else in the system checks this.
+    #[tokio::test]
+    async fn no_two_queries_share_a_cache_key_pattern() {
+        let patterns = vec![
+            player_query::<Vec<DbPlayerSessionTime>>().cache_key_pattern(),
+            player_query::<Vec<DbPlayerMapPlayed>>().cache_key_pattern(),
+            player_query::<Option<DbPlayerRank>>().cache_key_pattern(),
+            player_query::<Vec<DbMapRank>>().cache_key_pattern(),
+            player_query::<Vec<DbPlayerAlias>>().cache_key_pattern(),
+            player_query::<DbPlayerDetail>().cache_key_pattern(),
+            player_query::<Vec<DbPlayerRegionTime>>().cache_key_pattern(),
+            player_query::<Vec<DbPlayerHourCount>>().cache_key_pattern(),
+            player_query::<Vec<DbPlayerOnlineHeatmap>>().cache_key_pattern(),
+            player_session_query::<Vec<DbPlayerSeen>>().cache_key_pattern(),
+            map_query::<Vec<DbMapRegion>>().cache_key_pattern(),
+            map_query::<Vec<DbMapRegionDate>>().cache_key_pattern(),
+            map_query::<Vec<DbEvent>>().cache_key_pattern(),
+            map_query::<Vec<DbMapSessionDistribution>>().cache_key_pattern(),
+            map_query::<DbServerMapPartial>().cache_key_pattern(),
+            map_query::<Option<DbMapMeta>>().cache_key_pattern(),
+            map_query::<Vec<DbMapPlayerTypeTime>>().cache_key_pattern(),
+            map_query::<DbMapInfo>().cache_key_pattern(),
+            map_query::<DbMapAnalyze>().cache_key_pattern(),
+        ];
+
+        let unique: HashSet<&String> = patterns.iter().collect();
+        assert_eq!(
+            unique.len(), patterns.len(),
+            "two WorkerQuery impls resolve to the same cache key; patterns were {patterns:#?}",
+        );
+        assert_eq!(patterns.len(), 19, "every WorkerQuery impl must be listed here");
     }
 }

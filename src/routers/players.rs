@@ -973,6 +973,7 @@ impl UriPatternExt for PlayerApi{
     fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
         vec![
             "/servers/{server_id}/players/{player_id}/playing",
+            "/servers/{server_id}/players/playing",
             "/servers/{server_id}/players/autocomplete",
             "/servers/{server_id}/players/stats",
             "/servers/{server_id}/players/countries",

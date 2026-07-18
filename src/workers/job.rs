@@ -42,6 +42,38 @@ impl RefreshJob {
             QueryPriority::Light => QUEUE_LIGHT,
         }
     }
+
+    /// Resolves `{session}` in a query's key pattern and derives the stale key to evict once the
+    /// refresh lands. Returns the job alongside the current and fallback keys to read.
+    ///
+    /// Split out from `execute_with_session_fallback` so the key derivation — in particular the
+    /// stale-key guard below — can be exercised without a redis round trip.
+    pub(crate) fn for_session<T, Q>(
+        query: &Q,
+        current_session: &str,
+        previous_session: Option<&str>,
+    ) -> (Self, String, Option<String>)
+    where
+        Q: WorkerQuery<T> + ?Sized,
+    {
+        let pattern = query.cache_key_pattern();
+        let current_key = pattern.replace("{session}", current_session);
+        let fallback_key = previous_session.map(|prev| pattern.replace("{session}", prev));
+
+        let job = Self {
+            kind: query.job_kind(),
+            cache_key: current_key.clone(),
+            ttl: query.ttl(),
+            priority: query.priority(),
+            // Drop the previous session's key once the refresh lands; guard against evicting the
+            // key we're about to write in case the session id hasn't actually rolled over.
+            stale_key: fallback_key.as_deref()
+                .filter(|k| *k != current_key)
+                .map(str::to_string),
+        };
+
+        (job, current_key, fallback_key)
+    }
 }
 
 /// One variant per `WorkerQuery` impl. The `T` that used to be a phantom type parameter becomes a
@@ -175,5 +207,125 @@ impl std::fmt::Display for JobError {
             JobError::Database(e) => write!(f, "database: {e}"),
             JobError::Serde(e) => write!(f, "serde: {e}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_support::{map_data, player_data, player_session_data};
+    use super::*;
+
+    fn job(priority: QueryPriority) -> RefreshJob {
+        RefreshJob {
+            kind: JobKind::PlayerSessionTime(player_data()),
+            cache_key: "player-session:server-1:player-1:sess".to_string(),
+            ttl: 3600,
+            priority,
+            stale_key: Some("player-session:server-1:player-1:old".to_string()),
+        }
+    }
+
+    #[test]
+    fn priority_selects_the_queue() {
+        assert_eq!(job(QueryPriority::Heavy).queue(), QUEUE_HEAVY);
+        assert_eq!(job(QueryPriority::Light).queue(), QUEUE_LIGHT);
+        assert_ne!(QUEUE_HEAVY, QUEUE_LIGHT);
+    }
+
+    /// The producer sets this marker and the consumer's `clear_marker` rebuilds it from the cache
+    /// key independently. If the two ever derive it differently the marker is never cleared and the
+    /// key stays stuck reporting "calculating" until its TTL runs out, so assert the literal shape.
+    #[test]
+    fn the_inflight_marker_has_a_stable_shape() {
+        assert_eq!(inflight_key("map-info:s1:ze_map"), "gfl-ze-watcher:job:inflight:map-info:s1:ze_map");
+    }
+
+    #[test]
+    fn a_job_survives_a_round_trip_through_the_queue() {
+        let original = job(QueryPriority::Heavy);
+        let encoded = serde_json::to_string(&original).expect("serializable");
+        let decoded: RefreshJob = serde_json::from_str(&encoded).expect("deserializable");
+
+        assert_eq!(decoded.cache_key, original.cache_key);
+        assert_eq!(decoded.ttl, original.ttl);
+        assert_eq!(decoded.stale_key, original.stale_key);
+        assert_eq!(decoded.queue(), QUEUE_HEAVY);
+        assert!(matches!(decoded.kind, JobKind::PlayerSessionTime(d) if d.player_id == player_data().player_id));
+    }
+
+    /// `stale_key` was added after the queue was already in use, so a job enqueued by an older
+    /// build can still be sitting in redis across a deploy. It must not poison the consumer.
+    #[test]
+    fn a_payload_predating_stale_key_still_deserializes() {
+        let legacy = r#"{
+            "kind": {"PlayerAliases": {"player_id": "p", "server_id": "s", "current_session": "sess"}},
+            "cache_key": "player-aliases:p:sess",
+            "ttl": 60,
+            "priority": "Light"
+        }"#;
+
+        let decoded: RefreshJob = serde_json::from_str(legacy).expect("legacy payload must decode");
+
+        assert!(decoded.stale_key.is_none());
+        assert_eq!(decoded.queue(), QUEUE_LIGHT);
+    }
+
+    /// Every variant, so a new one cannot be added without also being round-tripped. The `match`
+    /// below is what enforces that: adding a variant to `JobKind` makes this fail to compile.
+    fn all_job_kinds() -> Vec<JobKind> {
+        let (p, m, s) = (player_data(), map_data(), player_session_data());
+        let kinds = vec![
+            JobKind::MapRegions(m.clone()),
+            JobKind::MapHeatRegions(m.clone()),
+            JobKind::MapEvents(m.clone()),
+            JobKind::MapSessionDistribution(m.clone()),
+            JobKind::MapPartial(m.clone()),
+            JobKind::MapMetadata(m.clone()),
+            JobKind::MapPlayerTypeTime(m.clone()),
+            JobKind::MapInfo(m.clone()),
+            JobKind::MapAnalyze(m),
+            JobKind::PlayerSessionTime(p.clone()),
+            JobKind::PlayerMapPlayed(p.clone()),
+            JobKind::PlayerPlaytimeRanks(p.clone()),
+            JobKind::PlayerMapRanks(p.clone()),
+            JobKind::PlayerAliases(p.clone()),
+            JobKind::PlayerDetail(p.clone()),
+            JobKind::PlayerRegionTime(p.clone()),
+            JobKind::PlayerHourCount(p.clone()),
+            JobKind::PlayerOnlineHeatmap(p),
+            JobKind::PlayerSeen(s),
+            JobKind::PlayerGlobalPlaytime { canonical_id: "canon".to_string() },
+        ];
+
+        // Exhaustiveness guard: no wildcard arm, so a new variant breaks the build here.
+        for kind in &kinds {
+            match kind {
+                JobKind::MapRegions(_) | JobKind::MapHeatRegions(_) | JobKind::MapEvents(_)
+                | JobKind::MapSessionDistribution(_) | JobKind::MapPartial(_)
+                | JobKind::MapMetadata(_) | JobKind::MapPlayerTypeTime(_) | JobKind::MapInfo(_)
+                | JobKind::MapAnalyze(_) | JobKind::PlayerSessionTime(_)
+                | JobKind::PlayerMapPlayed(_) | JobKind::PlayerPlaytimeRanks(_)
+                | JobKind::PlayerMapRanks(_) | JobKind::PlayerAliases(_) | JobKind::PlayerDetail(_)
+                | JobKind::PlayerRegionTime(_) | JobKind::PlayerHourCount(_)
+                | JobKind::PlayerOnlineHeatmap(_) | JobKind::PlayerSeen(_)
+                | JobKind::PlayerGlobalPlaytime { .. } => {}
+            }
+        }
+        kinds
+    }
+
+    #[test]
+    fn every_job_kind_round_trips_to_a_distinct_tag() {
+        let mut tags = std::collections::HashSet::new();
+
+        for kind in all_job_kinds() {
+            let encoded = serde_json::to_string(&kind).expect("serializable");
+            serde_json::from_str::<JobKind>(&encoded).expect("deserializable");
+
+            let tag = encoded.split(['{', '"']).find(|s| !s.is_empty()).unwrap().to_string();
+            assert!(tags.insert(tag.clone()), "two JobKind variants share the tag {tag}");
+        }
+
+        assert_eq!(tags.len(), 20, "all variants must be covered by all_job_kinds()");
     }
 }

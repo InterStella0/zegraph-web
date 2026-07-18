@@ -23,7 +23,11 @@ target/
 .env.production
 .idea
 .vscode
-.sqlx
+# The offline query cache is generated, never committed — regenerate it against a live DB with
+# `./run-tests.sh --prepare` (or `cargo sqlx prepare -- --all-targets`). The directory itself is
+# kept so the cache always has a home.
+.sqlx/*
+!.sqlx/.gitkeep
 thumbs
 .next
 .claude
