@@ -173,7 +173,7 @@ impl<E> PatternLoggerEndpoint<E>
 where
     E: Endpoint<Output = poem::Response>,
 {
-    fn find_pattern(&self, uri_path: &str) -> Option<RoutePattern> {
+    fn find_pattern(&self, uri_path: &str) -> Option<RoutePattern<'_>> {
         let mut a = vec![];
         for api in &self.apis {
             for pattern in api.get_all_patterns() {
