@@ -169,6 +169,23 @@
     }
   },
   "players": {
+    "global": {
+      "title": "Global Players",
+      "subtitle": "Player list across communities",
+      "totalPlayers": "Total players",
+      "searchPlaceholder": "Search the global player list by name...",
+      "hoursSplit": "Hours split",
+      "hoursAllTime": "hours all-time",
+      "rank": "Rank #{rank}",
+      "online": "Online",
+      "lastSeen": "Last seen {ago}",
+      "serversSummary": "{count, plural, one {# server} other {# servers}} · {game}",
+      "serversCount": "{count, plural, one {# server} other {# servers}}",
+      "moreCommunities": "+{count} more",
+      "noPlayersFound": "No players found",
+      "noResultsFor": "No results found for \"{query}\". Try adjusting your search.",
+      "loadError": "Couldn't load the global player list."
+    },
     "online": {
       "title": "Players Online ({count})",
       "offlineDelayInfo": "Players who leave take 3 minutes to be registered as offline, which can cause the server's maximum player count to be exceeded.",
@@ -1106,6 +1123,8 @@
     "rootDescription": "Track Counter-Strike Zombie Escape (ZE) player activity across CS2, CS:GO and CS:S servers. Popular servers like GFL, Mapeadores, RSS, PSE, Net4All, Cola-Team and many more.",
     "homeTitle": "Zombie Escape Stats | ZE Graph",
     "homeDescription": "Live player counts, playtime rankings and map analytics for Counter-Strike Zombie Escape servers across CS2, CS:GO and CS:S. GFL, Mapeadores, RSS, PSE and more.",
+    "globalPlayersTitle": "Global Players | ZE Graph",
+    "globalPlayersDescription": "Search every tracked Zombie Escape player across all communities, with all-time hours, per-community playtime split and global rank.",
     "liveTitle": "Live Tracker",
     "liveDescription": "All Zombie Escape (ZE) player data updates are streamed through here.",
     "statusTitle": "Status",

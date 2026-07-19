@@ -278,6 +278,13 @@ pub struct MapData{
     pub server_id: String,
 }
 
+/// Keyed by canonical player id alone: global queries span every linked account, server and
+/// community, so neither a server id nor a session id applies.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PlayerGlobalData{
+    pub canonical_id: String,
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum WorkError {
@@ -530,7 +537,7 @@ mod cache_key_tests {
     use crate::models::maps::*;
     use crate::models::players::*;
     use crate::models::servers::DbServerMapPartial;
-    use super::test_support::{map_query, player_query, player_session_query};
+    use super::test_support::{map_query, player_global_query, player_query, player_session_query};
     use super::WorkerQuery;
 
     /// The queries are distinguished only by a phantom type parameter, so two impls returning the
@@ -550,6 +557,8 @@ mod cache_key_tests {
             player_query::<Vec<DbPlayerHourCount>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerOnlineHeatmap>>().cache_key_pattern(),
             player_session_query::<Vec<DbPlayerSeen>>().cache_key_pattern(),
+            player_global_query::<DbGlobalPlaytimeSnapshot>().cache_key_pattern(),
+            player_global_query::<Vec<DbPlayerCommunityPlaytime>>().cache_key_pattern(),
             map_query::<Vec<DbMapRegion>>().cache_key_pattern(),
             map_query::<Vec<DbMapRegionDate>>().cache_key_pattern(),
             map_query::<Vec<DbEvent>>().cache_key_pattern(),
@@ -566,6 +575,6 @@ mod cache_key_tests {
             unique.len(), patterns.len(),
             "two WorkerQuery impls resolve to the same cache key; patterns were {patterns:#?}",
         );
-        assert_eq!(patterns.len(), 19, "every WorkerQuery impl must be listed here");
+        assert_eq!(patterns.len(), 21, "every WorkerQuery impl must be listed here");
     }
 }

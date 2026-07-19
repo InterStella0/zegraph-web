@@ -169,6 +169,23 @@
     }
   },
   "players": {
+    "global": {
+      "title": "Jugadores globales",
+      "subtitle": "Lista de jugadores en todas las comunidades",
+      "totalPlayers": "Total de jugadores",
+      "searchPlaceholder": "Busca en la lista global de jugadores por nombre...",
+      "hoursSplit": "Distribución de horas",
+      "hoursAllTime": "horas totales",
+      "rank": "Rango #{rank}",
+      "online": "En línea",
+      "lastSeen": "Visto por última vez {ago}",
+      "serversSummary": "{count, plural, one {# servidor} other {# servidores}} · {game}",
+      "serversCount": "{count, plural, one {# servidor} other {# servidores}}",
+      "moreCommunities": "+{count} más",
+      "noPlayersFound": "No se encontraron jugadores",
+      "noResultsFor": "No se encontraron resultados para \"{query}\". Intenta ajustar tu búsqueda.",
+      "loadError": "No se pudo cargar la lista global de jugadores."
+    },
     "online": {
       "title": "Jugadores en línea ({count})",
       "offlineDelayInfo": "Los jugadores que se van tardan 3 minutos en registrarse como desconectados, lo que puede hacer que se supere el número máximo de jugadores del servidor.",
@@ -1106,6 +1123,8 @@
     "rootDescription": "Rastrea la actividad de jugadores de Counter-Strike Zombie Escape (ZE) en servidores de CS2, CS:GO y CS:S. Servidores populares como GFL, Mapeadores, RSS, PSE, Net4All, Cola-Team y muchos más.",
     "homeTitle": "Estadísticas de Zombie Escape | ZE Graph",
     "homeDescription": "Recuento de jugadores en vivo, clasificaciones de tiempo de juego y análisis de mapas para servidores de Counter-Strike Zombie Escape en CS2, CS:GO y CS:S. GFL, Mapeadores, RSS, PSE y más.",
+    "globalPlayersTitle": "Jugadores globales | ZE Graph",
+    "globalPlayersDescription": "Busca a todos los jugadores de Zombie Escape rastreados en todas las comunidades, con horas totales, distribución del tiempo de juego por comunidad y rango global.",
     "liveTitle": "Rastreador en vivo",
     "liveDescription": "Todas las actualizaciones de datos de jugadores de Zombie Escape (ZE) se transmiten por aquí.",
     "statusTitle": "Estado",

@@ -169,6 +169,23 @@
     }
   },
   "players": {
+    "global": {
+      "title": "Pemain Global",
+      "subtitle": "Daftar pemain di seluruh komunitas",
+      "totalPlayers": "Total pemain",
+      "searchPlaceholder": "Cari daftar pemain global berdasarkan nama...",
+      "hoursSplit": "Rincian jam",
+      "hoursAllTime": "jam sepanjang waktu",
+      "rank": "Peringkat #{rank}",
+      "online": "Daring",
+      "lastSeen": "Terakhir terlihat {ago}",
+      "serversSummary": "{count, plural, one {# server} other {# server}} · {game}",
+      "serversCount": "{count, plural, one {# server} other {# server}}",
+      "moreCommunities": "+{count} lainnya",
+      "noPlayersFound": "Tidak ada pemain ditemukan",
+      "noResultsFor": "Tidak ada hasil untuk \"{query}\". Coba sesuaikan pencarian Anda.",
+      "loadError": "Gagal memuat daftar pemain global."
+    },
     "online": {
       "title": "Pemain Daring ({count})",
       "offlineDelayInfo": "Pemain yang keluar memerlukan 3 menit untuk didaftarkan sebagai luring, yang dapat menyebabkan jumlah pemain maksimal di server terlampaui.",
@@ -1106,6 +1123,8 @@
     "rootDescription": "Lacak aktivitas pemain Counter-Strike Zombie Escape (ZE) di server CS2, CS:GO, dan CS:S. Server populer seperti GFL, Mapeadores, RSS, PSE, Net4All, Cola-Team, dan banyak lagi.",
     "homeTitle": "Statistik Zombie Escape | ZE Graph",
     "homeDescription": "Jumlah pemain langsung, peringkat waktu bermain, dan analitik peta untuk server Counter-Strike Zombie Escape di CS2, CS:GO, dan CS:S. GFL, Mapeadores, RSS, PSE, dan lainnya.",
+    "globalPlayersTitle": "Pemain Global | ZE Graph",
+    "globalPlayersDescription": "Cari setiap pemain Zombie Escape yang terlacak di semua komunitas, dengan jam sepanjang waktu, rincian waktu bermain per komunitas, dan peringkat global.",
     "liveTitle": "Pelacak Langsung",
     "liveDescription": "Semua pembaruan data pemain Zombie Escape (ZE) disiarkan di sini.",
     "statusTitle": "Status",

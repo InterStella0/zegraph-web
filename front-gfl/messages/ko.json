@@ -169,6 +169,23 @@
     }
   },
   "players": {
+    "global": {
+      "title": "글로벌 플레이어",
+      "subtitle": "모든 커뮤니티의 플레이어 목록",
+      "totalPlayers": "총 플레이어 수",
+      "searchPlaceholder": "이름으로 글로벌 플레이어 목록 검색...",
+      "hoursSplit": "시간 분포",
+      "hoursAllTime": "누적 시간",
+      "rank": "순위 #{rank}",
+      "online": "온라인",
+      "lastSeen": "마지막 접속 {ago}",
+      "serversSummary": "{count, plural, one {# 서버} other {# 서버}} · {game}",
+      "serversCount": "{count, plural, one {# 서버} other {# 서버}}",
+      "moreCommunities": "+{count}개 더보기",
+      "noPlayersFound": "플레이어를 찾을 수 없습니다",
+      "noResultsFor": "\"{query}\"에 대한 결과를 찾을 수 없습니다. 검색어를 조정해 보세요.",
+      "loadError": "글로벌 플레이어 목록을 불러올 수 없습니다."
+    },
     "online": {
       "title": "온라인 플레이어({count})",
       "offlineDelayInfo": "플레이어가 나가면 오프라인으로 등록되는 데 3분이 걸릴 수 있으므로 서버의 최대 플레이어 수를 초과할 수 있습니다.",
@@ -1106,6 +1123,8 @@
     "rootDescription": "CS2, CS:GO, CS:S 서버에 걸친 카운터 스트라이크 좀비 이스케이프(ZE) 플레이어 활동을 추적하세요. GFL, Mapeadores, RSS, PSE, Net4All, Cola-Team 등 인기 서버를 추적합니다.",
     "homeTitle": "좀비 이스케이프 통계 | ZE Graph",
     "homeDescription": "CS2, CS:GO, CS:S의 카운터 스트라이크 좀비 이스케이프 서버를 위한 실시간 인원 수, 플레이 시간 순위, 맵 분석. GFL, Mapeadores, RSS, PSE 등.",
+    "globalPlayersTitle": "글로벌 플레이어 | ZE Graph",
+    "globalPlayersDescription": "모든 커뮤니티에서 추적되는 Zombie Escape 플레이어를 누적 시간, 커뮤니티별 플레이 시간 분포, 글로벌 순위와 함께 검색하세요.",
     "liveTitle": "라이브 추적",
     "liveDescription": "모든 좀비 탈출(ZE) 플레이어 데이터 업데이트가 여기를 통해 스트리밍됩니다.",
     "statusTitle": "상태",

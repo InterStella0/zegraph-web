@@ -169,6 +169,23 @@
     }
   },
   "players": {
+    "global": {
+      "title": "グローバルプレイヤー",
+      "subtitle": "全コミュニティのプレイヤー一覧",
+      "totalPlayers": "総プレイヤー数",
+      "searchPlaceholder": "名前でグローバルプレイヤーリストを検索...",
+      "hoursSplit": "時間の内訳",
+      "hoursAllTime": "累計時間",
+      "rank": "ランク #{rank}",
+      "online": "オンライン",
+      "lastSeen": "最終ログイン {ago}",
+      "serversSummary": "{count, plural, one {# サーバー} other {# サーバー}} · {game}",
+      "serversCount": "{count, plural, one {# サーバー} other {# サーバー}}",
+      "moreCommunities": "他 +{count}",
+      "noPlayersFound": "プレイヤーが見つかりません",
+      "noResultsFor": "\"{query}\" の検索結果が見つかりません。検索条件を変更してください。",
+      "loadError": "グローバルプレイヤーリストを読み込めませんでした。"
+    },
     "online": {
       "title": "オンラインプレイヤー({count})",
       "offlineDelayInfo": "プレイヤーの離脱は、オフラインとして登録されるまで3分かかることがあり、サーバーの最大プレイヤー数を超える可能性があります。",
@@ -1106,6 +1123,8 @@
     "rootDescription": "CS2、CS:GO、CS:S のサーバーにわたる Counter-Strike ゾンビエスケープ（ZE）のプレイヤーアクティビティを追跡。GFL、Mapeadores、RSS、PSE、Net4All、Cola-Team などの人気サーバーを追跡しています。",
     "homeTitle": "ゾンビエスケープ サーバー統計 | ZE Graph",
     "homeDescription": "CS2、CS:GO、CS:S の Counter-Strike ゾンビエスケープサーバーのリアルタイム人数、プレイ時間ランキング、マップ分析。GFL、Mapeadores、RSS、PSE など。",
+    "globalPlayersTitle": "グローバルプレイヤー | ZE Graph",
+    "globalPlayersDescription": "全コミュニティで追跡されているすべての Zombie Escape プレイヤーを、累計時間・コミュニティ別プレイ時間の内訳・グローバルランクとともに検索できます。",
     "liveTitle": "ライブトラッカー",
     "liveDescription": "すべてのゾンビエスケープ(ZE)プレイヤーデータの更新がここを通じてストリーミングされます。",
     "statusTitle": "ステータス",

@@ -14,7 +14,7 @@ use crate::FastCache;
 use crate::models::admins::{DbGlobalRefreshTarget, DbGlobalSums, DbPlayerGlobalPlaytime};
 use crate::models::maps::*;
 use crate::models::players::*;
-use super::{BackgroundWorker, JobKind, PlayerContext, PlayerData, PlayerSessionData, Query, QueryPriority, RefreshJob, WorkError, WorkResult, WorkerQuery};
+use super::{BackgroundWorker, JobKind, PlayerContext, PlayerData, PlayerGlobalData, PlayerSessionData, Query, QueryPriority, RefreshJob, WorkError, WorkResult, WorkerQuery};
 
 #[allow(dead_code)]
 struct DbWorkerLastCalculated{
@@ -69,6 +69,27 @@ impl<T> PlayerBasicQuery<T> {
         Self {
             context, _phantom: std::marker::PhantomData,
         }
+    }
+}
+
+/// Queries scoped to a canonical player id rather than a (server, session) pair. Their cache keys
+/// carry no `{session}` placeholder; the global refresh job invalidates them instead (see
+/// `run_global_refresh`).
+#[derive(Clone)]
+pub struct PlayerGlobalQuery<T> {
+    pub context: Query<PlayerGlobalData>,
+    _phantom: std::marker::PhantomData<T>,
+}
+impl<T> PlayerGlobalQuery<T> {
+    fn new(canonical_id: &str, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
+        Self::raw(Query {
+            pool,
+            cache,
+            data: PlayerGlobalData { canonical_id: canonical_id.to_string() },
+        })
+    }
+    pub(crate) fn raw(context: Query<PlayerGlobalData>) -> Self {
+        Self { context, _phantom: std::marker::PhantomData }
     }
 }
 
@@ -825,6 +846,152 @@ impl WorkerQuery<Vec<DbPlayerOnlineHeatmap>> for PlayerBasicQuery<Vec<DbPlayerOn
         JobKind::PlayerOnlineHeatmap(self.context.data.clone())
     }
 }
+#[async_trait]
+impl WorkerQuery<DbGlobalPlaytimeSnapshot> for PlayerGlobalQuery<DbGlobalPlaytimeSnapshot> {
+    type Error = sqlx::Error;
+
+    /// The read side of global playtime: the stored summary row plus a freshness verdict. When the
+    /// stored row is stale (or missing), live sums over `player_playtime` stand in for it — ranks
+    /// always come from the stored row, since they are only recomputed daily.
+    async fn execute(&self) -> Result<DbGlobalPlaytimeSnapshot, Self::Error> {
+        let ctx = &self.context;
+        let canonical_id = &ctx.data.canonical_id;
+
+        let stored = sqlx::query_as!(DbPlayerGlobalPlaytime, "
+            SELECT total_playtime, casual_playtime, tryhard_playtime, category,
+                   server_count, community_count, global_rank, casual_rank, tryhard_rank,
+                   rank_calculated_at, calculated_at
+            FROM website.player_global_playtime
+            WHERE player_id = $1
+        ", canonical_id).fetch_optional(&*ctx.pool).await?;
+
+        // Completed sessions only: an in-progress session would otherwise peg the player as
+        // permanently outdated, and player_playtime is derived from completed data anyway.
+        let latest_ended_at: Option<OffsetDateTime> = sqlx::query_scalar!("
+            WITH user_players AS (
+                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+            )
+            SELECT MAX(pss.ended_at)
+            FROM player_server_session pss
+            JOIN user_players up ON up.player_id = pss.player_id
+            WHERE pss.ended_at IS NOT NULL
+        ", canonical_id).fetch_one(&*ctx.pool).await?;
+
+        let is_outdated = match stored.as_ref().and_then(|s| s.calculated_at) {
+            None => true,
+            Some(calculated_at) => latest_ended_at.is_some_and(|ended| ended > calculated_at),
+        };
+
+        let snapshot = match (is_outdated, stored) {
+            (false, Some(row)) => DbGlobalPlaytimeSnapshot {
+                total_playtime: Some(row.total_playtime),
+                casual_playtime: Some(row.casual_playtime),
+                tryhard_playtime: Some(row.tryhard_playtime),
+                category: row.category,
+                server_count: row.server_count as i64,
+                community_count: row.community_count as i64,
+                global_rank: row.global_rank,
+                casual_rank: row.casual_rank,
+                tryhard_rank: row.tryhard_rank,
+                is_outdated: false,
+                calculated_at: row.calculated_at,
+                rank_calculated_at: row.rank_calculated_at,
+            },
+            (_, stored) => {
+                let sums = sqlx::query_as!(DbGlobalSums, "
+                    WITH user_players AS (
+                        SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+                    ),
+                    sums AS (
+                        SELECT SUM(pp.total_playtime) AS total_playtime,
+                               SUM(pp.casual_playtime) AS casual_playtime,
+                               SUM(pp.tryhard_playtime) AS tryhard_playtime,
+                               COUNT(DISTINCT pp.server_id) AS server_count,
+                               COUNT(DISTINCT s.community_id) AS community_count
+                        FROM website.player_playtime pp
+                        JOIN user_players up ON up.player_id = pp.player_id
+                        JOIN server s ON s.server_id = pp.server_id
+                    )
+                    SELECT total_playtime, casual_playtime, tryhard_playtime,
+                           server_count, community_count,
+                           CASE
+                               WHEN total_playtime < INTERVAL '5 hours' THEN NULL
+                               WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'casual'
+                               WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'tryhard'
+                               WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
+                               ELSE NULL
+                           END AS category
+                    FROM sums
+                ", canonical_id).fetch_one(&*ctx.pool).await?;
+
+                DbGlobalPlaytimeSnapshot {
+                    total_playtime: sums.total_playtime,
+                    casual_playtime: sums.casual_playtime,
+                    tryhard_playtime: sums.tryhard_playtime,
+                    category: sums.category,
+                    server_count: sums.server_count.unwrap_or(0),
+                    community_count: sums.community_count.unwrap_or(0),
+                    global_rank: stored.as_ref().and_then(|r| r.global_rank),
+                    casual_rank: stored.as_ref().and_then(|r| r.casual_rank),
+                    tryhard_rank: stored.as_ref().and_then(|r| r.tryhard_rank),
+                    is_outdated: true,
+                    calculated_at: stored.as_ref().and_then(|r| r.calculated_at),
+                    rank_calculated_at: stored.and_then(|r| r.rank_calculated_at),
+                }
+            }
+        };
+        Ok(snapshot)
+    }
+
+    fn cache_key_pattern(&self) -> String {
+        global_snapshot_key(&self.context.data.canonical_id)
+    }
+
+    // Short: this is the freshness signal, and it also bounds how long a stale "outdated" verdict
+    // survives after the refresh job has already invalidated the key.
+    fn ttl(&self) -> u64 { 60 }
+    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerGlobalSnapshot(self.context.data.clone())
+    }
+}
+
+#[async_trait]
+impl WorkerQuery<Vec<DbPlayerCommunityPlaytime>> for PlayerGlobalQuery<Vec<DbPlayerCommunityPlaytime>> {
+    type Error = sqlx::Error;
+
+    async fn execute(&self) -> Result<Vec<DbPlayerCommunityPlaytime>, Self::Error> {
+        let ctx = &self.context;
+        sqlx::query_as!(DbPlayerCommunityPlaytime, r#"
+            WITH user_players AS (
+                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+            )
+            SELECT c.community_id,
+                   COALESCE(c.community_name, '') AS "community_name!",
+                   c.community_icon_url AS icon_url,
+                   SUM(pp.total_playtime) AS total_playtime
+            FROM website.player_playtime pp
+            JOIN user_players up ON up.player_id = pp.player_id
+            JOIN server s ON s.server_id = pp.server_id
+            JOIN community c ON c.community_id = s.community_id
+            GROUP BY c.community_id, c.community_name, c.community_icon_url
+            ORDER BY SUM(pp.total_playtime) DESC
+        "#, ctx.data.canonical_id).fetch_all(&*ctx.pool).await
+    }
+
+    fn cache_key_pattern(&self) -> String {
+        community_playtime_key(&self.context.data.canonical_id)
+    }
+
+    fn ttl(&self) -> u64 { 5 * 60 }
+    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerCommunityPlaytime(self.context.data.clone())
+    }
+}
+
 pub struct PlayerWorker {
     background_worker: Arc<BackgroundWorker>,
     pool: Arc<Pool<Postgres>>,
@@ -989,112 +1156,58 @@ impl PlayerWorker {
         detail.aliases = aliases_filtered.iter_into();
         Ok(())
     }
-    // TODO: Rewrite this dogshit
+    /// Global queries carry no session, so there is no fallback key and nothing for `{session}`
+    /// substitution to do; the refresh job invalidates these keys instead (see
+    /// `run_global_refresh`).
+    async fn query_global<T>(&self, canonical_id: &str) -> WorkResult<T>
+    where
+        PlayerGlobalQuery<T>: WorkerQuery<T> + Send + Sync,
+        <PlayerGlobalQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display,
+        WorkError: From<<PlayerGlobalQuery<T> as WorkerQuery<T>>::Error>,
+        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+    {
+        let query = PlayerGlobalQuery::new(canonical_id, self.pool.clone(), self.background_worker.cache.clone());
+        let result = self.background_worker.execute_get(query, "").await?;
+        Ok(result.result)
+    }
+
     pub async fn get_global_playtime(&self, canonical_id: &str) -> WorkResult<GlobalPlaytimeSummary> {
+        let snapshot: DbGlobalPlaytimeSnapshot = self.query_global(canonical_id).await?;
+
+        // Live, never cached: the lock's presence is what tells the client a refresh is running.
         let cache = &self.background_worker.cache;
-        let lock_key = global_lock_key(canonical_id);
-        let mut is_calculating = redis_key_exists(&cache.redis_pool, &lock_key).await;
+        let mut is_calculating = redis_key_exists(&cache.redis_pool, &global_lock_key(canonical_id)).await;
 
-        let stored = sqlx::query_as!(DbPlayerGlobalPlaytime, "
-            SELECT total_playtime, casual_playtime, tryhard_playtime, category,
-                   server_count, community_count, global_rank, casual_rank, tryhard_rank,
-                   rank_calculated_at, calculated_at
-            FROM website.player_global_playtime
-            WHERE player_id = $1
-        ", canonical_id).fetch_optional(&*self.pool).await?;
-
-        // Completed sessions only: an in-progress session would otherwise peg the player as
-        // permanently outdated, and player_playtime is derived from completed data anyway.
-        let latest_ended_at: Option<OffsetDateTime> = sqlx::query_scalar!("
-            WITH user_players AS (
-                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
-            )
-            SELECT MAX(pss.ended_at)
-            FROM player_server_session pss
-            JOIN user_players up ON up.player_id = pss.player_id
-            WHERE pss.ended_at IS NOT NULL
-        ", canonical_id).fetch_one(&*self.pool).await?;
-
-        let is_outdated = match stored.as_ref().and_then(|s| s.calculated_at) {
-            None => true,
-            Some(calculated_at) => latest_ended_at.is_some_and(|ended| ended > calculated_at),
-        };
-
-        if is_outdated && !is_calculating {
+        if snapshot.is_outdated && !is_calculating {
             self.enqueue_global_refresh(canonical_id).await;
             // A refresh is queued by the time this response lands, so say so rather than
             // leaving the client to discover it on the next poll.
             is_calculating = true;
         }
 
-        let summary = match (is_outdated, stored) {
-            (false, Some(row)) => GlobalPlaytimeSummary {
-                total_playtime: row.total_playtime.to_f64(),
-                casual_playtime: row.casual_playtime.to_f64(),
-                tryhard_playtime: row.tryhard_playtime.to_f64(),
-                category: row.category,
-                rank: row.global_rank,
-                casual_rank: row.casual_rank,
-                tryhard_rank: row.tryhard_rank,
-                total_ranked_players: self.total_ranked_players().await,
-                server_count: row.server_count as i64,
-                community_count: row.community_count as i64,
-                is_outdated: false,
-                is_calculating,
-                calculated_at: row.calculated_at.map(db_to_utc),
-                rank_calculated_at: row.rank_calculated_at.map(db_to_utc),
-            },
-            (_, stored) => {
-                let sums = self.live_global_sums(canonical_id).await?;
-                GlobalPlaytimeSummary {
-                    total_playtime: sums.total_playtime.to_f64(),
-                    casual_playtime: sums.casual_playtime.to_f64(),
-                    tryhard_playtime: sums.tryhard_playtime.to_f64(),
-                    category: sums.category,
-                    // Ranks always come from the stored row: they are only recomputed daily.
-                    rank: stored.as_ref().and_then(|r| r.global_rank),
-                    casual_rank: stored.as_ref().and_then(|r| r.casual_rank),
-                    tryhard_rank: stored.as_ref().and_then(|r| r.tryhard_rank),
-                    total_ranked_players: self.total_ranked_players().await,
-                    server_count: sums.server_count.unwrap_or(0),
-                    community_count: sums.community_count.unwrap_or(0),
-                    is_outdated: true,
-                    is_calculating,
-                    calculated_at: stored.as_ref().and_then(|r| r.calculated_at).map(db_to_utc),
-                    rank_calculated_at: stored.and_then(|r| r.rank_calculated_at).map(db_to_utc),
-                }
-            }
-        };
-        Ok(summary)
+        Ok(GlobalPlaytimeSummary {
+            total_playtime: snapshot.total_playtime.to_f64(),
+            casual_playtime: snapshot.casual_playtime.to_f64(),
+            tryhard_playtime: snapshot.tryhard_playtime.to_f64(),
+            category: snapshot.category,
+            rank: snapshot.global_rank,
+            casual_rank: snapshot.casual_rank,
+            tryhard_rank: snapshot.tryhard_rank,
+            total_ranked_players: self.total_ranked_players().await,
+            server_count: snapshot.server_count,
+            community_count: snapshot.community_count,
+            is_outdated: snapshot.is_outdated,
+            is_calculating,
+            calculated_at: snapshot.calculated_at.map(db_to_utc),
+            rank_calculated_at: snapshot.rank_calculated_at.map(db_to_utc),
+        })
     }
 
-    async fn live_global_sums(&self, canonical_id: &str) -> WorkResult<DbGlobalSums> {
-        let sums = sqlx::query_as!(DbGlobalSums, "
-            WITH user_players AS (
-                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
-            ),
-            sums AS (
-                SELECT SUM(pp.total_playtime) AS total_playtime,
-                       SUM(pp.casual_playtime) AS casual_playtime,
-                       SUM(pp.tryhard_playtime) AS tryhard_playtime,
-                       COUNT(DISTINCT pp.server_id) AS server_count,
-                       COUNT(DISTINCT s.community_id) AS community_count
-                FROM website.player_playtime pp
-                JOIN user_players up ON up.player_id = pp.player_id
-                JOIN server s ON s.server_id = pp.server_id
-            )
-            SELECT total_playtime, casual_playtime, tryhard_playtime,
-                   server_count, community_count,
-                   CASE
-                       WHEN total_playtime < INTERVAL '5 hours' THEN NULL
-                       WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'casual'
-                       WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'tryhard'
-                       WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
-                       ELSE NULL
-                   END AS category
-            FROM sums
-        ", canonical_id).fetch_one(&*self.pool).await?;
-        Ok(sums)
+    /// The per-community "hours split" for the upcoming global-players page; no route calls this
+    /// yet.
+    pub async fn get_community_playtime(&self, canonical_id: &str) -> WorkResult<Vec<PlayerCommunityPlaytime>> {
+        let result: Vec<DbPlayerCommunityPlaytime> = self.query_global(canonical_id).await?;
+        Ok(result.into_iter().map(Into::into).collect())
     }
 
     async fn total_ranked_players(&self) -> i64 {
@@ -1103,7 +1216,7 @@ impl PlayerWorker {
             SELECT COUNT(*) FROM website.player_global_playtime WHERE total_playtime > INTERVAL '0'
         ").fetch_one(&*pool);
 
-        cached_response("global-playtime-ranked-count", &self.background_worker.cache, 900, func)
+        cached_response("global-playtime-ranked-count", &self.background_worker.cache, 60 * 60 * 12, func)
             .await
             .ok()
             .and_then(|cached: CachedResult<Option<i64>>| cached.result)
@@ -1144,6 +1257,16 @@ impl PlayerWorker {
 
 fn global_lock_key(canonical_id: &str) -> String {
     format!("lock:player_global_playtime:{canonical_id}")
+}
+
+/// Shared between `cache_key_pattern` and the eviction in `run_global_refresh`: deriving the key
+/// once is what guarantees the refresh invalidates the same key the reads are cached under.
+fn global_snapshot_key(canonical_id: &str) -> String {
+    format!("player-global-playtime:{canonical_id}")
+}
+
+fn community_playtime_key(canonical_id: &str) -> String {
+    format!("player-community-playtime:{canonical_id}")
 }
 
 /// Re-derives every server's `player_playtime` for this player, then stores the summation. Runs in
@@ -1262,13 +1385,19 @@ async fn run_global_refresh(
             synced_at = EXCLUDED.synced_at
     ", canonical_id).execute(&**pool).await?;
 
+    // The reads derived from what was just upserted are now wrong; evict them so the next request
+    // recomputes instead of serving a cached `is_outdated: true` snapshot (which would re-enqueue
+    // this whole job until the TTL ran out).
+    background_worker.drop_cached(&global_snapshot_key(canonical_id)).await;
+    background_worker.drop_cached(&community_playtime_key(canonical_id)).await;
+
     tracing::info!("GLOBAL PLAYTIME REFRESH DONE {canonical_id}");
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{player_query, player_session_query, TEST_PLAYER, TEST_SERVER, TEST_SESSION};
+    use super::super::test_support::{player_global_query, player_query, player_session_query, TEST_PLAYER, TEST_SERVER, TEST_SESSION};
     use super::*;
 
     /// Every assertion here goes through the pure half of `WorkerQuery`. `execute` is never called,
@@ -1356,6 +1485,29 @@ mod tests {
         assert!(ttl > 0);
         assert!(matches!(priority, QueryPriority::Heavy));
         assert!(matches!(kind, JobKind::PlayerSeen(_)));
+    }
+
+    /// Global queries are keyed by canonical id alone: no server, no `{session}` placeholder.
+    /// Their invalidation contract is different too — `run_global_refresh` evicts these keys
+    /// explicitly — so assert the pattern against the exact helper the eviction uses; if either
+    /// side drifts, the refresh silently stops invalidating what the reads are cached under.
+    #[tokio::test]
+    async fn global_query_metadata_matches_its_type() {
+        let (pattern, ttl, priority, kind) =
+            metadata(&player_global_query::<DbGlobalPlaytimeSnapshot>());
+        assert_eq!(pattern, global_snapshot_key(TEST_PLAYER));
+        assert!(!pattern.contains("{session}"), "global keys are refresh-invalidated, not session-scoped");
+        assert!(ttl > 0, "a zero ttl would cache nothing");
+        assert!(matches!(priority, QueryPriority::Light));
+        assert!(matches!(kind, JobKind::PlayerGlobalSnapshot(_)));
+
+        let (pattern, ttl, priority, kind) =
+            metadata(&player_global_query::<Vec<DbPlayerCommunityPlaytime>>());
+        assert_eq!(pattern, community_playtime_key(TEST_PLAYER));
+        assert!(!pattern.contains("{session}"), "global keys are refresh-invalidated, not session-scoped");
+        assert!(ttl > 0, "a zero ttl would cache nothing");
+        assert!(matches!(priority, QueryPriority::Light));
+        assert!(matches!(kind, JobKind::PlayerCommunityPlaytime(_)));
     }
 
     #[tokio::test]

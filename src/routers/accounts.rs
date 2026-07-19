@@ -762,6 +762,30 @@ impl AccountsApi {
         handle_worker_result(result, "Player not found")
     }
 
+    /// The per-community "hours split" behind each row of the global player list.
+    #[oai(path="/accounts/:user_id/communities_playtime", method="get")]
+    async fn get_user_communities_playtime(
+        &self,
+        Data(app): Data<&AppData>,
+        OptionalTokenBearer(requester): OptionalTokenBearer,
+        user_id: Path<String>,
+    ) -> Response<Vec<PlayerCommunityPlaytime>> {
+        let pool = &*app.pool;
+        let target_user_id = match resolve_user_id(&user_id.0, &requester) {
+            Ok(id) => id,
+            Err(e) => return e,
+        };
+
+        // An unknown player has no communities rather than being an error, matching
+        // `get_user_global_playtime` above.
+        let Some(canonical_id) = resolve_canonical_player_id(pool, &target_user_id.to_string()).await else {
+            return response!(ok vec![]);
+        };
+
+        let result = app.player_worker.get_community_playtime(&canonical_id).await;
+        handle_worker_result(result, "Player not found")
+    }
+
     #[oai(path="/accounts/:user_id/playtime-heatmap", method="get")]
     async fn get_user_playtime_heatmap(
         &self,
@@ -2872,6 +2896,7 @@ impl UriPatternExt for AccountsApi{
             "/accounts/{user_id}/anonymize",
             "/accounts/{user_id}/profile",
             "/accounts/{user_id}/global-playtime",
+            "/accounts/{user_id}/communities_playtime",
             "/accounts/{user_id}/playtime-heatmap",
             "/admin/reports/guides",
             "/admin/reports/comments",

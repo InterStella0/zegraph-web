@@ -22,7 +22,8 @@ import {Card, CardContent} from 'components/ui/card';
 import {useServerMap} from 'components/ui/ServerProvider';
 import {PopulationTimeType} from 'types/home';
 import CommunityMultiSelect from './CommunityMultiSelect';
-import {COMMUNITY_COLORS, fetchCommunityPopulation} from './homeData';
+import {fetchCommunityPopulation} from './homeData';
+import {useCommunityColors} from 'lib/hooks/useCommunityColors';
 import {useTranslations} from 'next-intl';
 
 const MAX_SELECTED_COMMUNITIES = 8;
@@ -48,7 +49,7 @@ function windowMs(timeType: PopulationTimeType) {
     return BUCKET_COUNT * INTERVAL_MINUTES[timeType] * 60_000;
 }
 
-type Line = {id: string, name: string, color: string, points: {x: string, y: number}[]};
+type Line = {id: string, name: string, points: {x: string, y: number}[]};
 
 type Props = {
     isExpanded: boolean;
@@ -72,16 +73,24 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [communities]);
 
+    // Deliberately free of color: this memo is a dependency of the population fetch effect
+    // below, so letting an async color resolution change it would refetch every series.
     const selectedCommunities = useMemo(() => {
         return selectedIds
-            .map((id, i) => {
+            .map(id => {
                 const community = communities.find(c => c.id === id);
                 if (!community) return null;
-                return {id, name: community.name, color: COMMUNITY_COLORS[i % COMMUNITY_COLORS.length]};
+                return {id, name: community.name, icon_url: community.icon_url};
             })
-            .filter((c): c is {id: string, name: string, color: string} => c !== null);
+            .filter((c): c is {id: string, name: string, icon_url?: string | null} => c !== null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedIds, communities]);
+
+    const colors = useCommunityColors(selectedCommunities.map(c => ({
+        key: c.id,
+        name: c.name,
+        icon_url: c.icon_url,
+    })));
 
     const [timeType, setTimeType] = useState<PopulationTimeType>('OneHour');
     const [cursor, setCursor] = useState(() => dayjs());
@@ -111,7 +120,6 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                 results[i] = {
                     id: c.id,
                     name: c.name,
-                    color: c.color,
                     points: data.map(d => ({x: d.bucket_time, y: d.player_count})),
                 };
                 if (flushTimer) clearTimeout(flushTimer);
@@ -225,14 +233,14 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
         datasets: lines.map(l => ({
             label: l.name,
             data: l.points,
-            borderColor: l.color,
-            backgroundColor: l.color,
+            borderColor: colors[l.id],
+            backgroundColor: colors[l.id],
             borderWidth: 2,
             pointRadius: 0,
             tension: 0.35,
             fill: false,
         })),
-    }), [lines]);
+    }), [lines, colors]);
 
     return (
         <Card className="h-full">
@@ -281,7 +289,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                 <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
                     {lines.map(l => (
                         <div key={l.id} className="flex flex-row items-center gap-1.5">
-                            <span className="h-2 w-2 rounded-full" style={{backgroundColor: l.color}} />
+                            <span className="h-2 w-2 rounded-full" style={{backgroundColor: colors[l.id]}} />
                             <span className="text-xs text-muted-foreground">{l.name}</span>
                         </div>
                     ))}

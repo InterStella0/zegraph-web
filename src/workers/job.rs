@@ -8,8 +8,8 @@ use crate::models::maps::*;
 use crate::models::players::*;
 use crate::models::servers::*;
 use super::map::MapBasicQuery;
-use super::player::{run_global_playtime_job, PlayerBasicQuery, PlayerSessionQuery};
-use super::{MapData, PlayerData, PlayerSessionData, Query, QueryPriority, WorkerQuery};
+use super::player::{run_global_playtime_job, PlayerBasicQuery, PlayerGlobalQuery, PlayerSessionQuery};
+use super::{MapData, PlayerData, PlayerGlobalData, PlayerSessionData, Query, QueryPriority, WorkerQuery};
 
 pub const QUEUE_HEAVY: &str = "gfl-ze-watcher:jobs:heavy";
 pub const QUEUE_LIGHT: &str = "gfl-ze-watcher:jobs:light";
@@ -105,6 +105,10 @@ pub enum JobKind {
     // PlayerSessionQuery<T>
     PlayerSeen(PlayerSessionData),
 
+    // PlayerGlobalQuery<T>
+    PlayerGlobalSnapshot(PlayerGlobalData),
+    PlayerCommunityPlaytime(PlayerGlobalData),
+
     /// Not a `WorkerQuery`: it re-derives every server's playtime for one player and upserts the
     /// summation, producing no cacheable value. It is the heaviest thing the app runs, which is
     /// exactly why it belongs out here rather than on the API's runtime.
@@ -159,6 +163,13 @@ pub async fn dispatch(
 
         JobKind::PlayerSeen(d) => run!(player_session_query::<Vec<DbPlayerSeen>>(d, pool, cache)),
 
+        JobKind::PlayerGlobalSnapshot(d) => {
+            run!(player_global_query::<DbGlobalPlaytimeSnapshot>(d, pool, cache))
+        }
+        JobKind::PlayerCommunityPlaytime(d) => {
+            run!(player_global_query::<Vec<DbPlayerCommunityPlaytime>>(d, pool, cache))
+        }
+
         JobKind::PlayerGlobalPlaytime { canonical_id } => {
             run_global_playtime_job(pool, cache, canonical_id).await?;
             None
@@ -181,6 +192,12 @@ fn player_session_query<T>(
     data: &PlayerSessionData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
 ) -> PlayerSessionQuery<T> {
     PlayerSessionQuery::raw(Query { pool, cache, data: data.clone() })
+}
+
+fn player_global_query<T>(
+    data: &PlayerGlobalData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
+) -> PlayerGlobalQuery<T> {
+    PlayerGlobalQuery::raw(Query { pool, cache, data: data.clone() })
 }
 
 #[derive(Debug)]
@@ -212,7 +229,7 @@ impl std::fmt::Display for JobError {
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{map_data, player_data, player_session_data};
+    use super::super::test_support::{map_data, player_data, player_global_data, player_session_data};
     use super::*;
 
     fn job(priority: QueryPriority) -> RefreshJob {
@@ -273,7 +290,7 @@ mod tests {
     /// Every variant, so a new one cannot be added without also being round-tripped. The `match`
     /// below is what enforces that: adding a variant to `JobKind` makes this fail to compile.
     fn all_job_kinds() -> Vec<JobKind> {
-        let (p, m, s) = (player_data(), map_data(), player_session_data());
+        let (p, m, s, g) = (player_data(), map_data(), player_session_data(), player_global_data());
         let kinds = vec![
             JobKind::MapRegions(m.clone()),
             JobKind::MapHeatRegions(m.clone()),
@@ -294,6 +311,8 @@ mod tests {
             JobKind::PlayerHourCount(p.clone()),
             JobKind::PlayerOnlineHeatmap(p),
             JobKind::PlayerSeen(s),
+            JobKind::PlayerGlobalSnapshot(g.clone()),
+            JobKind::PlayerCommunityPlaytime(g),
             JobKind::PlayerGlobalPlaytime { canonical_id: "canon".to_string() },
         ];
 
@@ -308,6 +327,7 @@ mod tests {
                 | JobKind::PlayerMapRanks(_) | JobKind::PlayerAliases(_) | JobKind::PlayerDetail(_)
                 | JobKind::PlayerRegionTime(_) | JobKind::PlayerHourCount(_)
                 | JobKind::PlayerOnlineHeatmap(_) | JobKind::PlayerSeen(_)
+                | JobKind::PlayerGlobalSnapshot(_) | JobKind::PlayerCommunityPlaytime(_)
                 | JobKind::PlayerGlobalPlaytime { .. } => {}
             }
         }
@@ -326,6 +346,6 @@ mod tests {
             assert!(tags.insert(tag.clone()), "two JobKind variants share the tag {tag}");
         }
 
-        assert_eq!(tags.len(), 20, "all variants must be covered by all_job_kinds()");
+        assert_eq!(tags.len(), 22, "all variants must be covered by all_job_kinds()");
     }
 }

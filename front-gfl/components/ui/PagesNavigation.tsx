@@ -17,6 +17,7 @@ export const pagesSelection = {
     ],
     'Community': [
         {key: 'communities', href: '/'},
+        {key: 'players', href: '/players'},
         {key: 'tracker', href: '/live'},
         {key: 'hub', href: '/hub'},
         {key: 'status', href: '/status'},

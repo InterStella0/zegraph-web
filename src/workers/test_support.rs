@@ -28,8 +28,8 @@ use crate::core::push_service::PushNotificationService;
 use crate::core::storage::{CharacterStorage, CommunityStorage, MapStorage, StorageBackend};
 use crate::{AppData, FastCache};
 use super::map::{MapBasicQuery, MapWorker};
-use super::player::{PlayerBasicQuery, PlayerSessionQuery, PlayerWorker};
-use super::{MapData, PlayerData, PlayerSessionData, Query};
+use super::player::{PlayerBasicQuery, PlayerGlobalQuery, PlayerSessionQuery, PlayerWorker};
+use super::{MapData, PlayerData, PlayerGlobalData, PlayerSessionData, Query};
 
 /// Port 1 is reserved and never listened on, so `connect_lazy` yields a pool that can be held but
 /// not used.
@@ -128,6 +128,10 @@ pub fn map_data() -> MapData {
     }
 }
 
+pub fn player_global_data() -> PlayerGlobalData {
+    PlayerGlobalData { canonical_id: TEST_PLAYER.to_string() }
+}
+
 /// The three constructors below go through the existing `raw` entry points — the same ones the
 /// worker process uses after deserializing a job — rather than adding test-only constructors.
 pub fn player_query<T>() -> PlayerBasicQuery<T> {
@@ -144,4 +148,8 @@ pub fn player_session_query<T>() -> PlayerSessionQuery<T> {
 
 pub fn map_query<T>() -> MapBasicQuery<T> {
     MapBasicQuery::raw(Query { pool: fake_pool(), cache: fake_cache(), data: map_data() })
+}
+
+pub fn player_global_query<T>() -> PlayerGlobalQuery<T> {
+    PlayerGlobalQuery::raw(Query { pool: fake_pool(), cache: fake_cache(), data: player_global_data() })
 }

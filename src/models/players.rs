@@ -377,3 +377,57 @@ impl Into<(PlayerHourDay, PlayerHourDay)> for DbPlayerHourCount{
         (join, leave)
     }
 }
+/// The cacheable read side of global playtime: the stored summary row merged with a freshness
+/// verdict, and live sums substituted in when the stored row is stale. Built by
+/// `PlayerGlobalQuery<DbGlobalPlaytimeSnapshot>::execute`, never fetched directly.
+#[derive(Clone)]
+#[auto_serde_with]
+pub struct DbGlobalPlaytimeSnapshot {
+    pub total_playtime: Option<PgInterval>,
+    pub casual_playtime: Option<PgInterval>,
+    pub tryhard_playtime: Option<PgInterval>,
+    pub category: Option<String>,
+    pub server_count: i64,
+    pub community_count: i64,
+    pub global_rank: Option<i64>,
+    pub casual_rank: Option<i64>,
+    pub tryhard_rank: Option<i64>,
+    pub is_outdated: bool,
+    pub calculated_at: Option<OffsetDateTime>,
+    pub rank_calculated_at: Option<OffsetDateTime>,
+}
+
+/// One community's share of a player's hours, summed across every linked account and server.
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(PlayerCommunityPlaytime)]
+pub struct DbPlayerCommunityPlaytime {
+    #[method(to_string)]
+    pub community_id: uuid::Uuid,
+    pub community_name: String,
+    pub icon_url: Option<String>,
+    pub total_playtime: Option<PgInterval>,
+}
+
+/// One row of the global player list. Everything but the name and id is a rollup over the player's
+/// linked accounts; `rank` is -1 when `website.player_global_playtime` has not reached them yet.
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(GlobalPlayerBrief)]
+pub struct DbGlobalPlayerBrief {
+    #[rename(id)]
+    pub player_id: String,
+    #[rename(name)]
+    pub player_name: String,
+    pub total_playtime: Option<PgInterval>,
+    pub rank: i64,
+    #[method(to_utc_optional)]
+    pub online_since: Option<OffsetDateTime>,
+    #[method(to_utc_time)]
+    pub last_played: OffsetDateTime,
+    pub last_community_id: Option<String>,
+    pub server_count: i64,
+    pub game: Option<String>,
+    #[skip]
+    pub total_players: i64,
+}

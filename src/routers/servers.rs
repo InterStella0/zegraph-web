@@ -9,9 +9,11 @@ use sqlx::Postgres;
 use crate::{response, AppData, FastCache};
 use crate::api_models::common::*;
 use crate::api_models::misc::*;
+use crate::api_models::players::{GlobalBriefPlayers};
 use crate::api_models::servers::*;
 use crate::core::utils::*;
 use crate::models::admins::DbFetchStatus;
+use crate::models::players::DbGlobalPlayerBrief;
 use crate::models::servers::*;
 
 fn truncate_error(error: &str) -> String {
@@ -170,6 +172,101 @@ impl ServerApi {
         }
 
         response!(ok results.into_values().collect())
+    }
+
+    /// The global, cross-community player list. Unlike `/servers/:id/players/table` this is not
+    /// scoped to a server: rows are canonical players (linked accounts collapsed into the account
+    /// they point at) and every figure is a rollup over the whole linked group.
+    #[oai(path = "/communities/players", method="get")]
+    async fn get_global_players(
+        &self, Data(data): Data<&AppData>,
+        Query(page): Query<usize>, Query(search): Query<Option<String>>,
+    ) -> Response<GlobalBriefPlayers> {
+        let pool = &*data.pool.clone();
+        let pagination = 10;
+        let paging = page as i64 * pagination;
+
+        // NULL means "no filter" to the query below; a search short enough to match half the table
+        // is treated the same way the server-scoped table does — as no search at all.
+        let search = search
+            .map(|s| s.trim().to_string())
+            .filter(|s| s.len() >= 2)
+            .map(|s| {
+                let escaped = s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+                format!("%{}%", escaped.to_lowercase())
+            });
+
+        // Only the first stage is expensive, and it is the same one for everybody, so the LATERAL
+        // enrichment below never sees more than `pagination` rows.
+        let func = || sqlx::query_as!(DbGlobalPlayerBrief, r#"
+            WITH base AS (
+                SELECT
+                    p.player_id,
+                    p.player_name,
+                    p.created_at,
+                    COUNT(*) OVER() AS total_players,
+                    COALESCE(gp.total_playtime, INTERVAL '0') AS total_playtime,
+                    COALESCE(gp.global_rank, -1) AS rank,
+                    COALESCE(gp.server_count, 0)::BIGINT AS server_count
+                FROM player p
+                LEFT JOIN website.player_global_playtime gp ON gp.player_id = p.player_id
+                WHERE p.associated_player_id IS NULL
+                  AND ($1::TEXT IS NULL OR LOWER(p.player_name) LIKE $1)
+                ORDER BY COALESCE(gp.total_playtime, INTERVAL '0') DESC, p.player_id
+                LIMIT $3 OFFSET $2
+            )
+            SELECT
+                b.player_id AS "player_id!",
+                b.player_name AS "player_name!",
+                b.total_playtime,
+                b.rank AS "rank!",
+                online.online_since,
+                COALESCE(last.last_played, b.created_at) AS "last_played!",
+                last.community_id::TEXT AS last_community_id,
+                b.server_count AS "server_count!",
+                last.game,
+                b.total_players AS "total_players!"
+            FROM base b
+            LEFT JOIN LATERAL (
+                SELECT MIN(pss.started_at) AS online_since
+                FROM player_server_session pss
+                JOIN player lp ON lp.player_id = pss.player_id
+                WHERE (lp.player_id = b.player_id OR lp.associated_player_id = b.player_id)
+                  AND pss.ended_at IS NULL
+                  AND CURRENT_TIMESTAMP - pss.started_at < INTERVAL '24 hours'
+            ) online ON true
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(pss.ended_at, pss.started_at) AS last_played,
+                       s.community_id,
+                       sm.game
+                FROM player_server_session pss
+                JOIN player lp ON lp.player_id = pss.player_id
+                JOIN server s ON s.server_id = pss.server_id
+                LEFT JOIN server_metadata sm ON sm.server_id = s.server_id
+                WHERE lp.player_id = b.player_id OR lp.associated_player_id = b.player_id
+                ORDER BY COALESCE(pss.ended_at, pss.started_at) DESC
+                LIMIT 1
+            ) last ON true
+            ORDER BY b.total_playtime DESC, b.player_id
+        "#, search, paging, pagination).fetch_all(pool);
+
+        // Searched pages are not cached: arbitrary user input would mint an unbounded number of
+        // keys, and the browse pages are what actually repeat across users.
+        let rows = if search.is_none() {
+            match cached_response(&format!("global-players:{page}"), &data.cache, 60, func).await {
+                Ok(cached) => cached.result,
+                Err(_) => return response!(internal_server_error),
+            }
+        } else {
+            match func().await {
+                Ok(rows) => rows,
+                Err(_) => return response!(internal_server_error),
+            }
+        };
+
+        // COUNT(*) OVER() rides on every row, so an empty page means an empty result set.
+        let total_players = rows.first().map(|r| r.total_players).unwrap_or(0);
+        response!(ok GlobalBriefPlayers { total_players, players: rows.iter_into() })
     }
 
     #[oai(path = "/communities/:community_id/unique_players", method="get")]
@@ -396,6 +493,7 @@ impl UriPatternExt for ServerApi {
     fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
         vec![
             "/communities",
+            "/communities/players",
             "/communities/{community_id}/unique_players",
             "/fetch-status",
             "/fetch-status-truncated",

@@ -289,6 +289,37 @@ pub struct GlobalPlaytimeSummary {
     pub rank_calculated_at: Option<DateTime<Utc>>,
 }
 
+/// One segment of the per-player "hours split" bar: how much of the player's time lives in one
+/// community, across all their linked accounts.
+#[derive(Object, Clone)]
+pub struct PlayerCommunityPlaytime {
+    pub community_id: String,
+    pub community_name: String,
+    pub icon_url: Option<String>,
+    pub total_playtime: f64,
+}
+
+/// One row of the global, cross-community player list.
+#[derive(Object, Clone)]
+pub struct GlobalPlayerBrief {
+    pub id: String,
+    pub name: String,
+    pub total_playtime: f64,
+    /// -1 when the player has no `website.player_global_playtime` row yet.
+    pub rank: i64,
+    pub online_since: Option<DateTime<Utc>>,
+    pub last_played: DateTime<Utc>,
+    pub last_community_id: Option<String>,
+    pub server_count: i64,
+    pub game: Option<String>,
+}
+
+#[derive(Object)]
+pub struct GlobalBriefPlayers {
+    pub total_players: i64,
+    pub players: Vec<GlobalPlayerBrief>,
+}
+
 #[derive(Object)]
 pub struct ProfileSummary {
     pub total_playtime: f64,

@@ -169,6 +169,23 @@
     }
   },
   "players": {
+    "global": {
+      "title": "全球玩家",
+      "subtitle": "跨社区的玩家列表",
+      "totalPlayers": "玩家总数",
+      "searchPlaceholder": "按名称搜索全球玩家列表...",
+      "hoursSplit": "时长分布",
+      "hoursAllTime": "累计小时数",
+      "rank": "排名 #{rank}",
+      "online": "在线",
+      "lastSeen": "最近在线 {ago}",
+      "serversSummary": "{count} 个服务器 · {game}",
+      "serversCount": "{count} 个服务器",
+      "moreCommunities": "+{count} 个更多",
+      "noPlayersFound": "未找到玩家",
+      "noResultsFor": "未找到\"{query}\"的结果。请尝试调整搜索内容。",
+      "loadError": "无法加载全球玩家列表。"
+    },
     "online": {
       "title": "在线玩家（{count}）",
       "offlineDelayInfo": "离开的玩家需要 3 分钟才会被记录为离线，这可能导致服务器的最大玩家人数被超出。",
@@ -1106,6 +1123,8 @@
     "rootDescription": "追踪 CS2、CS:GO 和 CS:S 服务器上的 Counter-Strike 僵尸逃脱（ZE）玩家活动。追踪 GFL、Mapeadores、RSS、PSE、Net4All、Cola-Team 等众多热门服务器。",
     "homeTitle": "僵尸逃脱统计 | ZE Graph",
     "homeDescription": "为 CS2、CS:GO 和 CS:S 上的 Counter-Strike 僵尸逃脱服务器提供实时玩家人数、游戏时长排名和地图分析。GFL、Mapeadores、RSS、PSE 等。",
+    "globalPlayersTitle": "全球玩家 | ZE Graph",
+    "globalPlayersDescription": "搜索所有社区中被追踪的每一位 Zombie Escape 玩家，查看累计小时数、各社区游戏时长分布和全球排名。",
     "liveTitle": "实时追踪器",
     "liveDescription": "所有僵尸逃脱 (ZE) 玩家数据更新都通过这里实时传输。",
     "statusTitle": "状态",

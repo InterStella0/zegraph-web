@@ -169,6 +169,23 @@
     }
   },
   "players": {
+    "global": {
+      "title": "Глобальные игроки",
+      "subtitle": "Список игроков по всем сообществам",
+      "totalPlayers": "Всего игроков",
+      "searchPlaceholder": "Поиск по глобальному списку игроков по имени...",
+      "hoursSplit": "Разбивка часов",
+      "hoursAllTime": "часов за всё время",
+      "rank": "Ранг №{rank}",
+      "online": "В сети",
+      "lastSeen": "Был(а) в сети {ago}",
+      "serversSummary": "{count, plural, one {# сервер} few {# сервера} other {# серверов}} · {game}",
+      "serversCount": "{count, plural, one {# сервер} few {# сервера} other {# серверов}}",
+      "moreCommunities": "+{count} ещё",
+      "noPlayersFound": "Игроки не найдены",
+      "noResultsFor": "Ничего не найдено по запросу \"{query}\". Попробуйте изменить поиск.",
+      "loadError": "Не удалось загрузить глобальный список игроков."
+    },
     "online": {
       "title": "Игроки в сети ({count})",
       "offlineDelayInfo": "Игроки, которые выходят, регистрируются как не в сети через 3 минуты, что может привести к превышению максимального количества игроков на сервере.",
@@ -1106,6 +1123,8 @@
     "rootDescription": "Отслеживайте активность игроков Counter-Strike Zombie Escape (ZE) на серверах CS2, CS:GO и CS:S. Отслеживаются популярные серверы, такие как GFL, Mapeadores, RSS, PSE, Net4All, Cola-Team и многие другие.",
     "homeTitle": "Статистика Zombie Escape | ZE Graph",
     "homeDescription": "Онлайн-число игроков, рейтинги времени игры и аналитика карт для серверов Counter-Strike Zombie Escape в CS2, CS:GO и CS:S. GFL, Mapeadores, RSS, PSE и другие.",
+    "globalPlayersTitle": "Глобальные игроки | ZE Graph",
+    "globalPlayersDescription": "Ищите любого отслеживаемого игрока Zombie Escape по всем сообществам с общим количеством часов, разбивкой времени по сообществам и глобальным рангом.",
     "liveTitle": "Живой трекер",
     "liveDescription": "Все обновления данных игроков Zombie Escape (ZE) транслируются здесь.",
     "statusTitle": "Статус",

@@ -169,6 +169,23 @@
     }
   },
   "players": {
+    "global": {
+      "title": "Pemain Global",
+      "subtitle": "Senarai pemain merentas komuniti",
+      "totalPlayers": "Jumlah pemain",
+      "searchPlaceholder": "Cari senarai pemain global mengikut nama...",
+      "hoursSplit": "Pecahan jam",
+      "hoursAllTime": "jam sepanjang masa",
+      "rank": "Kedudukan #{rank}",
+      "online": "Dalam talian",
+      "lastSeen": "Kali terakhir dilihat {ago}",
+      "serversSummary": "{count, plural, other {# pelayan}} · {game}",
+      "serversCount": "{count, plural, other {# pelayan}}",
+      "moreCommunities": "+{count} lagi",
+      "noPlayersFound": "Tiada pemain dijumpai",
+      "noResultsFor": "Tiada hasil dijumpai untuk \"{query}\". Cuba sesuaikan carian anda.",
+      "loadError": "Gagal memuatkan senarai pemain global."
+    },
     "online": {
       "title": "Pemain Dalam Talian ({count})",
       "offlineDelayInfo": "Pemain yang keluar mengambil masa 3 minit untuk didaftarkan sebagai luar talian, yang boleh menyebabkan bilangan pemain maksimum pelayan dilebihi.",
@@ -1106,6 +1123,8 @@
     "rootDescription": "Jejaki aktiviti pemain Counter-Strike Zombie Escape (ZE) merentas pelayan CS2, CS:GO dan CS:S. Pelayan popular seperti GFL, Mapeadores, RSS, PSE, Net4All, Cola-Team dan banyak lagi.",
     "homeTitle": "Zombie Escape Statistik | ZE Graph",
     "homeDescription": "Kiraan pemain langsung, kedudukan masa bermain dan analitik peta untuk pelayan Counter-Strike Zombie Escape merentas CS2, CS:GO dan CS:S. GFL, Mapeadores, RSS, PSE dan banyak lagi.",
+    "globalPlayersTitle": "Pemain Global | ZE Graph",
+    "globalPlayersDescription": "Cari setiap pemain Zombie Escape yang dijejaki merentas semua komuniti, dengan jam sepanjang masa, pecahan masa bermain mengikut komuniti dan kedudukan global.",
     "liveTitle": "Penjejak Langsung",
     "liveDescription": "Semua kemas kini data pemain Zombie Escape (ZE) dialirkan di sini.",
     "statusTitle": "Status",

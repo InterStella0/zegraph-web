@@ -213,3 +213,27 @@ export type SearchPlayer = {
     name: string,
     id: string
 }
+
+export type PlayerCommunityPlaytime = {
+    community_id: string,
+    community_name: string,
+    icon_url: string | null,
+    total_playtime: number,
+}
+
+export interface GlobalPlayerBrief {
+    id: string,
+    name: string,
+    total_playtime: number,
+    rank: number,
+    online_since: string | null,
+    last_played: string,
+    last_community_id: string | null,
+    server_count: number,
+    game: string | null,
+}
+
+export type GlobalBriefPlayers = {
+    total_players: number,
+    players: GlobalPlayerBrief[],
+}

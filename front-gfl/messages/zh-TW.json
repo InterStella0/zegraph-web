@@ -169,6 +169,23 @@
     }
   },
   "players": {
+    "global": {
+      "title": "全球玩家",
+      "subtitle": "跨社群的玩家清單",
+      "totalPlayers": "玩家總數",
+      "searchPlaceholder": "依名稱搜尋全球玩家清單...",
+      "hoursSplit": "時數分佈",
+      "hoursAllTime": "累計時數",
+      "rank": "排名 #{rank}",
+      "online": "在線",
+      "lastSeen": "最近上線 {ago}",
+      "serversSummary": "{count} 個伺服器 · {game}",
+      "serversCount": "{count} 個伺服器",
+      "moreCommunities": "+{count} 個更多",
+      "noPlayersFound": "找不到玩家",
+      "noResultsFor": "找不到「{query}」的結果。請嘗試調整搜尋內容。",
+      "loadError": "無法載入全球玩家清單。"
+    },
     "online": {
       "title": "上線玩家（{count}）",
       "offlineDelayInfo": "離開的玩家需要 3 分鐘才會被記錄為離線，這可能導致伺服器的最大玩家人數被超出。",
@@ -1106,6 +1123,8 @@
     "rootDescription": "追蹤 CS2、CS:GO 和 CS:S 伺服器上的 Counter-Strike 殭屍逃脫（ZE）玩家活動。追蹤 GFL、Mapeadores、RSS、PSE、Net4All、Cola-Team 等眾多熱門伺服器。",
     "homeTitle": "殭屍逃脫統計 | ZE Graph",
     "homeDescription": "為 CS2、CS:GO 和 CS:S 上的 Counter-Strike 殭屍逃脫伺服器提供即時玩家人數、遊戲時數排名和地圖分析。GFL、Mapeadores、RSS、PSE 等。",
+    "globalPlayersTitle": "全球玩家 | ZE Graph",
+    "globalPlayersDescription": "搜尋所有社群中被追蹤的每一位 Zombie Escape 玩家，查看累計時數、各社群遊戲時數分佈與全球排名。",
     "liveTitle": "即時追蹤器",
     "liveDescription": "所有殭屍逃脫 (ZE) 玩家資料更新都透過這裡即時傳輸。",
     "statusTitle": "狀態",
