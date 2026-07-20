@@ -114,6 +114,12 @@ pub struct PlayerDetailSession{
 }
 
 #[derive(Object)]
+pub struct PlayerDetailSessionCommunity{
+    pub player_detail: PlayerDetailSession,
+    pub server_id: String,
+}
+
+#[derive(Object)]
 pub struct PlayerSession{
     pub id: String,
     pub server_id: String,

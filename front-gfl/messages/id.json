@@ -194,6 +194,16 @@
       "noPlayerName": "Tidak ada pemain \"{query}\"",
       "playingFor": "Bermain selama {duration}"
     },
+    "globalOnline": {
+      "title": "Daring Sekarang ({count})",
+      "offlineDelayInfo": "Pemain yang keluar memerlukan 3 menit untuk didaftarkan sebagai luring, sehingga sebuah server dapat terlihat sesaat melebihi batas pemainnya.",
+      "searchPlayers": "Cari pemain atau server...",
+      "playingFor": "Bermain selama {duration}",
+      "serverTooltip": "{community} | {server}",
+      "noPlayerName": "Tidak ada pemain atau server yang cocok dengan \"{query}\"",
+      "noneOnline": "Tidak ada yang daring saat ini.",
+      "loadError": "Tidak dapat memuat pemain daring."
+    },
     "topPerformers": {
       "title": "Pemain Terbaik",
       "within": "Dalam",

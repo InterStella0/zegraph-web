@@ -194,6 +194,16 @@
       "noPlayerName": "Нет игрока с именем \"{query}\"",
       "playingFor": "Играет {duration}"
     },
+    "globalOnline": {
+      "title": "Сейчас в сети ({count})",
+      "offlineDelayInfo": "Игроки, которые выходят, регистрируются как не в сети через 3 минуты, поэтому сервер может ненадолго выглядеть превысившим лимит игроков.",
+      "searchPlayers": "Поиск игроков или серверов...",
+      "playingFor": "Играет {duration}",
+      "serverTooltip": "{community} | {server}",
+      "noPlayerName": "Нет игроков или серверов, соответствующих \"{query}\"",
+      "noneOnline": "Сейчас никого нет в сети.",
+      "loadError": "Не удалось загрузить игроков в сети."
+    },
     "topPerformers": {
       "title": "Лучшие игроки",
       "within": "За период",

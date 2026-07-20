@@ -153,6 +153,11 @@ export type PlayerDetailSession = {
     ended_at: string | null,
 }
 
+export type PlayerDetailSessionCommunity = {
+    player_detail: PlayerDetailSession,
+    server_id: string,
+}
+
 export type PlayerWithLegacyRanks = {
     steamid64: String,
     points: number,

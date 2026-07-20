@@ -295,6 +295,7 @@ impl<'a> RoutePattern<'a> {
 
     /// The pattern as written, e.g. `/communities/{community_id}/unique_players`. Same syntax the
     /// OpenAPI spec uses for path keys, which is what lets `route_tests` compare the two directly.
+    #[allow(dead_code)]
     pub fn uri(&self) -> &'a str {
         self.uri
     }

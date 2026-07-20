@@ -194,6 +194,16 @@
       "noPlayerName": "Không có người chơi \"{query}\"",
       "playingFor": "Đang chơi {duration}"
     },
+    "globalOnline": {
+      "title": "Đang trực tuyến ({count})",
+      "offlineDelayInfo": "Người chơi rời khỏi cần 3 phút để được đăng ký ngoại tuyến, nên một máy chủ có thể tạm thời hiển thị vượt quá giới hạn người chơi.",
+      "searchPlayers": "Tìm kiếm người chơi hoặc máy chủ...",
+      "playingFor": "Đang chơi {duration}",
+      "serverTooltip": "{community} | {server}",
+      "noPlayerName": "Không có người chơi hoặc máy chủ nào khớp với \"{query}\"",
+      "noneOnline": "Hiện không có ai trực tuyến.",
+      "loadError": "Không thể tải người chơi trực tuyến."
+    },
     "topPerformers": {
       "title": "Người chơi hàng đầu",
       "within": "Trong",

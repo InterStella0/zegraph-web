@@ -194,6 +194,16 @@
       "noPlayerName": "No player name \"{query}\"",
       "playingFor": "Playing for {duration}"
     },
+    "globalOnline": {
+      "title": "Online Now ({count})",
+      "offlineDelayInfo": "Players who leave take 3 minutes to be registered as offline, so a server may briefly appear over its player limit.",
+      "searchPlayers": "Search players or servers...",
+      "playingFor": "Playing for {duration}",
+      "serverTooltip": "{community} | {server}",
+      "noPlayerName": "No player or server matching \"{query}\"",
+      "noneOnline": "Nobody is online right now.",
+      "loadError": "Couldn't load the online players."
+    },
     "topPerformers": {
       "title": "Top Performers",
       "within": "Within",

@@ -194,6 +194,16 @@
       "noPlayerName": "プレイヤー名\"{query}\"は見つかりません",
       "playingFor": "{duration}プレイ中"
     },
+    "globalOnline": {
+      "title": "現在オンライン（{count}）",
+      "offlineDelayInfo": "プレイヤーの離脱がオフラインとして登録されるまで3分かかるため、サーバーが一時的に最大プレイヤー数を超えて表示されることがあります。",
+      "searchPlayers": "プレイヤーまたはサーバーを検索...",
+      "playingFor": "{duration}プレイ中",
+      "serverTooltip": "{community} | {server}",
+      "noPlayerName": "\"{query}\"に一致するプレイヤーまたはサーバーはありません",
+      "noneOnline": "現在オンラインのプレイヤーはいません。",
+      "loadError": "オンラインプレイヤーを読み込めませんでした。"
+    },
     "topPerformers": {
       "title": "トップパフォーマー",
       "within": "以内",

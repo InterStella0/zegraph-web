@@ -194,6 +194,16 @@
       "noPlayerName": "No hay ningún jugador llamado \"{query}\"",
       "playingFor": "Jugando desde hace {duration}"
     },
+    "globalOnline": {
+      "title": "En línea ahora ({count})",
+      "offlineDelayInfo": "Los jugadores que se van tardan 3 minutos en registrarse como desconectados, por lo que un servidor puede parecer brevemente por encima de su límite de jugadores.",
+      "searchPlayers": "Buscar jugadores o servidores...",
+      "playingFor": "Jugando desde hace {duration}",
+      "serverTooltip": "{community} | {server}",
+      "noPlayerName": "Ningún jugador o servidor coincide con \"{query}\"",
+      "noneOnline": "No hay nadie en línea en este momento.",
+      "loadError": "No se pudieron cargar los jugadores en línea."
+    },
     "topPerformers": {
       "title": "Mejores jugadores",
       "within": "En",

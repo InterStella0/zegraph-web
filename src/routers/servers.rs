@@ -9,11 +9,11 @@ use sqlx::Postgres;
 use crate::{response, AppData, FastCache};
 use crate::api_models::common::*;
 use crate::api_models::misc::*;
-use crate::api_models::players::{GlobalBriefPlayers};
+use crate::api_models::players::{GlobalBriefPlayers, PlayerDetailSession, PlayerDetailSessionCommunity};
 use crate::api_models::servers::*;
 use crate::core::utils::*;
 use crate::models::admins::DbFetchStatus;
-use crate::models::players::DbGlobalPlayerBrief;
+use crate::models::players::{DbGlobalPlayerBrief, DbPlayerDetailSession};
 use crate::models::servers::*;
 
 fn truncate_error(error: &str) -> String {
@@ -269,6 +269,55 @@ impl ServerApi {
         response!(ok GlobalBriefPlayers { total_players, players: rows.iter_into() })
     }
 
+    #[oai(path="/communities/players/playing", method="get")]
+    async fn get_players_playing(&self, Data(app): Data<&AppData>, OptionalTokenBearer(user_token): OptionalTokenBearer) -> Response<Vec<PlayerDetailSessionCommunity>>{
+        let pool = &*app.pool.clone();
+        let user_id = user_token.as_ref().map(|t| t.id);
+
+        let Ok(result) = sqlx::query_as!(DbPlayerDetailSession, r#"
+            WITH user_perms AS (
+                SELECT
+                    COALESCE(website.is_superuser($1), FALSE) AS is_superuser
+                WHERE $1 IS NOT NULL
+            )
+            SELECT
+                pss.session_id AS "session_id!",
+                pss.server_id AS "server_id!",
+                CASE
+                    WHEN ua.anonymized = TRUE
+                         AND $1::TEXT IS DISTINCT FROM p.player_id
+                         AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
+                    THEN 'Anonymous'
+                    ELSE p.player_name
+                END AS "player_name",
+                pss.player_id AS "player_id!",
+                pss.started_at,
+                pss.ended_at,
+                CASE
+                    WHEN ua.anonymized = TRUE
+                         AND $1::TEXT IS DISTINCT FROM p.player_id
+                         AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
+                    THEN TRUE
+                    ELSE FALSE
+                END AS "is_anonymous!"
+            FROM player_server_session pss
+            JOIN player p ON p.player_id = pss.player_id
+            JOIN server sc ON sc.server_id = pss.server_id
+            LEFT JOIN website.user_anonymization ua ON ua.user_id::TEXT = p.player_id AND ua.community_id = sc.community_id
+            WHERE pss.ended_at IS NULL AND CURRENT_TIMESTAMP - pss.last_verified < INTERVAL '20 minutes'
+            ORDER BY pss.started_at
+        "#, user_id).fetch_all(pool).await else {
+            return response!(internal_server_error)
+        };
+        let converted = result.into_iter().map(|e| {
+            let server_id = e.server_id.clone();
+            let player_detail: PlayerDetailSession = e.into();
+            PlayerDetailSessionCommunity{ player_detail, server_id }
+        }).collect::<Vec<_>>();
+
+        response!(ok converted)
+    }
+
     #[oai(path = "/communities/:community_id/unique_players", method="get")]
     async fn get_communities_players_graph(
         &self, Data(data): Data<&AppData>,
@@ -494,6 +543,7 @@ impl UriPatternExt for ServerApi {
         vec![
             "/communities",
             "/communities/players",
+            "/communities/players/playing",
             "/communities/{community_id}/unique_players",
             "/fetch-status",
             "/fetch-status-truncated",

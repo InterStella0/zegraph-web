@@ -194,6 +194,16 @@
       "noPlayerName": "没有名为 \"{query}\" 的玩家",
       "playingFor": "已进行 {duration}"
     },
+    "globalOnline": {
+      "title": "当前在线（{count}）",
+      "offlineDelayInfo": "离开的玩家需要 3 分钟才会被记录为离线，因此服务器可能短暂显示为超出玩家上限。",
+      "searchPlayers": "搜索玩家或服务器...",
+      "playingFor": "已进行 {duration}",
+      "serverTooltip": "{community} | {server}",
+      "noPlayerName": "没有与 \"{query}\" 匹配的玩家或服务器",
+      "noneOnline": "当前没有玩家在线。",
+      "loadError": "无法加载在线玩家。"
+    },
     "topPerformers": {
       "title": "顶尖玩家",
       "within": "在",

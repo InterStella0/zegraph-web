@@ -194,6 +194,16 @@
       "noPlayerName": "Tiada nama pemain \"{query}\"",
       "playingFor": "Bermain selama {duration}"
     },
+    "globalOnline": {
+      "title": "Dalam Talian Sekarang ({count})",
+      "offlineDelayInfo": "Pemain yang keluar mengambil masa 3 minit untuk didaftarkan sebagai luar talian, jadi sebuah pelayan mungkin kelihatan melebihi had pemainnya buat seketika.",
+      "searchPlayers": "Cari pemain atau pelayan...",
+      "playingFor": "Bermain selama {duration}",
+      "serverTooltip": "{community} | {server}",
+      "noPlayerName": "Tiada pemain atau pelayan sepadan dengan \"{query}\"",
+      "noneOnline": "Tiada sesiapa dalam talian buat masa ini.",
+      "loadError": "Tidak dapat memuatkan pemain dalam talian."
+    },
     "topPerformers": {
       "title": "Pemain Terbaik",
       "within": "Dalam tempoh",

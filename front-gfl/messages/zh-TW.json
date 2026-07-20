@@ -194,6 +194,16 @@
       "noPlayerName": "沒有名為「{query}」的玩家",
       "playingFor": "已進行 {duration}"
     },
+    "globalOnline": {
+      "title": "目前上線（{count}）",
+      "offlineDelayInfo": "離開的玩家需要 3 分鐘才會被記錄為離線，因此伺服器可能短暫顯示為超出玩家上限。",
+      "searchPlayers": "搜尋玩家或伺服器...",
+      "playingFor": "已進行 {duration}",
+      "serverTooltip": "{community} | {server}",
+      "noPlayerName": "沒有與「{query}」相符的玩家或伺服器",
+      "noneOnline": "目前沒有玩家上線。",
+      "loadError": "無法載入上線玩家。"
+    },
     "topPerformers": {
       "title": "頂尖玩家",
       "within": "於",

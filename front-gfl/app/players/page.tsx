@@ -5,6 +5,7 @@ import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
 import Footer from "components/ui/Footer";
 import getServerUser from "../getServerUser";
 import GlobalPlayerList from "components/players/GlobalPlayerList";
+import GlobalPlayersOnline from "components/players/GlobalPlayersOnline";
 import {socialMeta} from "utils/generalUtils.ts";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -27,11 +28,14 @@ export default async function Page() {
     return <>
         <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
         <div className="min-h-screen py-2 sm:py-4">
-            <div className="container max-w-screen-xl mx-auto px-1 sm:px-4">
-                <div className="flex flex-col gap-4 sm:gap-6">
-                    <section>
+            <div className="container max-w-screen-2xl mx-auto px-1 sm:px-2 lg:px-4">
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem] gap-4 sm:gap-6 items-start">
+                    <section className="min-w-0">
                         <GlobalPlayerList />
                     </section>
+                    <aside className="min-w-0 lg:sticky lg:top-4">
+                        <GlobalPlayersOnline />
+                    </aside>
                 </div>
             </div>
         </div>
