@@ -475,7 +475,7 @@ impl GraphApi {
 							FROM player_server_session s
 							WHERE s.player_id = p.player_id
 							  AND s.ended_at IS NULL
-							  AND CURRENT_TIMESTAMP - s.started_at < INTERVAL '12 hours'
+							  AND CURRENT_TIMESTAMP - s.last_verified < INTERVAL '20 minutes'
 							ORDER BY s.started_at ASC
 							LIMIT 1
 						) op ON TRUE
@@ -518,8 +518,10 @@ impl GraphApi {
 							SELECT *,
 								CASE
 									WHEN ended_at IS NOT NULL THEN ended_at - started_at
-									WHEN ended_at IS NULL AND CURRENT_TIMESTAMP - started_at < INTERVAL '12 hours'
+									WHEN ended_at IS NULL AND CURRENT_TIMESTAMP - last_verified < INTERVAL '20 minutes'
 										THEN CURRENT_TIMESTAMP - started_at
+									WHEN ended_at IS NULL
+										THEN last_verified - started_at
 									ELSE INTERVAL '0'
 								END AS duration
 							FROM player_server_session
@@ -571,7 +573,7 @@ impl GraphApi {
 							FROM player_server_session s
 							WHERE s.player_id = p.player_id
 							  AND s.ended_at IS NULL
-							  AND CURRENT_TIMESTAMP - s.started_at < INTERVAL '12 hours'
+							  AND CURRENT_TIMESTAMP - s.last_verified < INTERVAL '20 minutes'
 							ORDER BY s.started_at ASC
 							LIMIT 1
 						) op ON TRUE
@@ -626,8 +628,10 @@ impl GraphApi {
                     CASE
                         WHEN ended_at IS NOT NULL
                         THEN ended_at - started_at
-                        WHEN ended_at IS NULL AND (CURRENT_TIMESTAMP - started_at) < INTERVAL '12 hours'
+                        WHEN ended_at IS NULL AND (CURRENT_TIMESTAMP - last_verified) < INTERVAL '20 minutes'
                         THEN CURRENT_TIMESTAMP - started_at
+                        WHEN ended_at IS NULL
+                        THEN last_verified - started_at
                         ELSE INTERVAL '0'
                     END as duration
                 FROM player_server_session
@@ -658,7 +662,7 @@ impl GraphApi {
                 FROM player_server_session
                 WHERE server_id=$3
                 	AND ended_at IS NULL
-                	AND CURRENT_TIMESTAMP - started_at < INTERVAL '12 hours'
+                	AND (CURRENT_TIMESTAMP - last_verified) < INTERVAL '20 minutes'
             ),
 			last_played_players AS (
 				SELECT s.*

@@ -86,7 +86,7 @@ impl RadarApi {
               WHERE server_id = (SELECT server_id FROM vars)
                 AND ((started_at <= (SELECT end_date FROM vars) AND ended_at >= (SELECT start_date FROM vars))
                     OR
-                     (ended_at IS NULL AND (CURRENT_TIMESTAMP - started_at) < INTERVAL '12 hours')
+                    (ended_at IS NULL AND (CURRENT_TIMESTAMP - last_verified) < INTERVAL '20 minutes')
                 )
             ),
             total_player_counts AS (
@@ -141,8 +141,7 @@ impl RadarApi {
         let func = || sqlx::query_as!(DbContinentStatistic, "
             WITH vars AS (
               SELECT
-                $1 AS server_id,
-                CURRENT_TIMESTAMP - INTERVAL '12 hours' AS currently
+                $1 AS server_id
             ),
             filtered_pss AS (
               SELECT *
@@ -154,8 +153,8 @@ impl RadarApi {
                  LEAST(COUNT(DISTINCT player_id), 64) AS c
               FROM player_server_session
               WHERE server_id = (SELECT server_id FROM vars)
-                AND started_at >= (SELECT currently FROM vars)
                 AND ended_at IS NULL
+                AND CURRENT_TIMESTAMP - last_verified < INTERVAL '20 minutes'
             ),
             deduplicated_countries AS (
               SELECT
@@ -198,16 +197,12 @@ impl RadarApi {
     ) -> Response<ContinentStatistics> {
         let pool = &*app.pool.clone();
         let func = || sqlx::query_as!(DbContinentStatistic, "
-            WITH vars AS (
-              SELECT
-                CURRENT_TIMESTAMP - INTERVAL '12 hours' AS currently
-            ),
-            total_player_counts AS (
+            WITH total_player_counts AS (
               SELECT
                  COUNT(DISTINCT player_id) AS c
               FROM player_server_session
-              WHERE started_at >= (SELECT currently FROM vars)
-                AND ended_at IS NULL
+              WHERE ended_at IS NULL
+                AND CURRENT_TIMESTAMP - last_verified < INTERVAL '20 minutes'
             ),
             deduplicated_countries AS (
               SELECT
@@ -255,8 +250,7 @@ impl RadarApi {
         let func = || sqlx::query_as!(DbCountryStatistic, "
             WITH vars AS (
               SELECT
-                $1 AS server_id,
-                CURRENT_TIMESTAMP - INTERVAL '12 hours' AS currently
+                $1 AS server_id
             ),
             filtered_pss AS (
               SELECT *
@@ -268,8 +262,8 @@ impl RadarApi {
                  LEAST(COUNT(DISTINCT player_id), 64) AS c
               FROM player_server_session
               WHERE server_id = (SELECT server_id FROM vars)
-                AND started_at >= (SELECT currently FROM vars)
                 AND ended_at IS NULL
+                AND CURRENT_TIMESTAMP - last_verified < INTERVAL '20 minutes'
             ),
             deduplicated_countries AS (
               SELECT
@@ -435,7 +429,7 @@ impl RadarApi {
                 AND (
                     (started_at <= (SELECT end_date FROM vars) AND ended_at >= (SELECT start_date FROM vars))
                         OR
-                    (ended_at IS NULL AND  CURRENT_TIMESTAMP - started_at < INTERVAL '12 hours')
+                    (ended_at IS NULL AND (CURRENT_TIMESTAMP - last_verified) < INTERVAL '20 minutes')
                 )
             GROUP BY pst.player_id, pst.player_name, pst.location_country
             ORDER BY total_playtime DESC

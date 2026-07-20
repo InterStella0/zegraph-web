@@ -990,7 +990,7 @@ filtered_sessions AS (
     WHERE pss.server_id = get_server_player_counts.server_id
       AND pss.started_at <= (SELECT end_time FROM vars)
       AND (pss.ended_at >= (SELECT start_time FROM vars) OR (
-          pss.ended_at IS NULL AND (now() - pss.started_at) < INTERVAL '12 hours'
+          pss.ended_at IS NULL AND (CURRENT_TIMESTAMP - pss.last_verified) < INTERVAL '20 minutes'
       ))
 ),
 historical_counts AS (
@@ -1138,6 +1138,7 @@ SELECT
     pss.started_at,
     pss.ended_at,
     pss.server_id,
+    pss.last_verified,
     p.location_code ->> 'country'::text AS location_country,
     p.location AS geometry
 FROM player_server_session pss

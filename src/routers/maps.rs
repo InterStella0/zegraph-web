@@ -722,7 +722,7 @@ impl MapApi{
 					CROSS JOIN params p
                     WHERE server_id=p.target_server
                         AND ended_at IS NULL
-                        AND (p.right_now - started_at) < INTERVAL '12 hours'
+                        AND (p.right_now - last_verified) < INTERVAL '20 minutes'
                 ),
                 last_player_sessions AS (
                     SELECT DISTINCT ON (player_id) player_id, started_at, ended_at
@@ -1032,7 +1032,7 @@ impl MapApi{
                         WHERE s.player_id = p.player_id
                           AND s.server_id = $1
                           AND s.ended_at IS NULL
-                          AND CURRENT_TIMESTAMP - s.started_at < INTERVAL '12 hours'
+                          AND CURRENT_TIMESTAMP - s.last_verified < INTERVAL '20 minutes'
                         ORDER BY s.started_at
                         LIMIT 1
                     ) op ON TRUE
@@ -1086,7 +1086,7 @@ impl MapApi{
                         WHERE s.player_id = p.player_id
                           AND s.server_id = $1
                           AND s.ended_at IS NULL
-                          AND CURRENT_TIMESTAMP - s.started_at < INTERVAL '12 hours'
+                          AND (CURRENT_TIMESTAMP - s.last_verified) < INTERVAL '20 minutes'
                         ORDER BY s.started_at
                         LIMIT 1
                     ) op ON TRUE

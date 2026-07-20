@@ -608,7 +608,7 @@ pub async fn update_online_brief(
                 MIN(started_at) AS online_since
               FROM player_server_session
               WHERE server_id=$1 AND ended_at IS NULL
-                AND CURRENT_TIMESTAMP - started_at < INTERVAL '12 hours'
+                AND CURRENT_TIMESTAMP - last_verified < INTERVAL '12 minutes'
               GROUP BY player_id
             )
             SELECT
