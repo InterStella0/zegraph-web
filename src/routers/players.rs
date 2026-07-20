@@ -615,7 +615,7 @@ impl PlayerApi{
             JOIN player p ON p.player_id = pss.player_id
             CROSS JOIN server_community sc
             LEFT JOIN website.user_anonymization ua ON ua.user_id::TEXT = p.player_id AND ua.community_id = sc.community_id
-            WHERE pss.server_id = $1 AND pss.ended_at IS NULL
+            WHERE pss.server_id = $1 AND pss.ended_at IS NULL AND (CURRENT_TIMESTAMP - pss.last_verified) < INTERVAL '20 minutes'
             ORDER BY pss.started_at
         "#, server_id, user_id).fetch_all(pool).await else {
             return response!(internal_server_error)
