@@ -1203,8 +1203,6 @@ impl PlayerWorker {
         })
     }
 
-    /// The per-community "hours split" for the upcoming global-players page; no route calls this
-    /// yet.
     pub async fn get_community_playtime(&self, canonical_id: &str) -> WorkResult<Vec<PlayerCommunityPlaytime>> {
         let result: Vec<DbPlayerCommunityPlaytime> = self.query_global(canonical_id).await?;
         Ok(result.into_iter().map(Into::into).collect())
