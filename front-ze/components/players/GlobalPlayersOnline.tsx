@@ -65,7 +65,7 @@ function GlobalPlayersOnlineDisplay() {
 
         const load = (initial: boolean) => {
             if (initial) setLoading(true);
-            fetchUrl('/communities/players/playing', {signal})
+            fetchUrl('/communities/all/players/playing', {signal})
                 .then((data: PlayerDetailSessionCommunity[]) => {
                     setPlayers(data || []);
                     setError(null);

@@ -177,7 +177,7 @@ impl ServerApi {
         response!(ok results.into_values().collect())
     }
 
-    #[oai(path = "/communities/players", method="get")]
+    #[oai(path = "/communities/all/players", method="get")]
     async fn get_global_players(
         &self, Data(data): Data<&AppData>,
         Query(page): Query<usize>, Query(search): Query<Option<String>>,
@@ -264,7 +264,7 @@ impl ServerApi {
         response!(ok GlobalBriefPlayers { total_players, players: rows.iter_into() })
     }
 
-    #[oai(path="/communities/players/playing", method="get")]
+    #[oai(path="/communities/all/players/playing", method="get")]
     async fn get_players_playing(&self, Data(app): Data<&AppData>, OptionalTokenBearer(user_token): OptionalTokenBearer) -> Response<Vec<PlayerDetailSessionCommunity>>{
         let pool = &*app.pool.clone();
         let user_id = user_token.as_ref().map(|t| t.id);
@@ -582,8 +582,8 @@ impl UriPatternExt for ServerApi {
     fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
         vec![
             "/communities",
-            "/communities/players",
-            "/communities/players/playing",
+            "/communities/all/players",
+            "/communities/all/players/playing",
             "/communities/{community_id}/unique_players",
             "/fetch-status",
             "/fetch-status-truncated",

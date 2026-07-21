@@ -78,7 +78,7 @@ function GlobalPlayerListDisplay() {
             page,
             ...(debouncedSearch && {search: debouncedSearch})
         };
-        fetchUrl('/communities/players', {params, signal})
+        fetchUrl('/communities/all/players', {params, signal})
             .then((result: GlobalBriefPlayers) => setData(result))
             .catch(error => {
                 if (signal.aborted) return;
