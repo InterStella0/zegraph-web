@@ -225,7 +225,7 @@ function AverageSessionDistribution() {
                 </ScreenReaderOnly>
             )}
 
-            {loading &&  <SkeletonBarGraph sx={{mt: '2rem'}} height={200} amount={5} barHeight={23} width={400} gap={'1.3rem'} />}
+            {loading &&  <SkeletonBarGraph height={200} amount={5} barHeight={23} width={400} gap={'1.3rem'} />}
 
             {!loading && (
                 <div

@@ -14,7 +14,7 @@ import {useTranslations} from 'next-intl';
 
 
 function LegendWrapper({ setUpdateFn }) {
-    const [data, setData] = useState({});
+    const [data, setData] = useState<{theme: string, legendLabel: string, errorLabel: string | null}>({theme: 'light', legendLabel: null, errorLabel: null});
     useEffect(() => {
         setUpdateFn(setData);
     }, [setUpdateFn]);
@@ -54,7 +54,7 @@ function WMSLegendImage({name, style = ""}){
 
     }, [name, style]);
     return <div className="flex flex-row gap-2 mt-3">
-        {imageSrc? <img width="20px" height="20px" src={imageSrc} alt={title}/>: <Skeleton width="20px" height="20px" />}
+        {imageSrc? <img width="20px" height="20px" src={imageSrc} alt={title}/>: <Skeleton className="w-5 h-5" />}
         <p className="text-primary">{title}</p>
     </div>
 }
@@ -73,7 +73,7 @@ function LegendWrapped({ reactData }){
                         setExpanded(e => !e)
                     }}
                 >
-                    {/* Left side */}
+
                     <div className="flex items-center gap-2">
                         <Globe />
                         {isExpanded && (
@@ -81,7 +81,6 @@ function LegendWrapped({ reactData }){
                         )}
                     </div>
 
-                    {/* Right side */}
                     {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </CollapsibleTrigger>
 

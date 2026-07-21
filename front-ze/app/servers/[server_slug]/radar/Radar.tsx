@@ -9,7 +9,7 @@ import ThemedZoomControl from "components/radars/ThemedZoomControl.tsx";
 import HomeButton from "components/radars/HomeButton.tsx";
 import {darkBasemap, formWMSUrl, lightBasemap} from "components/radars/RadarPreview.tsx";
 import NonTiledWMSLayer from "components/radars/NonTiledWMSLayer";
-import TemporalController, {TemporalContext} from "components/radars/TemporalController.tsx";
+import TemporalController, {TemporalContext, TemporalData} from "components/radars/TemporalController.tsx";
 import StatsComponent from "components/radars/StatComponents.tsx";
 import LegendControl from "components/radars/Legend.tsx";
 import PlayerMapControl from "components/radars/PlayerMapControl";
@@ -23,7 +23,7 @@ export default function Radar(): ReactElement {
     const { resolvedTheme } = useTheme();
     const countryWMSRef = useRef(null)
     const wmsLayerRef = useRef([]);
-    const [ temporal, setTemporal ] = useState({ cursor: dayjs(), interval: '10min', isLive: true})
+    const [ temporal, setTemporal ] = useState<TemporalData>({ cursor: dayjs(), interval: '10min', isLive: true})
     const isDarkMode = resolvedTheme === 'dark';
     const center = [0, 0];
     const zoom   = 2;

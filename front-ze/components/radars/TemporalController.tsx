@@ -1,5 +1,5 @@
-import {useState, useEffect, useRef, useCallback, createContext, useContext} from 'react';
-import dayjs from 'dayjs';
+import {useState, useEffect, useRef, useCallback, createContext, useContext, SetStateAction, Dispatch} from 'react';
+import dayjs, {ManipulateType} from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
@@ -25,7 +25,13 @@ export const formatDateWMS = (date) => {
     return date.toISOString()
 };
 
-export const TemporalContext = createContext({})
+export type TimeIntervals = '10min' | '1hour' | '12hours' | '1day' | '1month'
+export type TemporalData = { cursor: dayjs.Dayjs, interval: TimeIntervals, isLive: boolean}
+export type TemporalContextData = {
+    data: TemporalData | null,
+    set: Dispatch<SetStateAction<TemporalData>>
+}
+export const TemporalContext = createContext<TemporalContextData>({ data: null, set: () => {}})
 
 export default function TemporalController({ wmsLayerRef, initialStartDate, initialEndDate,
                                                intervals = null
@@ -55,14 +61,13 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
     const timeContextSet = timeContext.set
     const setCurrentTime = time => {
         timeContextSet(prop => {
-            const newTime = typeof time === 'function' ? time(prop.cursor) : time;
-            prop.cursor = newTime;
+            prop.cursor = typeof time === 'function' ? time(prop.cursor) : time;
             return { ...prop };
         });
     };
     const [sliderValue, setSliderValue] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [selectedInterval, setSelectedInterval] = useState('10min');
+    const [selectedInterval, setSelectedInterval] = useState<TimeIntervals>('10min');
     const [selectedRange, setSelectedRange] = useState('1month');
     const [isLive, setIsLive] = useState(true);
     const [availableIntervals, setAvailableIntervals] = useState(intervals);
@@ -397,7 +402,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                         };
 
                                         const { amount, unit } = intervalMap[selectedInterval] || { amount: 1, unit: 'hour' };
-                                        const prevTime = currentTime.subtract(amount, unit);
+                                        const prevTime = currentTime.subtract(amount, unit as ManipulateType);
 
 
                                         // Don't go before start date

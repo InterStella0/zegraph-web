@@ -3,8 +3,8 @@ import {InfractionInt} from "utils/generalUtils.ts";
 export type RankMode = "Casual" | "TryHard" | "Total"
 export interface RankingMode {
     id: string,
-    label: string,
-    value: RankMode
+    labelKey: string,
+    value: RankMode,
 }
 export interface PlayerTableRank{
     rank: number,

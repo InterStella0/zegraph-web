@@ -35,8 +35,6 @@ import type {
   UpdateServerMapMetadataDto,
 } from 'types/admin'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 type TriState = 'true' | 'false' | 'null'
 
 function boolToTri(v: boolean | null): TriState {
@@ -50,8 +48,6 @@ function triToBool(v: TriState): boolean | null {
   if (v === 'false') return false
   return null
 }
-
-// ─── ManageModelsDialog ───────────────────────────────────────────────────────
 
 function ManageModelsDialog({
   open,
@@ -776,7 +772,7 @@ export default function MapManagementPage() {
 
   const fetchModels = useCallback(async () => {
     try {
-      const data = await fetchApiUrl<MapWithModels[]>('/maps/all/3d')
+      const data: MapWithModels[] = await fetchApiUrl('/maps/all/3d')
       setModelsMap(new Map(data.map((m) => [m.map_name, m])))
     } catch (e) {
       console.error('Failed to fetch 3D models:', e)

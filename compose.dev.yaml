@@ -20,7 +20,7 @@ services:
   frontend:
     restart: always
     build:
-      context: ./front-gfl
+      context: ./front-ze
       dockerfile: dev.Dockerfile
       args:
         BUILD_ENV: development
@@ -48,7 +48,7 @@ services:
     develop:
       watch:
         - action: sync
-          path: ./front-gfl
+          path: ./front-ze
           target: /app/
           ignore:
             - node_modules
@@ -60,7 +60,7 @@ services:
           ignore:
             - thumbs
             - assets
-            - front-gfl
+            - front-ze
   backend:
     restart: always
     user: "10001:956"
@@ -93,7 +93,7 @@ services:
         - action: rebuild
           path: .
           ignore:
-            - front-gfl
+            - front-ze
             - target
             - thumbs
             - db.sql
@@ -133,7 +133,7 @@ services:
         - action: rebuild
           path: .
           ignore:
-            - front-gfl
+            - front-ze
             - target
             - thumbs
             - db.sql

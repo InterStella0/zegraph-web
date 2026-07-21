@@ -18,7 +18,7 @@ services:
       - ${STORAGE_PATH}/maps:/var/www/frontend/public:ro
       - ${STORAGE_PATH}/characters:/var/www/characters:ro
       - ${STORAGE_PATH}/communities:/var/www/communities:ro
-      - ${PUBLIC_FILES_PATH:-/front-gfl/public}:/var/www/public/any:ro
+      - ${PUBLIC_FILES_PATH:-/front-ze/public}:/var/www/public/any:ro
     networks:
       - default
     ports:
@@ -31,7 +31,7 @@ services:
     image: interstella0/ze-graph:frontend
     restart: always
     build:
-      context: front-gfl
+      context: front-ze
       args:
         BUILD_ENV: production
         R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}

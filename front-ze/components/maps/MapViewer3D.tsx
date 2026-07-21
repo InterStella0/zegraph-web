@@ -58,6 +58,7 @@ function Model({
   roughness: number
   metalness: number
   renderDistance: number
+  useBBoxCulling: boolean
 }) {
   const modelUrl = modelMetadata.link_path
   const gltf = useGLTF(modelUrl, true, true, (loader) => {
