@@ -174,9 +174,6 @@ impl ServerApi {
         response!(ok results.into_values().collect())
     }
 
-    /// The global, cross-community player list. Unlike `/servers/:id/players/table` this is not
-    /// scoped to a server: rows are canonical players (linked accounts collapsed into the account
-    /// they point at) and every figure is a rollup over the whole linked group.
     #[oai(path = "/communities/players", method="get")]
     async fn get_global_players(
         &self, Data(data): Data<&AppData>,
@@ -186,8 +183,6 @@ impl ServerApi {
         let pagination = 10;
         let paging = page as i64 * pagination;
 
-        // NULL means "no filter" to the query below; a search short enough to match half the table
-        // is treated the same way the server-scoped table does — as no search at all.
         let search = search
             .map(|s| s.trim().to_string())
             .filter(|s| s.len() >= 2)
@@ -196,8 +191,6 @@ impl ServerApi {
                 format!("%{}%", escaped.to_lowercase())
             });
 
-        // Only the first stage is expensive, and it is the same one for everybody, so the LATERAL
-        // enrichment below never sees more than `pagination` rows.
         let func = || sqlx::query_as!(DbGlobalPlayerBrief, r#"
             WITH base AS (
                 SELECT
@@ -250,8 +243,6 @@ impl ServerApi {
             ORDER BY b.total_playtime DESC, b.player_id
         "#, search, paging, pagination).fetch_all(pool);
 
-        // Searched pages are not cached: arbitrary user input would mint an unbounded number of
-        // keys, and the browse pages are what actually repeat across users.
         let rows = if search.is_none() {
             match cached_response(&format!("global-players:{page}"), &data.cache, 60, func).await {
                 Ok(cached) => cached.result,
@@ -264,8 +255,9 @@ impl ServerApi {
             }
         };
 
-        // COUNT(*) OVER() rides on every row, so an empty page means an empty result set.
-        let total_players = rows.first().map(|r| r.total_players).unwrap_or(0);
+        let total_players = rows.first()
+            .map(|r| r.total_players)
+            .unwrap_or_default();
         response!(ok GlobalBriefPlayers { total_players, players: rows.iter_into() })
     }
 
@@ -352,9 +344,7 @@ impl ServerApi {
         let community_id = community.community_id.clone();
         let bound_time = truncated_time.to_db_time();
         let time_type_str = time_type.to_string();
-        // Closed buckets come precomputed from community_player_counts (pg_cron,
-        // get_community_player_counts); only buckets missing from it (the open
-        // tail, or gaps the cron hasn't covered yet) are computed live.
+
         let func = || sqlx::query_as!(
             DbServerCountData,
             "WITH buckets AS (
