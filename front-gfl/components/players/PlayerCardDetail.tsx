@@ -1,6 +1,6 @@
 import {useTranslations, useLocale} from 'next-intl';
 import {ReactElement, use} from "react";
-import {addOrdinalSuffix, fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
+import {fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
 import {

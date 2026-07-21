@@ -1,6 +1,5 @@
 "use client"
 import {notFound} from "next/navigation";
-import * as React from "react";
 
 export default function ErrorBoundary({ error }: { error: Error }){
     if (error.message === "Not Found")

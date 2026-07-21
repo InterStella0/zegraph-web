@@ -13,7 +13,7 @@ export async function POST(
 
 // DELETE /api/admin/users/[user_id]/guide-ban
 export async function DELETE(
-    req: Request,
+    _req: Request,
     context: { params: Promise<{ user_id: string }> }
 ) {
     const { user_id } = await context.params;

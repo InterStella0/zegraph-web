@@ -7,7 +7,7 @@ import {
     ServerGraphType,
     SessionInfo
 } from "../../../../util.ts";
-import {fetchApiServerUrl, fetchServerUrl, getMapImage} from "utils/generalUtils.ts";
+import {fetchApiServerUrl, getMapImage} from "utils/generalUtils.ts";
 import {Server} from "types/community.ts";
 
 

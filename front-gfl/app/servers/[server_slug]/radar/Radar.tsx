@@ -3,13 +3,13 @@
 import {ReactElement, useEffect, useRef, useState} from "react";
 import dayjs from "dayjs";
 import L from "leaflet/dist/leaflet-src";
-import {LayersControl, MapContainer, TileLayer, WMSTileLayer} from "react-leaflet";
+import {LayersControl, MapContainer, TileLayer} from "react-leaflet";
 import InfoMessage from "components/radars/InfoMessage.tsx";
 import ThemedZoomControl from "components/radars/ThemedZoomControl.tsx";
 import HomeButton from "components/radars/HomeButton.tsx";
 import {darkBasemap, formWMSUrl, lightBasemap} from "components/radars/RadarPreview.tsx";
 import NonTiledWMSLayer from "components/radars/NonTiledWMSLayer";
-import TemporalController, {formatDateWMS, TemporalContext} from "components/radars/TemporalController.tsx";
+import TemporalController, {TemporalContext} from "components/radars/TemporalController.tsx";
 import StatsComponent from "components/radars/StatComponents.tsx";
 import LegendControl from "components/radars/Legend.tsx";
 import PlayerMapControl from "components/radars/PlayerMapControl";

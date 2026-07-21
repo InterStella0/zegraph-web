@@ -13,7 +13,6 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page";
-import Link from "next/link";
 import {PlayerSession, PlayerSessionPage} from "types/players.ts";
 import { cn } from "components/lib/utils";
 import PaginationPage from "components/ui/PaginationPage.tsx";

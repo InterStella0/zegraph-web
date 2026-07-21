@@ -24,13 +24,12 @@ import {
 } from "components/ui/tooltip";
 import dayjs from "dayjs";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
-import { X, Ban, RefreshCw, Loader2 } from "lucide-react";
+import { Ban, RefreshCw, Loader2 } from "lucide-react";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PlayerInfraction, PlayerInfractionUpdate} from "types/players.ts";
 import Image from "next/image";
 import {Server} from "types/community.ts";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
-import { useTheme } from "next-themes";
 
 function ModalInfraction({ infraction, onClose }){
     const t = useTranslations('players.infractions');
@@ -67,7 +66,6 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
     const server_id = server.id;
     const [infractions, setInfractions] = useState([]);
     const [viewInfraction, setViewInfraction] = useState(null);
-    const { theme } = useTheme();
 
     useEffect(() => {
         if (!playerId) return

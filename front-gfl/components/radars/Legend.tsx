@@ -109,7 +109,7 @@ const LegendControlExtends = L.Control.extend({
             this._setReactDataFn(data);
         }
     },
-    onAdd: function(map) {
+    onAdd: function(_map) {
         this._container = DomUtil.create('div', 'leaflet-control leaflet-bar');
 
         L.DomEvent.disableClickPropagation(this._container);
@@ -123,7 +123,7 @@ const LegendControlExtends = L.Control.extend({
         return this._container;
     },
 
-    onRemove: function(map) {
+    onRemove: function(_map) {
         this._container = null;
     }
 })

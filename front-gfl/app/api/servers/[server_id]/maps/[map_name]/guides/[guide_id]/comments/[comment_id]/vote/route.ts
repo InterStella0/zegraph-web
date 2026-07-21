@@ -24,7 +24,7 @@ export async function POST(
 
 // DELETE /api/servers/[server_id]/maps/[map_name]/guides/[guide_id]/comments/[comment_id]/vote
 export async function DELETE(
-    req: Request,
+    _req: Request,
     context: { params: Promise<{ server_id: string; map_name: string; guide_id: string; comment_id: string }> }
 ) {
     try {

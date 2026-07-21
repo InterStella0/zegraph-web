@@ -1,6 +1,5 @@
 import {useTranslations} from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from 'components/ui/card';
-import { Badge } from 'components/ui/badge';
 import { formatTime } from 'utils/sessionUtils.js';
 import {Server} from "types/community";
 import {PlayerSessionMapPlayed} from "../../app/servers/[server_slug]/util";
@@ -26,7 +25,6 @@ export default function MapsList(
                         : 'Ongoing';
 
                     const hasScore = map.match_data && map.match_data.length > 0;
-                    const humanWon = hasScore && map.match_data[0].human_score > map.match_data[0].zombie_score;
 
                     return (
                         <Link

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { auth } from "auth";
 import { ReportDto } from "types/guides";
 import {proxyToBackendChange} from "lib/apiProxy.ts";
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { URI, fetchApiUrl } from 'utils/generalUtils';
+import { fetchApiUrl } from 'utils/generalUtils';
 
 interface PushSubscriptionInfo {
   id: string;

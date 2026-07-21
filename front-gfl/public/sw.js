@@ -1,8 +1,7 @@
 // Service Worker for Push Notifications
-const CACHE_NAME = 'ze-graph-v1';
 const NOTIFICATION_TAG = 'ze-graph-notification';
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -47,7 +46,7 @@ self.addEventListener('push', (event) => {
           { action: 'map_info', title: 'Map Info' },
         ];
       }
-    } catch (e) {
+    } catch {
       // Ignore parse errors
     }
   }

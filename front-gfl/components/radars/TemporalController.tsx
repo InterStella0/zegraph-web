@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "c
 import { Play, Pause, Circle, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "components/lib/utils";
 import {getIntervalCallback} from "utils/generalUtils.ts";
-import {Dayjs} from "dayjs";
 import {useTranslations} from 'next-intl';
 
 // Extend dayjs with plugins

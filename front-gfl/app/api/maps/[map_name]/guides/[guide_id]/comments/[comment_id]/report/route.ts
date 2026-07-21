@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import {CreateUpdateCommentDto, ReportDto} from "types/guides";
+import {ReportDto} from "types/guides";
 import { proxyToBackendChange } from "lib/apiProxy";
 
 // POST /api/maps/[map_name]/guides/[guide_id]/comments/[comment_id]/report

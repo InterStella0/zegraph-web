@@ -24,7 +24,6 @@ import dayjs from "dayjs";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import ResponsiveAppBar from "components/ui/ResponsiveAppBar.tsx";
 import {AdSpot} from "components/ui/AdSpot";
-import * as React from "react";
 import Footer from "components/ui/Footer.tsx";
 import Image from "next/image";
 import Link from "next/link";
@@ -335,7 +334,7 @@ export default function LiveServerTrackerPage({ userPromise }){
 
             return eventSource;
         };
-        let _ = connectEventSource()
+        connectEventSource();
         return () => {
             if (eventSourceRef.current) {
                 eventSourceRef.current.close();

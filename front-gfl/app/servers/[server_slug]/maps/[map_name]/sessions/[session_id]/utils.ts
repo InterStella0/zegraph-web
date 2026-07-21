@@ -1,6 +1,5 @@
 import {
     getMutualSessions, getServerGraph,
-    getServerSlug,
     getSessionInfo,
     MutualSessionReturn,
     ServerGraphType,

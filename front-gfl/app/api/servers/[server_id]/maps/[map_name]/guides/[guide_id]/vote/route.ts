@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { VoteDto, VoteType } from "types/guides";
+import { VoteDto } from "types/guides";
 import {proxyToBackendChange} from "lib/apiProxy.ts";
 
 // POST /api/servers/[server_id]/maps/[map_name]/guides/[guide_id]/vote
@@ -26,7 +26,7 @@ export async function POST(
 // DELETE /api/servers/[server_id]/maps/[map_name]/guides/[guide_id]/vote
 // Remove vote
 export async function DELETE(
-    req: Request,
+    _req: Request,
     context: { params: Promise<{ server_id: string; map_name: string; guide_id: string }> }
 ) {
     try {

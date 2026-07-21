@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {ReactElement, useEffect, useRef, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {fetchServerUrl } from "utils/generalUtils.ts";
 import dayjs, {Dayjs} from "dayjs";
 import LocalizedFormat from "dayjs/plugin/localizedFormat"
@@ -8,7 +8,6 @@ import MapCard from "./MapCard.tsx";
 import MapCardSkeleton from "./MapCardSkeleton.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {ServerMapPlayed, ServerMapPlayedPaginated} from "types/maps.ts";
-import { Button } from "components/ui/button";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {ScrollArea, ScrollBar} from "components/ui/scroll-area.tsx";
 dayjs.extend(LocalizedFormat)

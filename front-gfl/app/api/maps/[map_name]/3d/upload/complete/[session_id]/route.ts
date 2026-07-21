@@ -1,7 +1,7 @@
 import {auth} from "../../../../../../../../auth.ts";
 
 export async function POST(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ map_name: string; session_id: string }> }
 ) {
   const { map_name, session_id } = await params

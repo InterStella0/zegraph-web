@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { auth } from "auth";
 import { CreateUpdateCommentDto } from "types/guides";
 import {proxyToBackend, proxyToBackendChange} from "lib/apiProxy.ts";
 
@@ -19,7 +18,6 @@ export async function POST(
 ) {
     try {
         const { guide_id, map_name } = await context.params;
-        const session = await auth();
 
         // Parse body
         const body: CreateUpdateCommentDto = await req.json();

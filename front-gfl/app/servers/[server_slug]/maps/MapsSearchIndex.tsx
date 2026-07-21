@@ -23,7 +23,7 @@ export default function MapsSearchIndex({ serverPromise, userPromise }: { server
     const { getSubscriptionType, refresh: refreshNotifications } = useMapNotifications(!!user);
     const [mapsData, setMapsData] = useState<MapPlayedPaginated | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null);
+    const [, setError] = useState<string | null>(null);
     const [autocompleteOptions, setAutocompleteOptions] = useState<ServerMap[]>([]);
 
     const [searchTerm, setSearchTerm] = useState<string>('');
@@ -158,7 +158,7 @@ export default function MapsSearchIndex({ serverPromise, userPromise }: { server
         }
     }
 
-    const handleChangePage = (event, newPage) => {
+    const handleChangePage = (_event: any, newPage: any) => {
         setPage(newPage);
     }
 

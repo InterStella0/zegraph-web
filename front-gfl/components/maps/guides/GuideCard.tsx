@@ -25,7 +25,7 @@ export default function GuideCard({ guide, communities }: GuideCardProps) {
     const t = useTranslations('guides');
     const { serverGoto, insideServer } = useGuideContext()
 
-    // Create excerpt (first 150 chars of content, stripping markdown)
+    // truncate no markdown
     const excerpt = guide.content
         .replace(/[#*`\[\]()]/g, '') // Remove markdown characters
         .replace(/\n+/g, ' ') // Replace newlines with spaces
@@ -34,7 +34,6 @@ export default function GuideCard({ guide, communities }: GuideCardProps) {
 
     const guideUrl = resolveGuideLink(serverGoto, `/${guide.map_name}/guides/${guide.slug}`);
 
-    const netVotes = guide.upvotes - guide.downvotes;
     const timeAgo = dayjs(guide.created_at).fromNow();
     const wasEdited = guide.created_at !== guide.updated_at;
 

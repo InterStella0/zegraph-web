@@ -10,7 +10,7 @@ interface AnnouncementBannerProps {
   text: string;
 }
 
-export function AnnouncementBanner({ id, text }: AnnouncementBannerProps) {
+export function AnnouncementBanner({ id: _id, text }: AnnouncementBannerProps) {
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;

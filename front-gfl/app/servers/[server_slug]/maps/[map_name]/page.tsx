@@ -1,8 +1,7 @@
 import {
-    addOrdinalSuffix,
     DOMAIN,
     fetchServerUrl,
-    formatHours, formatNumber,
+    formatHours,
     formatTitle,
     getMapImage,
     socialMeta,

@@ -1,4 +1,4 @@
-import {NextRequest, NextResponse} from "next/server";
+import {NextResponse} from "next/server";
 import { auth } from "../auth";
 import { BACKEND_DOMAIN } from "utils/generalUtils";
 import { CACHE_HEADERS, withCacheHeaders } from './cacheHeaders';

@@ -1,6 +1,6 @@
 'use client'
 
-import {use, useState} from 'react';
+import {useState} from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import remarkGfm from 'remark-gfm';
@@ -120,7 +120,7 @@ export default function GuideDetail({ session }: GuideDetailProps) {
     const handleDelete = async () => {
         setDeleting(true);
         try {
-            const data = await fetchApiUrl(
+            await fetchApiUrl(
                 resolveGuideLink(serverId, `${mapName}/guides/${guide.id}`),
                 { method: 'DELETE' }
             );

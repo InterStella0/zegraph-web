@@ -10,7 +10,6 @@ import {CountryStatistic} from "types/players.ts";
 import { Card, CardContent, CardHeader } from "components/ui/card";
 import { Button } from "components/ui/button";
 import { Skeleton } from "components/ui/skeleton";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "components/ui/pagination";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 
 const CountriesSkeleton = () => (

@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'c
 import { Button } from 'components/ui/button';
 import { Badge } from 'components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from 'components/ui/dropdown-menu';
-import { MoreVertical, Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
+import { MoreVertical, Plus, Pencil, Trash2 } from 'lucide-react';
 import { fetchApiUrl } from 'utils/generalUtils';
 import { CreateEditAnnouncementDialog } from './CreateEditAnnouncementDialog';
 import type { Announcement, AnnouncementsPaginated, AnnouncementStatusFilter } from 'types/announcements';
@@ -50,19 +50,6 @@ export default function AnnouncementsAdminPage() {
       fetchData();
     } catch (error) {
       console.error('Failed to delete announcement:', error);
-    }
-  };
-
-  const toggleVisibility = async (announcement: Announcement) => {
-    try {
-      await fetchApiUrl(`/admin/announcements/${announcement.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ show: true }), // Note: Backend needs to track show field, assuming always showing for now
-      });
-      fetchData();
-    } catch (error) {
-      console.error('Failed to toggle visibility:', error);
     }
   };
 

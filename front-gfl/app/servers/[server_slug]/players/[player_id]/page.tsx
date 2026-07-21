@@ -1,4 +1,4 @@
-import {getServerSlugOrNotFound, oneDay, oneHour, threeMinutes} from "../../util";
+import {getServerSlugOrNotFound, oneDay, threeMinutes} from "../../util";
 import {
     addOrdinalSuffix,
     DOMAIN,

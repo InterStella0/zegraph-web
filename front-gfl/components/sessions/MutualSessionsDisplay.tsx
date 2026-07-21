@@ -2,31 +2,12 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from 'components/ui/card';
-import { Button } from 'components/ui/button';
-import { Skeleton } from 'components/ui/skeleton';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { PlayerAvatar } from "../players/PlayerAvatar";
 import { MutualSessionReturn, SessionType } from "../../app/servers/[server_slug]/util";
 import { Server } from "types/community";
-import Link from "next/link";
 import { PlayerBrief, PlayerSeen } from "types/players";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
-
-
-const MutualSessionsSkeleton = () => (
-    Array.from({ length: 30 }).map((_, index) => (
-        <div key={index} className="flex items-center gap-4 p-4 border-b last:border-0">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <div className="flex-1 space-y-2">
-                <Skeleton className="h-5 w-[120px]" />
-                <Skeleton className="h-4 w-[200px] hidden sm:block" />
-            </div>
-            <Skeleton className="h-4 w-[60px]" />
-        </div>
-    ))
-);
-
 
 export default function MutualSessionsDisplay<T extends SessionType>(
     { server, mutualSessions, type }:

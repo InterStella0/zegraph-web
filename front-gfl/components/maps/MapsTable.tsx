@@ -3,7 +3,6 @@ import { Ban, Clock, Heart} from 'lucide-react';
 import dayjs from 'dayjs';
 import {getMapImage, secondsToHours, simpleRandom} from "utils/generalUtils";
 import {useEffect, useState} from "react";
-import Link from "next/link";
 import duration from "dayjs/plugin/duration";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";

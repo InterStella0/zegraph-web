@@ -2,7 +2,6 @@ import {getServerSlug} from "../../servers/[server_slug]/util.ts";
 import {notFound} from "next/navigation";
 import Link from "next/link";
 import Footer from "components/ui/Footer.tsx";
-import * as React from "react";
 import ResponsiveAppBar from "components/ui/ResponsiveAppBar.tsx";
 import getServerUser from "../../getServerUser.ts";
 

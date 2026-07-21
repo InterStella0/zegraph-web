@@ -41,7 +41,7 @@ export async function PUT(
 
 // DELETE /api/servers/[server_id]/maps/[map_name]/guides/[guide_id]
 export async function DELETE(
-    req: Request,
+    _req: Request,
     context: { params: Promise<{ server_id: string; map_name: string; guide_id: string }> }
 ) {
     try {

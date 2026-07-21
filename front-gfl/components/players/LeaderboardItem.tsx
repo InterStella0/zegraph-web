@@ -1,7 +1,5 @@
 import { Circle } from 'lucide-react';
 import { PlayerAvatar } from "./PlayerAvatar";
-import Link from "next/link";
-import { Badge } from "components/ui/badge";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 
 type statusType = 'online' | 'offline' | 'away' | 'playing'

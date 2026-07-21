@@ -1,9 +1,8 @@
 import { Metadata } from 'next';
-import {fetchServerUrl, formatTitle, StillCalculate} from 'utils/generalUtils';
+import {formatTitle} from 'utils/generalUtils';
 import { getServerSlugOrNotFound } from '../../../util';
 import { auth } from '../../../../../../auth';
 import MapGuidesList from 'components/maps/guides/MapGuidesList';
-import {MapContextProvider} from "../MapContext.tsx";
 import {ServerMapDetail} from "types/maps.ts";
 import {GuideContextDataInsert, GuideContextProvider} from "../../../../../../lib/GuideContextProvider.tsx";
 import { getTranslations } from 'next-intl/server';

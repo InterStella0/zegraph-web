@@ -1,7 +1,7 @@
 'use client'
 import { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import dayjs from 'dayjs';
-import {DateState, DateStateProvider} from "types/graphServers";
+import {DateStateProvider} from "types/graphServers";
 
 export enum DateSources {
     URL,

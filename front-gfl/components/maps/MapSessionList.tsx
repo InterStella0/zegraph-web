@@ -15,13 +15,6 @@ import {ServerMapPlayed} from "types/maps.ts";
 import {Skeleton} from "components/ui/skeleton";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "components/ui/tooltip";
 import {Button} from "components/ui/button";
-import {
-    Pagination,
-    PaginationContent,
-    PaginationFirst,
-    PaginationItem, PaginationLast, PaginationLink, PaginationNext,
-    PaginationPrevious
-} from "components/ui/pagination.tsx";
 import {useTranslations} from 'next-intl';
 import {Card} from "components/ui/card.tsx";
 

@@ -6,7 +6,7 @@ import { Button } from 'components/ui/button';
 import { Input } from 'components/ui/input';
 import { Textarea } from 'components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'components/ui/card';
-import {fetchApiUrl, URI} from 'utils/generalUtils';
+import {fetchApiUrl} from 'utils/generalUtils';
 import { toast } from 'sonner';
 
 interface SendResult {

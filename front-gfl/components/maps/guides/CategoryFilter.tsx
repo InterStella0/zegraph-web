@@ -1,6 +1,6 @@
 'use client'
 
-import { GuideCategory, GuideCategoryType } from 'types/guides';
+import { GuideCategory } from 'types/guides';
 import {
     Select,
     SelectContent,

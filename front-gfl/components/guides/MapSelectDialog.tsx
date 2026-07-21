@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Map, Loader2 } from 'lucide-react';
+import { Search, Map } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -14,7 +14,7 @@ import { Input } from 'components/ui/input';
 import { Button } from 'components/ui/button';
 import { ScrollArea } from 'components/ui/scroll-area';
 import { Skeleton } from 'components/ui/skeleton';
-import {fetchApiServerUrl, fetchServerUrl} from 'utils/generalUtils';
+import {fetchServerUrl} from 'utils/generalUtils';
 import { ServerMap } from 'types/maps';
 
 interface MapSelectDialogProps {

@@ -6,7 +6,6 @@ import dayjs from "dayjs";
 import {fetchServerUrl, secondsToHours, secondsToMins, simpleRandom} from "utils/generalUtils.ts";
 import { ErrorBoundary } from "react-error-boundary";
 import {useEffect, useState} from "react";
-import Link from "next/link";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {ExtendedPlayerBrief} from "types/players.ts";

@@ -1,7 +1,7 @@
 import { proxyToBackend } from "lib/apiProxy";
 
 export async function GET(
-    req: Request,
+    _req: Request,
     { params }: { params: Promise<{ server_id: string; player_id: string }> }
 ) {
     const { server_id, player_id } = await params;

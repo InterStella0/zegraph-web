@@ -1,4 +1,3 @@
-import * as React from "react";
 import {Metadata} from "next";
 import {getTranslations} from "next-intl/server";
 import ResponsiveAppBar from "components/ui/ResponsiveAppBar";

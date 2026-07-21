@@ -8,7 +8,6 @@ import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {DateSources, useDateState} from './DateStateManager';
 import { TrendingUp, Calendar as CalendarIcon, Users, Circle } from 'lucide-react';
 import { Button } from "components/ui/button";
-import { Card, CardContent } from "components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Calendar } from "components/ui/calendar";

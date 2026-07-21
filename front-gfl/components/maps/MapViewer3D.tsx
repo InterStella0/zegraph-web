@@ -1,9 +1,9 @@
 "use client"
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, useGLTF, Grid, Stats, useProgress, Html, PointerLockControls } from '@react-three/drei'
+import { OrbitControls, useGLTF, Grid, Stats, useProgress, Html } from '@react-three/drei'
 import { useTheme } from 'next-themes'
-import { Suspense, useState, useRef, useEffect, useMemo } from 'react'
+import { Suspense, useState, useRef, useEffect } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { Button } from 'components/ui/button'
 import { Vector3, Raycaster, SRGBColorSpace, ACESFilmicToneMapping, Box3, Euler } from 'three'
@@ -45,7 +45,7 @@ const setupDracoLoader = () => {
 
 function Model({
   mapName,
-  resType,
+  resType: _resType,
   modelMetadata,
   roughness,
   metalness,
@@ -397,7 +397,7 @@ function Model({
 }
 
 function LoadingFallback({
-  mapName,
+  mapName: _mapName,
   processingState,
   modelMetadata
 }: {
@@ -454,7 +454,7 @@ function LoadingFallback({
   )
 }
 
-function ErrorFallback({ error, mapName }: { error: Error; mapName: string }) {
+function ErrorFallback({ error, mapName: _mapName }: { error: Error; mapName: string }) {
   const t = useTranslations('maps.viewer3d')
   const isDracoError = error.message.includes('draco') || error.message.includes('Draco')
 

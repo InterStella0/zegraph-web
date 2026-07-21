@@ -40,7 +40,7 @@ export async function PUT(
 
 // DELETE /api/maps/[map_name]/guides/[guide_id]
 export async function DELETE(
-    req: Request,
+    _req: Request,
     context: { params: Promise<{ map_name: string; guide_id: string }> }
 ) {
     try {

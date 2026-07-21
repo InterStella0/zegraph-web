@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AnnouncementBanner } from './AnnouncementBanner';
 import { AnnouncementDialog } from './AnnouncementDialog';
 import { fetchUrl } from 'utils/generalUtils';
 import type { Announcement } from 'types/announcements';
@@ -31,7 +30,6 @@ export function AnnouncementsContainer() {
 
   return (
     <>
-      {/* Rich announcements - show as dialogs (one at a time, first unseen) */}
       {richAnnouncements.map((announcement) => (
         <AnnouncementDialog
           key={announcement.id}

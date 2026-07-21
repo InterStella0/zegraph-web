@@ -8,7 +8,6 @@ import { Badge } from "../ui/badge";
 import {ScrollArea, ScrollBar} from "../ui/scroll-area";
 import { cn } from "../lib/utils";
 import { MapMusicTrack } from "types/maps";
-import Link from "next/link";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider.tsx";
 import MusicReportDialog from "./MusicReportDialog";
 import { fetchApiUrl } from "utils/generalUtils";

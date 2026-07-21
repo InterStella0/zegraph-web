@@ -2,15 +2,14 @@
 import {useTranslations} from 'next-intl';
 import {useState, useEffect, use} from 'react';
 import { Search, Trophy, Loader2 } from 'lucide-react';
-import {fetchApiServerUrl, fetchServerUrl, simpleRandom} from "utils/generalUtils";
+import {fetchApiServerUrl, simpleRandom} from "utils/generalUtils";
 import PlayerListItem from "./PlayerListItem";
 import {PlayersTableRanked, RankingMode, SearchPlayer} from "types/players";
 import {ServerSlugPromise} from "../../app/servers/[server_slug]/util.ts";
 import { Card, CardContent, CardHeader } from "components/ui/card";
 import { Input } from "components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
 import { Skeleton } from "components/ui/skeleton";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "components/ui/pagination";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "components/ui/command";

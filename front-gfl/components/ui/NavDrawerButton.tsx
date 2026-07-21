@@ -6,7 +6,7 @@ import {
 } from "components/ui/sheet";
 import {Button} from "components/ui/button";
 import {useState} from "react";
-import {Menu, X, Coffee} from "lucide-react";
+import {Menu, Coffee} from "lucide-react";
 import {Logo} from "./CommunitySelector";
 import LoginButton from "./LoginButton";
 import {pagesSelection} from "./PagesNavigation";

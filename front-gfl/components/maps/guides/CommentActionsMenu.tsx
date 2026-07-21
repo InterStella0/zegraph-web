@@ -25,7 +25,6 @@ export default function CommentActionsMenu({
     onDelete,
     onReport,
     isBanned = false,
-    banReason = null,
 }: CommentActionsMenuProps) {
     const t = useTranslations('guides.actions');
     const canEdit = isAuthor && !isBanned;

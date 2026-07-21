@@ -1,7 +1,6 @@
 import { PlayerAvatar } from "./PlayerAvatar";
 import {secondsToHours} from "utils/generalUtils";
 import {useTranslations, useLocale} from "next-intl";
-import Link from "next/link";
 import {PlayerTableRank, RankMode} from "types/players";
 import {Server} from "types/community";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";

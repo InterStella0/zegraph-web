@@ -2,16 +2,14 @@ import {
     getMapsDataSession,
     getMutualSessions,
     getServerGraph,
-    getServerSlugOrNotFound, getSessionInfo, MutualSessionReturn,
-    PlayerSessionMapPlayed, ServerGraphType, SessionInfo
+    getServerSlugOrNotFound, getSessionInfo, SessionInfo
 } from "../../../../util";
-import {fetchServerUrl, fetchUrl, formatHours, formatTitle, getMapImage, socialMeta} from "utils/generalUtils";
+import {fetchUrl, formatHours, formatTitle, socialMeta} from "utils/generalUtils";
 import {getPlayerDetailed, PlayerInfo} from "../../util";
 import {Metadata} from "next";
 import { PlayerProfilePicture} from "types/players.ts";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import {Server} from "types/community.ts";
 import SessionPlayerWrapper from "./SessionPlayerWrapper.tsx";
 import {getSessionData} from "./utils.ts";
 import { getTranslations } from 'next-intl/server';

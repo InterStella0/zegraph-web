@@ -1,4 +1,4 @@
-import {fetchApiServerUrl, fetchApiUrl, NotFoundError} from "utils/generalUtils";
+import {fetchApiUrl} from "utils/generalUtils";
 import { Guide } from "types/guides";
 
 export type GuideSlugPromise = Promise<Guide | null>;

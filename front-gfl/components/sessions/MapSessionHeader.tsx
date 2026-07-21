@@ -6,7 +6,6 @@ import { formatTime } from 'utils/sessionUtils.js';
 import dayjs from "dayjs";
 import { SessionInfo } from "../../app/servers/[server_slug]/util";
 import { Server } from "types/community";
-import Link from "components/ui/Link.tsx";
 import Image from "next/image";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 

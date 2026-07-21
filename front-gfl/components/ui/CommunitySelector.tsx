@@ -4,7 +4,7 @@ import {useTranslations} from "next-intl";
 import {Sheet, SheetContent} from "components/ui/sheet";
 import {Button} from "components/ui/button";
 import {Avatar, AvatarFallback, AvatarImage} from "components/ui/avatar";
-import {ChevronLeft, ChevronRight, X, Users, Map, ChevronDown, ChevronUp, PlusCircle} from 'lucide-react';
+import {ChevronLeft, ChevronRight, Users, Map, ChevronDown, ChevronUp, PlusCircle} from 'lucide-react';
 import ErrorCatch from "./ErrorMessage.tsx";
 import ServerProvider from "./ServerProvider";
 import {Server} from "types/community";

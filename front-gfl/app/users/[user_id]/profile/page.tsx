@@ -6,9 +6,7 @@ import getServerUser from "../../../getServerUser";
 import { redirect } from "next/navigation";
 import { ProfileResponse } from "types/community.ts";
 import {
-    DOMAIN,
     fetchApiUrl,
-    fetchServerUrl,
     fetchUrl,
     formatHours,
     formatOrdinal,
@@ -17,12 +15,10 @@ import {
 } from "utils/generalUtils.ts";
 import ResponsiveAppBar from "components/ui/ResponsiveAppBar.tsx";
 import Footer from "components/ui/Footer";
-import * as React from "react";
 import {Metadata} from "next";
-import {getServerSlug, oneDay, oneHour, threeMinutes} from "../../../servers/[server_slug]/util.ts";
+import { oneDay, oneHour } from "../../../servers/[server_slug]/util.ts";
 import {getTranslations} from "next-intl/server";
-import {getPlayerDetailed, PlayerInfo} from "../../../servers/[server_slug]/players/[player_id]/util.ts";
-import {PlayerMostPlayedMap, PlayerProfilePicture, PlayerRegionTime, PlayerSessionPage} from "types/players.ts";
+import { PlayerProfilePicture } from "types/players.ts";
 import dayjs from "dayjs";
 
 export async function generateMetadata({ params }: {

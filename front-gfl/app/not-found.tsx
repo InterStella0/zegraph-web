@@ -1,5 +1,4 @@
 import ResponsiveAppBar from "components/ui/ResponsiveAppBar.tsx";
-import * as React from "react";
 import getServerUser from "./getServerUser.ts";
 
 export default function NotFound() {

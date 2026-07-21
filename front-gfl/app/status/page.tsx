@@ -1,6 +1,5 @@
 import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
 import Footer from "components/ui/Footer";
-import * as React from "react";
 import getServerUser from "app/getServerUser";
 import FetchStatusTable from "components/status/FetchStatusTable";
 import { Metadata } from "next";

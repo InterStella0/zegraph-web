@@ -1,5 +1,5 @@
 import {Badge} from "components/ui/badge";
-import {CommunityBase, Server} from "types/community";
+import {Server} from "types/community";
 import {Dispatch} from "react";
 import {Gamepad2} from "lucide-react";
 

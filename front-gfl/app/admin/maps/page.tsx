@@ -27,11 +27,10 @@ import { toast } from 'sonner'
 import { fetchApiUrl, getMapImage } from 'utils/generalUtils'
 import { MapAuditHistory } from '../components/MapAuditHistory'
 import { uploadFileChunked, CHUNKED_UPLOAD_THRESHOLD, UploadProgress } from 'utils/uploadUtils'
-import type { Map3DModel, MapWithModels } from 'types/maps'
+import type { MapWithModels } from 'types/maps'
 import type {
   AdminMapEntry,
   AdminMapMetadataResponse,
-  AdminMapServerEntry,
   UpdateGlobalMapMetadataDto,
   UpdateServerMapMetadataDto,
 } from 'types/admin'

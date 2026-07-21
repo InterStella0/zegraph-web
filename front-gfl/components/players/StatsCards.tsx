@@ -1,4 +1,4 @@
-import {ReactElement, use} from 'react';
+import {ReactElement} from 'react';
 import { User, Globe, Clock } from 'lucide-react';
 import { fetchServerUrl, secondsToHours } from "utils/generalUtils";
 import { ServerPlayersStatistic } from "types/players.ts";

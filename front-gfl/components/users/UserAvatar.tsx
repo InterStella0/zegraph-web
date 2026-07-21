@@ -2,11 +2,10 @@
 import { useEffect, useState } from "react";
 import { fetchUrl } from "utils/generalUtils";
 import { ErrorBoundary } from "react-error-boundary";
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 
-function UserAvatarDisplay({ userId, name, width = 120, height = 120, className = "", ...props }) {
+function UserAvatarDisplay({ userId, name, width = 120, height = 120, className = "" }) {
     const t = useTranslations('players.profile.header');
     const [playerImage, setPlayerImage] = useState(null);
 

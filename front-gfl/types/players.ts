@@ -1,4 +1,3 @@
-import dayjs from "dayjs";
 import {InfractionInt} from "utils/generalUtils.ts";
 
 export type RankMode = "Casual" | "TryHard" | "Total"

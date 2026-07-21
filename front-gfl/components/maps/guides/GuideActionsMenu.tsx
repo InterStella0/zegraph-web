@@ -30,7 +30,6 @@ export default function GuideActionsMenu({
     onReport,
     onShare,
     isBanned = false,
-    banReason = null,
 }: GuideActionsMenuProps) {
     const t = useTranslations('guides.actions');
     const canEdit = isAuthor && !isBanned;

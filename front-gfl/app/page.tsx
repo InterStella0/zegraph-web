@@ -1,7 +1,6 @@
 import CommunityList, {CommunityListLoading} from "./CommunityList";
 import {getCommunity} from "./getCommunity";
 import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
-import * as React from "react";
 import getServerUser from "./getServerUser";
 import Footer from "components/ui/Footer";
 import {Suspense} from "react";
