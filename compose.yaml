@@ -146,7 +146,7 @@ services:
       retries: 5
   redis:
     restart: always
-    image: redis:8.0-alpine
+    image: redis:8.8-alpine
     volumes:
       - redis-data:/data
       - ${REDIS_CONF_PATH}:/usr/local/etc/redis/redis.conf

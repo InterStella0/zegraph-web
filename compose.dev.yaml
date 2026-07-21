@@ -145,7 +145,7 @@ services:
       STEAM_API_KEY: ${STEAM_API_KEY}
   redis:
     restart: always
-    image: redis:8.0-alpine
+    image: redis:8.8-alpine
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s

@@ -13,7 +13,7 @@ use poem_openapi::auth::{Bearer, BearerAuthorization};
 use poem_openapi::types::{ParseFromJSON, ToJSON};
 use rand::distr::Alphanumeric;
 use rand::RngExt;
-use redis::{ RedisResult};
+use redis::{RedisResult, ValueComparison};
 use redis::AsyncCommands;
 use rust_fuzzy_search::fuzzy_search_threshold;
 use serde::{Deserialize, Serialize};
@@ -506,13 +506,8 @@ pub async fn acquire_redis_lock(
     ttl_secs: i64,
     retries: u32,
 ) -> Option<String> {
-    let lock_value = generate_lock_id(); // unique ID for this lock owner
-
     for _ in 0..retries {
-        let mut conn = pool.get().await.ok()?;
-        let set: Result<bool, _> = conn.set_nx(key, &lock_value).await;
-        if let Ok(true) = set {
-            let _: () = conn.expire(key, ttl_secs).await.ok()?;
+        if let Some(lock_value) = try_redis_lock(pool, key, ttl_secs).await {
             return Some(lock_value);
         }
         sleep(Duration::from_millis(1000)).await;
@@ -553,20 +548,9 @@ pub async fn release_redis_lock(pool: &Pool, key: &str, value: &str) {
         Err(_) => return,
     };
 
-    // Lua script to delete only if value matches
-    let script = r#"
-        if redis.call("GET", KEYS[1]) == ARGV[1] then
-            return redis.call("DEL", KEYS[1])
-        else
-            return 0
-        end
-    "#;
-
-    let _: Result<i32, _> = redis::Script::new(script)
-        .key(key)
-        .arg(value)
-        .invoke_async(&mut conn)
-        .await;
+    // DELEX IFEQ deletes only when we still own the lock, so a lock that already
+    // expired and was retaken by someone else survives.
+    let _: RedisResult<usize> = conn.del_ex(key, ValueComparison::ifeq(value)).await;
 }
 
 
