@@ -260,18 +260,6 @@ impl MapStorage {
         self.ns.is_local()
     }
 
-    pub fn local_root(&self) -> Option<&str> {
-        self.ns.backend.local_root()
-    }
-
-    pub fn object_key(&self, map_name: &str, res_type: &str) -> String {
-        self.ns.build_key(&Self::resource_path(map_name, res_type))
-    }
-
-    pub fn public_url(&self, map_name: &str, res_type: &str) -> String {
-        self.ns.public_url(&Self::resource_path(map_name, res_type))
-    }
-
     pub fn normalize_link_path(&self, existing: &str, map_name: &str, res_type: &str) -> String {
         self.ns.normalize_link_path(existing, &Self::resource_path(map_name, res_type))
     }
@@ -315,18 +303,6 @@ impl CharacterStorage {
 
     pub fn is_local(&self) -> bool {
         self.ns.is_local()
-    }
-
-    pub fn local_root(&self) -> Option<&str> {
-        self.ns.backend.local_root()
-    }
-
-    pub fn object_key(&self, model_id: &str) -> String {
-        self.ns.build_key(&Self::resource_path(model_id))
-    }
-
-    pub fn public_url(&self, model_id: &str) -> String {
-        self.ns.public_url(&Self::resource_path(model_id))
     }
 
     pub fn normalize_link_path(&self, existing: &str, model_id: &str) -> String {
