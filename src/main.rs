@@ -90,8 +90,6 @@ fn make_blocking_redis_pool() -> deadpool_redis::Pool {
         .expect("Failed to create pool")
 }
 
-/// Which half of the app this process runs. `All` is the default and reproduces the original
-/// single-process behavior, so splitting the containers is opt-in and rolling back is an env var.
 #[derive(Clone, Copy, PartialEq)]
 enum Role {
     Api,
@@ -120,9 +118,6 @@ impl Role {
 
 const DEFAULT_PORT: &str = "3000";
 
-/// The OpenAPI service, split out of [`run_main`] so tests can inspect the generated spec without
-/// standing up the rest of the process. The path shapes in that spec are what the custom
-/// `FromRequest` extractors read by name, so they are worth asserting on — see `route_tests`.
 fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
     let apis = (
         ServerApi,
@@ -383,7 +378,7 @@ mod route_tests {
     fn init_env() {
         static ONCE: Once = Once::new();
         ONCE.call_once(|| unsafe {
-            std::env::set_var("NEXTAUTH_SECRET", TEST_SECRET);
+            env::set_var("NEXTAUTH_SECRET", TEST_SECRET);
         });
     }
 
