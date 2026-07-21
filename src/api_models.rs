@@ -5,3 +5,4 @@ pub mod radars;
 pub mod misc;
 pub mod admins;
 pub mod common;
+pub mod uri_pattern;

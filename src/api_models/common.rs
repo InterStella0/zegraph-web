@@ -1,15 +1,14 @@
-use std::cmp::Ordering;
 use std::fmt::Display;
-use std::panic;
 use std::sync::Arc;
 use std::time::Instant;
 use poem::http::StatusCode;
 use poem::{Endpoint, Middleware, Request};
-use uri_pattern_matcher::UriPattern;
 use poem_openapi::{ApiResponse, Object};
 use poem_openapi::payload::Json;
 use poem_openapi::types::{ParseFromJSON, ToJSON};
 use serde::{Deserialize, Serialize};
+use crate::api_models::uri_pattern::PatternTable;
+pub use crate::api_models::uri_pattern::RoutePattern;
 use crate::AppData;
 use crate::core::utils::get_server;
 use crate::models::servers::DbServer;
@@ -144,13 +143,15 @@ impl<'a> poem::FromRequest<'a> for ServerExtractor {
 type UriExtension = dyn UriPatternExt + Send + Sync;
 
 pub struct PatternLogger {
-    pub routers: Vec<Arc<UriExtension>>
+    patterns: Arc<PatternTable>,
 }
 
 impl PatternLogger{
+    /// Flattens every router's patterns into one sorted table here, so the per-request path is a
+    /// lookup rather than a rebuild of all ~150 patterns.
     pub fn new(apis: Vec<Arc<UriExtension>>) -> PatternLogger {
         PatternLogger{
-            routers: apis
+            patterns: Arc::new(PatternTable::new(&apis))
         }
     }
 }
@@ -159,32 +160,14 @@ impl<E: Endpoint<Output = poem::Response>> Middleware<E> for PatternLogger {
     type Output = PatternLoggerEndpoint<E>;
 
     fn transform(&self, ep: E) -> Self::Output {
-        PatternLoggerEndpoint { ep, apis: self.routers.clone() }
+        PatternLoggerEndpoint { ep, patterns: self.patterns.clone() }
     }
 }
 
 
 pub struct PatternLoggerEndpoint<E> {
     ep: E,
-    apis: Vec<Arc<UriExtension>>,
-}
-
-impl<E> PatternLoggerEndpoint<E>
-where
-    E: Endpoint<Output = poem::Response>,
-{
-    fn find_pattern(&self, uri_path: &str) -> Option<RoutePattern<'_>> {
-        let mut a = vec![];
-        for api in &self.apis {
-            for pattern in api.get_all_patterns() {
-                a.push(pattern);
-            }
-        }
-        a.iter()
-            .filter(|pat| pat.is_match(uri_path))
-            .max()
-            .map(|e| e.clone())
-    }
+    patterns: Arc<PatternTable>,
 }
 
 impl<E> Endpoint for PatternLoggerEndpoint<E>
@@ -201,8 +184,8 @@ where
             }
         }
         let uri_path = String::from(uri.path());
-        let transaction_name = match self.find_pattern(&uri_path) {
-            Some(pattern) => pattern.uri.to_string(),
+        let transaction_name = match self.patterns.find(&uri_path) {
+            Some(pattern) => pattern.uri().to_string(),
             None => {
                 tracing::warn!("Unregistered pattern: {uri_path}");
                 "unknown_pattern".to_string()
@@ -258,77 +241,8 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct RoutePattern<'a> {
-    pattern: UriPattern<'a>,
-    uri: &'a str,
-}
-
-impl<'a> From<&'a str> for RoutePattern<'a> {
-    fn from(uri: &'a str) -> Self {
-        Self::new(uri)
-    }
-}
-
-pub fn suppress_panic_logs<F, T>(f: F) -> Option<T>
-where
-    F: FnOnce() -> T + panic::UnwindSafe,
-{
-    let original_hook = panic::take_hook();
-    panic::set_hook(Box::new(|_| {}));
-    let result = panic::catch_unwind(f).ok();
-    panic::set_hook(original_hook);
-    result
-}
-
-impl<'a> RoutePattern<'a> {
-    pub fn new(pattern: &'a str) -> Self {
-        RoutePattern {
-            pattern: UriPattern::from(pattern),
-            uri: pattern,
-        }
-    }
-
-    pub fn is_match(&self, path: &str) -> bool {
-        suppress_panic_logs(|| self.pattern.is_match(path)).unwrap_or(false)
-    }
-
-    /// The pattern as written, e.g. `/communities/{community_id}/unique_players`. Same syntax the
-    /// OpenAPI spec uses for path keys, which is what lets `route_tests` compare the two directly.
-    #[allow(dead_code)]
-    pub fn uri(&self) -> &'a str {
-        self.uri
-    }
-}
-
-impl Eq for RoutePattern<'_> {}
-
-impl PartialEq<Self> for RoutePattern<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        suppress_panic_logs(||
-            other.pattern.eq(&self.pattern)
-        ).unwrap_or(false)
-    }
-}
-
-impl PartialOrd<Self> for RoutePattern<'_> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        suppress_panic_logs(|| {
-            other.pattern.partial_cmp(&self.pattern)
-        }).unwrap_or(None)
-    }
-}
-
-impl Ord for RoutePattern<'_> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        suppress_panic_logs(|| {
-            other.pattern.cmp(&self.pattern)
-        }).unwrap_or(Ordering::Equal)
-    }
-}
-
 pub trait UriPatternExt {
-    fn get_all_patterns(&self) -> Vec<RoutePattern<'_>>;
+    fn get_all_patterns(&self) -> Vec<RoutePattern>;
 }
 
 #[derive(Serialize, Deserialize)]

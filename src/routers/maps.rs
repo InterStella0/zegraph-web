@@ -2996,7 +2996,7 @@ impl MapApi{
 }
 
 impl UriPatternExt for MapApi{
-    fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
         vec![
             "/servers/{server_id}/maps/{map_name}/images",
             "/servers/{server_id}/maps/autocomplete",

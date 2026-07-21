@@ -483,7 +483,7 @@ impl RadarApi {
     }
 }
 impl UriPatternExt for RadarApi{
-    fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
         vec![
             "/radars/{server_id}/query",
             "/radars/{server_id}/live_query",

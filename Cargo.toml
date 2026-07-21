@@ -31,7 +31,6 @@ serde_macros = { path = "./serde_macros" }
 image = "0.25.10"
 url = "2.5.8"
 rust-fuzzy-search = { git = "https://gitlab.com/EnricoCh/rust-fuzzy-search"}
-uri-pattern-matcher = "0.1.4"
 async-stream = "0.3.6"
 rand = "0.10.2"
 moka= { version = "0.12.15", features = ["future"] }

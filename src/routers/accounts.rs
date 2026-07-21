@@ -2883,7 +2883,7 @@ impl AccountsApi {
     }
 }
 impl UriPatternExt for AccountsApi{
-    fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
         vec![
             "/accounts/create",
             "/accounts/me",

@@ -365,6 +365,7 @@ async fn init_precalculate(port: &str){
 mod route_tests {
     use super::*;
     use crate::api_models::common::Claims;
+    use crate::api_models::uri_pattern::{PatternTable, RoutePattern};
     use crate::workers::test_support::fake_app_data;
     use poem::test::TestClient;
     use std::collections::BTreeSet;
@@ -518,6 +519,36 @@ mod route_tests {
             "these patterns are declared but match no route; they are leftovers from deleted or \
              renamed endpoints: {stale:#?}"
         );
+    }
+
+    /// The unit tests in `uri_pattern` cover the matcher itself; this one runs the *real* set of
+    /// ~150 patterns through it, which is where overlaps between routers show up. The long path is
+    /// the case that used to panic: `uri-pattern-matcher` indexed its parts vector by the
+    /// candidate's segment number, so any path longer than a pattern went out of bounds.
+    #[test]
+    fn pattern_table_resolves_real_routes() {
+        let table = PatternTable::new(&registered_patterns());
+
+        for (path, expected) in [
+            ("/servers/1/maps/autocomplete", "/servers/{server_id}/maps/autocomplete"),
+            ("/servers/1/maps/ze_test_map_v1/info", "/servers/{server_id}/maps/{map_name}/info"),
+            ("/maps/all/3d", "/maps/all/3d"),
+            ("/maps/ze_test_map_v1/3d", "/maps/{map_name}/3d"),
+            ("/graph/1/get_regions", "/graph/{server_id}/get_regions"),
+        ] {
+            assert_eq!(
+                table.find(path).map(RoutePattern::uri),
+                Some(expected),
+                "{path} should resolve to the most specific registered pattern"
+            );
+        }
+
+        for path in ["/servers/1/maps/a/b/c/d/e/f/g/h", "/not/a/route", "/"] {
+            assert!(
+                table.find(path).is_none(),
+                "{path} matches no route and must resolve to None rather than panic"
+            );
+        }
     }
 
     /// The two rejection codes differ by design of the layering, not by intent: a *missing*

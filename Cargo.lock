@@ -5234,12 +5234,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
-name = "uri-pattern-matcher"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b030cbad6d5d664533f4adf9c28502af79651050a35f99850052ff28000d5809"
-
-[[package]]
 name = "url"
 version = "2.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5771,7 +5765,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uri-pattern-matcher",
  "url",
  "uuid",
  "web-push",

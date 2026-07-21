@@ -806,7 +806,7 @@ impl CharacterApi {
 }
 
 impl UriPatternExt for CharacterApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
         vec![
             "/servers/{server_id}/characters",
             "/servers/{server_id}/characters/{model_id}/3d",

@@ -184,7 +184,7 @@ impl DonationsApi {
 }
 
 impl UriPatternExt for DonationsApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
         vec![
             "/donations",
             "/donations/{id}",

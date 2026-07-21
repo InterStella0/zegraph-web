@@ -826,7 +826,7 @@ impl AdminServersApi {
 }
 
 impl UriPatternExt for AdminServersApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern<'_>> {
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
         vec![
             "/admin/communities",
             "/admin/communities/{id}",
