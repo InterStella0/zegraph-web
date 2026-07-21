@@ -1,7 +1,6 @@
 'use client';
 import {useState} from 'react';
 import {ChevronDown, Users} from 'lucide-react';
-import {Community} from 'types/community';
 import {Button} from 'components/ui/button';
 import {Checkbox} from 'components/ui/checkbox';
 import {Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from 'components/ui/command';
@@ -9,7 +8,7 @@ import {Popover, PopoverContent, PopoverTrigger} from 'components/ui/popover';
 import {useTranslations} from 'next-intl';
 
 type Props = {
-    communities: Community[];
+    communities: {id: string, name: string}[];
     selectedIds: string[];
     onChange: (ids: string[]) => void;
     maxSelected: number;

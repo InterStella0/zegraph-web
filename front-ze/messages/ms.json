@@ -82,6 +82,7 @@
     "communityCount": "{count, plural, other {# komuniti}}",
     "searchCommunities": "Cari komuniti...",
     "noCommunitiesFound": "Tiada komuniti dijumpai.",
+    "allCommunities": "Semua komuniti",
     "wherePlayersAre": "Di mana pemain berada",
     "onlineCount": "{count, number} dalam talian",
     "liveDistribution": "Taburan pemain langsung",

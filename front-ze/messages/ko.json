@@ -82,6 +82,7 @@
     "communityCount": "{count, plural, one {# 커뮤니티} other {# 커뮤니티}}",
     "searchCommunities": "커뮤니티 검색...",
     "noCommunitiesFound": "커뮤니티를 찾을 수 없습니다.",
+    "allCommunities": "모든 커뮤니티",
     "wherePlayersAre": "플레이어들의 위치",
     "onlineCount": "{count, number}명 온라인",
     "liveDistribution": "라이브 플레이어 분포",

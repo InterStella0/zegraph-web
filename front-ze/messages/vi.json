@@ -82,6 +82,7 @@
     "communityCount": "{count, plural, one {# cộng đồng} other {# cộng đồng}}",
     "searchCommunities": "Tìm kiếm cộng đồng...",
     "noCommunitiesFound": "Không tìm thấy cộng đồng nào.",
+    "allCommunities": "Tất cả cộng đồng",
     "wherePlayersAre": "Nơi người chơi đang ở",
     "onlineCount": "{count, number} trực tuyến",
     "liveDistribution": "Phân bố người chơi trực tiếp",

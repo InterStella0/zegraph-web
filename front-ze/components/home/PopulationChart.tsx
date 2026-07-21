@@ -22,11 +22,14 @@ import {Card, CardContent} from 'components/ui/card';
 import {useServerMap} from 'components/ui/ServerProvider';
 import {PopulationTimeType} from 'types/home';
 import CommunityMultiSelect from './CommunityMultiSelect';
-import {fetchCommunityPopulation} from './homeData';
+import {fetchAllCommunityPopulation, fetchCommunityPopulation} from './homeData';
 import {useCommunityColors} from 'lib/hooks/useCommunityColors';
 import {useTranslations} from 'next-intl';
 
 const MAX_SELECTED_COMMUNITIES = 8;
+// Synthetic entry standing for every community combined. Matches the literal the backend's
+// community extractor special-cases, so it doubles as the fetch id.
+const ALL_COMMUNITY_ID = 'all';
 
 ChartJS.register(LinearScale, PointElement, LineElement, TimeScale, Tooltip, Legend, Filler, zoomPlugin);
 
@@ -73,11 +76,19 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [communities]);
 
+    // The synthetic "all" entry leads the picker, ahead of the real communities.
+    const selectableCommunities = useMemo(
+        () => [{id: ALL_COMMUNITY_ID, name: t('allCommunities')}, ...communities],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [communities, t],
+    );
+
     // Deliberately free of color: this memo is a dependency of the population fetch effect
     // below, so letting an async color resolution change it would refetch every series.
     const selectedCommunities = useMemo(() => {
         return selectedIds
             .map(id => {
+                if (id === ALL_COMMUNITY_ID) return {id, name: t('allCommunities'), icon_url: null};
                 const community = communities.find(c => c.id === id);
                 if (!community) return null;
                 return {id, name: community.name, icon_url: community.icon_url};
@@ -88,7 +99,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
 
     const colors = useCommunityColors(selectedCommunities.map(c => ({
         key: c.id,
-        name: c.name,
+        name: c.id === ALL_COMMUNITY_ID ? ALL_COMMUNITY_ID : c.name,
         icon_url: c.icon_url,
     })));
 
@@ -115,7 +126,10 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
             setLines(results.filter((l): l is Line => l !== null));
         };
         selectedCommunities.forEach((c, i) => {
-            fetchCommunityPopulation(c.id, timeType, time, controller.signal).then(data => {
+            const request = c.id === ALL_COMMUNITY_ID
+                ? fetchAllCommunityPopulation(timeType, time, controller.signal)
+                : fetchCommunityPopulation(c.id, timeType, time, controller.signal);
+            request.then(data => {
                 if (controller.signal.aborted) return;
                 results[i] = {
                     id: c.id,
@@ -254,7 +268,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                     </div>
                     <div className="flex flex-row flex-wrap items-center justify-end gap-2">
                         <CommunityMultiSelect
-                            communities={communities}
+                            communities={selectableCommunities}
                             selectedIds={selectedIds}
                             onChange={setSelectedIds}
                             maxSelected={MAX_SELECTED_COMMUNITIES}

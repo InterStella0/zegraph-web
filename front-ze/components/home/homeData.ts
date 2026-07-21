@@ -19,6 +19,13 @@ export async function fetchCommunityPopulation(
         false,
     ).catch(() => []) as Promise<CommunityCountData[]>;
 }
+export async function fetchAllCommunityPopulation(
+    timeType: PopulationTimeType,
+    time: string,
+    signal?: AbortSignal
+){
+    return fetchCommunityPopulation('all', timeType, time, signal)
+}
 
 // Fetch the live continent distribution across all servers. Returns null on any error
 // so the map can render without the breakdown.

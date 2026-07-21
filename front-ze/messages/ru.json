@@ -82,6 +82,7 @@
     "communityCount": "{count, plural, one {# сообщество} few {# сообщества} other {# сообществ}}",
     "searchCommunities": "Поиск сообществ...",
     "noCommunitiesFound": "Сообщества не найдены.",
+    "allCommunities": "Все сообщества",
     "wherePlayersAre": "Где находятся игроки",
     "onlineCount": "{count, number} в сети",
     "liveDistribution": "Распределение игроков в реальном времени",

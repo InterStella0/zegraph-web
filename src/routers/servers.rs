@@ -87,10 +87,10 @@ pub async fn get_community(pool: &sqlx::Pool<Postgres>, cache: &FastCache, commu
     let data = cached_response(&key, cache, 60 * 60, func).await.ok();
     data.map(|e| e.result)
 }
-struct CommunityExtractor(pub DbServerCommunity);
+struct CommunityWithAllExtractor(pub Option<DbServerCommunity>);
 
 
-impl<'a> poem::FromRequest<'a> for CommunityExtractor {
+impl<'a> poem::FromRequest<'a> for CommunityWithAllExtractor {
     async fn from_request(req: &'a poem::Request, _body: &mut poem::RequestBody) -> poem::Result<Self> {
         let community_id = req.raw_path_param("community_id")
             .ok_or_else(|| poem::Error::from_string("Invalid community_id", StatusCode::BAD_REQUEST))?;
@@ -98,11 +98,14 @@ impl<'a> poem::FromRequest<'a> for CommunityExtractor {
         let data: &AppData = req.data()
             .ok_or_else(|| poem::Error::from_string("Invalid data", StatusCode::BAD_REQUEST))?;
 
+        if community_id.to_lowercase() == "all"{
+            return Ok(CommunityWithAllExtractor(None))
+        }
         let Some(community) = get_community(&data.pool, &data.cache, &community_id).await else {
             return Err(poem::Error::from_string("Community not found", StatusCode::NOT_FOUND))
         };
 
-        Ok(CommunityExtractor(community))
+        Ok(CommunityWithAllExtractor(Some(community)))
     }
 }
 pub struct ServerApi;
@@ -313,7 +316,7 @@ impl ServerApi {
     #[oai(path = "/communities/:community_id/unique_players", method="get")]
     async fn get_communities_players_graph(
         &self, Data(data): Data<&AppData>,
-        CommunityExtractor(community): CommunityExtractor,
+        CommunityWithAllExtractor(community): CommunityWithAllExtractor,
         Query(time_type): Query<CommunityGraphTime>,
         Query(time): Query<DateTime<Utc>>
     ) -> Response<Vec<ServerCountData>> {
@@ -321,76 +324,123 @@ impl ServerApi {
 
         let interval_str: &str = match time_type {
             CommunityGraphTime::TenMinutes => "10 minutes",
-            CommunityGraphTime::OneHour   => "1 hour",
-            CommunityGraphTime::OneDay    => "1 day",
+            CommunityGraphTime::OneHour => "1 hour",
+            CommunityGraphTime::OneDay => "1 day",
         };
         let width_seconds: i64 = match time_type {
             CommunityGraphTime::TenMinutes => 600,
-            CommunityGraphTime::OneHour   => 3600,
-            CommunityGraphTime::OneDay    => 86400,
+            CommunityGraphTime::OneHour => 3600,
+            CommunityGraphTime::OneDay => 86400,
         };
         let rounded_secs = time.timestamp() / width_seconds * width_seconds;
         let truncated_time = DateTime::from_timestamp(rounded_secs, 0).unwrap_or(time);
         let key = format!(
             "community_players_graph:{}:{}:{}",
-            community.community_id, time_type, rounded_secs
+            community.as_ref().map(|c| c.community_id.clone()).unwrap_or("all".into()), time_type, rounded_secs
         );
 
         let cache_ttl: u64 = match time_type {
             CommunityGraphTime::TenMinutes => 3 * 60,
-            CommunityGraphTime::OneHour   => 30 * 60,
-            CommunityGraphTime::OneDay    => 2 * 60 * 60,
+            CommunityGraphTime::OneHour => 30 * 60,
+            CommunityGraphTime::OneDay => 2 * 60 * 60,
         };
-        let community_id = community.community_id.clone();
+
         let bound_time = truncated_time.to_db_time();
         let time_type_str = time_type.to_string();
+        let response = if let Some(c) = community{
+            let community_id = c.community_id.clone();
+            let func = || sqlx::query_as!(
+                DbServerCountData,
+                "WITH buckets AS (
+                    SELECT
+                        gs AS bucket_time,
+                        gs + $3::TEXT::interval AS bucket_end
+                    FROM generate_series(
+                        $2::timestamptz - ($3::TEXT::interval * 31),
+                        $2::timestamptz,
+                        $3::TEXT::interval
+                    ) AS gs
+                ),
+                stored AS (
+                    SELECT b.bucket_time, c.player_count
+                    FROM buckets b
+                    JOIN community_player_counts c
+                        ON c.community_id = $1::TEXT::uuid
+                       AND c.time_type = $4
+                       AND c.bucket_time = b.bucket_time
+                ),
+                live AS (
+                    SELECT
+                        b.bucket_time,
+                        COUNT(DISTINCT pss.player_id)::bigint AS player_count
+                    FROM buckets b
+                    LEFT JOIN player_server_session pss
+                        ON pss.server_id IN (SELECT server_id FROM server WHERE community_id = $1::TEXT::uuid)
+                       AND tstzrange(pss.started_at, pss.ended_at)
+                           && tstzrange(b.bucket_time, b.bucket_end)
+                    WHERE NOT EXISTS (SELECT 1 FROM stored s WHERE s.bucket_time = b.bucket_time)
+                    GROUP BY b.bucket_time
+                )
+                SELECT NULL::VARCHAR(100) AS server_id, bucket_time, player_count FROM stored
+                UNION ALL
+                SELECT NULL::VARCHAR(100), bucket_time, player_count FROM live
+                ORDER BY bucket_time DESC",
+                community_id,
+                bound_time,
+                interval_str,
+                time_type_str
+            ).fetch_all(pool);
 
-        let func = || sqlx::query_as!(
-            DbServerCountData,
-            "WITH buckets AS (
-                SELECT
-                    gs AS bucket_time,
-                    gs + $3::TEXT::interval AS bucket_end
-                FROM generate_series(
-                    $2::timestamptz - ($3::TEXT::interval * 31),
-                    $2::timestamptz,
-                    $3::TEXT::interval
-                ) AS gs
-            ),
-            stored AS (
-                SELECT b.bucket_time, c.player_count
-                FROM buckets b
-                JOIN community_player_counts c
-                    ON c.community_id = $1::TEXT::uuid
-                   AND c.time_type = $4
-                   AND c.bucket_time = b.bucket_time
-            ),
-            live AS (
-                SELECT
-                    b.bucket_time,
-                    COUNT(DISTINCT pss.player_id)::bigint AS player_count
-                FROM buckets b
-                LEFT JOIN player_server_session pss
-                    ON pss.server_id IN (SELECT server_id FROM server WHERE community_id = $1::TEXT::uuid)
-                   AND tstzrange(pss.started_at, pss.ended_at)
-                       && tstzrange(b.bucket_time, b.bucket_end)
-                WHERE NOT EXISTS (SELECT 1 FROM stored s WHERE s.bucket_time = b.bucket_time)
-                GROUP BY b.bucket_time
-            )
-            SELECT NULL::VARCHAR(100) AS server_id, bucket_time, player_count FROM stored
-            UNION ALL
-            SELECT NULL::VARCHAR(100), bucket_time, player_count FROM live
-            ORDER BY bucket_time DESC",
-            community_id,
-            bound_time,
-            interval_str,
-            time_type_str
-        ).fetch_all(pool);
+            let Ok(response) = cached_response(&key, &data.cache, cache_ttl, func).await else {
+                return response!(internal_server_error)
+            };
+            response
+        } else {
+            let func = || sqlx::query_as!(
+                DbServerCountData,
+                "WITH buckets AS (
+                    SELECT
+                        gs AS bucket_time,
+                        gs + $2::TEXT::interval AS bucket_end
+                    FROM generate_series(
+                        $1::timestamptz - ($2::TEXT::interval * 31),
+                        $1::timestamptz,
+                        $2::TEXT::interval
+                    ) AS gs
+                ),
+                stored AS (
+                    SELECT b.bucket_time, SUM(c.player_count)::bigint player_count
+                    FROM buckets b
+                    JOIN community_player_counts c
+                       ON c.time_type = $3
+                       AND c.bucket_time = b.bucket_time
+                    GROUP BY b.bucket_time
+                ),
+                live AS (
+                    SELECT
+                        b.bucket_time,
+                        COUNT(DISTINCT pss.player_id)::bigint AS player_count
+                    FROM buckets b
+                    LEFT JOIN player_server_session pss
+                        ON tstzrange(pss.started_at, pss.ended_at)
+                           && tstzrange(b.bucket_time, b.bucket_end)
+                    WHERE NOT EXISTS (SELECT 1 FROM stored s WHERE s.bucket_time = b.bucket_time)
+                    GROUP BY b.bucket_time
+                )
+                SELECT NULL::VARCHAR(100) AS server_id, bucket_time, player_count FROM stored
+                UNION ALL
+                SELECT NULL::VARCHAR(100), bucket_time, player_count FROM live
+                ORDER BY bucket_time DESC",
+                bound_time,
+                interval_str,
+                time_type_str
+            ).fetch_all(pool);
 
-        let Ok(response) = cached_response(&key, &data.cache, cache_ttl, func).await else {
-            return response!(internal_server_error)
+            let Ok(response) = cached_response(&key, &data.cache, cache_ttl, func).await else {
+                return response!(internal_server_error)
+            };
+            response
         };
-
         response!(ok response.result.iter_into())
     }
     #[oai(path = "/fetch-status", method="get")]

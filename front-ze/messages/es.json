@@ -82,6 +82,7 @@
     "communityCount": "{count, plural, one {# comunidad} other {# comunidades}}",
     "searchCommunities": "Buscar comunidades...",
     "noCommunitiesFound": "No se encontraron comunidades.",
+    "allCommunities": "Todas las comunidades",
     "wherePlayersAre": "Dónde están los jugadores",
     "onlineCount": "{count, number} en línea",
     "liveDistribution": "Distribución de jugadores en vivo",

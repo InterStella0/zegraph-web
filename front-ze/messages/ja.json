@@ -82,6 +82,7 @@
     "communityCount": "{count, plural, one {# コミュニティ} other {# コミュニティ}}",
     "searchCommunities": "コミュニティを検索...",
     "noCommunitiesFound": "コミュニティが見つかりません。",
+    "allCommunities": "すべてのコミュニティ",
     "wherePlayersAre": "プレイヤーがいる場所",
     "onlineCount": "{count, number}人がオンライン",
     "liveDistribution": "ライブプレイヤー分布",

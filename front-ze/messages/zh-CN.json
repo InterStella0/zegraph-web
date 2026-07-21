@@ -82,6 +82,7 @@
     "communityCount": "{count} 个社区",
     "searchCommunities": "搜索社区...",
     "noCommunitiesFound": "未找到社区。",
+    "allCommunities": "所有社区",
     "wherePlayersAre": "玩家所在位置",
     "onlineCount": "{count, number} 人在线",
     "liveDistribution": "实时玩家分布",

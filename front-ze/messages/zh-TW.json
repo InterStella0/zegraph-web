@@ -82,6 +82,7 @@
     "communityCount": "{count} 個社群",
     "searchCommunities": "搜尋社群...",
     "noCommunitiesFound": "找不到社群。",
+    "allCommunities": "所有社群",
     "wherePlayersAre": "玩家所在位置",
     "onlineCount": "{count, number} 人上線",
     "liveDistribution": "即時玩家分佈",
