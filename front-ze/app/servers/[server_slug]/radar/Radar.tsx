@@ -1,5 +1,4 @@
 'use client'
-// @ts-nocheck
 import {ReactElement, useEffect, useRef, useState} from "react";
 import dayjs from "dayjs";
 import L from "leaflet/dist/leaflet-src";

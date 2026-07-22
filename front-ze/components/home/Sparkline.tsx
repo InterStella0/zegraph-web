@@ -1,5 +1,4 @@
 'use client';
-// @ts-nocheck
 import {Chart as ChartJS, Filler, LinearScale, LineElement, PointElement, TimeScale, Tooltip} from 'chart.js';
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import {useMemo} from 'react';
@@ -36,7 +35,11 @@ export default function Sparkline({points, color}: {points: Point[], color: stri
 
     return (
         <div className="h-8 w-24">
-            <LazyLineChart data={data} options={options} />
+            <LazyLineChart
+                data={data}
+                // @ts-ignore dynamic() collapses the chart generics; option literals widen to string
+                options={options}
+            />
         </div>
     );
 }

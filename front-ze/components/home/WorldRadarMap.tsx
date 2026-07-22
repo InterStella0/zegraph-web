@@ -1,5 +1,4 @@
 'use client';
-// @ts-nocheck
 import 'leaflet/dist/leaflet.css';
 import {useEffect, useMemo} from 'react';
 import {LayersControl, MapContainer, TileLayer, useMap} from 'react-leaflet';
@@ -42,6 +41,7 @@ export default function WorldRadarMap({refreshKey = 0, windowMinutes = 15}) {
 
     return (
         <MapContainer
+            // @ts-ignore react-leaflet prop types clash with this @types/react version
             center={[25, 5]}
             zoom={1}
             minZoom={1}
@@ -57,7 +57,10 @@ export default function WorldRadarMap({refreshKey = 0, windowMinutes = 15}) {
         >
             <MapResizeHandler />
             <TileLayer url={isDark ? darkBasemap : lightBasemap} />
-            <LayersControl position="bottomleft">
+            <LayersControl
+                // @ts-ignore react-leaflet prop types clash with this @types/react version
+                position="bottomleft"
+            >
                 <LayersControl.Overlay checked name="Players">
                     <NonTiledWMSLayer
                         key={time}
@@ -74,6 +77,7 @@ export default function WorldRadarMap({refreshKey = 0, windowMinutes = 15}) {
                 <LayersControl.Overlay checked name="Countries">
                     <TileLayer
                         url={`/tiles/countries_${isDark ? 'dark' : 'light'}/{z}/{x}/{y}.png`}
+                        // @ts-ignore react-leaflet prop types clash with this @types/react version
                         attribution="© queeniemella"
                         zIndex={15}
                     />

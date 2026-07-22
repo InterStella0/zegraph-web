@@ -1,5 +1,4 @@
 'use client';
-// @ts-nocheck
 import {
     Chart as ChartJS,
     Filler,
@@ -27,8 +26,7 @@ import {useCommunityColors} from 'lib/hooks/useCommunityColors';
 import {useTranslations} from 'next-intl';
 
 const MAX_SELECTED_COMMUNITIES = 8;
-// Synthetic entry standing for every community combined. Matches the literal the backend's
-// community extractor special-cases, so it doubles as the fetch id.
+// Synthetic to encompasses all communities
 const ALL_COMMUNITY_ID = 'all';
 
 ChartJS.register(LinearScale, PointElement, LineElement, TimeScale, Tooltip, Legend, Filler, zoomPlugin);
@@ -93,7 +91,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                 if (!community) return null;
                 return {id, name: community.name, icon_url: community.icon_url};
             })
-            .filter((c): c is {id: string, name: string, icon_url?: string | null} => c !== null);
+            .filter((c): c is {id: string, name: string, icon_url: string | null} => c !== null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedIds, communities]);
 
@@ -315,7 +313,13 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                             {t('noPopulationData')}
                         </div>
                     )}
-                    {(hasData || loading) && <LazyLineChart data={data} options={options} />}
+                    {(hasData || loading) && (
+                        <LazyLineChart
+                            data={data}
+                            // @ts-ignore dynamic() collapses the chart generics; option literals widen to string
+                            options={options}
+                        />
+                    )}
                 </div>
             </CardContent>
         </Card>
