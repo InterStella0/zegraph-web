@@ -15,13 +15,17 @@ use crate::{response, AppData};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::models::admins::*;
+use crate::routers::ApiTags;
 
 pub struct AdminMapsApi;
 
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::AdminMaps")]
 impl AdminMapsApi {
-    /// Get paginated map metadata: global overrides + per-server settings
+    /// Paginated map metadata: global overrides plus per-server settings.
+    ///
+    /// Requires the `superuser` or `map_manager` role. `search` filters by map name substring;
+    /// `page` is 1-indexed, `limit` capped at 200.
     #[oai(path = "/admin/maps/metadata", method = "get")]
     async fn get_maps_metadata(
         &self,
@@ -147,6 +151,10 @@ impl AdminMapsApi {
         response!(ok AdminMapMetadataResponse { total, maps })
     }
 
+    /// Update a map's global metadata (applies across every server).
+    ///
+    /// Requires the `superuser` or `map_manager` role. Any field changed is recorded to the
+    /// audit log.
     #[oai(path = "/admin/maps/metadata/global", method = "put")]
     async fn update_global_map_metadata(
         &self,
@@ -255,6 +263,11 @@ impl AdminMapsApi {
         response!(ok true)
     }
 
+    /// Permanently delete a map and all of its recorded data.
+    ///
+    /// Requires the `superuser` or `map_manager` role. Removes the map's global metadata,
+    /// per-server settings, play sessions and player playtime records; a snapshot is written to
+    /// the audit log first. This cannot be undone.
     #[oai(path = "/admin/maps/:map_name", method = "delete")]
     async fn delete_map(
         &self,
@@ -341,6 +354,10 @@ impl AdminMapsApi {
         response!(ok true)
     }
 
+    /// Update a map's per-server override settings.
+    ///
+    /// Requires the `superuser` or `map_manager` role. Any field changed is recorded to the
+    /// audit log.
     #[oai(path = "/admin/maps/metadata/server", method = "put")]
     async fn update_server_map_metadata(
         &self,

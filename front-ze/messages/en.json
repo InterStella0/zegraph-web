@@ -483,7 +483,8 @@
     "tracker": "Tracker",
     "hub": "Hub",
     "status": "Status",
-    "donors": "Donors"
+    "donors": "Donors",
+    "api": "API"
   },
   "maps": {
     "graph": "Graph",

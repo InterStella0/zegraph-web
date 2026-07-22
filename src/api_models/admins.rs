@@ -7,6 +7,7 @@ pub struct CreateGuideDto {
     pub title: String,
     pub content: String,
     pub category: String,
+    /// Scope the guide to one server; omit for a guide global to the site.
     pub server_id: Option<String>
 }
 
@@ -15,8 +16,10 @@ pub struct UpdateGuideDto {
     pub title: Option<String>,
     pub content: Option<String>,
     pub category: Option<String>,
+    /// Absent means "leave unchanged"; `null` means "make global"; a value re-scopes the guide
+    /// to that server.
     #[serde(default)]
-    pub server_id: Option<Option<String>>,  // None = not provided, Some(None) = global, Some(Some(x)) = server x
+    pub server_id: Option<Option<String>>,
 }
 
 #[derive(Object, Serialize, Deserialize)]
@@ -30,6 +33,7 @@ pub struct CreateUpdateCommentDto {
     pub content: String,
 }
 
+/// A guide report, with the guide's and reporter's details resolved for the admin review queue.
 #[derive(Object)]
 pub struct GuideReportAdmin {
     pub id: String,
@@ -42,6 +46,7 @@ pub struct GuideReportAdmin {
     pub reporter_name: Option<String>,
     pub reason: String,
     pub details: String,
+    /// `pending`, `resolved` or `dismissed`.
     pub status: String,
     pub resolved_by: Option<String>,
     pub resolver_name: Option<String>,
@@ -49,6 +54,8 @@ pub struct GuideReportAdmin {
     pub created_at: DateTime<Utc>,
 }
 
+/// A guide-comment report, with the comment's and reporter's details resolved for the admin
+/// review queue.
 #[derive(Object)]
 pub struct CommentReportAdmin {
     pub id: String,
@@ -61,6 +68,7 @@ pub struct CommentReportAdmin {
     pub reporter_name: Option<String>,
     pub reason: String,
     pub details: String,
+    /// `pending`, `resolved` or `dismissed`.
     pub status: String,
     pub resolved_by: Option<String>,
     pub resolver_name: Option<String>,
@@ -68,6 +76,7 @@ pub struct CommentReportAdmin {
     pub created_at: DateTime<Utc>,
 }
 
+/// A guide-posting ban record.
 #[derive(Object)]
 pub struct GuideBanAdmin {
     pub id: String,
@@ -78,22 +87,26 @@ pub struct GuideBanAdmin {
     pub banned_by_name: Option<String>,
     pub reason: String,
     pub created_at: DateTime<Utc>,
+    /// `None` means the ban never expires.
     pub expires_at: Option<DateTime<Utc>>,
     pub is_active: bool,
 }
 
+/// A page of guide reports.
 #[derive(Object)]
 pub struct GuideReportsPaginated {
     pub total: i64,
     pub reports: Vec<GuideReportAdmin>,
 }
 
+/// A page of guide-comment reports.
 #[derive(Object)]
 pub struct CommentReportsPaginated {
     pub total: i64,
     pub reports: Vec<CommentReportAdmin>,
 }
 
+/// A page of guide-posting bans.
 #[derive(Object)]
 pub struct GuideBansPaginated {
     pub total: i64,
@@ -102,15 +115,18 @@ pub struct GuideBansPaginated {
 
 #[derive(Object, Serialize, Deserialize)]
 pub struct UpdateReportStatusDto {
+    /// Must be `resolved`, `dismissed` or `pending`.
     pub status: String,
 }
 
 #[derive(Object, Serialize, Deserialize)]
 pub struct CreateBanDto {
     pub reason: String,
+    /// Omit for a ban that never expires.
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+/// Whether a user is currently banned from posting guides.
 #[derive(Object)]
 pub struct BanStatus {
     pub is_banned: bool,
@@ -120,11 +136,14 @@ pub struct BanStatus {
 
 #[derive(Object, Serialize, Deserialize)]
 pub struct ReportMapMusicDto {
+    /// Must be `video_unavailable` or `wrong_video`.
     pub reason: String,
     pub details: String,
     pub suggested_youtube_url: Option<String>,
 }
 
+/// A map-music report, with the track's and reporter's details resolved for the admin review
+/// queue.
 #[derive(Object)]
 pub struct MapMusicReportAdmin {
     pub id: String,
@@ -136,6 +155,7 @@ pub struct MapMusicReportAdmin {
     pub reporter_name: Option<String>,
     pub reason: String,
     pub details: String,
+    /// `pending`, `resolved` or `dismissed`.
     pub status: String,
     pub resolved_by: Option<String>,
     pub resolver_name: Option<String>,
@@ -143,9 +163,11 @@ pub struct MapMusicReportAdmin {
     pub created_at: DateTime<Utc>,
     pub music_duration: f64,
     pub music_source: String,
+    /// Every map that currently uses this track.
     pub associated_maps: Vec<String>,
 }
 
+/// A page of map-music reports.
 #[derive(Object)]
 pub struct MapMusicReportsPaginated {
     pub total: i64,
@@ -157,22 +179,29 @@ pub struct UpdateMapMusicDto {
     pub youtube_music: Option<String>,
 }
 
+/// A standard Web Push subscription object, as produced by the browser's Push API.
 #[derive(Object, Serialize, Deserialize)]
 pub struct PushSubscriptionDto {
+    /// Must be HTTPS.
     pub endpoint: String,
     pub keys: PushSubscriptionKeys,
 }
 
+/// Base64url-encoded Web Push encryption keys.
 #[derive(Object, Serialize, Deserialize)]
 pub struct PushSubscriptionKeys {
+    /// Must decode to exactly 65 bytes.
     pub p256dh: String,
+    /// Must decode to exactly 16 bytes.
     pub auth: String,
 }
 
+/// A registered push subscription.
 #[derive(Object, Serialize)]
 pub struct PushSubscription {
     pub id: String,
-    pub user_id: String, // String to avoid JS precision loss with large i64
+    /// String rather than a numeric type to avoid precision loss on large Steam IDs in JS.
+    pub user_id: String,
     pub endpoint: String,
     pub created_at: DateTime<Utc>,
     pub last_used_at: DateTime<Utc>,
@@ -185,9 +214,11 @@ pub struct NotificationPreferencesDto {
     pub map_specific_enabled: Option<bool>,
 }
 
+/// A user's push notification preferences.
 #[derive(Object, Serialize)]
 pub struct NotificationPreferences {
-    pub user_id: String, // String to avoid JS precision loss with large i64
+    /// String rather than a numeric type to avoid precision loss on large Steam IDs in JS.
+    pub user_id: String,
     pub announcements_enabled: bool,
     pub system_enabled: bool,
     pub map_specific_enabled: bool,
@@ -198,9 +229,11 @@ pub struct NotificationPreferences {
 pub struct TestNotificationDto {
     pub title: String,
     pub body: String,
-    pub user_id: Option<String>, // String to avoid JS precision loss with large i64
+    /// Omit to broadcast to every subscribed user instead of one.
+    pub user_id: Option<String>,
 }
 
+/// Outcome of sending a push notification (possibly to many subscriptions at once).
 #[derive(Object, Serialize)]
 pub struct NotificationSendResult {
     pub success: i32,
@@ -209,46 +242,56 @@ pub struct NotificationSendResult {
     pub errors: Vec<String>,
 }
 
+/// A page of every push subscription across all users.
 #[derive(Object, Serialize)]
 pub struct PushSubscriptionsPaginated {
     pub total: i64,
     pub subscriptions: Vec<PushSubscription>,
 }
 
+/// A pending "notify me when this server's map changes" subscription.
 #[derive(Object, Serialize)]
 pub struct MapChangeSubscription {
     pub id: String,
     pub server_id: String,
     pub created_at: DateTime<Utc>,
+    /// Whether this subscription has already fired (it is one-time, not recurring).
     pub triggered: bool,
 }
 
 #[derive(Object, Serialize, Deserialize)]
 pub struct CreateMapChangeSubscriptionDto {
     pub server_id: String,
+    /// ID of an existing push subscription (from `push/subscribe`) belonging to the caller.
     pub subscription_id: String,
 }
 
+/// A pending "notify me when this map is next played" subscription.
 #[derive(Object, Serialize)]
 pub struct MapNotifySubscription {
     pub id: String,
     pub map_name: String,
+    /// `None` means the subscription watches for this map on any server.
     pub server_id: Option<String>,
     pub created_at: DateTime<Utc>,
+    /// Whether this subscription has already fired (it is one-time, not recurring).
     pub triggered: bool,
 }
 
 #[derive(Object, Serialize, Deserialize)]
 pub struct CreateMapNotifySubscriptionDto {
     pub map_name: String,
+    /// Omit to watch for this map across every server.
     pub server_id: Option<String>,
+    /// ID of an existing push subscription (from `push/subscribe`) belonging to the caller.
     pub subscription_id: String,
 }
 
 #[derive(Object, Serialize)]
 pub struct MapNotifyStatusResponse {
     pub subscribed: bool,
-    pub subscription_type: Option<String>, // "server" or "all" or null
+    /// `"server"`, `"all"`, or `None` if not subscribed.
+    pub subscription_type: Option<String>,
 }
 
 #[derive(Object, Serialize, Deserialize, Clone)]
@@ -258,6 +301,7 @@ pub struct ServerEntryResponse {
     pub readable_link: String,
 }
 
+/// A submitted community server request, with reviewer details resolved for the admin queue.
 #[derive(Object, Serialize)]
 pub struct ServerRequestAdmin {
     pub id: String,
@@ -268,6 +312,7 @@ pub struct ServerRequestAdmin {
     pub servers: Vec<ServerEntryResponse>,
     pub game_type: String,
     pub elaboration: Option<String>,
+    /// `pending`, `approved` or `rejected`.
     pub status: String,
     pub reviewed_by: Option<String>,
     pub reviewer_name: Option<String>,
@@ -275,12 +320,14 @@ pub struct ServerRequestAdmin {
     pub created_at: DateTime<Utc>,
 }
 
+/// A page of community server requests.
 #[derive(Object, Serialize)]
 pub struct ServerRequestsPaginated {
     pub total: i64,
     pub requests: Vec<ServerRequestAdmin>,
 }
 
+/// A curated external community link.
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct CommunityLinkResponse {
     pub id: String,
@@ -308,6 +355,7 @@ pub struct UpdateCommunityLinkPayload {
 }
 
 
+/// A special-thanks/credits entry.
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct SpecialThanksResponse {
     pub id: String,
@@ -327,6 +375,7 @@ pub struct UpdateSpecialThanksPayload {
     pub description: Option<String>,
 }
 
+/// Full server metadata as shown in the admin server-management panel.
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct AdminServer {
     pub server_id: String,
@@ -336,16 +385,19 @@ pub struct AdminServer {
     pub server_port: Option<i32>,
     pub community_id: Option<String>,
     pub online: Option<bool>,
+    /// Short vanity slug used in URLs, if the server has one configured.
     pub readable_link: Option<String>,
     pub server_website: Option<String>,
     pub server_discord_link: Option<String>,
     pub server_source: Option<String>,
     pub timezone: Option<String>,
     pub game: Option<String>,
+    /// Whether players on this server are tracked by Steam ID (`true`) rather than only by name.
     pub source_by_id: Option<bool>,
 }
 
 
+/// A community's admin-facing summary.
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct AdminCommunity {
     pub id: String,
@@ -356,11 +408,14 @@ pub struct AdminCommunity {
 }
 
 
+/// A map's per-server override settings, in the admin map-management panel.
 #[derive(Object, Serialize)]
 pub struct AdminMapServerEntry {
     pub server_id: String,
     pub server_name: String,
+    /// Overrides the map's global `is_tryhard` on this server; `None` falls back to global.
     pub is_tryhard: Option<bool>,
+    /// Overrides the map's global `is_casual` on this server; `None` falls back to global.
     pub is_casual: Option<bool>,
     pub workshop_id: Option<i64>,
     pub resolved_workshop_id: Option<i64>,
@@ -369,6 +424,7 @@ pub struct AdminMapServerEntry {
     pub max_players: Option<i16>,
 }
 
+/// A map's global metadata plus its per-server overrides, in the admin map-management panel.
 #[derive(Object, Serialize)]
 pub struct AdminMapEntry {
     pub map_name: String,
@@ -380,6 +436,7 @@ pub struct AdminMapEntry {
     pub servers: Vec<AdminMapServerEntry>,
 }
 
+/// A page of the admin map-management listing.
 #[derive(Object, Serialize)]
 pub struct AdminMapMetadataResponse {
     pub total: i64,
@@ -411,6 +468,7 @@ pub struct UpdateServerMapMetadataDto {
 }
 
 
+/// One field changed by an audited action.
 #[derive(Object, Serialize)]
 pub struct AuditFieldChange {
     pub field: String,
@@ -418,9 +476,11 @@ pub struct AuditFieldChange {
     pub new_value: Option<String>,
 }
 
+/// One row of the admin audit log.
 #[derive(Object, Serialize)]
 pub struct AuditLogEntry {
     pub id: i64,
+    /// Grouping such as `map_metadata` — non-superusers only ever see this category.
     pub category: String,
     pub action: String,
     pub map_name: Option<String>,
@@ -433,6 +493,7 @@ pub struct AuditLogEntry {
     pub created_at: DateTime<Utc>,
 }
 
+/// A page of the admin audit log.
 #[derive(Object, Serialize)]
 pub struct AuditLogsResponse {
     pub total: i64,

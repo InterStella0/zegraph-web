@@ -163,7 +163,7 @@ async fn main(){
     let cache = RedisCache::new(&redis_url).await
         .expect("Failed to connect to redis");
     let http_client = reqwest::Client::builder()
-        .user_agent("ZEGraph-Pfp-Provider/0.4 (+https://zegraph.xyz)")
+        .user_agent("ZEGraph-Pfp-Provider/0.5 (+https://zegraph.xyz)")
         .timeout(Duration::from_secs(10))
         .build()
         .expect("Failed to create HTTP client");

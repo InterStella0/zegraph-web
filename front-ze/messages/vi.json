@@ -483,7 +483,8 @@
     "tracker": "Theo dõi",
     "hub": "Trung tâm",
     "status": "Trạng thái",
-    "donors": "Nhà quyên góp"
+    "donors": "Nhà quyên góp",
+    "api": "API"
   },
   "maps": {
     "graph": "Biểu đồ",

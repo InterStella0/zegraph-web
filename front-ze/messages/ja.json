@@ -483,7 +483,8 @@
     "tracker": "トラッカー",
     "hub": "ハブ",
     "status": "ステータス",
-    "donors": "寄付者"
+    "donors": "寄付者",
+    "api": "API"
   },
   "maps": {
     "graph": "グラフ",

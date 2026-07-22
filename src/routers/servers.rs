@@ -15,6 +15,7 @@ use crate::core::utils::*;
 use crate::models::admins::DbFetchStatus;
 use crate::models::players::{DbGlobalPlayerBrief, DbPlayerDetailSession};
 use crate::models::servers::*;
+use crate::routers::ApiTags;
 
 fn truncate_error(error: &str) -> String {
     let truncated = match error.find(", ") {
@@ -109,8 +110,12 @@ impl<'a> poem::FromRequest<'a> for CommunityWithAllExtractor {
     }
 }
 pub struct ServerApi;
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::Servers")]
 impl ServerApi {
+    /// List all communities and their servers.
+    ///
+    /// Returns every tracked community together with its servers, each server's current
+    /// player count (capped at `max_players`) and currently-played map. Cached for 60 seconds.
     #[oai(path = "/communities", method="get")]
     async fn get_communities(&self, Data(data): Data<&AppData>) -> Response<Vec<Community>> {
         let pool = &*data.pool.clone();
@@ -177,6 +182,11 @@ impl ServerApi {
         response!(ok results.into_values().collect())
     }
 
+    /// Search and paginate players across every community.
+    ///
+    /// `page` is a 0-indexed page of 10 players, ranked by total playtime. `search` filters by
+    /// player name (case-insensitive substring, minimum 2 characters); results are cached for 60
+    /// seconds when unfiltered, computed live when searching.
     #[oai(path = "/communities/all/players", method="get")]
     async fn get_global_players(
         &self, Data(data): Data<&AppData>,
@@ -264,6 +274,10 @@ impl ServerApi {
         response!(ok GlobalBriefPlayers { total_players, players: rows.iter_into() })
     }
 
+    /// List players currently online across all tracked servers.
+    ///
+    /// A player's name is replaced with "Anonymous" if they opted into anonymization for that
+    /// community, unless the requester is that player or a superuser.
     #[oai(path="/communities/all/players/playing", method="get")]
     async fn get_players_playing(&self, Data(app): Data<&AppData>, OptionalTokenBearer(user_token): OptionalTokenBearer) -> Response<Vec<PlayerDetailSessionCommunity>>{
         let pool = &*app.pool.clone();
@@ -313,6 +327,12 @@ impl ServerApi {
         response!(ok converted)
     }
 
+    /// Unique player count over time for a community, or globally.
+    ///
+    /// Use `community_id = "all"` for the combined graph across every community. `time_type`
+    /// picks the bucket width (`TenMinutes`, `OneHour`, `OneDay`) and `time` anchors the most
+    /// recent bucket; up to 31 buckets before it are returned. Cache TTL scales with bucket
+    /// width.
     #[oai(path = "/communities/:community_id/unique_players", method="get")]
     async fn get_communities_players_graph(
         &self, Data(data): Data<&AppData>,
@@ -443,6 +463,10 @@ impl ServerApi {
         };
         response!(ok response.result.iter_into())
     }
+    /// Raw scraper fetch attempts from the last 24 hours.
+    ///
+    /// Requires the `superuser` role. Lists each individual fetch (per server, per data source)
+    /// with its success flag and error message, newest first.
     #[oai(path = "/fetch-status", method="get")]
     async fn get_fetch_status(&self, Data(data): Data<&AppData>, TokenBearer(user_token): TokenBearer) -> Response<Vec<FetchStatusEntry>> {
         if !check_superuser(data, user_token.id).await {
@@ -479,6 +503,11 @@ impl ServerApi {
         response!(ok response.result.iter_into())
     }
 
+    /// Scraper health, grouped and bucketed for a status dashboard.
+    ///
+    /// Same underlying data as `/fetch-status`, but grouped by community and server and
+    /// compressed into 90 fixed-width time buckets over the last 24 hours, each recording an
+    /// ok/error count and the first error message seen in that bucket. Public, no auth required.
     #[oai(path = "/fetch-status-truncated", method="get")]
     async fn get_fetch_status_truncated(&self, Data(data): Data<&AppData>) -> Response<Vec<FetchStatusCommunityGroupTruncated>> {
         let pool = &*data.pool.clone();

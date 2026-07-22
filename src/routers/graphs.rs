@@ -19,6 +19,7 @@ use crate::models::admins::DbRegion;
 use crate::models::maps::*;
 use crate::models::players::*;
 use crate::models::servers::*;
+use crate::routers::ApiTags;
 
 pub type CountChunkCache = Cache<String, Arc<Vec<DbServerCountData>>>;
 
@@ -116,6 +117,7 @@ async fn get_counts_hour_chunked(
 	Ok(result)
 }
 
+/// Ranking window for the top-players leaderboard.
 #[derive(Enum)]
 #[oai(rename_all = "lowercase")]
 enum TopPlayersTimeFrame{
@@ -143,8 +145,12 @@ impl Display for TopPlayersTimeFrame {
 
 pub struct GraphApi;
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::Graphs")]
 impl GraphApi {
+	/// List map regions used for heat/region charts.
+	///
+	/// Returns up to 10 rows from the `region_time` view. `server_id` is validated but not
+	/// otherwise used to filter the result.
 	#[oai(path = "/graph/:server_id/get_regions", method="get")]
 	async fn get_server_graph_region(
 		&self, Data(app): Data<&AppData>, ServerExtractor(_server): ServerExtractor
@@ -154,6 +160,11 @@ impl GraphApi {
 		};
 		response!(ok data.iter_into())
 	}
+	/// Player-count chart for a single map session.
+	///
+	/// Returns the player-count time series for the given map play (`session_id`) on that
+	/// server, downsampled to at most 1500 peak-preserving points. Cached briefly while the map
+	/// is still being played, for a long time once it has ended.
 	#[oai(path = "/graph/:server_id/unique_players/maps/:map_name/sessions/:session_id", method = "get")]
 	async fn get_server_graph_unique_map_session(
 		&self, Data(app): Data<&AppData>,
@@ -218,6 +229,11 @@ impl GraphApi {
 		result.sort_by(|a, b| b.bucket_time.partial_cmp(&a.bucket_time).unwrap_or(std::cmp::Ordering::Equal));
 		response!(ok result.iter_into())
 	}
+	/// Player-count chart for the duration of a single player's session.
+	///
+	/// Returns the server's player-count time series over the span of the given player session,
+	/// downsampled to at most 1500 peak-preserving points. Cached briefly while the session is
+	/// still active, for a long time once it has ended.
 	#[oai(path = "/graph/:server_id/unique_players/players/:player_id/sessions/:session_id", method = "get")]
 	async fn get_server_graph_unique_player_session(
 		&self, Data(app): Data<&AppData>,
@@ -278,6 +294,11 @@ impl GraphApi {
 		result.sort_by(|a, b| b.bucket_time.partial_cmp(&a.bucket_time).unwrap_or(std::cmp::Ordering::Equal));
 		response!(ok result.iter_into())
 	}
+    /// Unique/concurrent player-count chart over an arbitrary date range.
+    ///
+    /// `start`/`end` must span at most 1 year. Bucket width is chosen automatically based on the
+    /// range (from 5-minute buckets for half-day windows up to 2-day buckets for year-long
+    /// ones); ranges of 6 hours or less are served from an in-memory hourly chunk cache instead.
     #[oai(path = "/graph/:server_id/unique_players", method = "get")]
     async fn get_server_graph_unique(
 		&self, Data(data): Data<&AppData>, ServerExtractor(server): ServerExtractor,
@@ -325,6 +346,9 @@ impl GraphApi {
 		};
 		response!(ok result.iter_into())
     }
+    /// Maps played on a server within a date range.
+    ///
+    /// `start`/`end` must span at most 2 days.
     #[oai(path = "/graph/:server_id/maps", method = "get")]
     async fn get_server_graph_map(
 		&self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(start): Query<DateTime<Utc>>, Query(end): Query<DateTime<Utc>>
@@ -345,6 +369,10 @@ impl GraphApi {
 			};
 		response!(ok rows.iter_into())
     }
+	/// Time series of how often a given event type occurred.
+	///
+	/// Counts rows in `player_server_activity` matching `event_type`, bucketed to the minute and
+	/// then downsampled to roughly 360 points. `start`/`end` must span at most 1 year.
 	#[oai(path="/graph/:server_id/event_count", method="get")]
 	async fn get_server_event_count(
 		&self, Data(data): Data<&AppData>,
@@ -390,6 +418,11 @@ impl GraphApi {
 		};
 		response!(ok result.iter_into())
 	}
+	/// Top 20 players on a server, ranked by playtime within a preset time frame.
+	///
+	/// `time_frame` selects a fixed window (`Today`, `Week1`, `Week2`, `Month1`, `Month6`,
+	/// `Year1`); cache TTL scales with the window size. Player names are anonymized per the
+	/// requester's identity.
 	#[oai(path = "/graph/:server_id/top_players", method = "get")]
 	async fn get_server_top_players(
 		&self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(time_frame): Query<TopPlayersTimeFrame>,
@@ -607,6 +640,10 @@ impl GraphApi {
 		};
 		response!(ok value)
 	}
+	/// Paginated player leaderboard for a server, ranked by playtime.
+	///
+	/// `start` (defaults to the server's earliest recorded session) and `end` bound the window;
+	/// `page` paginates in pages of 70. Player names are anonymized per the requester's identity.
 	#[oai(path = "/graph/:server_id/players", method = "get")]
 	async fn get_server_players(
 		&self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor,

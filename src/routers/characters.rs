@@ -7,11 +7,13 @@ use crate::api_models::misc::*;
 use crate::core::storage::image_ext_from_content_type;
 use crate::core::utils::*;
 use crate::models::admins::*;
+use crate::routers::ApiTags;
 
 pub struct CharacterApi;
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::Characters")]
 impl CharacterApi {
+    /// List a server's uploaded 3D character models.
     #[oai(path = "/servers/:server_id/characters", method = "get")]
     async fn list_character_3d_models(
         &self,
@@ -59,6 +61,7 @@ impl CharacterApi {
         }
     }
 
+    /// Get a single 3D character model by its model ID.
     #[oai(path = "/servers/:server_id/characters/:model_id/3d", method = "get")]
     async fn get_character_3d_model(
         &self,
@@ -104,6 +107,11 @@ impl CharacterApi {
         }
     }
 
+    /// Upload a 3D character model in one request (max 500MB).
+    ///
+    /// Requires the `superuser` role. Multipart form with a required `file` field and optional
+    /// `credit`/`name` fields. Replaces any existing model with the same `model_id` on the same
+    /// server. For larger files, use the chunked upload endpoints instead.
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload", method = "post")]
     async fn upload_character_3d_model(
         &self,
@@ -219,6 +227,11 @@ impl CharacterApi {
         }
     }
 
+    /// Start a chunked upload session for a large 3D character model.
+    ///
+    /// Requires the `superuser` role. Body must include `file_size`; optional `credit`/`name`.
+    /// Splits the file into 10MB chunks and returns a `session_id` (valid 24 hours) to upload
+    /// them against with `upload/chunk/:session_id`, then finish with `upload/complete`.
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload/initiate", method = "post")]
     async fn initiate_character_chunked_upload(
         &self,
@@ -293,6 +306,10 @@ impl CharacterApi {
         })
     }
 
+    /// Upload a single chunk of a chunked 3D character model upload.
+    ///
+    /// Requires the `superuser` role and ownership of the upload session. Multipart form with
+    /// `chunk_index` and `chunk_data`. Re-uploading an already-received chunk is a no-op.
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload/chunk/:session_id", method = "post")]
     async fn upload_character_chunk(
         &self,
@@ -391,6 +408,11 @@ impl CharacterApi {
         })
     }
 
+    /// Finish a chunked 3D character model upload once every chunk has arrived.
+    ///
+    /// Requires the `superuser` role and ownership of the upload session. Assembles the chunks,
+    /// verifies the resulting file size, stores it, and upserts the model row (replacing any
+    /// existing model with the same `model_id`). Cleans up the session and temp files either way.
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload/complete/:session_id", method = "post")]
     async fn complete_character_chunked_upload(
         &self,
@@ -536,6 +558,10 @@ impl CharacterApi {
         }
     }
 
+    /// Cancel an in-progress chunked 3D character model upload.
+    ///
+    /// Requires the `superuser` role and ownership of the upload session. Deletes any received
+    /// chunks and the session; safe to call even if the session already expired.
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/upload/cancel/:session_id", method = "delete")]
     async fn cancel_character_chunked_upload(
         &self,
@@ -578,6 +604,9 @@ impl CharacterApi {
         response!(ok "Upload cancelled".to_string())
     }
 
+    /// Delete a 3D character model, its stored file and its thumbnail.
+    ///
+    /// Requires the `superuser` role.
     #[oai(path = "/servers/:server_id/characters/:model_id/3d", method = "delete")]
     async fn delete_character_3d_model(
         &self,
@@ -630,6 +659,10 @@ impl CharacterApi {
         }
     }
 
+    /// Upload or replace a 3D character model's thumbnail image.
+    ///
+    /// Requires the `superuser` role. Multipart form with a `thumbnail` field (PNG, WebP or
+    /// JPEG). Replaces and deletes the previous thumbnail if one existed.
     #[oai(path = "/servers/:server_id/characters/:model_id/3d/thumbnail", method = "post")]
     async fn upload_character_thumbnail(
         &self,

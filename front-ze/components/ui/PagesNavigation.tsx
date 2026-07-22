@@ -22,6 +22,7 @@ export const pagesSelection = {
         {key: 'hub', href: '/hub'},
         {key: 'status', href: '/status'},
         {key: 'donors', href: '/donors'},
+        {key: 'api', href: '/data/api'},
     ]
 } as const
 

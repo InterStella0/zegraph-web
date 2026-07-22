@@ -483,7 +483,8 @@
     "tracker": "追蹤器",
     "hub": "樞紐",
     "status": "狀態",
-    "donors": "捐款者"
+    "donors": "捐款者",
+    "api": "API"
   },
   "maps": {
     "graph": "圖表",

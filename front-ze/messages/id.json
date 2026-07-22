@@ -483,7 +483,8 @@
     "tracker": "Pelacak",
     "hub": "Pusat",
     "status": "Status",
-    "donors": "Donatur"
+    "donors": "Donatur",
+    "api": "API"
   },
   "maps": {
     "graph": "Grafik",

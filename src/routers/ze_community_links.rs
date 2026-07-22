@@ -9,6 +9,7 @@ use crate::{response, AppData};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::models::misc::*;
+use crate::routers::ApiTags;
 
 pub struct ZeCommunityLinksApi;
 
@@ -18,8 +19,9 @@ fn is_valid_url(url: &str) -> bool {
     url.starts_with("http://") || url.starts_with("https://")
 }
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::CommunityLinks")]
 impl ZeCommunityLinksApi {
+    /// List curated external ZE community links, in display order.
     #[oai(path = "/community-links", method = "get")]
     async fn get_links(
         &self,
@@ -46,6 +48,7 @@ impl ZeCommunityLinksApi {
         response!(ok links.into_iter().map(Into::into).collect())
     }
 
+    /// Add a community link. Requires the `superuser` role; `url` must be http(s).
     #[oai(path = "/community-links", method = "post")]
     async fn create_link(
         &self,
@@ -95,6 +98,7 @@ impl ZeCommunityLinksApi {
         response!(ok link.into())
     }
 
+    /// Update a community link's fields. Requires the `superuser` role.
     #[oai(path = "/community-links/:id", method = "put")]
     async fn update_link(
         &self,
@@ -161,6 +165,7 @@ impl ZeCommunityLinksApi {
         response!(ok link.into())
     }
 
+    /// Delete a community link. Requires the `superuser` role.
     #[oai(path = "/community-links/:id", method = "delete")]
     async fn delete_link(
         &self,

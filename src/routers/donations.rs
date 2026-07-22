@@ -10,11 +10,13 @@ use crate::{response, AppData};
 use crate::api_models::common::*;
 use crate::models::admins::*;
 use crate::models::misc::DbDonor;
+use crate::routers::ApiTags;
 
 pub struct DonationsApi;
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::Donations")]
 impl DonationsApi {
+    /// List donors, highest amount first.
     #[oai(path = "/donations", method = "get")]
     async fn get_donors(
         &self,
@@ -41,6 +43,7 @@ impl DonationsApi {
         response!(ok donors.into_iter().map(Into::into).collect())
     }
 
+    /// Add a donor entry. Requires the `superuser` role.
     #[oai(path = "/donations", method = "post")]
     async fn create_donor(
         &self,
@@ -86,6 +89,7 @@ impl DonationsApi {
         response!(ok donor.into())
     }
 
+    /// Update a donor entry's fields. Requires the `superuser` role.
     #[oai(path = "/donations/:id", method = "put")]
     async fn update_donor(
         &self,
@@ -146,6 +150,7 @@ impl DonationsApi {
         response!(ok donor.into())
     }
 
+    /// Delete a donor entry. Requires the `superuser` role.
     #[oai(path = "/donations/:id", method = "delete")]
     async fn delete_donor(
         &self,

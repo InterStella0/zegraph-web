@@ -24,6 +24,7 @@ use crate::FastCache;
 use crate::models::admins::*;
 use crate::models::maps::{DbMapChangeSubscription, DbMapNotifySubscription};
 use crate::models::players::*;
+use crate::routers::ApiTags;
 
 pub struct AccountsApi;
 
@@ -295,8 +296,12 @@ async fn fetch_steam_info(steam_id: &i64) -> Result<SteamProfile, ErrorCode> {
     }
 }
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::Accounts")]
 impl AccountsApi {
+    /// Create this user's Steam profile record on first login.
+    ///
+    /// Fetches the caller's public profile from the Steam API and stores it. 409s if a record
+    /// already exists for this user.
     #[oai(path="/accounts/create", method="post")]
     async fn create_user_info(&self, Data(data): Data<&AppData>, TokenBearer(user_token): TokenBearer) -> Response<SteamProfile>{
         let user_id = user_token.id;
@@ -405,6 +410,7 @@ impl AccountsApi {
         response!(ok steam_profile_db.into())
 
     }
+    /// The signed-in user's own Steam profile, including their superuser/map-manager role flags.
     #[oai(path="/accounts/me", method="get")]
     async fn get_user_info(&self, Data(data): Data<&AppData>, TokenBearer(user_token): TokenBearer) -> Response<SteamProfile>{
         let Ok(user) = sqlx::query_as!(DbSteam,
@@ -436,6 +442,7 @@ impl AccountsApi {
 
         response!(ok profile)
     }
+    /// Every community/server the signed-in user has played on, with per-server player detail.
     #[oai(path="/accounts/me/communities", method="get")]
     async fn get_my_communities(&self, Data(app): Data<&AppData>, TokenBearer(user_token): TokenBearer) ->  Response<Vec<CommunityPlayerDetail>> {
         let pool = &*app.pool;
@@ -499,6 +506,12 @@ impl AccountsApi {
 
         response!(ok results.into_values().collect())
     }
+    /// A user's public profile: aggregate stats, global rank, and per-community/server detail.
+    ///
+    /// `user_id` may be `"me"` (requires auth) or a numeric Steam ID. Communities where the
+    /// target anonymized themselves are omitted for non-owners, and — if that would hide every
+    /// community — the profile name itself is replaced with "Anonymous" too, so the opt-out
+    /// can't be inferred from what's left visible.
     #[oai(path="/accounts/:user_id/profile", method="get")]
     async fn get_user_profile(
         &self,
@@ -741,6 +754,8 @@ impl AccountsApi {
             anonymization,
         })
     }
+    /// A user's total playtime summed across every server. `user_id` may be `"me"` or a numeric
+    /// Steam ID.
     #[oai(path="/accounts/:user_id/global-playtime", method="get")]
     async fn get_user_global_playtime(
         &self,
@@ -762,6 +777,7 @@ impl AccountsApi {
         handle_worker_result(result, "Player not found")
     }
 
+    /// A user's playtime broken down per community. `user_id` may be `"me"` or a numeric Steam ID.
     #[oai(path="/accounts/:user_id/communities_playtime", method="get")]
     async fn get_user_communities_playtime(
         &self,
@@ -783,6 +799,10 @@ impl AccountsApi {
         handle_worker_result(result, "Player not found")
     }
 
+    /// A user's playtime by day, summed across every server they've played on.
+    ///
+    /// `user_id` may be `"me"` or a numeric Steam ID. Communities where the target anonymized
+    /// themselves are excluded for non-owners.
     #[oai(path="/accounts/:user_id/playtime-heatmap", method="get")]
     async fn get_user_playtime_heatmap(
         &self,
@@ -839,6 +859,7 @@ impl AccountsApi {
 
         response!(ok result.iter_into())
     }
+    /// Set the signed-in user's anonymization/location-hiding preference for one community.
     #[oai(path="/accounts/me/anonymize", method="post")]
     async fn set_user_anonymization(
         &self,
@@ -876,6 +897,7 @@ impl AccountsApi {
         }
     }
 
+    /// The signed-in user's anonymization settings across every community they've configured.
     #[oai(path="/accounts/me/anonymize", method="get")]
     async fn get_user_anonymization(
         &self,
@@ -902,6 +924,7 @@ impl AccountsApi {
         response!(ok settings.iter_into())
     }
 
+    /// Whether the signed-in user is currently banned from posting guides, and why.
     #[oai(path="/accounts/me/guide-ban", method="get")]
     async fn get_my_ban_status(
         &self,
@@ -945,6 +968,9 @@ impl AccountsApi {
         }
     }
 
+    /// Set another user's anonymization preference for one community.
+    ///
+    /// Requires being that user, a superuser, or a community admin of that community.
     #[oai(path="/accounts/:user_id/anonymize", method="post")]
     async fn set_other_user_anonymization(
         &self,
@@ -1009,6 +1035,9 @@ impl AccountsApi {
         }
     }
 
+    /// Another user's anonymization settings across every community.
+    ///
+    /// Only requires the caller to be signed in; there is no additional ownership or role check.
     #[oai(path="/accounts/:user_id/anonymize", method="get")]
     async fn get_other_user_anonymization(
         &self,
@@ -1034,7 +1063,10 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path="/admin/reports/guides", method="get")]
+    /// Paginated list of guide reports. Requires the `superuser` role.
+    ///
+    /// `status` filters to `pending`/`resolved`/`dismissed`; pages are 20 reports each.
+    #[oai(path="/admin/reports/guides", method="get", tag = "ApiTags::AdminReports")]
     async fn get_guide_reports(
         &self,
         Data(data): Data<&AppData>,
@@ -1103,7 +1135,10 @@ impl AccountsApi {
         })
     }
 
-    #[oai(path="/admin/reports/comments", method="get")]
+    /// Paginated list of guide-comment reports. Requires the `superuser` role.
+    ///
+    /// `status` filters to `pending`/`resolved`/`dismissed`; pages are 20 reports each.
+    #[oai(path="/admin/reports/comments", method="get", tag = "ApiTags::AdminReports")]
     async fn get_comment_reports(
         &self,
         Data(data): Data<&AppData>,
@@ -1172,7 +1207,9 @@ impl AccountsApi {
         })
     }
 
-    #[oai(path="/admin/reports/guides/:report_id/status", method="put")]
+    /// Change a guide report's status to `resolved`, `dismissed` or `pending`. Requires the
+    /// `superuser` role.
+    #[oai(path="/admin/reports/guides/:report_id/status", method="put", tag = "ApiTags::AdminReports")]
     async fn update_guide_report_status(
         &self,
         Data(data): Data<&AppData>,
@@ -1236,7 +1273,9 @@ impl AccountsApi {
         response!(ok report.into())
     }
 
-    #[oai(path="/admin/reports/comments/:report_id/status", method="put")]
+    /// Change a guide-comment report's status to `resolved`, `dismissed` or `pending`. Requires
+    /// the `superuser` role.
+    #[oai(path="/admin/reports/comments/:report_id/status", method="put", tag = "ApiTags::AdminReports")]
     async fn update_comment_report_status(
         &self,
         Data(data): Data<&AppData>,
@@ -1300,7 +1339,11 @@ impl AccountsApi {
         response!(ok report.into())
     }
 
-    #[oai(path="/admin/reports/music", method="get")]
+    /// Paginated list of map-music reports (e.g. wrong/missing YouTube link). Requires the
+    /// `superuser` role.
+    ///
+    /// `status` filters to `pending`/`resolved`/`dismissed`; pages are 20 reports each.
+    #[oai(path="/admin/reports/music", method="get", tag = "ApiTags::AdminReports")]
     async fn get_music_reports(
         &self,
         Data(data): Data<&AppData>,
@@ -1374,7 +1417,11 @@ impl AccountsApi {
         })
     }
 
-    #[oai(path="/admin/reports/music/:report_id/status", method="put")]
+    /// Change a map-music report's status. Requires the `superuser` role.
+    ///
+    /// Resolving a report that carries a suggested YouTube URL applies it to the track and
+    /// credits the reporter as its source.
+    #[oai(path="/admin/reports/music/:report_id/status", method="put", tag = "ApiTags::AdminReports")]
     async fn update_music_report_status(
         &self,
         Data(data): Data<&AppData>,
@@ -1462,7 +1509,8 @@ impl AccountsApi {
         response!(ok report.into())
     }
 
-    #[oai(path="/admin/music/:music_id/youtube", method="put")]
+    /// Directly set a map music track's YouTube link. Requires the `superuser` role.
+    #[oai(path="/admin/music/:music_id/youtube", method="put", tag = "ApiTags::AdminReports")]
     async fn update_music_youtube(
         &self,
         Data(data): Data<&AppData>,
@@ -1506,7 +1554,10 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path="/admin/bans", method="get")]
+    /// Paginated list of guide-posting bans. Requires the `superuser` role.
+    ///
+    /// `active_only` (default true) restricts to currently-active bans; pages are 20 each.
+    #[oai(path="/admin/bans", method="get", tag = "ApiTags::AdminBans")]
     async fn get_guide_bans(
         &self,
         Data(data): Data<&AppData>,
@@ -1567,7 +1618,11 @@ impl AccountsApi {
         })
     }
 
-    #[oai(path="/admin/users/:user_id/guide-ban", method="post")]
+    /// Ban a user from posting guides, optionally until an expiry. Requires the `superuser`
+    /// role.
+    ///
+    /// Re-banning an already-banned user replaces their existing ban (reason, expiry, banner).
+    #[oai(path="/admin/users/:user_id/guide-ban", method="post", tag = "ApiTags::AdminBans")]
     async fn ban_user_from_guides(
         &self,
         Data(data): Data<&AppData>,
@@ -1637,7 +1692,8 @@ impl AccountsApi {
         response!(ok ban.into())
     }
 
-    #[oai(path="/admin/users/:user_id/guide-ban", method="delete")]
+    /// Lift a user's active guide-posting ban. Requires the `superuser` role.
+    #[oai(path="/admin/users/:user_id/guide-ban", method="delete", tag = "ApiTags::AdminBans")]
     async fn unban_user_from_guides(
         &self,
         Data(data): Data<&AppData>,
@@ -1669,7 +1725,9 @@ impl AccountsApi {
         response!(ok "User unbanned successfully".to_string())
     }
 
-    #[oai(path="/admin/users/:user_id/guide-ban", method="get")]
+    /// Whether a specific user is currently banned from posting guides, and why. Requires the
+    /// `superuser` role.
+    #[oai(path="/admin/users/:user_id/guide-ban", method="get", tag = "ApiTags::AdminBans")]
     async fn get_user_ban_status(
         &self,
         Data(data): Data<&AppData>,
@@ -1715,7 +1773,12 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path="/admin/announcements", method="get")]
+    /// Paginated list of every announcement, including hidden/scheduled/expired ones. Requires
+    /// the `superuser` role.
+    ///
+    /// `status` filters to `active`/`scheduled`/`expired`/`hidden`/`all`; `type` filters by
+    /// announcement type. Pages are 20 each.
+    #[oai(path="/admin/announcements", method="get", tag = "ApiTags::Announcements")]
     async fn get_announcements_admin(
         &self,
         Data(data): Data<&AppData>,
@@ -1799,7 +1862,11 @@ impl AccountsApi {
         })
     }
 
-    #[oai(path="/admin/announcements", method="post")]
+    /// Create a site announcement. Requires the `superuser` role.
+    ///
+    /// `Rich` announcements require a non-empty title; `text` must be 10-10000 characters, and
+    /// `title` (if given) 5-200. `published_at` must be before `expires_at` when both are set.
+    #[oai(path="/admin/announcements", method="post", tag = "ApiTags::Announcements")]
     async fn create_announcement(
         &self,
         Data(data): Data<&AppData>,
@@ -1866,7 +1933,9 @@ impl AccountsApi {
         response!(ok announcement.into())
     }
 
-    #[oai(path="/admin/announcements/:id", method="put")]
+    /// Update an announcement's fields. Requires the `superuser` role. Same validation as
+    /// creating one.
+    #[oai(path="/admin/announcements/:id", method="put", tag = "ApiTags::Announcements")]
     async fn update_announcement(
         &self,
         Data(data): Data<&AppData>,
@@ -1950,7 +2019,8 @@ impl AccountsApi {
         response!(ok updated.into())
     }
 
-    #[oai(path="/admin/announcements/:id", method="delete")]
+    /// Delete an announcement. Requires the `superuser` role.
+    #[oai(path="/admin/announcements/:id", method="delete", tag = "ApiTags::Announcements")]
     async fn delete_announcement(
         &self,
         Data(data): Data<&AppData>,
@@ -1986,7 +2056,11 @@ impl AccountsApi {
     // PUSH NOTIFICATION ENDPOINTS
     // ========================================================================
 
-    #[oai(path = "/accounts/me/push/subscribe", method = "post")]
+    /// Register a Web Push subscription for the signed-in user.
+    ///
+    /// Body is a standard Web Push subscription object (`endpoint` + `p256dh`/`auth` keys, both
+    /// base64url-encoded); `endpoint` must be HTTPS. Upserts on (user, endpoint).
+    #[oai(path = "/accounts/me/push/subscribe", method = "post", tag = "ApiTags::PushNotifications")]
     async fn subscribe_push_notifications(
         &self,
         Data(data): Data<&AppData>,
@@ -2029,7 +2103,8 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/unsubscribe", method = "post")]
+    /// Remove a Web Push subscription for the signed-in user, identified by its `endpoint`.
+    #[oai(path = "/accounts/me/push/unsubscribe", method = "post", tag = "ApiTags::PushNotifications")]
     async fn unsubscribe_push_notifications(
         &self,
         Data(data): Data<&AppData>,
@@ -2053,7 +2128,8 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/vapid-public-key", method = "get")]
+    /// The server's VAPID public key, needed by the browser to create a push subscription.
+    #[oai(path = "/accounts/me/push/vapid-public-key", method = "get", tag = "ApiTags::PushNotifications")]
     async fn get_vapid_public_key(
         &self,
         Data(data): Data<&AppData>,
@@ -2062,7 +2138,8 @@ impl AccountsApi {
         response!(ok public_key)
     }
 
-    #[oai(path = "/accounts/me/push/subscriptions", method = "get")]
+    /// The signed-in user's registered push subscriptions (devices/browsers).
+    #[oai(path = "/accounts/me/push/subscriptions", method = "get", tag = "ApiTags::PushNotifications")]
     async fn get_my_push_subscriptions(
         &self,
         Data(data): Data<&AppData>,
@@ -2093,7 +2170,8 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/preferences", method = "get")]
+    /// The signed-in user's notification preferences, creating the default row if absent.
+    #[oai(path = "/accounts/me/push/preferences", method = "get", tag = "ApiTags::PushNotifications")]
     async fn get_notification_preferences(
         &self,
         Data(data): Data<&AppData>,
@@ -2142,7 +2220,11 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/preferences", method = "put")]
+    /// Update one or more of the signed-in user's notification preference flags.
+    ///
+    /// At least one of `announcements_enabled`/`system_enabled`/`map_specific_enabled` must be
+    /// present; unset fields are left unchanged.
+    #[oai(path = "/accounts/me/push/preferences", method = "put", tag = "ApiTags::PushNotifications")]
     async fn update_notification_preferences(
         &self,
         Data(data): Data<&AppData>,
@@ -2193,7 +2275,12 @@ impl AccountsApi {
     // MAP CHANGE SUBSCRIPTION ENDPOINTS
     // ========================================================================
 
-    #[oai(path = "/accounts/me/push/map-change/subscribe", method = "post")]
+    /// Subscribe an existing push subscription to one-time notifications when a server's map
+    /// changes.
+    ///
+    /// `subscription_id` must belong to the signed-in user (from `push/subscribe`). Re-subscribing
+    /// clears a subscription that already fired.
+    #[oai(path = "/accounts/me/push/map-change/subscribe", method = "post", tag = "ApiTags::PushNotifications")]
     async fn subscribe_map_change(
         &self,
         Data(data): Data<&AppData>,
@@ -2277,7 +2364,8 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/map-change/:server_id", method = "delete")]
+    /// Cancel the signed-in user's not-yet-triggered map-change subscription for a server.
+    #[oai(path = "/accounts/me/push/map-change/:server_id", method = "delete", tag = "ApiTags::PushNotifications")]
     async fn unsubscribe_map_change(
         &self,
         Data(data): Data<&AppData>,
@@ -2301,7 +2389,8 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/map-change", method = "get")]
+    /// The signed-in user's pending (not-yet-triggered) map-change subscriptions.
+    #[oai(path = "/accounts/me/push/map-change", method = "get", tag = "ApiTags::PushNotifications")]
     async fn get_map_change_subscriptions(
         &self,
         Data(data): Data<&AppData>,
@@ -2332,7 +2421,12 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/map-notify/subscribe", method = "post")]
+    /// Subscribe an existing push subscription to one-time notifications when a specific map is
+    /// next played.
+    ///
+    /// `subscription_id` must belong to the signed-in user. `server_id` scopes the watch to one
+    /// server; omit it to watch the map across every server.
+    #[oai(path = "/accounts/me/push/map-notify/subscribe", method = "post", tag = "ApiTags::PushNotifications")]
     async fn subscribe_map_notify(
         &self,
         Data(data): Data<&AppData>,
@@ -2415,7 +2509,8 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/map-notify", method = "get")]
+    /// The signed-in user's pending (not-yet-triggered) map-notify subscriptions.
+    #[oai(path = "/accounts/me/push/map-notify", method = "get", tag = "ApiTags::PushNotifications")]
     async fn get_map_notify_subscriptions(
         &self,
         Data(data): Data<&AppData>,
@@ -2446,7 +2541,11 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/map-notify/:map_name", method = "delete")]
+    /// Cancel the signed-in user's map-notify subscription for a map.
+    ///
+    /// `server_id` selects the server-specific subscription; omit it to target the
+    /// all-servers subscription instead.
+    #[oai(path = "/accounts/me/push/map-notify/:map_name", method = "delete", tag = "ApiTags::PushNotifications")]
     async fn unsubscribe_map_notify(
         &self,
         Data(data): Data<&AppData>,
@@ -2482,7 +2581,9 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/accounts/me/push/map-notify/status", method = "get")]
+    /// Whether the signed-in user has a pending map-notify subscription for a map, and whether
+    /// it's server-specific or all-servers.
+    #[oai(path = "/accounts/me/push/map-notify/status", method = "get", tag = "ApiTags::PushNotifications")]
     async fn get_map_notify_status(
         &self,
         Data(data): Data<&AppData>,
@@ -2531,7 +2632,9 @@ impl AccountsApi {
         })
     }
 
-    #[oai(path = "/admin/push/test", method = "post")]
+    /// Send a test push notification, to one user or broadcast to everyone. Requires the
+    /// `superuser` role.
+    #[oai(path = "/admin/push/test", method = "post", tag = "ApiTags::PushNotifications")]
     async fn send_test_notification(
         &self,
         Data(data): Data<&AppData>,
@@ -2580,7 +2683,9 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path = "/admin/push/subscriptions", method = "get")]
+    /// Paginated list of every push subscription across all users. Requires the `superuser`
+    /// role. Pages are 50 each.
+    #[oai(path = "/admin/push/subscriptions", method = "get", tag = "ApiTags::PushNotifications")]
     async fn get_all_subscriptions(
         &self,
         Data(data): Data<&AppData>,
@@ -2637,7 +2742,12 @@ impl AccountsApi {
 
     // ============ SERVER NOMINATION ENDPOINTS ============
 
-    #[oai(path="/accounts/server-requests", method="post")]
+    /// Submit a community request to have a new server tracked.
+    ///
+    /// Requires at least one server entry (each with a non-empty `ip` and a 1-20 character
+    /// `readable_link`), and `game_type` of `cs2` or `csgo`. Goes into a review queue rather
+    /// than being tracked immediately.
+    #[oai(path="/accounts/server-requests", method="post", tag = "ApiTags::ServerRequests")]
     async fn submit_server_request(
         &self,
         Data(data): Data<&AppData>,
@@ -2688,7 +2798,10 @@ impl AccountsApi {
         }
     }
 
-    #[oai(path="/admin/server-requests", method="get")]
+    /// Paginated list of community server requests. Requires the `superuser` role.
+    ///
+    /// `status` filters to `pending`/`approved`/`rejected`; pages are 20 each.
+    #[oai(path="/admin/server-requests", method="get", tag = "ApiTags::ServerRequests")]
     async fn get_server_requests(
         &self,
         Data(data): Data<&AppData>,
@@ -2752,7 +2865,11 @@ impl AccountsApi {
         })
     }
 
-    #[oai(path="/admin/server-requests/:request_id/status", method="put")]
+    /// Approve or reject a server request. Requires the `superuser` role.
+    ///
+    /// `status` must be `approved` or `rejected`. Approving creates a `community` row and a
+    /// `server_browser` scrape-tracking entry for each requested server.
+    #[oai(path="/admin/server-requests/:request_id/status", method="put", tag = "ApiTags::ServerRequests")]
     async fn update_server_request_status(
         &self,
         Data(data): Data<&AppData>,

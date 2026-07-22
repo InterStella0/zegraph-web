@@ -10,15 +10,17 @@ use crate::{response, AppData};
 use crate::api_models::common::*;
 use crate::models::admins::*;
 use crate::api_models::admins::*;
+use crate::routers::ApiTags;
 
 pub struct AdminServersApi;
 
 const VALID_COOLDOWN_TYPES: &[&str] = &["unknown", "datetime", "map_count"];
 
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::AdminServers")]
 impl AdminServersApi {
 
+    /// List every community with its server count. Requires the `superuser` role.
     #[oai(path = "/admin/communities", method = "get")]
     async fn list_communities(
         &self,
@@ -67,6 +69,7 @@ impl AdminServersApi {
         }).collect())
     }
 
+    /// Create a new community. Requires the `superuser` role.
     #[oai(path = "/admin/communities", method = "post")]
     async fn create_community(
         &self,
@@ -115,6 +118,7 @@ impl AdminServersApi {
         })
     }
 
+    /// Update a community's name/short name/icon URL. Requires the `superuser` role.
     #[oai(path = "/admin/communities/:id", method = "put")]
     async fn update_community(
         &self,
@@ -189,6 +193,10 @@ impl AdminServersApi {
         })
     }
 
+    /// Upload or replace a community's icon image.
+    ///
+    /// Requires the `superuser` role. Multipart form with an `icon` field (PNG, WebP or JPEG).
+    /// Deletes the previous icon if one existed.
     #[oai(path = "/admin/communities/:id/icon", method = "post")]
     async fn upload_community_icon(
         &self,
@@ -307,6 +315,9 @@ impl AdminServersApi {
         })
     }
 
+    /// Delete a community and its icon. Requires the `superuser` role.
+    ///
+    /// Does not delete the community's servers; they are left with no community assigned.
     #[oai(path = "/admin/communities/:id", method = "delete")]
     async fn delete_community(
         &self,
@@ -353,6 +364,10 @@ impl AdminServersApi {
         response!(ok true)
     }
 
+    /// List the scraper's tracked IP:port entries and their cooldown behavior.
+    ///
+    /// Requires the `superuser` role. This configures the separate, unpublished data scraper,
+    /// not the servers exposed by this API.
     #[oai(path = "/admin/server-browsers", method = "get")]
     async fn list_server_browsers(
         &self,
@@ -384,6 +399,10 @@ impl AdminServersApi {
         }).collect())
     }
 
+    /// Add (or update, on IP:port conflict) a scraper tracking entry.
+    ///
+    /// Requires the `superuser` role. `cooldown_type` must be `unknown`, `datetime` or
+    /// `map_count`.
     #[oai(path = "/admin/server-browsers", method = "post")]
     async fn create_server_browser(
         &self,
@@ -434,6 +453,8 @@ impl AdminServersApi {
         })
     }
 
+    /// Update a scraper tracking entry's `tracking`/`cooldown_type` flags, identified by
+    /// `ip`+`port` query params. Requires the `superuser` role.
     #[oai(path = "/admin/server-browsers", method = "put")]
     async fn update_server_browser(
         &self,
@@ -484,6 +505,8 @@ impl AdminServersApi {
         })
     }
 
+    /// Remove a scraper tracking entry, identified by `ip`+`port` query params. Requires the
+    /// `superuser` role.
     #[oai(path = "/admin/server-browsers", method = "delete")]
     async fn delete_server_browser(
         &self,
@@ -517,6 +540,8 @@ impl AdminServersApi {
         response!(ok true)
     }
 
+    /// List every tracked server with its full admin-only metadata. Requires the `superuser`
+    /// role.
     #[oai(path = "/admin/servers-list", method = "get")]
     async fn list_servers_admin(
         &self,
@@ -552,6 +577,9 @@ impl AdminServersApi {
         response!(ok rows.into_iter().map(AdminServer::from).collect())
     }
 
+    /// Rename a server or change its public readable link (used in vanity URLs).
+    ///
+    /// Requires the `superuser` role. `readable_link` must be 20 characters or fewer and unique.
     #[oai(path = "/admin/servers-list/:server_id", method = "put")]
     async fn update_server_admin(
         &self,
@@ -613,6 +641,7 @@ impl AdminServersApi {
         response!(ok AdminServer::from(row))
     }
 
+    /// Assign or clear a server's community. Requires the `superuser` role.
     #[oai(path = "/admin/servers-list/:server_id/community", method = "put")]
     async fn set_server_community(
         &self,
@@ -666,6 +695,8 @@ impl AdminServersApi {
         response!(ok AdminServer::from(row))
     }
 
+    /// Update (or create, if absent) a server's metadata: website, Discord link, source, time
+    /// zone and game type. Requires the `superuser` role.
     #[oai(path = "/admin/servers-list/:server_id/metadata", method = "put")]
     async fn update_server_metadata(
         &self,
@@ -796,6 +827,10 @@ impl AdminServersApi {
         response!(ok AdminServer::from(row))
     }
 
+    /// Permanently delete a server and its data. Requires the `superuser` role.
+    ///
+    /// Cascades to every row referencing this `server_id` (sessions, maps played, fetch status,
+    /// etc.); this cannot be undone.
     #[oai(path = "/admin/servers-list/:server_id", method = "delete")]
     async fn delete_server_admin(
         &self,

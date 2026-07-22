@@ -483,7 +483,8 @@
     "tracker": "추적기",
     "hub": "허브",
     "status": "상태",
-    "donors": "기부자"
+    "donors": "기부자",
+    "api": "API"
   },
   "maps": {
     "graph": "그래프",

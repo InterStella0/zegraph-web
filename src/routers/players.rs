@@ -19,6 +19,7 @@ use crate::models::players::*;
 use crate::models::radars::DbCountryStatistic;
 use crate::models::servers::DbServer;
 use crate::workers::*;
+use crate::routers::ApiTags;
 
 pub struct PlayerApi;
 
@@ -68,6 +69,7 @@ async fn fetch_infraction(id: &str, source: &str) -> Result<PlayerInfractionUpda
     let response = reqwest::get(url).await?.json().await?;
     Ok(response)
 }
+/// Which playtime figure to rank the players table by.
 #[derive(Enum)]
 enum PlayerTableMode{
     Casual,
@@ -187,11 +189,13 @@ impl<'a> poem::FromRequest<'a> for PlayerExtractor {
         Ok(PlayerExtractor::new(data, server, player).await)
     }
 }
+/// Aggregate playtime/player/country counts for a server, over two windows.
 #[derive(Object)]
 struct ServerPlayersStatistic{
     all_time: PlayersStatistic,
     week1: PlayersStatistic,
 }
+/// Distinct countries seen among a server's players.
 #[derive(Object)]
 struct ServerCountriesStatistics{
     countries: Vec<CountryStatistic>
@@ -202,8 +206,9 @@ fn handle_worker_player_result<T>(result: WorkResult<T>) -> Response<T>
     handle_worker_result(result, "Not Found")
 }
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::Players")]
 impl PlayerApi{
+    /// Distinct countries a server's players are located in, with player counts. Cached for 1 day.
     #[oai(path="/servers/:server_id/players/countries", method="get")]
     async fn get_players_stats_countries(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor
@@ -251,6 +256,9 @@ impl PlayerApi{
             countries: result.result.iter_into()
         })
     }
+    /// Total playtime, player count and country count for a server, both all-time and this week.
+    ///
+    /// Cached for 1 day.
     #[oai(path="/servers/:server_id/players/stats", method="get")]
     async fn get_players_stats(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor
@@ -291,6 +299,11 @@ impl PlayerApi{
 
         response!(ok stats)
     }
+    /// Search players on a server by name, for autocomplete.
+    ///
+    /// `player_name` must be at least 3 characters. Matches the requester's own player ID first,
+    /// then substring name matches (case-insensitive), up to 20 results. Anonymized players show
+    /// as "Anonymous" unless the requester is that player, a superuser, or a community admin.
     #[oai(path = "/servers/:server_id/players/autocomplete", method = "get")]
     async fn get_players_autocomplete(
         &self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(player_name): Query<String>,
@@ -356,6 +369,12 @@ impl PlayerApi{
             .collect::<Vec<_>>();
         response!(ok filtered)
     }
+    /// Paginated, ranked player leaderboard for a server.
+    ///
+    /// `mode` selects which playtime figure to sort/rank by (`Casual`, `TryHard`, `Mixed`,
+    /// `Total`). `player_name` (minimum 2 characters) filters to matching players instead of
+    /// paginating the full leaderboard; pages are 5 players each. Anonymized players show as
+    /// "Anonymous" unless the requester is that player, a superuser, or a community admin.
     #[oai(path = "/servers/:server_id/players/table", method = "get")]
     async fn get_players_table(
         &self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor,
@@ -522,6 +541,10 @@ impl PlayerApi{
             players: value
         })
     }
+    /// Legacy GFL CS:GO leaderboard stats (points, zombie/human time, kills, etc.) for a player.
+    ///
+    /// Only available for the original GFL server; 404s for every other server. Cached for 120
+    /// days.
     #[oai(path="/servers/:server_id/players/:player_id/legacy_stats", method="get")]
     async fn get_legacy_stats(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<PlayerWithLegacyRanks>{
         if extract.server.server_id != "65bdad6379cefd7ebcecce5c"{
@@ -573,6 +596,11 @@ impl PlayerApi{
         };
         response!(ok data.into())
     }
+    /// Players currently connected to a server.
+    ///
+    /// A session counts as "currently connected" if it was verified within the last 20 minutes.
+    /// Anonymized players show as "Anonymous" unless the requester is that player, a superuser,
+    /// or a community admin.
     #[oai(path="/servers/:server_id/players/playing", method="get")]
     async fn get_players_playing(&self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, OptionalTokenBearer(user_token): OptionalTokenBearer) -> Response<Vec<PlayerDetailSession>>{
         let pool = &*app.pool.clone();
@@ -623,6 +651,7 @@ impl PlayerApi{
 
         response!(ok result.iter_into())
     }
+    /// A player's most recent session on a server. Cached for 2 minutes.
     #[oai(path="/servers/:server_id/players/:player_id/playing", method="get")]
     async fn get_last_playing(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<PlayerSession>{
         let pool = &*app.pool.clone();
@@ -653,6 +682,7 @@ impl PlayerApi{
         // }
         response!(ok result.result.into())
     }
+    /// Chart data for a player's session history on a server. Backed by `PlayerWorker`'s cache.
     #[oai(path = "/servers/:server_id/players/:player_id/graph/sessions", method = "get")]
     async fn get_player_sessions(
         &self,
@@ -663,17 +693,23 @@ impl PlayerApi{
         let context = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_player_sessions(&context).await)
     }
+    /// A player's playtime broken down by hour of day. Backed by `PlayerWorker`'s cache.
     #[oai(path="/servers/:server_id/players/:player_id/hours_of_day", method="get")]
     async fn get_hours_of_day_player(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerHourDay>>{
         let context = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_hour_of_day(&context).await)
     }
 
+    /// A player's online activity heatmap (by day/hour). Backed by `PlayerWorker`'s cache.
     #[oai(path="/servers/:server_id/players/:player_id/online_heatmap", method="get")]
     async fn get_online_heatmap_player(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerOnlineHeatmap>>{
         let context = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_online_heatmap(&context).await)
     }
+    /// Paginated list of a player's sessions on a server within a day.
+    ///
+    /// `datetime` selects which day to list (defaults to everything from 2024-02-01 to now);
+    /// `page` paginates in pages of 10.
     #[oai(path="/servers/:server_id/players/:player_id/sessions", method="get")]
     async fn get_list_sessions(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Query(page): Query<usize>,
@@ -715,6 +751,7 @@ impl PlayerApi{
             total_pages, rows: result.iter_into()
         })
     }
+    /// Details of a single player session by its ID.
     #[oai(path="/servers/:server_id/players/:player_id/sessions/:session_id/info", method="get")]
     async fn get_session_info(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Path(session_id): Path<String>,
@@ -732,6 +769,7 @@ impl PlayerApi{
         };
         response!(ok result.into())
     }
+    /// Maps played (and any match outcomes) during a single player session.
     #[oai(path="/servers/:server_id/players/:player_id/sessions/:session_id/maps", method="get")]
     async fn get_session_server_graph(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Path(session_id): Path<String>,
@@ -785,6 +823,10 @@ impl PlayerApi{
 
         response!(ok mapped.into_values().collect())
     }
+    /// Force a refresh of a player's infraction (ban/mute) records from their source system.
+    ///
+    /// Marks matching infractions as pending an update, then fetches each one's current state
+    /// from its originating anti-cheat/ban-tracking service in parallel.
     #[oai(path = "/servers/:server_id/players/:player_id/infraction_update", method="get")]
     async fn get_force_player_infraction_update(
         &self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, player_id: Path<i64>,
@@ -856,6 +898,7 @@ impl PlayerApi{
             infractions: fake_update.iter_into(),
         })
     }
+    /// A player's infraction (ban/mute) history on a server, newest first.
     #[oai(path = "/servers/:server_id/players/:player_id/infractions", method = "get")]
     async fn get_player_infractions(&self, Data(data): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerInfraction>> {
         let pool = &*data.pool.clone();
@@ -896,11 +939,18 @@ impl PlayerApi{
         };
         response!(ok result.iter_into())
     }
+    /// Full profile for a player on a server: playtime, rank and related stats in one call.
+    ///
+    /// Backed by `PlayerWorker`'s cache.
     #[oai(path = "/servers/:server_id/players/:player_id/detail", method = "get")]
     async fn get_player_detail(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<DetailedPlayer>{
         let ctx = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_detail(&ctx).await)
     }
+    /// A player's Steam profile picture, in full and medium sizes.
+    ///
+    /// Not server-scoped. Requires a Steam profile-picture provider to be configured; 501s
+    /// otherwise. Resolves non-Steam-ID player identifiers through their associated Steam ID.
     #[oai(path = "/players/:player_id/pfp", method = "get")]
     async fn get_player_pfp(
         &self, Data(app): Data<&AppData>, Path(player_id): Path<String>
@@ -944,6 +994,10 @@ impl PlayerApi{
             medium: url_medium
         })
     }
+    /// Players who were likely playing alongside this player during a given session.
+    ///
+    /// A heuristic ("might" — not a confirmed friends list) based on overlapping session time.
+    /// Backed by `PlayerWorker`'s cache.
     #[oai(path="/servers/:server_id/players/:player_id/sessions/:session_id/might_friends", method="get")]
     async fn get_player_approximate_friend(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Path(session_id): Path<String>,
@@ -952,6 +1006,7 @@ impl PlayerApi{
         let ctx = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_player_approximate_friend(&ctx, &session_id).await)
     }
+    /// A player's most-played maps on a server. Backed by `PlayerWorker`'s cache.
     #[oai(path="/servers/:server_id/players/:player_id/most_played_maps", method="get")]
     async fn get_player_most_played(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
@@ -960,6 +1015,7 @@ impl PlayerApi{
         let ctx = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_most_played_maps(&ctx).await)
     }
+    /// A player's playtime broken down by geographic region. Backed by `PlayerWorker`'s cache.
     #[oai(path="/servers/:server_id/players/:player_id/regions", method="get")]
     async fn get_player_region(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor,

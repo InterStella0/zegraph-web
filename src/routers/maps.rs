@@ -21,7 +21,9 @@ use crate::models::servers::*;
 use crate::models::players::*;
 use crate::models::radars::*;
 use crate::workers::*;
+use crate::routers::ApiTags;
 
+/// Ranking metric for `last/sessions` map listings.
 #[derive(Enum)]
 enum MapLastSessionMode{
     LastPlayed,
@@ -30,6 +32,7 @@ enum MapLastSessionMode{
     HighestCumHour,
     UniquePlayers,
 }
+/// Filter applied when listing a server's maps.
 #[derive(Enum)]
 enum MapFilterMode{
     Casual,
@@ -38,6 +41,7 @@ enum MapFilterMode{
     Favorite,
     HasLaser
 }
+/// Sort order for a map's guide listing.
 #[derive(Enum)]
 enum GuideSortType {
     TopRated,
@@ -345,8 +349,9 @@ fn handle_worker_map_result<T>(result: WorkResult<T>) -> Response<T>
 
 pub struct MapApi;
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::Maps")]
 impl MapApi{
+    /// List every map ever played on a server.
     #[oai(path = "/servers/:server_id/maps", method = "get")]
     async fn get_all_maps(
         &self, Data(data): Data<&AppData>, ServerExtractor(server): ServerExtractor
@@ -361,6 +366,7 @@ impl MapApi{
         };
         response!(ok result.iter_into())
     }
+    /// Search a server's maps by name, for autocomplete. Up to 20 substring matches.
     #[oai(path = "/servers/:server_id/maps/autocomplete", method = "get")]
     async fn get_maps_autocomplete(
         &self, Data(data): Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(map): Query<String>
@@ -378,6 +384,7 @@ impl MapApi{
         };
         response!(ok result.iter_into())
     }
+    /// Mark a map as a favorite for the signed-in user, on a server.
     #[oai(path="/servers/:server_id/maps/set-favorite", method="post")]
     async fn set_user_map_favorite(
         &self, Data(data): Data<&AppData>,
@@ -399,6 +406,7 @@ impl MapApi{
             map: payload.map_name
         })
     }
+    /// Remove a map from the signed-in user's favorites, on a server.
     #[oai(path="/servers/:server_id/maps/:map_name/unset-favorite", method="post")]
     async fn unset_user_map_favorite(
         &self, Data(data): Data<&AppData>, extract: MapExtractor,
@@ -415,6 +423,11 @@ impl MapApi{
 
         response!(ok extract.map.into())
     }
+    /// Paginated, filterable, sortable list of a server's played maps.
+    ///
+    /// `sorted_by` picks the ranking metric (last played, total/cumulative hours, session
+    /// count, or unique players); `filter` narrows to `Casual`/`TryHard`/`Available`/
+    /// `Favorite`/`HasLaser`; `search_map` filters by name substring. Pages are 25 maps each.
     #[oai(path = "/servers/:server_id/maps/last/sessions", method = "get")]
     async fn get_maps_last_session(
         &self, Data(data): Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(page): Query<usize>,
@@ -521,6 +534,9 @@ impl MapApi{
         };
         response!(ok resp)
     }
+    /// Paginated list of every individual map-play session on a server, newest first.
+    ///
+    /// Pages are 10 sessions each.
     #[oai(path = "/servers/:server_id/maps/all/sessions", method = "get")]
     async fn get_maps_all_sessions(
         &self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, page: Query<usize>
@@ -552,6 +568,7 @@ impl MapApi{
         };
         response!(ok resp)
     }
+    /// Music tracks associated with a map, including which other maps share each track.
     #[oai(path = "/servers/:server_id/maps/:map_name/musics", method = "get")]
     async fn get_maps_all_musics(
         &self, data: Data<&AppData>, extract: MapExtractor) -> Response<Vec<ServerMapMusic>>{
@@ -599,6 +616,7 @@ impl MapApi{
         response!(ok rows.iter_into())
     }
 
+    /// Detailed metadata for a single map on a server. Backed by `MapWorker`'s cache.
     #[oai(path = "/servers/:server_id/maps/:map_name/info", method = "get")]
     async fn get_maps_info(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
@@ -608,6 +626,8 @@ impl MapApi{
         handle_worker_map_result(app.map_worker.get_detail(&context).await)
     }
 
+    /// Time breakdown by player type (e.g. casual vs tryhard) for a map. Backed by
+    /// `MapWorker`'s cache.
     #[oai(path = "/servers/:server_id/maps/:map_name/player_types", method = "get")]
     async fn get_map_player_type(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
@@ -617,6 +637,8 @@ impl MapApi{
         handle_worker_map_result(app.map_worker.get_player_types(&context).await)
     }
 
+    /// Performance metrics for a map: dropoff rate, average session length and similar. Backed
+    /// by `MapWorker`'s cache.
     #[oai(path = "/servers/:server_id/maps/:map_name/analyze", method = "get")]
     async fn get_maps_highlight(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
@@ -624,6 +646,9 @@ impl MapApi{
         let context = MapContext::from(extract);
         handle_worker_map_result(app.map_worker.get_statistics(&context).await)
     }
+    /// Paginated list of a single map's play sessions on a server, newest first.
+    ///
+    /// Pages are 5 sessions each.
     #[oai(path = "/servers/:server_id/maps/:map_name/sessions", method="get")]
     async fn get_maps_sessions(
         &self, Data(app): Data<&AppData>, extract: MapExtractor, Query(page): Query<usize>
@@ -653,6 +678,7 @@ impl MapApi{
         };
         response!(ok resp)
     }
+    /// Details of a single map-play session by its ID. Cached for 60 seconds.
     #[oai(path="/servers/:server_id/sessions/:session_id/info", method="get")]
     async fn get_map_session_info(
         &self, Data(data): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>
@@ -670,6 +696,10 @@ impl MapApi{
         };
         response!(ok row.result.into())
     }
+    /// Players (and their playtime during it) for a single map-play session, ranked by time.
+    ///
+    /// Anonymized players are handled per the requester's identity. Cached briefly while the
+    /// map is still being played, for a day once it has ended.
     #[oai(path="/servers/:server_id/sessions/:session_id/players", method="get")]
     async fn get_map_player_session(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>,
@@ -765,6 +795,8 @@ impl MapApi{
         anonymizer.apply(&mut players);
         response!(ok players)
     }
+    /// Geographic (continent-level) player distribution during a single map-play session.
+    /// Cached for 60 seconds.
     #[oai(path="/servers/:server_id/sessions/:session_id/continents", method="get")]
     async fn radar_statistic_session_continents(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>
@@ -831,6 +863,8 @@ impl MapApi{
         response!(ok stats)
     }
 
+    /// The server's currently active map session and its live match (round) state, if any.
+    /// Cached for 60 seconds.
     #[oai(path="/servers/:server_id/match-now", method="get")]
     async fn get_map_now_match(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor
@@ -869,6 +903,8 @@ impl MapApi{
 
         response!(ok rows.result.into())
     }
+    /// Every match (round) that occurred during a single map-play session, in order. Cached for
+    /// 2 minutes.
     #[oai(path="/servers/:server_id/sessions/:session_id/all-match", method="get")]
     async fn get_map_session_all_match(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>
@@ -894,6 +930,8 @@ impl MapApi{
 
         response!(ok rows.result.iter_into())
     }
+    /// The most recent match (round) result during a single map-play session, if any. Cached
+    /// for 12 minutes.
     #[oai(path="/servers/:server_id/sessions/:session_id/match", method="get")]
     async fn get_map_session_match(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>
@@ -921,6 +959,7 @@ impl MapApi{
 
         response!(ok Some(rows.result.into()))
     }
+    /// The map image best matching this map's name, for the server's game type.
     #[oai(path="/servers/:server_id/maps/:map_name/images", method="get")]
     async fn get_server_map_images(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
@@ -945,6 +984,7 @@ impl MapApi{
         };
         response!(ok d)
     }
+    /// Average counts of tracked in-game events for a map. Backed by `MapWorker`'s cache.
     #[oai(path="/servers/:server_id/maps/:map_name/events", method="get")]
     async fn get_event_counts(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
@@ -952,6 +992,8 @@ impl MapApi{
         let context = MapContext::from(extract);
         handle_worker_map_result(app.map_worker.get_events(&context).await)
     }
+    /// Per-day geographic heat map data for a map's player activity. Backed by `MapWorker`'s
+    /// cache.
     #[oai(path="/servers/:server_id/maps/:map_name/heat-regions", method="get")]
     async fn get_heat_regions(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
@@ -959,6 +1001,7 @@ impl MapApi{
         let context = MapContext::from(extract);
         handle_worker_map_result(app.map_worker.get_heat_regions(&context).await)
     }
+    /// Geographic region breakdown for a map's players. Backed by `MapWorker`'s cache.
     #[oai(path="/servers/:server_id/maps/:map_name/regions", method="get")]
     async fn get_map_regions(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
@@ -966,6 +1009,8 @@ impl MapApi{
         let context = MapContext::from(extract);
         handle_worker_map_result(app.map_worker.get_regions(&context).await)
     }
+    /// Distribution of session lengths for a map (how long players typically stay). Backed by
+    /// `MapWorker`'s cache.
     #[oai(path="/servers/:server_id/maps/:map_name/sessions_distribution", method="get")]
     async fn get_map_sessions_distribution(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
@@ -973,6 +1018,10 @@ impl MapApi{
         let context = MapContext::from(extract);
         handle_worker_map_result(app.map_worker.get_session_distributions(&context).await)
     }
+    /// Top players on a map, ranked by playtime, with optional name search.
+    ///
+    /// `player_name` (minimum 2 characters) filters to matching players; pages are 10 players
+    /// each.
     #[oai(path="/servers/:server_id/maps/:map_name/top_players", method="get")]
     async fn get_map_players(
         &self, Data(app): Data<&AppData>, extract: MapExtractor,
@@ -1126,7 +1175,10 @@ impl MapApi{
         };
         response!(ok value)
     }
-    #[oai(path="/servers/:server_id/guides", method="get")]
+    /// Top-rated guide per map for every map on a server (plus global guides), paginated.
+    ///
+    /// Pages are 10 maps each.
+    #[oai(path="/servers/:server_id/guides", method="get", tag = "ApiTags::Guides")]
     async fn get_all_map_guides(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, OptionalTokenBearer(user): OptionalTokenBearer,
         Query(page): Query<usize>
@@ -1198,7 +1250,12 @@ impl MapApi{
         response!(ok paginated)
     }
 
-    #[oai(path="/maps/:map_name/guides", method="get")]
+    /// Paginated, sortable, filterable list of guides for a map (global to the site, not
+    /// server-scoped).
+    ///
+    /// `sort` picks `TopRated`/`Newest`/`Oldest`/`MostDiscussed`; `category` and `server_id`
+    /// narrow the results. Pages are 10 guides each.
+    #[oai(path="/maps/:map_name/guides", method="get", tag = "ApiTags::Guides")]
     async fn get_map_guides(
         &self, Data(app): Data<&AppData>, extract: BasicMapExtractor, OptionalTokenBearer(user): OptionalTokenBearer,
         Query(page): Query<usize>, Query(category): Query<Option<String>>, Query(sort): Query<GuideSortType>,
@@ -1263,7 +1320,12 @@ impl MapApi{
         let paginated = GuidesPaginated{ total_guides, guides };
         response!(ok paginated)
     }
-    #[oai(path="/maps/:map_name/guides", method="post")]
+    /// Publish a new guide for a map.
+    ///
+    /// Rejected if the author is currently guide-banned. `title` must be 6-199 characters,
+    /// `content` over 50, `category` non-empty; `server_id` (if given) must exist. A unique slug
+    /// is generated from the title.
+    #[oai(path="/maps/:map_name/guides", method="post", tag = "ApiTags::Guides")]
     async fn create_map_guide(
         &self, Data(app): Data<&AppData>, extract: BasicMapExtractor, TokenBearer(user_token): TokenBearer,
         Json(payload): Json<CreateGuideDto>
@@ -1350,7 +1412,8 @@ impl MapApi{
         response!(ok guide.into())
     }
 
-    #[oai(path="/maps/:map_name/guides/slugs/:guide_slug", method="get")]
+    /// Fetch a guide by its URL slug instead of its ID.
+    #[oai(path="/maps/:map_name/guides/slugs/:guide_slug", method="get", tag = "ApiTags::Guides")]
     async fn get_map_guide_slug(&self, Data(app): Data<&AppData>, extract: GuideSlugExtractor, OptionalTokenBearer(user): OptionalTokenBearer) -> Response<Guide>{
         let pool = &*app.pool.clone();
         let optional_user_id = user.map(|u| u.id);
@@ -1386,7 +1449,8 @@ impl MapApi{
         };
         response!(ok data.into())
     }
-    #[oai(path="/maps/:map_name/guides/:guide_id", method="get")]
+    /// Fetch a single guide by its ID.
+    #[oai(path="/maps/:map_name/guides/:guide_id", method="get", tag = "ApiTags::Guides")]
     async fn get_map_guide(&self, Data(app): Data<&AppData>, extract: GuideExtractor, OptionalTokenBearer(user): OptionalTokenBearer) -> Response<Guide>{
         let pool = &*app.pool.clone();
         let optional_user_id = user.map(|u| u.id);
@@ -1423,7 +1487,9 @@ impl MapApi{
         response!(ok data.into())
     }
 
-    #[oai(path="/maps/:map_name/guides/:guide_id", method="put")]
+    /// Edit a guide's title/content/category/server scope. Only the guide's author may edit it,
+    /// and only if they aren't currently guide-banned. Same field validation as creating a guide.
+    #[oai(path="/maps/:map_name/guides/:guide_id", method="put", tag = "ApiTags::Guides")]
     async fn edit_map_guide(
         &self, Data(app): Data<&AppData>, extract: GuideExtractor, TokenBearer(user_token): TokenBearer,
         Json(payload): Json<UpdateGuideDto>
@@ -1522,7 +1588,8 @@ impl MapApi{
         response!(ok updated_guide.into())
     }
 
-    #[oai(path="/maps/:map_name/guides/:guide_id", method="delete")]
+    /// Delete a guide. Only the guide's author or a superuser may delete it.
+    #[oai(path="/maps/:map_name/guides/:guide_id", method="delete", tag = "ApiTags::Guides")]
     async fn delete_map_guide(&self, Data(app): Data<&AppData>, extract: GuideExtractor, TokenBearer(user_token): TokenBearer) -> Response<Guide>{
         let guide = extract.guide;
         if guide.author_id != user_token.id {
@@ -1564,7 +1631,8 @@ impl MapApi{
         response!(ok updated_guide.into())
     }
 
-    #[oai(path="/maps/:map_name/guides/:guide_id/report", method="post")]
+    /// Report a guide for moderation review.
+    #[oai(path="/maps/:map_name/guides/:guide_id/report", method="post", tag = "ApiTags::Guides")]
     async fn report_map_guide(
         &self, Data(app): Data<&AppData>, extract: GuideExtractor, TokenBearer(user_token): TokenBearer,
         Json(payload): Json<ReportGuideDto>
@@ -1589,7 +1657,8 @@ impl MapApi{
         response!(ok "OK".into())
     }
 
-    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id/report", method="post")]
+    /// Report a guide comment for moderation review.
+    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id/report", method="post", tag = "ApiTags::Guides")]
     async fn report_map_guide_comment(
         &self, Data(app): Data<&AppData>, extract: GuideCommentExtractor, TokenBearer(user_token): TokenBearer,
         Json(payload): Json<ReportGuideDto>
@@ -1614,6 +1683,11 @@ impl MapApi{
         response!(ok "OK".into())
     }
 
+    /// Report a map music track as unavailable or mismatched, optionally suggesting a
+    /// replacement YouTube URL.
+    ///
+    /// `reason` must be `video_unavailable` or `wrong_video`. Only one pending report per track
+    /// is allowed at a time.
     #[oai(path="/music/:music_id/report", method="post")]
     async fn report_map_music(
         &self,
@@ -1685,7 +1759,10 @@ impl MapApi{
         }
     }
 
-    #[oai(path="/maps/:map_name/guides/:guide_id/vote", method="post")]
+    /// Upvote or downvote a guide (replaces any existing vote from the same user).
+    ///
+    /// Rejected if the voter is guide-banned or is the guide's own author.
+    #[oai(path="/maps/:map_name/guides/:guide_id/vote", method="post", tag = "ApiTags::Guides")]
     async fn vote_map_guide(
         &self, Data(app): Data<&AppData>, extract: GuideExtractor,
         TokenBearer(user_token): TokenBearer, Json(payload): Json<VoteDto>
@@ -1761,7 +1838,8 @@ impl MapApi{
         response!(ok updated_guide.into())
     }
 
-    #[oai(path="/maps/:map_name/guides/:guide_id/vote", method="delete")]
+    /// Remove the signed-in user's vote from a guide.
+    #[oai(path="/maps/:map_name/guides/:guide_id/vote", method="delete", tag = "ApiTags::Guides")]
     async fn delete_vote_map_guide(
         &self, Data(app): Data<&AppData>, extract: GuideExtractor,
         TokenBearer(user_token): TokenBearer
@@ -1819,7 +1897,8 @@ impl MapApi{
         response!(ok updated_guide.into())
     }
 
-    #[oai(path="/maps/:map_name/guides/:guide_id/comments", method="get")]
+    /// Paginated comments on a guide, oldest first. Pages are 10 comments each.
+    #[oai(path="/maps/:map_name/guides/:guide_id/comments", method="get", tag = "ApiTags::Guides")]
     async fn get_map_guide_comments(
         &self, Data(app): Data<&AppData>, extract: GuideExtractor, OptionalTokenBearer(user): OptionalTokenBearer,
         Query(page): Query<usize>
@@ -1869,7 +1948,9 @@ impl MapApi{
         };
         response!(ok paginated)
     }
-    #[oai(path="/maps/:map_name/guides/:guide_id/comments", method="post")]
+    /// Post a comment on a guide. Rejected if the author is guide-banned; `content` must be
+    /// non-empty.
+    #[oai(path="/maps/:map_name/guides/:guide_id/comments", method="post", tag = "ApiTags::Guides")]
     async fn create_map_guide_comment(
         &self, Data(app): Data<&AppData>, extract: GuideExtractor, TokenBearer(user_token): TokenBearer,
         Json(payload): Json<CreateUpdateCommentDto>
@@ -1921,7 +2002,8 @@ impl MapApi{
 
         response!(ok comment.into())
     }
-    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id", method="delete")]
+    /// Delete a guide comment. Only the comment's author or a superuser may delete it.
+    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id", method="delete", tag = "ApiTags::Guides")]
     async fn delete_map_guide_comment(
         &self, Data(app): Data<&AppData>, extract: GuideCommentExtractor, TokenBearer(user_token): TokenBearer
     ) -> Response<GuideComment>{
@@ -1964,7 +2046,9 @@ impl MapApi{
 
         response!(ok deleted_comment.into())
     }
-    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id", method="put")]
+    /// Edit a guide comment's content. Only the comment's author may edit it, and only if they
+    /// aren't currently guide-banned.
+    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id", method="put", tag = "ApiTags::Guides")]
     async fn update_map_guide_comment(
         &self, Data(app): Data<&AppData>, extract: GuideCommentExtractor, TokenBearer(user_token): TokenBearer, Json(payload): Json<CreateUpdateCommentDto>
     ) -> Response<GuideComment>{
@@ -2021,7 +2105,10 @@ impl MapApi{
 
         response!(ok updated_comment.into())
     }
-    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id/vote", method="post")]
+    /// Upvote or downvote a guide comment (replaces any existing vote from the same user).
+    ///
+    /// Rejected if the voter is guide-banned or is the comment's own author.
+    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id/vote", method="post", tag = "ApiTags::Guides")]
     async fn vote_map_guide_comment(
         &self, Data(app): Data<&AppData>, extract: GuideCommentExtractor,
         TokenBearer(user_token): TokenBearer, Json(payload): Json<VoteDto>
@@ -2082,7 +2169,8 @@ impl MapApi{
 
         response!(ok updated_comment.into())
     }
-    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id/vote", method="delete")]
+    /// Remove the signed-in user's vote from a guide comment.
+    #[oai(path="/maps/:map_name/guides/:guide_id/comments/:comment_id/vote", method="delete", tag = "ApiTags::Guides")]
     async fn remove_vote_map_guide_comment(
         &self, Data(app): Data<&AppData>, extract: GuideCommentExtractor, TokenBearer(user_token): TokenBearer
     ) -> Response<GuideComment>{
@@ -2135,8 +2223,8 @@ impl MapApi{
         response!(ok updated_comment.into())
     }
 
-    /// Get all maps with 3D models for a specific server
-    #[oai(path = "/servers/:server_id/maps/3d", method = "get")]
+    /// List maps played on a server that have a low-res and/or high-res 3D model uploaded.
+    #[oai(path = "/servers/:server_id/maps/3d", method = "get", tag = "ApiTags::Models3D")]
     async fn get_server_maps_with_models(
         &self,
         Data(app): Data<&AppData>,
@@ -2213,8 +2301,8 @@ impl MapApi{
         response!(ok result)
     }
 
-    /// Get all maps with their 3D models
-    #[oai(path = "/maps/all/3d", method = "get")]
+    /// List every map with a low-res and/or high-res 3D model uploaded, across all servers.
+    #[oai(path = "/maps/all/3d", method = "get", tag = "ApiTags::Models3D")]
     async fn get_all_maps_with_models(
         &self,
         Data(app): Data<&AppData>,
@@ -2290,8 +2378,8 @@ impl MapApi{
         response!(ok result)
     }
 
-    /// Get 3D model info for a map
-    #[oai(path = "/maps/:map_name/3d", method = "get")]
+    /// Get a map's low-res and/or high-res 3D model, if uploaded.
+    #[oai(path = "/maps/:map_name/3d", method = "get", tag = "ApiTags::Models3D")]
     async fn get_map_3d_models(
         &self,
         Data(app): Data<&AppData>,
@@ -2356,7 +2444,12 @@ impl MapApi{
         }
     }
 
-    #[oai(path = "/maps/:map_name/3d/upload", method = "post")]
+    /// Upload a map 3D model in one request (max 500MB).
+    ///
+    /// Requires the `superuser` or `map_manager` role. Multipart form with `file`, `res_type`
+    /// (`low`/`high`) and optional `credit`. Replaces any existing model of the same resolution
+    /// for that map. For larger files, use the chunked upload endpoints instead.
+    #[oai(path = "/maps/:map_name/3d/upload", method = "post", tag = "ApiTags::Models3D")]
     async fn upload_map_3d_model(
         &self,
         Data(app): Data<&AppData>,
@@ -2473,8 +2566,12 @@ impl MapApi{
         }
     }
 
-    /// Initiate chunked upload session for large 3D models
-    #[oai(path = "/maps/:map_name/3d/upload/initiate", method = "post")]
+    /// Start a chunked upload session for a large map 3D model.
+    ///
+    /// Requires the `superuser` or `map_manager` role. Body must include `res_type`
+    /// (`low`/`high`) and `file_size`; returns a `session_id` to upload chunks against, then
+    /// finish with `upload/complete`.
+    #[oai(path = "/maps/:map_name/3d/upload/initiate", method = "post", tag = "ApiTags::Models3D")]
     async fn initiate_chunked_upload(
         &self,
         Data(app): Data<&AppData>,
@@ -2556,8 +2653,12 @@ impl MapApi{
         })
     }
 
-    /// Upload individual chunk
-    #[oai(path = "/maps/:map_name/3d/upload/chunk/:session_id", method = "post")]
+    /// Upload a single chunk of a chunked map 3D model upload.
+    ///
+    /// Requires the `superuser` or `map_manager` role and ownership of the upload session.
+    /// Multipart form with `chunk_index` and `chunk_data`. Re-uploading an already-received
+    /// chunk is a no-op.
+    #[oai(path = "/maps/:map_name/3d/upload/chunk/:session_id", method = "post", tag = "ApiTags::Models3D")]
     async fn upload_chunk(
         &self,
         Data(app): Data<&AppData>,
@@ -2659,8 +2760,13 @@ impl MapApi{
         })
     }
 
-    /// Complete chunked upload and assemble file
-    #[oai(path = "/maps/:map_name/3d/upload/complete/:session_id", method = "post")]
+    /// Finish a chunked map 3D model upload once every chunk has arrived.
+    ///
+    /// Requires the `superuser` or `map_manager` role and ownership of the upload session.
+    /// Assembles the chunks, verifies the resulting file size, stores it, and upserts the model
+    /// row (replacing any existing model of the same resolution for that map). Cleans up the
+    /// session and temp files either way.
+    #[oai(path = "/maps/:map_name/3d/upload/complete/:session_id", method = "post", tag = "ApiTags::Models3D")]
     async fn complete_chunked_upload(
         &self,
         Data(app): Data<&AppData>,
@@ -2809,8 +2915,12 @@ impl MapApi{
         }
     }
 
-    /// Cancel chunked upload
-    #[oai(path = "/maps/:map_name/3d/upload/cancel/:session_id", method = "delete")]
+    /// Cancel an in-progress chunked map 3D model upload.
+    ///
+    /// Requires the `superuser` or `map_manager` role and ownership of the upload session.
+    /// Deletes any received chunks and the session; safe to call even if the session already
+    /// expired.
+    #[oai(path = "/maps/:map_name/3d/upload/cancel/:session_id", method = "delete", tag = "ApiTags::Models3D")]
     async fn cancel_chunked_upload(
         &self,
         Data(app): Data<&AppData>,
@@ -2937,8 +3047,10 @@ impl MapApi{
         tokio::fs::remove_dir_all(&temp_dir).await
     }
 
-    /// Delete a 3D model (superuser only)
-    #[oai(path = "/maps/:map_name/3d/:res_type", method = "delete")]
+    /// Delete a map's 3D model (and its stored file) for one resolution.
+    ///
+    /// Requires the `superuser` or `map_manager` role. `res_type` must be `low` or `high`.
+    #[oai(path = "/maps/:map_name/3d/:res_type", method = "delete", tag = "ApiTags::Models3D")]
     async fn delete_map_3d_model(
         &self,
         Data(app): Data<&AppData>,

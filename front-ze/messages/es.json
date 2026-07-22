@@ -483,7 +483,8 @@
     "tracker": "Rastreador",
     "hub": "Hub",
     "status": "Estado",
-    "donors": "Donantes"
+    "donors": "Donantes",
+    "api": "API"
   },
   "maps": {
     "graph": "Gráfico",

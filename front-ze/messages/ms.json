@@ -483,7 +483,8 @@
     "tracker": "Penjejak",
     "hub": "Hab",
     "status": "Status",
-    "donors": "Penderma"
+    "donors": "Penderma",
+    "api": "API"
   },
   "maps": {
     "graph": "Graf",

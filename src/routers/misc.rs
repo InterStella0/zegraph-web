@@ -27,6 +27,7 @@ use crate::models::players::DbPlayer;
 use crate::models::admins::AnnouncementTypeState;
 use crate::models::sitemaps::*;
 use crate::workers::job::{QUEUE_HEAVY, QUEUE_LIGHT};
+use crate::routers::ApiTags;
 
 extern crate rust_fuzzy_search;
 
@@ -73,6 +74,7 @@ struct SitemapGuide {
     updated_at: String,
 }
 
+/// Everything needed to build the site's XML sitemaps.
 #[derive(Object, Serialize)]
 struct SitemapData {
     servers: Vec<SitemapServer>,
@@ -124,12 +126,14 @@ impl QgisHealth {
     }
 }
 
+/// Depth of the background job queues, `None` if redis was unreachable.
 #[derive(Object)]
 struct QueueHealth {
     heavy: Option<i64>,
     light: Option<i64>,
 }
 
+/// Request volume and latency for a single route pattern (e.g. `"GET /health"`).
 #[derive(Object)]
 struct EndpointStat {
     endpoint: String,
@@ -157,9 +161,12 @@ struct IAmOkie{
     /// None when redis is unreachable — the counters live there.
     traffic: Option<TrafficHealth>,
 }
+/// One LISTEN/NOTIFY event forwarded to `/events/data-updates`.
 #[derive(Object)]
 struct NewRowEvent {
+    /// The Postgres NOTIFY channel this event came from, or `"heartbeat"`.
     channel: String,
+    /// The raw NOTIFY payload (JSON-encoded), unparsed.
     payload: String,
 }
 
@@ -215,8 +222,13 @@ fn summarize_traffic(counts: HashMap<String, i64>, durations: HashMap<String, i6
 pub struct MiscApi;
 
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::Misc")]
 impl MiscApi {
+    /// All URLs needed to generate the site's XML sitemaps.
+    ///
+    /// Returns every server, every recently-active map, every non-anonymous player seen in the
+    /// last day (top 20 per server), and every published guide. Consumed by the frontend's
+    /// sitemap generator, not meant for general use.
     #[oai(path = "/sitemap-data", method = "get")]
     async fn sitemap_data(&self, data: Data<&AppData>) -> Response<SitemapData> {
         let Ok(servers) = sqlx::query_as!(DbServerSitemap, "
@@ -467,6 +479,13 @@ impl MiscApi {
 
         self.generate_thumbnail(thumbnail_type, &filename).await
     }
+    /// Fetch (or generate and cache) a resized map thumbnail.
+    ///
+    /// `filename` is the source image name, optionally prefixed with `{game_type}--`. If the
+    /// resized image isn't already cached on disk, it's downloaded from the map image source,
+    /// resized to the requested `thumbnail_type` (`Small` 180px, `Medium` 500px, `Large`
+    /// 1122px, `ExtraLarge` original width), and saved for next time. Returns an empty body on
+    /// any failure rather than an error status.
     #[oai(path = "/thumbnails/:thumbnail_type/:filename", method = "get")]
     async fn get_thumbnail(&self, thumbnail_type: Path<ThumbnailType>, filename: Path<String>) -> Binary<Vec<u8>> {
         match self.get_map_thumbnail(&thumbnail_type.0, &filename).await {
@@ -477,6 +496,12 @@ impl MiscApi {
             },
         }
     }
+    /// Resolve an internal page URL to an Open Graph preview image.
+    ///
+    /// `url` must point back at this same site (the `Host` header is checked against it). For a
+    /// `/{server_id}/maps/{map_name}` path, returns that map's large thumbnail; for a
+    /// `/{server_id}/players/{player_id}` path, returns that player's Steam profile picture.
+    /// Any other shape, or a lookup failure, returns an empty body.
     #[oai(path="/meta_thumbnails", method="get")]
     async fn get_meta_thumbnails(
         &self, req: &Request, Data(app): Data<&AppData>, Query(url): Query<String>
@@ -568,6 +593,9 @@ impl MiscApi {
             _ => Binary(vec![])
         }
     }
+    /// Currently-published, non-expired site announcements, newest first.
+    ///
+    /// Cached for 1 hour.
     #[oai(path="/announcements", method="get")]
     async fn get_annouce(&self, Data(app): Data<&AppData>) -> Response<Vec<Announcement>>{
         let pool = &*app.pool.clone();
@@ -585,6 +613,13 @@ impl MiscApi {
         } ;
         response!(ok value.result.iter_into())
     }
+    /// Server-sent event stream of live database changes.
+    ///
+    /// Forwards PostgreSQL `LISTEN/NOTIFY` events on `player_activity`, `map_changed`,
+    /// `map_update`, `infraction_new` and `infraction_update` as they happen, plus a heartbeat
+    /// event every 10 seconds. `player_activity` events for a player who anonymized themselves
+    /// on that server are silently dropped. Used by the frontend to refresh live views without
+    /// polling.
     #[oai(path = "/events/data-updates", method = "get")]
     async fn sse_new_rows(&self, Data(app): Data<&AppData>) -> EventStream<BoxStream<'static, NewRowEvent>> {
         let Some(db_url) = get_env_default("DATABASE_URL") else {

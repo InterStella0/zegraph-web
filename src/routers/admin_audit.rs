@@ -10,6 +10,7 @@ use crate::{response, AppData};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::models::admins::DbAuditLogRow;
+use crate::routers::ApiTags;
 
 pub struct AdminAuditApi;
 
@@ -35,9 +36,13 @@ fn changes_to_fields(changes: &Value) -> Vec<AuditFieldChange> {
         .collect()
 }
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::AdminAudit")]
 impl AdminAuditApi {
-    /// Paginated audit logs. Superusers see all categories; map managers only map metadata.
+    /// Paginated audit logs.
+    ///
+    /// Requires the `superuser` or `map_manager` role. Superusers see every category and may
+    /// filter by `category`/`map_name`/`action`; map managers are hard-scoped to map-metadata
+    /// changes regardless of query params. `page` is 1-indexed, `limit` capped at 200.
     #[oai(path = "/admin/audit-logs", method = "get")]
     async fn get_audit_logs(
         &self,

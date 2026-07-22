@@ -9,9 +9,11 @@ use crate::api_models::common::*;
 use crate::api_models::radars::*;
 use crate::core::utils::*;
 use crate::models::radars::*;
+use crate::routers::ApiTags;
 
 pub struct RadarApi;
 
+/// Width of the historical window to look back over, ending at the given `time`.
 #[derive(Enum)]
 #[oai(rename_all = "lowercase")]
 pub enum TimeInterval{
@@ -53,8 +55,12 @@ fn interval_to_date(start: &DateTime<Utc>, interval: &TimeInterval) -> DateTime<
     start.add(offset)
 }
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::Radars")]
 impl RadarApi {
+    /// Player counts by country over a historical time window.
+    ///
+    /// `time` anchors the end of the window and `interval` sets its width. Includes players
+    /// whose session overlaps the window, or who are still connected. Cached for 2 minutes.
     #[oai(path="/radars/:server_id/statistics", method="get")]
     async fn radar_statistics(
         &self, Data(app): Data<&AppData>,
@@ -131,6 +137,9 @@ impl RadarApi {
         };
         response!(ok stats)
     }
+    /// Currently-connected player counts by continent for one server.
+    ///
+    /// Cached for 60 seconds.
     #[oai(path="/radars/:server_id/live_statistics/continents", method="get")]
     async fn radar_statistic_live_continents(
         &self, Data(app): Data<&AppData>,
@@ -191,6 +200,9 @@ impl RadarApi {
         };
         response!(ok stats)
     }
+    /// Currently-connected player counts by continent, across all tracked servers.
+    ///
+    /// Cached for 60 seconds.
     #[oai(path="/radars/global/live_statistics/continents", method="get")]
     async fn radar_statistic_live_continents_global(
         &self, Data(app): Data<&AppData>,
@@ -240,6 +252,9 @@ impl RadarApi {
         response!(ok stats)
     }
 
+    /// Currently-connected player counts by country for one server.
+    ///
+    /// Cached for 30 seconds.
     #[oai(path="/radars/:server_id/live_statistics", method="get")]
     async fn radar_statistic_live(
         &self, Data(app): Data<&AppData>,
@@ -300,6 +315,11 @@ impl RadarApi {
         };
         response!(ok stats)
     }
+    /// Players currently online in the country at a given map coordinate.
+    ///
+    /// `latitude`/`longitude` locate the country polygon to query; `page` paginates its players
+    /// (10 per page) by playtime. Returns the country's GeoJSON boundary alongside the player
+    /// list, with anonymization applied per the requester's identity. Cached for 30 seconds.
     #[oai(path="/radars/:server_id/live_query", method="get")]
     async fn radar_query_live(
         &self, Data(app): Data<&AppData>,
@@ -385,6 +405,10 @@ impl RadarApi {
             players: players_out,
         })
     }
+    /// Players who were in the country at a given map coordinate, over a historical window.
+    ///
+    /// Same as `live_query`, but `time`/`interval` set a historical window instead of only
+    /// looking at currently-connected players. Cached for 30 seconds.
     #[oai(path="/radars/:server_id/query", method="get")]
     async fn radar_query(
         &self, Data(app): Data<&AppData>,

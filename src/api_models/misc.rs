@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use poem_openapi::{Enum, Object};
 use serde::{Deserialize, Serialize};
 
+/// A Steam profile, mirroring the Steam Web API's `GetPlayerSummaries` response shape.
 #[derive(Object, Deserialize, Clone)]
 pub struct SteamProfile {
     pub steamid: String,
@@ -27,7 +28,9 @@ pub struct SteamProfile {
     pub gameserverip: Option<String>,
     pub locstatecode: Option<String>,
     pub loccityid: Option<i64>,
+    /// Only populated on `/accounts/me`: whether this user holds the `superuser` role.
     pub is_superuser: Option<bool>,
+    /// Only populated on `/accounts/me`: whether this user holds the `map_manager` role.
     pub is_map_manager: Option<bool>,
 }
 
@@ -41,11 +44,15 @@ pub struct SteamApiResponse {
     pub response: SteamProfileResponse,
 }
 
+/// A user's anonymization preference for one community.
 #[derive(Object)]
 pub struct UserAnonymization {
-    pub user_id: String, // String to avoid JS precision loss with large i64
+    /// String rather than a numeric type to avoid precision loss on large Steam IDs in JS.
+    pub user_id: String,
     pub community_id: Option<String>,
+    /// Whether the user's name/identity is hidden from other players in this community.
     pub anonymized: bool,
+    /// Whether the user's geographic location is hidden in this community.
     pub hide_location: bool,
 }
 
@@ -60,13 +67,16 @@ pub struct VoteDto {
     pub vote_type: VoteType,
 }
 
+/// A guide's author.
 #[derive(Object)]
 pub struct GuideAuthor {
-    pub id: String, // do not turn this back into integer, bigint is not supported on js AAAAAAAAA
+    /// String rather than a numeric type: bigint Steam IDs lose precision in JS.
+    pub id: String,
     pub name: String,
     pub avatar: Option<String>,
 }
 
+/// A map guide.
 #[derive(Object)]
 pub struct Guide {
     pub id: String,
@@ -81,10 +91,13 @@ pub struct Guide {
     pub upvotes: i64,
     pub downvotes: i64,
     pub comment_count: i64,
+    /// URL-safe slug for this guide, unique per map.
     pub slug: String,
+    /// The requester's own vote on this guide, if signed in and if they voted.
     pub user_vote: Option<VoteType>,
 }
 
+/// A comment on a guide.
 #[derive(Object)]
 pub struct GuideComment {
     pub id: String,
@@ -98,18 +111,21 @@ pub struct GuideComment {
     pub user_vote: Option<VoteType>
 }
 
+/// A page of a map's guide listing.
 #[derive(Object)]
 pub struct GuideCommentPaginated{
     pub comments: Vec<GuideComment>,
     pub total_comments: i32,
 }
 
+/// A page of guides.
 #[derive(Object)]
 pub struct GuidesPaginated {
     pub(crate) total_guides: i32,
     pub(crate) guides: Vec<Guide>,
 }
 
+/// Server-side state of an in-progress chunked map 3D model upload, cached in redis.
 #[derive(Object, Serialize, Deserialize, Clone)]
 pub struct UploadSession {
     pub session_id: String,
@@ -121,9 +137,11 @@ pub struct UploadSession {
     pub total_size: u64,
     pub uploaded_by: i64,
     pub created_at: String,
+    /// Indices of chunks received so far.
     pub chunks_received: Vec<u32>,
 }
 
+/// Response to starting a chunked upload: how to split and where to send the file.
 #[derive(Object, Serialize, Deserialize)]
 pub struct InitiateUploadResponse {
     pub session_id: String,
@@ -131,6 +149,7 @@ pub struct InitiateUploadResponse {
     pub total_chunks: u32,
 }
 
+/// Acknowledgement of one uploaded chunk.
 #[derive(Object, Serialize, Deserialize)]
 pub struct ChunkUploadResponse {
     pub chunk_index: u32,
@@ -139,6 +158,7 @@ pub struct ChunkUploadResponse {
 }
 
 
+/// An uploaded 3D model for a character/class.
 #[derive(Object, Serialize)]
 pub struct Character3DModel {
     pub id: i32,
@@ -146,6 +166,7 @@ pub struct Character3DModel {
     pub name: Option<String>,
     pub server_id: String,
     pub credit: Option<String>,
+    /// URL to fetch the model file from.
     pub link_path: String,
     pub uploaded_by: Option<i64>,
     pub uploader_name: Option<String>,
@@ -155,6 +176,7 @@ pub struct Character3DModel {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Server-side state of an in-progress chunked character 3D model upload, cached in redis.
 #[derive(Object, Serialize, Deserialize, Clone)]
 pub struct CharacterUploadSession {
     pub session_id: String,
@@ -167,6 +189,7 @@ pub struct CharacterUploadSession {
     pub total_size: u64,
     pub uploaded_by: i64,
     pub created_at: String,
+    /// Indices of chunks received so far.
     pub chunks_received: Vec<u32>,
 }
 
@@ -176,6 +199,7 @@ pub struct ProviderResponse{
     pub url: String
 }
 
+/// One data-scraper fetch attempt against a server.
 #[derive(Object, Serialize, Deserialize, Clone)]
 pub struct FetchStatusEntry {
     pub fetch_id: i64,
@@ -190,22 +214,28 @@ pub struct FetchStatusEntry {
     pub error: Option<String>,
 }
 
+/// One time bucket of a scraper-health histogram.
 #[derive(Object, Serialize, Deserialize, Clone)]
 pub struct FetchStatusBucket {
     pub ok: i32,
     pub error: i32,
+    /// First error message seen in this bucket, truncated.
     pub first_error: Option<String>,
+    /// Position of this bucket within the fixed-size histogram (0 = oldest).
     pub bucket_index: u8,
 }
 
+/// Fetch history for one (operation, source) pair, bucketed over time.
 #[derive(Object, Serialize, Deserialize, Clone)]
 pub struct FetchStatusTrack {
+    /// `"{op_name} · {source_name}"`.
     pub label: String,
     pub total_ok: i64,
     pub total_fetches: i64,
     pub buckets: Vec<FetchStatusBucket>,
 }
 
+/// Scraper health for one server, grouped by tracked data source.
 #[derive(Object, Serialize, Deserialize, Clone)]
 pub struct FetchStatusServerGroupTruncated {
     pub server_id: String,
@@ -213,6 +243,7 @@ pub struct FetchStatusServerGroupTruncated {
     pub tracks: Vec<FetchStatusTrack>,
 }
 
+/// Scraper health for one community, grouped by server.
 #[derive(Object, Serialize, Deserialize, Clone)]
 pub struct FetchStatusCommunityGroupTruncated {
     pub community_id: String,
@@ -220,6 +251,7 @@ pub struct FetchStatusCommunityGroupTruncated {
     pub servers: Vec<FetchStatusServerGroupTruncated>,
 }
 
+/// Filter for admin announcement listing.
 #[derive(Enum, Clone)]
 pub enum AnnouncementStatus{
     All,
@@ -241,6 +273,7 @@ impl Display for AnnouncementStatus {
     }
 }
 
+/// `Rich` announcements require a title; `Basic` ones do not.
 #[derive(Enum, Clone, Serialize, Deserialize)]
 pub enum AnnouncementType {
     Basic,
@@ -256,13 +289,16 @@ impl Display for AnnouncementType {
     }
 }
 
+/// A site-wide announcement.
 #[derive(Object, Clone, Serialize)]
 pub struct Announcement{
     pub id: String,
     pub r#type: AnnouncementType,
+    /// Required for `Rich` announcements.
     pub title: Option<String>,
     pub text: String,
     pub created_at: DateTime<Utc>,
+    /// When the announcement starts being shown; may be in the future to schedule it.
     pub published_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub hidden: bool,
@@ -288,6 +324,7 @@ pub struct UpdateAnnouncementDto{
     pub show: Option<bool>,
 }
 
+/// A page of announcements.
 #[derive(Object, Serialize)]
 pub struct AnnouncementsPaginated{
     pub total: i64,

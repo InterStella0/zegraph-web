@@ -9,12 +9,14 @@ use crate::{response, AppData};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::models::misc::DbSpecialThanks;
+use crate::routers::ApiTags;
 
 pub struct SpecialThanksApi;
 
 
-#[OpenApi]
+#[OpenApi(tag = "ApiTags::SpecialThanks")]
 impl SpecialThanksApi {
+    /// List special-thanks/credits entries, in display order.
     #[oai(path = "/special-thanks", method = "get")]
     async fn get_special_thanks(
         &self,
@@ -41,6 +43,7 @@ impl SpecialThanksApi {
         response!(ok entries.into_iter().map(Into::into).collect())
     }
 
+    /// Add a special-thanks entry. Requires the `superuser` role.
     #[oai(path = "/special-thanks", method = "post")]
     async fn create_special_thanks(
         &self,
@@ -85,6 +88,7 @@ impl SpecialThanksApi {
         response!(ok entry.into())
     }
 
+    /// Update a special-thanks entry's fields. Requires the `superuser` role.
     #[oai(path = "/special-thanks/:id", method = "put")]
     async fn update_special_thanks(
         &self,
@@ -143,6 +147,7 @@ impl SpecialThanksApi {
         response!(ok entry.into())
     }
 
+    /// Delete a special-thanks entry. Requires the `superuser` role.
     #[oai(path = "/special-thanks/:id", method = "delete")]
     async fn delete_special_thanks(
         &self,

@@ -5,6 +5,7 @@ use crate::api_models::maps::MapRank;
 use crate::api_models::misc::UserAnonymization;
 use crate::api_models::servers::BaseCommunity;
 
+/// A player's playtime and rank across every category, on one server.
 #[derive(Object)]
 pub struct PlayerRanks{
     pub global_playtime: i64,
@@ -14,10 +15,12 @@ pub struct PlayerRanks{
     pub mixed_playtime: i64,
     pub highest_map_rank: Option<MapRank>,
 }
+/// Full player profile for a single server, as shown on a player's detail page.
 #[derive(Object)]
 pub struct DetailedPlayer{
     pub id: String,
     pub name: String,
+    /// Previous names this player (or a name-only alias merged into them) has used.
     pub aliases: Vec<PlayerAlias>,
     pub created_at: DateTime<Utc>,
     pub category: Option<String>,
@@ -27,6 +30,7 @@ pub struct DetailedPlayer{
     pub total_playtime: f64,
     pub rank: i64,
     pub ranks: Option<PlayerRanks>,
+    /// Canonical player ID this record has been merged into, if it's a name-only alias.
     pub associated_player_id: Option<String>
 }
 
@@ -36,11 +40,13 @@ pub struct PlayerAlias{
     pub created_at: DateTime<Utc>,
 }
 
+/// A page of a player leaderboard.
 #[derive(Object)]
 pub struct BriefPlayers {
     pub total_players: i64,
     pub players: Vec<PlayerBrief>
 }
+/// A player's row in the ranked players table.
 #[derive(Object)]
 pub struct PlayerTableRank{
     pub rank: i64,
@@ -52,11 +58,13 @@ pub struct PlayerTableRank{
     pub total_playtime: f64,
     pub is_anonymous: bool
 }
+/// A page of the ranked players table.
 #[derive(Object)]
 pub struct PlayersTableRanked{
     pub total_players: i64,
     pub players: Vec<PlayerTableRank>
 }
+/// A player's summary row, as shown in a leaderboard or session list.
 #[derive(Object)]
 pub struct PlayerBrief{
     pub id: String,
@@ -64,12 +72,14 @@ pub struct PlayerBrief{
     pub created_at: DateTime<Utc>,
     pub total_playtime: f64,
     pub rank: i64,
+    /// Set if the player is currently connected.
     pub online_since: Option<DateTime<Utc>>,
     pub last_played: DateTime<Utc>,
     pub last_played_duration: f64,
     pub is_anonymous: bool,
 }
 
+/// A single match (round) result within a map session, embedded on a player's session history.
 #[derive(Object)]
 pub struct MatchData {
     pub zombie_score: i16,
@@ -78,6 +88,7 @@ pub struct MatchData {
     pub extend_count: i16,
 }
 
+/// A map played during a player's session, with any matches (rounds) that occurred.
 #[derive(Object)]
 pub struct PlayerSessionMapPlayed{
     pub time_id: i32,
@@ -96,6 +107,7 @@ pub struct PlayerMostPlayedMap{
     pub rank: i64,
 }
 
+/// Time a player spent in one geographic region.
 #[derive(Object)]
 pub struct PlayerRegionTime{
     pub id: i16,
@@ -103,32 +115,39 @@ pub struct PlayerRegionTime{
     pub duration: f64,
 }
 
+/// A player's session, as shown in a "currently playing" list.
 #[derive(Object)]
 pub struct PlayerDetailSession{
     pub id: String,
     pub session_id: String,
     pub name: String,
     pub started_at: DateTime<Utc>,
+    /// `None` while the session is still active.
     pub ended_at: Option<DateTime<Utc>>,
     pub is_anonymous: bool
 }
 
+/// A player session paired with which server it's on (used for global "currently playing" lists).
 #[derive(Object)]
 pub struct PlayerDetailSessionCommunity{
     pub player_detail: PlayerDetailSession,
     pub server_id: String,
 }
 
+/// A single player session.
 #[derive(Object)]
 pub struct PlayerSession{
     pub id: String,
     pub server_id: String,
     pub player_id: String,
     pub started_at: DateTime<Utc>,
+    /// `None` while the session is still active.
     pub ended_at: Option<DateTime<Utc>>,
+    /// Last time the scraper confirmed this session was still active.
     pub last_verified: Option<DateTime<Utc>>
 }
 
+/// A player who was likely playing alongside another player (see `might_friends`).
 #[derive(Object)]
 pub struct PlayerSeen{
     pub id: String,
@@ -137,12 +156,14 @@ pub struct PlayerSeen{
     pub last_seen: DateTime<Utc>,
 }
 
+/// A page of a player's session list.
 #[derive(Object)]
 pub struct PlayerSessionPage{
     pub total_pages: i64,
     pub rows: Vec<PlayerSession>
 }
 
+/// One bucket of a player's playtime-over-time chart.
 #[derive(Object)]
 pub struct PlayerSessionTime{
     pub bucket_time: DateTime<Utc>,
@@ -150,6 +171,7 @@ pub struct PlayerSessionTime{
 }
 
 
+/// Connect/disconnect event type, for hour-of-day breakdowns.
 #[derive(Enum)]
 pub enum EventType{
     Join,
@@ -166,6 +188,7 @@ impl Display for EventType{
     }
 }
 
+/// Count of join/leave events in one hour of the day, summed across all days.
 #[derive(Object)]
 pub struct PlayerHourDay{
     pub event_type: EventType,
@@ -173,6 +196,7 @@ pub struct PlayerHourDay{
     pub count: i64,
 }
 
+/// A player's typical online activity for one hour of the day.
 #[derive(Object)]
 pub struct PlayerOnlineHeatmap{
     pub hour_of_day: i32,
@@ -180,6 +204,7 @@ pub struct PlayerOnlineHeatmap{
     pub online_count: i64,
 }
 
+/// Legacy GFL CS:GO leaderboard stats and ranks (see `PlayerApi::get_legacy_stats`).
 #[derive(Object)]
 pub struct PlayerWithLegacyRanks {
     pub steamid64: String,
@@ -206,13 +231,17 @@ pub struct PlayerWithLegacyRanks {
     pub rank_td_count: i64,
 }
 
+/// A single ban/mute record from an anti-cheat or ban-tracking source.
 #[derive(Object)]
 pub struct PlayerInfraction{
     pub id: String,
+    /// Which external system this infraction came from (e.g. GFLBans).
     pub source: String,
+    /// Name of the admin who issued it.
     pub by: String,
     pub reason: Option<String>,
     pub infraction_time: Option<DateTime<Utc>>,
+    /// Bitflags describing the infraction type, defined by the source system.
     pub flags: i64,
     pub admin_avatar: Option<String>
 }
@@ -223,6 +252,7 @@ pub struct PlayerInfractionUpdate{
     pub infractions: Vec<PlayerInfraction>,
 }
 
+/// A player's Steam avatar at two sizes.
 #[derive(Object)]
 pub struct PlayerProfilePicture{
     pub id: String,
@@ -230,6 +260,7 @@ pub struct PlayerProfilePicture{
     pub medium: String,
 }
 
+/// An autocomplete search result.
 #[derive(Object)]
 pub struct SearchPlayer{
     pub(crate) name: String,
@@ -237,6 +268,7 @@ pub struct SearchPlayer{
     pub(crate) is_anonymous: bool
 }
 
+/// A player's detail on one server, paired with which server it's on.
 #[derive(Object)]
 pub struct ServerPlayerDetail {
     pub server_id: String,
@@ -246,18 +278,22 @@ pub struct ServerPlayerDetail {
 
 pub type CommunityPlayerDetail = BaseCommunity<ServerPlayerDetail>;
 
+/// A name-only alias linked to a player's profile, for servers that don't track by Steam ID.
 #[derive(Object)]
 pub struct LinkedName {
     pub name: String,
     pub total_playtime: f64,
+    /// Whether this is the name currently in use.
     pub is_current: bool,
 }
 
+/// A player's profile detail on one server, for the public profile page.
 #[derive(Object)]
 pub struct ProfileServerEntry {
     pub server_id: String,
     pub server_name: String,
     pub map: Option<String>,
+    /// Whether this server tracks players by Steam ID rather than only by name.
     pub by_id: bool,
     pub online_count: i64,
     pub max_players: i64,
@@ -265,18 +301,23 @@ pub struct ProfileServerEntry {
     pub last_played: Option<DateTime<Utc>>,
     pub last_played_duration: Option<f64>,
     pub player: DetailedPlayer,
+    /// Other names this player has used on this server, if not tracked by Steam ID.
     pub linked_names: Vec<LinkedName>,
 }
 
 pub type ProfileCommunityDetail = BaseCommunity<ProfileServerEntry>;
 
+/// A player's best map ranking, and its position among every player's best rank.
 #[derive(Object)]
 pub struct GlobalMapRank {
+    /// This player's position among all players ranked by their single best map rank.
     pub position: i64,
     pub map: String,
+    /// The player's rank on `map` itself.
     pub rank: i64,
 }
 
+/// A player's playtime and rank summed across every server they've played on.
 #[derive(Object, Clone, Default)]
 pub struct GlobalPlaytimeSummary {
     pub total_playtime: f64,
@@ -289,7 +330,9 @@ pub struct GlobalPlaytimeSummary {
     pub total_ranked_players: i64,
     pub server_count: i64,
     pub community_count: i64,
+    /// Whether this summary is stale and due for recalculation.
     pub is_outdated: bool,
+    /// Whether a recalculation is currently in progress.
     pub is_calculating: bool,
     pub calculated_at: Option<DateTime<Utc>>,
     pub rank_calculated_at: Option<DateTime<Utc>>,
@@ -320,12 +363,14 @@ pub struct GlobalPlayerBrief {
     pub game: Option<String>,
 }
 
+/// A page of the global, cross-community player list.
 #[derive(Object)]
 pub struct GlobalBriefPlayers {
     pub total_players: i64,
     pub players: Vec<GlobalPlayerBrief>,
 }
 
+/// Aggregate stats shown at the top of a public profile page.
 #[derive(Object)]
 pub struct ProfileSummary {
     pub total_playtime: f64,
@@ -338,18 +383,26 @@ pub struct ProfileSummary {
     pub global: GlobalPlaytimeSummary,
 }
 
+/// A user's public profile page.
 #[derive(Object)]
 pub struct ProfileResponse {
-    pub steamid: String, // String to avoid JS precision loss with large i64
+    /// String rather than a numeric type to avoid precision loss on large Steam IDs in JS.
+    pub steamid: String,
+    /// `"Anonymous"` if every community this user appears in has them anonymized and the
+    /// requester isn't the owner.
     pub name: Option<String>,
     pub summary: ProfileSummary,
     pub communities: Vec<ProfileCommunityDetail>,
+    /// Whether the requester is viewing their own profile.
     pub is_owner: bool,
+    /// Only populated when `is_owner` is true.
     pub anonymization: Option<Vec<UserAnonymization>>,
 }
 
+/// Aggregate playtime/player/country counts for a server.
 #[derive(Object, Clone)]
 pub struct PlayersStatistic{
+    /// Sum of every player's individual playtime (player-hours, not wall-clock time).
     pub total_cum_playtime: f64,
     pub total_players: i64,
     pub countries: i64

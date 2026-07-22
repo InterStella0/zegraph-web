@@ -55,6 +55,11 @@ impl From<ErrorCode> for i32{
     }
 }
 
+/// The envelope every endpoint in this API responds with, always at HTTP 200.
+///
+/// `code` carries the real outcome: `0` means success and `data` is populated; any other value
+/// (see [`ErrorCode`]) means failure and `data` is `None`, with `msg` explaining why. Callers
+/// must check `code`, not the HTTP status, to detect errors.
 #[derive(Object)]
 pub struct ResponseObject<T: ParseFromJSON + ToJSON + Send + Sync> {
     code: i32,

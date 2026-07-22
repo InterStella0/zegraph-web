@@ -1,6 +1,6 @@
 use poem::middleware::Cors;
 use poem::{listener::TcpListener, EndpointExt, Route, Server};
-use poem_openapi::OpenApiService;
+use poem_openapi::{ContactObject, OpenApiService};
 mod routers;
 mod global_serializer;
 mod core;
@@ -135,8 +135,16 @@ fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
         AdminAuditApi,
         AdminServersApi,
     );
-    OpenApiService::new(apis, "ZE Watcher", "0.2")
-        .server(format!("http://127.0.0.1:{DEFAULT_PORT}/"))
+    OpenApiService::new(apis, "ZE Graph API", "1.0.1")
+        .description(
+            "Read-only API behind zegraph.xyz, tracking CS Zombie Escape servers across the \
+            western community (GFL and others) plus player playtime, map statistics and \
+            geographic distribution. Player data comes from a separate, unpublished scraper; \
+            this API only ever reads what the scraper already wrote. Endpoints under Admin* \
+            require an authenticated user holding the corresponding role.",
+        )
+        .contact(ContactObject::new().url("https://github.com/InterStella0/zegraph-web"))
+        .server("https://zegraph.xyz/data/api")
 }
 
 /// For logging endpoints, because poem dev rly makes it hard for me.
@@ -166,12 +174,16 @@ fn registered_patterns() -> Vec<Arc<dyn UriPatternExt + Send + Sync>> {
 /// drive the real route tree — middleware, extractors and all — rather than a stand-in.
 // `use<>` keeps `environment` out of the returned type; under edition 2024 `impl Trait` would
 // otherwise capture the borrow and the app could not outlive the caller's local.
-fn build_app(data: AppData, environment: &str) -> impl poem::Endpoint + use<> {
+fn build_app(data: AppData, environment: &str, swagger_ui_enabled: bool) -> impl poem::Endpoint + use<> {
     let api_service = build_api_service();
 
     let mut route = Route::new();
-    if environment.to_uppercase() == "DEVELOPMENT" {
-        let ui = api_service.swagger_ui();
+    if swagger_ui_enabled || environment.to_uppercase() == "DEVELOPMENT" {
+        // poem-openapi hardcodes `<title>Swagger UI</title>` in its template with no config knob
+        // for it, so the tab title is patched here instead of via `swagger_ui()` directly.
+        let html = api_service.swagger_ui_html()
+            .replacen("<title>Swagger UI</title>", "<title>ZE Graph API — Swagger UI</title>", 1);
+        let ui = poem::endpoint::make_sync(move |_| poem::web::Html(html.clone()));
         route = route.nest("/ui", ui);
     }
     route.nest("/", api_service)
@@ -259,7 +271,8 @@ async fn run_main() {
     };
 
     let port = DEFAULT_PORT;
-    let app = build_app(data, &environment);
+    let swagger_ui_enabled = get_env_bool("ENABLE_SWAGGER_UI", false);
+    let app = build_app(data, &environment, swagger_ui_enabled);
 
     if role.runs_workers() {
         consumer::spawn_consumers(
@@ -389,8 +402,9 @@ mod route_tests {
 
     fn client() -> TestClient<impl poem::Endpoint> {
         init_env();
-        // "PRODUCTION" so the swagger UI is not mounted; these tests assert on the API surface.
-        TestClient::new(build_app(fake_app_data(), "PRODUCTION"))
+        // "PRODUCTION" + swagger disabled so the swagger UI is not mounted; these tests assert
+        // on the API surface.
+        TestClient::new(build_app(fake_app_data(), "PRODUCTION", false))
     }
 
     fn spec_paths() -> BTreeSet<String> {
