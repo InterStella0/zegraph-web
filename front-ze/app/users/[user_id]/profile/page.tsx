@@ -20,6 +20,9 @@ import { oneDay, oneHour } from "../../../servers/[server_slug]/util.ts";
 import {getTranslations} from "next-intl/server";
 import { PlayerProfilePicture } from "types/players.ts";
 import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+
+dayjs.extend(relativeTime)
 
 export async function generateMetadata({ params }: {
     params: Promise<{ user_id: string }>
