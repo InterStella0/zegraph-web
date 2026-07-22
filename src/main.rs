@@ -33,7 +33,7 @@ use crate::routers::misc::MiscApi;
 use crate::routers::radars::RadarApi;
 use core::updater::*;
 use moka::future::Cache;
-use crate::api_models::common::{PatternLogger, UriPatternExt};
+use crate::api_models::common::{endpoint_metrics, EndpointMetrics, PatternLogger, UriPatternExt};
 use crate::core::utils::*;
 use crate::workers::*;
 use crate::workers::consumer;
@@ -226,6 +226,7 @@ async fn run_main() {
 
     let worker_pool = pool.clone();
     let worker_cache = cache.clone();
+    let metrics_cache = cache.clone();
     let worker_push_service = push_service.clone();
 
     let storage_backend = StorageBackend::from_env()
@@ -285,6 +286,9 @@ async fn run_main() {
         // just /health on its own port to keep the existing healthcheck shape.
         return run_worker_health_server().await;
     }
+
+    // Only a process serving HTTP records anything for this to flush.
+    EndpointMetrics::spawn_flusher(endpoint_metrics(), metrics_cache);
 
     // Shares {STORE_UPLOAD}/.tmp with the upload handlers, so it belongs wherever they do.
     let store_upload_clone = get_env_default("STORE_UPLOAD")
@@ -669,6 +673,36 @@ mod route_tests {
             poem::http::StatusCode::BAD_REQUEST,
             "omitting the required `url` query param should fail validation"
         );
+    }
+
+    /// `/health` must answer 200 even with everything it depends on down. The compose healthchecks
+    /// probe it with `curl -f`, and under Swarm a failing probe restarts the container while
+    /// `reverse` and `frontend` gate on `backend: service_healthy` — so a 503 during a database
+    /// blip would restart-loop the API tier at its worst moment. The fixtures point at a dead
+    /// postgres and a dead redis, which is exactly that case; the state belongs in the body.
+    #[tokio::test]
+    async fn health_reports_degraded_without_failing_the_probe() {
+        let cli = client();
+        let resp = cli.get("/health").send().await.0;
+        assert_eq!(
+            resp.status(),
+            poem::http::StatusCode::OK,
+            "/health must stay 200 with its dependencies down"
+        );
+
+        let raw = resp.into_body().into_string().await.expect("a health body");
+        let body: serde_json::Value = serde_json::from_str(&raw).expect("health should be JSON");
+        let data = &body["data"];
+
+        assert_eq!(data["response"], "degraded", "got {data:#}");
+        assert_eq!(data["postgres"]["status"], "down");
+        assert_eq!(data["redis"]["status"], "down");
+        assert!(data["queues"]["heavy"].is_null(), "an unreachable redis is not an empty queue");
+        assert!(data["queues"]["light"].is_null());
+        assert!(data["traffic"].is_null(), "the traffic counters live in redis, which is down");
+        // QGIS_WMS_URL is unset here, so the second layer must not have been attempted.
+        assert!(data["qgis"]["wms"].is_null());
+        assert!(data["qgis"]["status"].is_string(), "qgis is always reported, never omitted");
     }
 
     /// A route that needs neither auth nor the database, proving the fixture really does serve

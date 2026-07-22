@@ -69,6 +69,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       CACHE_THUMBNAIL: /var/www/thumbnails
       STORE_UPLOAD: /var/www/storage
+      QGIS_WMS_URL: http://${REVERSE_HOST:-reverse}/qgis-server
       STORAGE_BACKEND: ${STORAGE_BACKEND}
       R2_ENDPOINT: ${R2_ENDPOINT}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}

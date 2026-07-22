@@ -76,6 +76,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       CACHE_THUMBNAIL: /var/www/thumbnails
       STORE_UPLOAD: /var/www/storage
+      # The dev proxy is `exposing`; in compose.yaml/swarm it is `reverse`.
+      QGIS_WMS_URL: http://exposing/qgis-server
     depends_on:
       redis:
         condition: service_healthy

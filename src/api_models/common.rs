@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::fmt::Display;
-use std::sync::Arc;
-use std::time::Instant;
+use std::sync::{Arc, LazyLock, Mutex};
+use std::time::{Duration, Instant};
 use poem::http::StatusCode;
 use poem::{Endpoint, Middleware, Request};
 use poem_openapi::{ApiResponse, Object};
@@ -9,7 +10,7 @@ use poem_openapi::types::{ParseFromJSON, ToJSON};
 use serde::{Deserialize, Serialize};
 use crate::api_models::uri_pattern::PatternTable;
 pub use crate::api_models::uri_pattern::RoutePattern;
-use crate::AppData;
+use crate::{AppData, FastCache};
 use crate::core::utils::get_server;
 use crate::models::servers::DbServer;
 
@@ -142,6 +143,114 @@ impl<'a> poem::FromRequest<'a> for ServerExtractor {
 
 type UriExtension = dyn UriPatternExt + Send + Sync;
 
+/// Cumulative per-endpoint request counts, as `"{METHOD} {pattern}"` -> count.
+pub const METRICS_COUNT_KEY: &str = "gfl-ze-watcher:metrics:endpoint:count";
+/// Cumulative per-endpoint service time in *microseconds*, keyed the same as [`METRICS_COUNT_KEY`].
+///
+/// Microseconds rather than milliseconds because `HINCRBY` is integer-only and most handlers here
+/// are cache hits well under 1ms; accumulating rounded milliseconds would floor a large share of
+/// requests to zero and drag every average down with them.
+pub const METRICS_DURATION_KEY: &str = "gfl-ze-watcher:metrics:endpoint:duration_us";
+
+const METRICS_FLUSH_INTERVAL: Duration = Duration::from_secs(10);
+
+/// Request counts and service time accumulated by [`PatternLoggerEndpoint`], buffered in process
+/// and flushed to redis on an interval.
+///
+/// The buffer exists so the request path does no I/O: redis traffic stays at one pipelined batch
+/// every [`METRICS_FLUSH_INTERVAL`] no matter the request rate. `HINCRBY` merges across processes,
+/// so several API replicas can flush into the same two hashes without coordinating.
+pub struct EndpointMetrics {
+    /// endpoint key -> (requests, total microseconds), drained on each flush.
+    pending: Mutex<HashMap<String, (u64, u64)>>,
+}
+
+/// One accumulator per process, because there is one [`PatternLogger`] per process. A global
+/// avoids threading a handle through `build_app` and its test call sites purely to reach the
+/// flusher, which only `run_main` spawns — the tests accumulate into a map nothing ever drains.
+static METRICS: LazyLock<Arc<EndpointMetrics>> = LazyLock::new(|| {
+    Arc::new(EndpointMetrics::new())
+});
+
+pub fn endpoint_metrics() -> Arc<EndpointMetrics> {
+    METRICS.clone()
+}
+
+impl EndpointMetrics {
+    fn new() -> Self {
+        Self { pending: Mutex::new(HashMap::new()) }
+    }
+
+    /// `key` must be built from a *resolved route pattern*, never a raw request path — the path is
+    /// attacker-controlled and would let a scanner grow the redis hash without bound. Unmatched
+    /// requests collapse to the literal `unknown_pattern`, which is what bounds the field set.
+    pub fn record(&self, key: String, elapsed: Duration) {
+        let Ok(mut pending) = self.pending.lock() else {
+            // A poisoned lock means some other thread panicked mid-update. Metrics are not worth
+            // propagating that panic into the request path.
+            return;
+        };
+        let entry = pending.entry(key).or_insert((0, 0));
+        entry.0 += 1;
+        entry.1 += elapsed.as_micros() as u64;
+    }
+
+    fn drain(&self) -> HashMap<String, (u64, u64)> {
+        match self.pending.lock() {
+            Ok(mut pending) => std::mem::take(&mut *pending),
+            Err(_) => HashMap::new(),
+        }
+    }
+
+    /// Puts counts that failed to reach redis back into the buffer, so an outage costs a delay
+    /// rather than a hole in the totals.
+    fn restore(&self, drained: HashMap<String, (u64, u64)>) {
+        let Ok(mut pending) = self.pending.lock() else { return };
+        for (key, (count, micros)) in drained {
+            let entry = pending.entry(key).or_insert((0, 0));
+            entry.0 += count;
+            entry.1 += micros;
+        }
+    }
+
+    async fn flush(&self, cache: &FastCache) {
+        let drained = self.drain();
+        if drained.is_empty() {
+            return;
+        }
+
+        let mut conn = match cache.redis_pool.get().await {
+            Ok(conn) => conn,
+            Err(e) => {
+                tracing::warn!("Endpoint metrics flush could not reach redis: {e}");
+                return self.restore(drained);
+            }
+        };
+
+        let mut pipe = redis::pipe();
+        for (key, (count, micros)) in &drained {
+            pipe.hincr(METRICS_COUNT_KEY, key, *count)
+                .hincr(METRICS_DURATION_KEY, key, *micros);
+        }
+
+        if let Err(e) = pipe.query_async::<()>(&mut *conn).await {
+            tracing::warn!("Endpoint metrics flush failed: {e}");
+            self.restore(drained);
+        }
+    }
+
+    /// Only a process that serves HTTP has anything to flush; `run_main` spawns this there.
+    pub fn spawn_flusher(metrics: Arc<EndpointMetrics>, cache: Arc<FastCache>) {
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(METRICS_FLUSH_INTERVAL);
+            loop {
+                ticker.tick().await;
+                metrics.flush(&cache).await;
+            }
+        });
+    }
+}
+
 pub struct PatternLogger {
     patterns: Arc<PatternTable>,
 }
@@ -160,7 +269,11 @@ impl<E: Endpoint<Output = poem::Response>> Middleware<E> for PatternLogger {
     type Output = PatternLoggerEndpoint<E>;
 
     fn transform(&self, ep: E) -> Self::Output {
-        PatternLoggerEndpoint { ep, patterns: self.patterns.clone() }
+        PatternLoggerEndpoint {
+            ep,
+            patterns: self.patterns.clone(),
+            metrics: endpoint_metrics(),
+        }
     }
 }
 
@@ -168,6 +281,7 @@ impl<E: Endpoint<Output = poem::Response>> Middleware<E> for PatternLogger {
 pub struct PatternLoggerEndpoint<E> {
     ep: E,
     patterns: Arc<PatternTable>,
+    metrics: Arc<EndpointMetrics>,
 }
 
 impl<E> Endpoint for PatternLoggerEndpoint<E>
@@ -191,6 +305,9 @@ where
                 "unknown_pattern".to_string()
             },
         };
+        // Built from the resolved pattern rather than `uri_path`, so the redis hash cannot be grown
+        // by requesting arbitrary paths; see [`EndpointMetrics::record`].
+        let metric_key = format!("{} {transaction_name}", req.method().as_str());
 
         let span = tracing::info_span!(
             "http_request",
@@ -204,6 +321,9 @@ where
             let now = Instant::now();
             let res = self.ep.call(req).await;
             let duration = now.elapsed();
+            // Recorded before the branch: a request that failed is still one served, and its
+            // latency is the one most worth knowing about.
+            self.metrics.record(metric_key, duration);
 
             match &res {
                 Ok(resp) => {
@@ -251,4 +371,48 @@ pub struct Claims {
     pub name: String,
     pub exp: usize,
     pub iss: String,
+}
+
+/// The buffering half of [`EndpointMetrics`], which is the part with no I/O in it. The redis half
+/// is covered by the live checks in the `/health` verification steps.
+#[cfg(test)]
+mod metrics_tests {
+    use super::*;
+
+    #[test]
+    fn repeated_requests_accumulate_into_one_entry() {
+        let metrics = EndpointMetrics::new();
+        metrics.record("GET /health".to_string(), Duration::from_micros(400));
+        metrics.record("GET /health".to_string(), Duration::from_micros(600));
+        metrics.record("GET /servers".to_string(), Duration::from_millis(3));
+
+        let drained = metrics.drain();
+        assert_eq!(drained.get("GET /health"), Some(&(2, 1000)));
+        assert_eq!(drained.get("GET /servers"), Some(&(1, 3000)));
+    }
+
+    /// Sub-millisecond requests are the common case here, so they must survive the buffer rather
+    /// than rounding to zero on the way in — the whole reason the totals are microseconds.
+    #[test]
+    fn sub_millisecond_requests_are_not_rounded_away() {
+        let metrics = EndpointMetrics::new();
+        for _ in 0..10 {
+            metrics.record("GET /health".to_string(), Duration::from_micros(120));
+        }
+        assert_eq!(metrics.drain().get("GET /health"), Some(&(10, 1200)));
+    }
+
+    #[test]
+    fn draining_empties_the_buffer_and_restoring_puts_it_back() {
+        let metrics = EndpointMetrics::new();
+        metrics.record("GET /health".to_string(), Duration::from_micros(500));
+
+        let drained = metrics.drain();
+        assert!(metrics.drain().is_empty(), "a drain must not hand the same counts out twice");
+
+        // What a failed flush does, so a redis outage costs a delay rather than lost counts.
+        metrics.restore(drained);
+        metrics.record("GET /health".to_string(), Duration::from_micros(500));
+        assert_eq!(metrics.drain().get("GET /health"), Some(&(2, 1000)));
+    }
 }
