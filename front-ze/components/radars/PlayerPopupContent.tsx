@@ -8,6 +8,21 @@ import { getFlagUrl, secondsToHours } from "utils/generalUtils.ts";
 import { useServerData } from "../../app/servers/[server_slug]/ServerDataProvider";
 import Link from "next/link";
 import { useTranslations, useLocale } from 'next-intl';
+import type { LatLng } from 'leaflet';
+import type { CountryFeature, CountryPlayer } from 'types/radars';
+
+interface PlayerPopupContentProps {
+    isLoading: boolean;
+    countryData: CountryFeature | null;
+    currentPlayers: CountryPlayer[];
+    totalPlayers: number;
+    page: number;
+    totalPages: number;
+    position: LatLng;
+    error: string | null;
+    onPageChange: (page: number) => void;
+}
+
 const PlayerPopupContent = ({
                                 isLoading,
                                 countryData,
@@ -18,7 +33,7 @@ const PlayerPopupContent = ({
                                 position,
                                 error,
                                 onPageChange
-                            }) => {
+                            }: PlayerPopupContentProps) => {
     const t = useTranslations('radar.popup');
     // Handle error display
     if (error) {
@@ -101,7 +116,12 @@ const LoadingState = () => {
 };
 
 // Country header with flag and info
-const CountryHeader = ({ countryData, position }) => {
+interface CountryHeaderProps {
+    countryData: CountryFeature | null;
+    position: LatLng;
+}
+
+const CountryHeader = ({ countryData, position }: CountryHeaderProps) => {
     const t = useTranslations('radar.popup');
     return (
     <div className="flex items-center mb-1">
@@ -125,7 +145,11 @@ const CountryHeader = ({ countryData, position }) => {
 };
 
 // Player list component - now using PlayerAvatar and more compact
-const PlayerList = ({ players }) => {
+interface PlayerListProps {
+    players: CountryPlayer[];
+}
+
+const PlayerList = ({ players }: PlayerListProps) => {
     const t = useTranslations('radar.popup');
     const locale = useLocale();
     const { server } = useServerData()
@@ -170,7 +194,13 @@ const PlayerList = ({ players }) => {
     )
 }
 
-const PaginationControls = ({ page, totalPages, onPageChange }) => (
+interface PaginationControlsProps {
+    page: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+}
+
+const PaginationControls = ({ page, totalPages, onPageChange }: PaginationControlsProps) => (
     <div className="pagination-controls flex justify-center items-center mt-1">
         <Button
             variant="ghost"

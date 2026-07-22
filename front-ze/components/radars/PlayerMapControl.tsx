@@ -1,19 +1,21 @@
 import {useContext, useState, useEffect} from 'react';
 import { useMapEvents } from 'react-leaflet';
+import type { LatLng, LeafletMouseEvent } from 'leaflet';
 import CountryPolygon from "./CountryPolygon.tsx";
-import PlayerPopup from "./PlayerPopup.jsx";
+import PlayerPopup from "./PlayerPopup.tsx";
 import {fetchUrl, intervalToServer} from "utils/generalUtils.ts";
 import {TemporalContext} from "./TemporalController.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
+import type {CountryFeature, CountryPlayer, CountryPlayers} from "types/radars";
 
 const PlayerMapControl = () => {
-    const [clickedLocation, setClickedLocation] = useState(null);
+    const [clickedLocation, setClickedLocation] = useState<LatLng | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [countryData, setCountryData] = useState(null);
-    const [playerData, setPlayerData] = useState([]);
+    const [countryData, setCountryData] = useState<CountryFeature | null>(null);
+    const [playerData, setPlayerData] = useState<CountryPlayer[]>([]);
     const [totalPlayers, setTotalPlayers] = useState(0);
     const [page, setPage] = useState(0);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<string | null>(null);
     const { server } = useServerData()
     const server_id = server.id
     const temporal = useContext(TemporalContext);
@@ -24,7 +26,7 @@ const PlayerMapControl = () => {
         }
     }, [temporal.data.cursor, temporal.data.interval]);
 
-    const handleMapClick = async (e) => {
+    const handleMapClick = async (e: LeafletMouseEvent) => {
         const latlng = e.latlng;
 
         // Reset states for new location
@@ -53,7 +55,7 @@ const PlayerMapControl = () => {
                     page: 0
                 }
             })
-            const result = await promise
+            const result: CountryPlayers = await promise
             if (result.code === "Unknown") {
                 throw new Error("Unknown country selected");
             }
@@ -61,7 +63,7 @@ const PlayerMapControl = () => {
             // Only process geometry if available
             if (result.geojson) {
                 const geometry = JSON.parse(result.geojson);
-                const countryGeoJson = {
+                const countryGeoJson: CountryFeature = {
                     type: 'Feature',
                     properties: {
                         name: result.name,
@@ -75,17 +77,17 @@ const PlayerMapControl = () => {
             setPlayerData(result.players || []);
             setTotalPlayers(result.count || 0);
 
-        } catch (error) {
-            if (error.message !== "Unknown country selected")
-                console.error('Error fetching data:', error);
-            setError(error.message);
+        } catch (err) {
+            if (err.message !== "Unknown country selected")
+                console.error('Error fetching data:', err);
+            setError(err.message);
         } finally {
             setIsLoading(false);
         }
     };
 
     // Handle pagination
-    const handlePageChange = async (newPage) => {
+    const handlePageChange = async (newPage: number) => {
         if (!clickedLocation) return;
 
         setIsLoading(true);
@@ -105,15 +107,15 @@ const PlayerMapControl = () => {
                     page: newPage
                 }
             })
-            const result = await promise
+            const result: CountryPlayers = await promise
 
             if (result.players) {
                 setPlayerData(result.players);
                 setTotalPlayers(result.count || 0);
                 setPage(newPage);
             }
-        } catch (error) {
-            console.error('Error changing page:', error);
+        } catch (err) {
+            console.error('Error changing page:', err);
         } finally {
             setIsLoading(false);
         }
