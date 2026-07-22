@@ -370,6 +370,7 @@
     "listItem": {
       "anonymous": "匿名",
       "ranked": "{rank}ランク",
+      "unranked": "ランク外",
       "hoursShort": "{hours}時間"
     },
     "heatmap": {

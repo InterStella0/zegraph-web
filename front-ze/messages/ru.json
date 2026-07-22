@@ -370,6 +370,7 @@
     "listItem": {
       "anonymous": "Анонимный",
       "ranked": "{rank} Ранг",
+      "unranked": "Без ранга",
       "hoursShort": "{hours}ч"
     },
     "heatmap": {

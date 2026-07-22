@@ -370,6 +370,7 @@
     "listItem": {
       "anonymous": "Ẩn danh",
       "ranked": "{rank} Xếp hạng",
+      "unranked": "Chưa xếp hạng",
       "hoursShort": "{hours}h"
     },
     "heatmap": {

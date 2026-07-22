@@ -9,6 +9,9 @@ const PlayerListItem = ({ player, mode = 'Total', server }: { player: PlayerTabl
     const t = useTranslations('players.listItem');
     const tCommon = useTranslations('common');
     const locale = useLocale();
+    const rankLabel = player.rank === -1
+        ? t('unranked')
+        : t('ranked', {rank: tCommon('ordinal', {n: player.rank})});
     return (
     <div className="flex items-center gap-3 rounded-md mb-2 border border-border p-3 transition-all duration-200 hover:bg-accent/50">
         <div className="flex-shrink-0">
@@ -17,7 +20,7 @@ const PlayerListItem = ({ player, mode = 'Total', server }: { player: PlayerTabl
         {player.is_anonymous ? (
             <div className="flex-1 min-w-0">
                 <div className="font-medium">{t('anonymous')}</div>
-                <div className="text-sm text-muted-foreground">{t('ranked', {rank: tCommon('ordinal', {n: player.rank})})}</div>
+                <div className="text-sm text-muted-foreground">{rankLabel}</div>
             </div>
         ) : (
             <div className="flex-1 min-w-0">
@@ -27,7 +30,7 @@ const PlayerListItem = ({ player, mode = 'Total', server }: { player: PlayerTabl
                 >
                     <div className="font-medium max-w-[25rem] max-sm:max-w-[9rem] truncate">{player.name}</div>
                 </HoverPrefetchLink>
-                <div className="text-sm max-sm:text-xs text-muted-foreground">{t('ranked', {rank: tCommon('ordinal', {n: player.rank})})} </div>
+                <div className="text-sm max-sm:text-xs text-muted-foreground">{rankLabel} </div>
             </div>
         )}
         <div className="flex items-center gap-2">

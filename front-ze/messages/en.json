@@ -370,6 +370,7 @@
     "listItem": {
       "anonymous": "Anonymous",
       "ranked": "{rank} Ranked",
+      "unranked": "Unranked",
       "hoursShort": "{hours}hr"
     },
     "heatmap": {

@@ -370,6 +370,7 @@
     "listItem": {
       "anonymous": "Anonim",
       "ranked": "{rank} Peringkat",
+      "unranked": "Tidak berperingkat",
       "hoursShort": "{hours}j"
     },
     "heatmap": {

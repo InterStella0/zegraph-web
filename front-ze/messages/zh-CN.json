@@ -370,6 +370,7 @@
     "listItem": {
       "anonymous": "匿名玩家",
       "ranked": "排名第 {rank}",
+      "unranked": "未排名",
       "hoursShort": "{hours}小时"
     },
     "heatmap": {
