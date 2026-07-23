@@ -11,10 +11,11 @@ import {Metadata} from "next";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import timezone from "dayjs/plugin/timezone";
-import MapSessionWrapper from "./MapSessionWrapper.tsx";
+import {Suspense} from "react";
+import ResolveMapSession from "./ResolveMapSession.tsx";
+import {MapSessionWrapperLoading} from "./MapSessionWrapper.tsx";
 import getSessionData from "./utils.ts";
 import { getTranslations } from 'next-intl/server';
-import { notFound } from 'next/navigation';
 
 dayjs.extend(relativeTime);
 dayjs.extend(timezone)
@@ -105,13 +106,11 @@ export default async function Page({ params }) {
     const { session_id, server_slug, map_name } = await params;
     const server = await getServerSlugOrNotFound(server_slug);
 
-    let sessionData
-    try{
-        sessionData = await getSessionData(server, map_name, session_id)
-    }catch(error: any){
-        if (error?.code === 404 || error?.code === 400) notFound()
-        throw error
-    }
+    const sessionDataPromise = getSessionData(server, map_name, session_id);
 
-    return <MapSessionWrapper sessionPromise={Promise.resolve(sessionData)} />
+    return (
+        <Suspense fallback={<MapSessionWrapperLoading />}>
+            <ResolveMapSession sessionPromise={sessionDataPromise} />
+        </Suspense>
+    );
 }
