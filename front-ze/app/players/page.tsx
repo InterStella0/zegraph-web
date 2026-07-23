@@ -1,11 +1,12 @@
 import {Metadata} from "next";
+import {Suspense} from "react";
 import {getTranslations} from "next-intl/server";
 import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
 import Footer from "components/ui/Footer";
 import getServerUser from "../getServerUser";
-import GlobalPlayerList from "components/players/GlobalPlayerList";
-import GlobalPlayersOnline from "components/players/GlobalPlayersOnline";
-import {socialMeta} from "utils/generalUtils.ts";
+import GlobalPlayerList, {GlobalPlayerListLoading} from "components/players/GlobalPlayerList";
+import GlobalPlayersOnline, {GlobalPlayersOnlineLoading} from "components/players/GlobalPlayersOnline";
+import {fetchUrl, socialMeta} from "utils/generalUtils.ts";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
@@ -23,6 +24,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Page() {
     const user = getServerUser();
+    const globalPlayersPromise = fetchUrl('/communities/all/players', {params: {page: 0}});
+    const globalOnlinePromise = fetchUrl('/communities/all/players/playing');
 
     return <>
         <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
@@ -30,10 +33,14 @@ export default async function Page() {
             <div className="container max-w-screen-2xl mx-auto px-1 sm:px-2 lg:px-4">
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem] gap-4 sm:gap-6 items-start">
                     <section className="min-w-0">
-                        <GlobalPlayerList />
+                        <Suspense fallback={<GlobalPlayerListLoading/>}>
+                            <GlobalPlayerList initialDataPromise={globalPlayersPromise} />
+                        </Suspense>
                     </section>
                     <aside className="min-w-0 lg:sticky lg:top-4">
-                        <GlobalPlayersOnline />
+                        <Suspense fallback={<GlobalPlayersOnlineLoading/>}>
+                            <GlobalPlayersOnline initialDataPromise={globalOnlinePromise} />
+                        </Suspense>
                     </aside>
                 </div>
             </div>

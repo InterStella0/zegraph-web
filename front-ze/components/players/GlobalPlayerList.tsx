@@ -1,5 +1,5 @@
 'use client'
-import {useEffect, useState} from 'react';
+import {use, useEffect, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {Search, Users} from 'lucide-react';
 import {fetchUrl, simpleRandom} from "utils/generalUtils";
@@ -10,6 +10,7 @@ import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import GlobalPlayerRow from "./GlobalPlayerRow.tsx";
+import {useSkipFirstEffect} from "lib/hooks/useSkipFirstEffect";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -48,13 +49,42 @@ function GlobalPlayerListSkeleton({ count = PAGE_SIZE }: { count?: number }) {
     );
 }
 
-function GlobalPlayerListDisplay() {
+export function GlobalPlayerListLoading() {
     const t = useTranslations('players.global');
+    return (
+        <Card className="border-border/40 bg-card/50 backdrop-blur-xl">
+            <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
+                <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-primary"/>
+                    <div>
+                        <h1 className="text-lg max-sm:text-md font-semibold">{t('title')}</h1>
+                        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <Skeleton className="h-7 w-16 ml-auto"/>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('totalPlayers')}</p>
+                </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+                    <Input placeholder={t('searchPlaceholder')} disabled className="pl-10"/>
+                </div>
+                <GlobalPlayerListSkeleton/>
+            </CardContent>
+        </Card>
+    );
+}
+
+function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: Promise<GlobalBriefPlayers> }) {
+    const t = useTranslations('players.global');
+    const initialData = use(initialDataPromise);
     const [searchInput, setSearchInput] = useState<string>('');
     const [debouncedSearch, setDebouncedSearch] = useState<string>('');
     const [page, setPage] = useState<number>(0);
-    const [data, setData] = useState<GlobalBriefPlayers | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [data, setData] = useState<GlobalBriefPlayers | null>(initialData);
+    const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const totalPages = Math.max(1, Math.ceil((data?.total_players || 0) / PAGE_SIZE));
 
@@ -69,7 +99,7 @@ function GlobalPlayerListDisplay() {
         setPage(0);
     }, [debouncedSearch]);
 
-    useEffect(() => {
+    useSkipFirstEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
         setLoading(true);
@@ -156,11 +186,11 @@ function GlobalPlayerListDisplay() {
     );
 }
 
-export default function GlobalPlayerList() {
+export default function GlobalPlayerList({ initialDataPromise }: { initialDataPromise: Promise<GlobalBriefPlayers> }) {
     const t = useTranslations('players.global');
     return (
         <ErrorCatch message={t('loadError')}>
-            <GlobalPlayerListDisplay/>
+            <GlobalPlayerListDisplay initialDataPromise={initialDataPromise}/>
         </ErrorCatch>
     );
 }

@@ -13,6 +13,8 @@ import { Skeleton } from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "components/ui/command";
+import ErrorCatch from "components/ui/ErrorMessage.tsx";
+import {useSkipFirstEffect} from "lib/hooks/useSkipFirstEffect";
 
 const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => {
     const [isClient, setIsClient] = useState(false)
@@ -56,16 +58,20 @@ const rankingModes: RankingMode[] = [
     {id: 'casual', labelKey: 'modeCasual', value: 'Casual'},
     {id: 'tryhard', labelKey: 'modeTryhard', value: 'TryHard'},
 ]
-const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise }) => {
+
+type PlayerRankingsProps = { serverPromise: ServerSlugPromise, initialDataPromise: Promise<PlayersTableRanked> };
+
+const PlayerRankingsDisplay = ({ serverPromise, initialDataPromise }: PlayerRankingsProps) => {
     const t = useTranslations('players.rankings');
     const server = use(serverPromise)
     const serverId = server.id;
+    const initialData = use(initialDataPromise);
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
     const [rankingTab, setRankingTab] = useState<number>(0);
     const [rankingPage, setRankingPage] = useState<number>(0);
-    const [totalPages, setTotalPages] = useState<number>(1);
-    const [playerRankings, setPlayerRankings] = useState<PlayersTableRanked | null>(null);
-    const [playerRankingsLoading, setPlayerRankingsLoading] = useState<boolean>(true);
+    const [totalPages, setTotalPages] = useState<number>(Math.max(1, Math.ceil((initialData?.total_players || 0) / 5)));
+    const [playerRankings, setPlayerRankings] = useState<PlayersTableRanked | null>(initialData);
+    const [playerRankingsLoading, setPlayerRankingsLoading] = useState<boolean>(false);
     const [playerRankingsError, setPlayerRankingsError] = useState<string | null>(null);
     const [suggestions, setSuggestions] = useState<SearchPlayer[]>([]);
     const [suggestionsLoading, setSuggestionsLoading] = useState<boolean>(false);
@@ -108,7 +114,7 @@ const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise })
         }
     };
 
-    useEffect(() => {
+    useSkipFirstEffect(() => {
         const controller = new AbortController()
         const signal = controller.signal;
         setPlayerRankingsLoading(true);
@@ -292,6 +298,33 @@ const PlayerRankings = ({ serverPromise }: { serverPromise: ServerSlugPromise })
                 </div>
             </CardContent>
         </Card>
+    );
+};
+
+export function PlayerRankingsLoading() {
+    const t = useTranslations('players.rankings');
+    return (
+        <Card className="mb-6">
+            <CardHeader className="flex flex-row items-center gap-2 pb-3">
+                <Trophy className="w-5 h-5 text-primary"/>
+                <h2 className="text-lg max-sm:text-md font-semibold">{t('title')}</h2>
+            </CardHeader>
+            <CardContent className="pt-0">
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+                    <Input placeholder={t('searchPlaceholder')} disabled className="pl-10"/>
+                </div>
+                <PlayerListSkeleton/>
+            </CardContent>
+        </Card>
+    );
+}
+
+const PlayerRankings = ({ serverPromise, initialDataPromise }: PlayerRankingsProps) => {
+    return (
+        <ErrorCatch message="Player rankings couldn't be loaded.">
+            <PlayerRankingsDisplay serverPromise={serverPromise} initialDataPromise={initialDataPromise}/>
+        </ErrorCatch>
     );
 };
 

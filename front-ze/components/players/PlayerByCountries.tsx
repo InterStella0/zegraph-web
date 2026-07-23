@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { Globe, Radar } from 'lucide-react';
 import { getFlagUrl, fetchServerUrl } from "utils/generalUtils.ts";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader } from "components/ui/card";
 import { Button } from "components/ui/button";
 import { Skeleton } from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
+import ErrorCatch from "components/ui/ErrorMessage.tsx";
+import {useSkipFirstEffect} from "lib/hooks/useSkipFirstEffect";
 
 const CountriesSkeleton = () => (
     <div className="p-2 space-y-2">
@@ -28,10 +30,13 @@ const CountriesSkeleton = () => (
     </div>
 );
 
-export default function PlayerByCountries() {
+type PlayerByCountriesProps = { initialDataPromise: Promise<{ countries: CountryStatistic[] }> };
+
+function PlayerByCountriesDisplay({ initialDataPromise }: PlayerByCountriesProps) {
     const t = useTranslations('players.byCountries');
-    const [countries, setCountries] = useState<CountryStatistic[]>([]);
-    const [countriesLoading, setCountriesLoading] = useState<boolean>(true);
+    const initialData = use(initialDataPromise);
+    const [countries, setCountries] = useState<CountryStatistic[]>(initialData?.countries || []);
+    const [countriesLoading, setCountriesLoading] = useState<boolean>(false);
     const [countriesError, setCountriesError] = useState<string | null>(null);
     const [communityPage, setCommunityPage] = useState<number>(0);
     const { server } = useServerData()
@@ -60,7 +65,7 @@ export default function PlayerByCountries() {
 
     const totalCountryPages = Math.ceil(countries.length / COUNTRIES_PER_PAGE);
 
-    useEffect(() => {
+    useSkipFirstEffect(() => {
         fetchCountries();
     }, [serverId]);
 
@@ -123,3 +128,37 @@ export default function PlayerByCountries() {
         </Card>
     );
 };
+
+export function PlayerByCountriesLoading() {
+    const t = useTranslations('players.byCountries');
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div className="flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-primary"/>
+                    <h2 className="text-lg max-sm:text-sm font-semibold">{t('title')}</h2>
+                </div>
+                <Button
+                    disabled
+                    variant="outline"
+                    size="sm"
+                    className="border-primary text-primary"
+                >
+                    <Radar className="w-4 h-4" />
+                    <span className="max-sm:hidden">{t('viewRadar')}</span>
+                </Button>
+            </CardHeader>
+            <CardContent className="pt-0">
+                <CountriesSkeleton/>
+            </CardContent>
+        </Card>
+    );
+}
+
+export default function PlayerByCountries({ initialDataPromise }: PlayerByCountriesProps) {
+    return (
+        <ErrorCatch message="Countries couldn't be loaded.">
+            <PlayerByCountriesDisplay initialDataPromise={initialDataPromise}/>
+        </ErrorCatch>
+    );
+}

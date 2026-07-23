@@ -26,7 +26,7 @@ export default function ResolvePlayerInformation({ serverPlayerPromise }: { serv
         return <StillCalculatingPlayer />;
     }
 
-    return   <div className="grid grid-cols-12 gap-4">
+    return <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 xl:col-span-8">
             <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} />
         </div>
