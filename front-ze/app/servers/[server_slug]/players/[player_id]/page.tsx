@@ -18,6 +18,8 @@ import {Server} from "types/community.ts";
 import ResolvePlayerInformation from "./ResolvePlayerInformation.tsx";
 import {AdSpot} from "components/ui/AdSpot";
 import { getTranslations } from 'next-intl/server';
+import { notFound } from "next/navigation";
+import AccessDenied from "./AccessDenied.tsx";
 
 dayjs.extend(relativeTime);
 export async function generateMetadata({ params}: {
@@ -112,37 +114,27 @@ export type ServerPlayerDetailed = {
     server: Server,
     player: PlayerInfo | StillCalculate
 }
-export type ServerPlayerDetailedWithError = ServerPlayerDetailed & { error?: { code: number, message: string } }
 
 export default async function Page({ params }: { params: Promise<{ server_slug: string, player_id: string }>}){
     const { server_slug, player_id } = await params;
 
     const server = await getServerSlugOrNotFound(server_slug);
 
-    const serverPlayerPromise = (async () => {
-        try {
-            const player = await getPlayerDetailed(server.id, player_id, "return")
-            return {player, server} as ServerPlayerDetailedWithError
-        } catch (error: any) {
-            return {
-                player: null,
-                server,
-                error: {
-                    code: error?.code || 500,
-                    message: error?.message || "An error occurred"
-                }
-            } as ServerPlayerDetailedWithError
-        }
-    })()
+    let player: PlayerInfo | StillCalculate
+    try {
+        player = await getPlayerDetailed(server.id, player_id, "return")
+    } catch (error: any) {
+        if (error?.code === 404) notFound()
+        if (error?.code === 403) return <AccessDenied />
+        throw error
+    }
+
+    const serverPlayer: ServerPlayerDetailed = { server, player }
 
     // Generate JSON-LD structured data for SEO
-    const serverPlayer = await serverPlayerPromise;
     let jsonLd = null;
 
-    if (serverPlayer.player && !('code' in serverPlayer.player)) {
-        const player = serverPlayer.player;
-        const server = serverPlayer.server;
-
+    if (!(player instanceof StillCalculate)) {
         jsonLd = {
             "@context": "https://schema.org",
             "@type": "Person",
@@ -175,7 +167,7 @@ export default async function Page({ params }: { params: Promise<{ server_slug: 
             )}
             <div className="p-4">
                 <AdSpot className="mb-4" />
-                <ResolvePlayerInformation serverPlayerPromise={serverPlayerPromise} />
+                <ResolvePlayerInformation serverPlayerPromise={Promise.resolve(serverPlayer)} />
             </div>
         </>
     );
