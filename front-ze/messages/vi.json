@@ -136,6 +136,8 @@
       "trackedBySteamId": "Máy chủ này theo dõi người dùng theo Steam ID",
       "trackedByName": "Máy chủ này theo dõi người dùng theo tên.",
       "steamBrowser": "Trình duyệt Steam",
+      "trackingSince": "Theo dõi từ",
+      "trackingSinceTooltip": "Phiên chơi sớm nhất mà chúng tôi ghi nhận được trên máy chủ này.",
       "website": "Trang web",
       "discord": "Discord",
       "inviteLink": "Liên kết mời",

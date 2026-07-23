@@ -136,6 +136,8 @@
       "trackedBySteamId": "このサーバーはSteam IDでユーザーを追跡しています",
       "trackedByName": "このサーバーはユーザー名でユーザーを追跡しています。",
       "steamBrowser": "Steamブラウザ",
+      "trackingSince": "追跡開始日",
+      "trackingSinceTooltip": "このサーバーで記録されている最も古いプレイヤーセッションです。",
       "website": "ウェブサイト",
       "discord": "Discord",
       "inviteLink": "招待リンク",

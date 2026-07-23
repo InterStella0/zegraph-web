@@ -136,6 +136,8 @@
       "trackedBySteamId": "이 서버는 Steam ID로 사용자를 추적합니다",
       "trackedByName": "이 서버는 사용자 이름으로 추적합니다.",
       "steamBrowser": "Steam 브라우저",
+      "trackingSince": "추적 시작일",
+      "trackingSinceTooltip": "이 서버에서 기록된 가장 오래된 플레이어 세션입니다.",
       "website": "웹사이트",
       "discord": "Discord",
       "inviteLink": "초대 링크",

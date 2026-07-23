@@ -44,6 +44,7 @@ CREATE TABLE server(
     community_id UUID REFERENCES community(community_id) ON DELETE SET NULL,
     readable_link VARCHAR(20) UNIQUE,
     last_polled_at TIMESTAMPTZ,
+    tracking_since TIMESTAMPTZ,
 );
 
 CREATE TABLE server_fetch_status (
@@ -1226,6 +1227,27 @@ SELECT cron.schedule_in_database(
         JOIN LATERAL get_server_player_counts(s.server_id) AS g ON TRUE
         ON CONFLICT (server_id, bucket_time) DO UPDATE
         SET player_count = EXCLUDED.player_count;
+    $$,
+    'cs2_tracker_db'  -- INSERT YOUR DB NAME
+);
+
+
+-- Derives server.tracking_since from the earliest session we ever recorded on the server.
+-- MIN(started_at) only ever moves earlier, so this is idempotent and settles to a no-op once
+-- every server is populated. Run it by hand once as the backfill.
+SELECT cron.schedule_in_database(
+    'update-server-tracking-since',
+    '0 0 * * *',  -- Every day at midnight
+    $$
+        UPDATE server s
+        SET tracking_since = sub.first_seen
+        FROM (
+            SELECT server_id, MIN(started_at) AS first_seen
+            FROM player_server_session
+            GROUP BY server_id
+        ) sub
+        WHERE s.server_id = sub.server_id
+          AND (s.tracking_since IS NULL OR sub.first_seen < s.tracking_since);
     $$,
     'cs2_tracker_db'  -- INSERT YOUR DB NAME
 );

@@ -70,7 +70,9 @@ pub struct Server{
     pub by_id: bool,
     /// Map currently being played, if the server is online.
     pub map: Option<String>,
-    pub game: Option<String>
+    pub game: Option<String>,
+    /// When this server first appeared in tracking data. `None` if it has no sessions yet.
+    pub tracking_since: Option<DateTime<Utc>>
 }
 
 /// A community and its servers, generic over the server representation used.

@@ -136,6 +136,8 @@
       "trackedBySteamId": "此伺服器透過 Steam ID 追蹤使用者",
       "trackedByName": "此伺服器透過名稱追蹤使用者。",
       "steamBrowser": "Steam 瀏覽器",
+      "trackingSince": "追蹤開始於",
+      "trackingSinceTooltip": "我們在此伺服器上記錄到的最早的玩家連線紀錄。",
       "website": "網站",
       "discord": "Discord",
       "inviteLink": "邀請連結",

@@ -19,6 +19,7 @@ export interface Server {
     byId: boolean;
     map: string;
     game?: string | null;
+    tracking_since: string | null;
 }
 
 export interface CommunityBase {

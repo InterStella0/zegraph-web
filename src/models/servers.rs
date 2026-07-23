@@ -25,8 +25,9 @@ pub struct DbServer{
     pub timezone: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, DbInto)]
+#[derive(DbInto)]
 #[db_into(Server)]
+#[auto_serde_with]
 pub struct DbServerCommunity{
     #[skip]
     pub community_id: String,
@@ -71,7 +72,8 @@ pub struct DbServerCommunity{
     #[rename(by_id)]
     #[unwrap_default]
     pub source_by_id: Option<bool>,
-    pub map: Option<String>
+    pub map: Option<String>,
+    pub tracking_since: Option<OffsetDateTime>
 }
 
 

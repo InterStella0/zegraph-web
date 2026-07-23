@@ -136,6 +136,8 @@
       "trackedBySteamId": "Pelayan ini menjejaki pengguna melalui ID Steam",
       "trackedByName": "Pelayan ini menjejaki pengguna melalui nama.",
       "steamBrowser": "Pelayar Steam",
+      "trackingSince": "Dijejaki Sejak",
+      "trackingSinceTooltip": "Sesi pemain paling awal yang kami rekodkan di pelayan ini.",
       "website": "Laman Web",
       "discord": "Discord",
       "inviteLink": "Pautan Jemputan",

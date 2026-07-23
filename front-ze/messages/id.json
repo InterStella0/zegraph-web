@@ -136,6 +136,8 @@
       "trackedBySteamId": "Server ini melacak pengguna berdasarkan Steam ID",
       "trackedByName": "Server ini melacak pengguna berdasarkan nama.",
       "steamBrowser": "Peramban Steam",
+      "trackingSince": "Dilacak Sejak",
+      "trackingSinceTooltip": "Sesi pemain paling awal yang kami catat di server ini.",
       "website": "Situs Web",
       "discord": "Discord",
       "inviteLink": "Tautan Undangan",

@@ -16,12 +16,40 @@ import { Card, CardContent } from "components/ui/card";
 import { Button } from "components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
 import { Progress } from "components/ui/progress";
+import ServerTrackingSince from "./ServerTrackingSince";
 const RadarPreview = dynamic(() => import("components/radars/RadarPreview.tsx"), {
     ssr: false,
 });
 const ServerGraph = dynamic(() => import("components/graphs/ServerGraph"), {
     ssr: false,
 });
+
+// The metadata row holds 1-4 cards (Data Source is always there; Tracking Since, Website and
+// Discord are conditional). Every breakpoint below is chosen so the description card plus the
+// metadata cards tile to exactly 12 columns with no leftover gap:
+//
+//   n | base        | sm             | lg             | xl
+//   1 | 12 | 12     | 12 | 12        | 9 + 3          | 10 + 2
+//   2 | 12 | 12,12  | 12 | 6+6       | 6 + 3+3        | 8  + 2x2
+//   3 | 12 | 12x3   | 12 | 4+4+4     | 12 | 4+4+4     | 6  + 2x3
+//   4 | 12 | 12x4   | 12 | 6+6,6+6   | 12 | 3+3+3+3   | 4  + 2x4
+//
+// The description only shares a row with the cards once there is room for both (lg for 1-2 cards,
+// xl for all of them); below that it takes a full row of its own. Tailwind cannot see interpolated
+// class names, so both sides have to be static lookups rather than computed strings.
+const DESC_SPAN = {
+    1: "col-span-12 lg:col-span-9 xl:col-span-10",
+    2: "col-span-12 lg:col-span-6 xl:col-span-8",
+    3: "col-span-12 lg:col-span-12 xl:col-span-6",
+    4: "col-span-12 lg:col-span-12 xl:col-span-4",
+} as const
+
+const META_SPAN = {
+    1: "col-span-12 lg:col-span-3 xl:col-span-2",
+    2: "col-span-12 sm:col-span-6 lg:col-span-3 xl:col-span-2",
+    3: "col-span-12 sm:col-span-4 lg:col-span-4 xl:col-span-2",
+    4: "col-span-12 sm:col-span-6 lg:col-span-3 xl:col-span-2",
+} as const
 
 export default function ServerContent({ server, description }: {server: Server, description: string}) {
     const t = useTranslations('servers.content');
@@ -35,15 +63,16 @@ export default function ServerContent({ server, description }: {server: Server, 
 
     const hasDiscord = !!server.discordLink
     const hasWebsite = !!server.website
+    const hasTracking = !!server.tracking_since
+
+    const metaCards = 1 + Number(hasTracking) + Number(hasWebsite) + Number(hasDiscord)
+    const descSpan = DESC_SPAN[metaCards]
+    const metaSpan = META_SPAN[metaCards]
+
     return (
         <TooltipProvider>
             <div className="grid grid-cols-12 gap-3">
-                <div className={cn(
-                    "col-span-12",
-                    hasDiscord && hasWebsite ? "md:col-span-12 lg:col-span-9 xl:col-span-6" :
-                    !hasDiscord && !hasWebsite ? "md:col-span-12 lg:col-span-9 xl:col-span-10" :
-                    "md:col-span-12 lg:col-span-9 xl:col-span-8"
-                )}>
+                <div className={descSpan}>
                     <Card className="h-full w-full">
                         <CardContent className="p-0">
                             <div className="flex flex-row items-center justify-center gap-2">
@@ -75,12 +104,7 @@ export default function ServerContent({ server, description }: {server: Server, 
                         </CardContent>
                     </Card>
                 </div>
-                <div className={cn(
-                    "col-span-12",
-                    hasDiscord && hasWebsite ? "md:col-span-4 sm:col-span-4 xs:col-span-6 lg:col-span-3 xl:col-span-2" :
-                    !hasDiscord && !hasWebsite ? "md:col-span-12 sm:col-span-12 xs:col-span-12" :
-                    "md:col-span-6 sm:col-span-6 xs:col-span-6"
-                )}>
+                <div className={metaSpan}>
                     <Card className="h-full">
                         <CardContent className="p-0">
                             <div className="flex flex-row justify-between items-center gap-2">
@@ -110,12 +134,13 @@ export default function ServerContent({ server, description }: {server: Server, 
                         </CardContent>
                     </Card>
                 </div>
+                {hasTracking && (
+                    <div className={metaSpan}>
+                        <ServerTrackingSince trackingSince={server.tracking_since} />
+                    </div>
+                )}
                 {hasWebsite && (
-                    <div className={cn(
-                        "col-span-12",
-                        hasDiscord ? "md:col-span-4 sm:col-span-4 xs:col-span-6 lg:col-span-6 xl:col-span-2" :
-                        "md:col-span-6 sm:col-span-6 xs:col-span-6"
-                    )}>
+                    <div className={metaSpan}>
                         <Card className="h-full">
                             <CardContent className="p-0">
                                 <h3 className="text-sm md:text-base font-bold truncate">
@@ -131,11 +156,7 @@ export default function ServerContent({ server, description }: {server: Server, 
                     </div>
                 )}
                 {hasDiscord && (
-                    <div className={cn(
-                        "col-span-12",
-                        hasWebsite ? "md:col-span-4 sm:col-span-4 xs:col-span-12 lg:col-span-6 xl:col-span-2" :
-                        "md:col-span-6 sm:col-span-6 xs:col-span-6"
-                    )}>
+                    <div className={metaSpan}>
                         <Card className="h-full px-3">
                             <CardContent className="p-0">
                                 <h3 className="text-sm md:text-base font-bold truncate">

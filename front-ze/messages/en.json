@@ -136,6 +136,8 @@
       "trackedBySteamId": "This server tracks users by steam ID",
       "trackedByName": "This server tracks users by name.",
       "steamBrowser": "Steam Browser",
+      "trackingSince": "Tracking Since",
+      "trackingSinceTooltip": "The earliest player session we have recorded on this server.",
       "website": "Website",
       "discord": "Discord",
       "inviteLink": "Invite Link",

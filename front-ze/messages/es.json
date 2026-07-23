@@ -136,6 +136,8 @@
       "trackedBySteamId": "Este servidor rastrea a los usuarios por su ID de Steam",
       "trackedByName": "Este servidor rastrea a los usuarios por nombre.",
       "steamBrowser": "Navegador de Steam",
+      "trackingSince": "Rastreando desde",
+      "trackingSinceTooltip": "La sesión de jugador más antigua que hemos registrado en este servidor.",
       "website": "Sitio web",
       "discord": "Discord",
       "inviteLink": "Enlace de invitación",

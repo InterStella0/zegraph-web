@@ -136,6 +136,8 @@
       "trackedBySteamId": "Этот сервер отслеживает пользователей по Steam ID",
       "trackedByName": "Этот сервер отслеживает пользователей по имени.",
       "steamBrowser": "Браузер Steam",
+      "trackingSince": "Отслеживается с",
+      "trackingSinceTooltip": "Самая ранняя сессия игрока, записанная нами на этом сервере.",
       "website": "Веб-сайт",
       "discord": "Discord",
       "inviteLink": "Ссылка приглашения",

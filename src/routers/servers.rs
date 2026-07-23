@@ -56,6 +56,7 @@ pub async fn get_community(pool: &sqlx::Pool<Postgres>, cache: &FastCache, commu
                 s.server_fullname,
                 s.online,
                 s.readable_link,
+                s.tracking_since,
                 LEAST((SELECT COUNT(DISTINCT player_id) FROM player_server_session p
                     WHERE p.server_id = s.server_id
                     AND p.ended_at IS NULL
@@ -133,6 +134,7 @@ impl ServerApi {
                 s.server_fullname,
                 s.online,
                 s.readable_link,
+                s.tracking_since,
                 LEAST((SELECT COUNT(DISTINCT player_id) FROM player_server_session p
                     WHERE p.server_id = s.server_id
                     AND p.ended_at IS NULL
