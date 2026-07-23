@@ -9,8 +9,8 @@ import isoWeek from "dayjs/plugin/isoWeek";
 import utc from "dayjs/plugin/utc";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { fetchApiUrl, formatNumber } from "utils/generalUtils";
-import { Skeleton } from "components/ui/skeleton";
+import { formatNumber } from "utils/generalUtils";
+import { PlayerSessionTime } from "types/community";
 import { ScrollArea, ScrollBar } from "components/ui/scroll-area";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { LazyMatrixChart } from "components/graphs/LazyCharts";
@@ -34,11 +34,6 @@ const ROWS = 7
 const CHART_WIDTH = '1025px'
 const Y_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-type PlayerSessionTime = {
-    bucket_time: string,
-    hours: number,
-}
-
 type HeatmapData = {
     x: string,
     y: string,
@@ -55,19 +50,9 @@ function getChartColors(isDark: boolean) {
     };
 }
 
-export default function ProfileHeatmap({ userId }: { userId: string }) {
+export default function ProfileHeatmap({ rawData }: { rawData: PlayerSessionTime[] }) {
     const t = useTranslations('players.heatmap')
-    const [loading, setLoading] = useState(true);
-    const [rawData, setRawData] = useState<PlayerSessionTime[]>([]);
     const [selectedYear, setSelectedYear] = useState<number>(dayjs().year());
-
-    useEffect(() => {
-        setLoading(true);
-        fetchApiUrl(`/accounts/${userId}/playtime-heatmap`)
-            .then(setRawData)
-            .catch(() => setRawData([]))
-            .finally(() => setLoading(false));
-    }, [userId]);
 
     const availableYears = useMemo(() => {
         const years = [...new Set(rawData.map(d => dayjs.utc(d.bucket_time).year()))]
@@ -231,10 +216,6 @@ export default function ProfileHeatmap({ userId }: { userId: string }) {
             peak: formatNumber(maxHours),
         });
     }, [heatmapData, totalHours, maxHours, t]);
-
-    if (loading) {
-        return <Skeleton className="h-40 w-full" />;
-    }
 
     return (
         <div>

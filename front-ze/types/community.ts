@@ -118,3 +118,8 @@ export interface ProfileResponse {
     is_owner: boolean;
     anonymization: UserAnonymization[] | null;
 }
+
+export interface PlayerSessionTime {
+    bucket_time: string;
+    hours: number;
+}
