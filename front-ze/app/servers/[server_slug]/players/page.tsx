@@ -1,14 +1,14 @@
 import StatsCards from "components/players/StatsCards";
-import PlayerRankings from "components/players/PlayerRankings";
-import TopPerformers from "components/players/TopPerformers";
-import PlayersOnline from "components/players/PlayersOnline.tsx";
-import PlayerByCountries from "components/players/PlayerByCountries.tsx";
+import PlayerRankings, {PlayerRankingsLoading} from "components/players/PlayerRankings";
+import TopPerformers, {TopPerformersLoading} from "components/players/TopPerformers";
+import PlayersOnline, {PlayersOnlineLoading} from "components/players/PlayersOnline.tsx";
+import PlayerByCountries, {PlayerByCountriesLoading} from "components/players/PlayerByCountries.tsx";
 import {getServerSlugOrNotFound, getServerSlug} from "../util";
 import type {ServerPageProps} from "../page";
 import {Metadata} from "next";
 import {getTranslations} from "next-intl/server";
 import {BriefPlayers, ServerPlayersStatistic} from "types/players.ts";
-import {formatHours, formatTitle, socialMeta} from "utils/generalUtils.ts";
+import {fetchApiServerUrl, fetchServerUrl, formatHours, formatTitle, socialMeta} from "utils/generalUtils.ts";
 import {Suspense} from "react";
 import {getCachedPlayerStats, getCachedTopPlayers} from "lib/cachedFetches";
 import {AdSpot} from "components/ui/AdSpot";
@@ -50,6 +50,12 @@ export default async function Page({ params }: ServerPageProps){
     const { server_slug } = await params;
     const server = getServerSlug(server_slug)
     const t = await getTranslations('players.page')
+
+    const rankingsPromise = server.then(s => fetchApiServerUrl(s.id, '/players/table', {params: {page: 0, mode: 'Total'}}));
+    const topPlayersPromise = server.then(s => getCachedTopPlayers(s.id, 'today'));
+    const onlinePromise = server.then(s => fetchServerUrl(s.id, '/players/playing'));
+    const countriesPromise = server.then(s => fetchServerUrl(s.id, '/players/countries'));
+
     return <div className="m-6 max-sm:m-1.5">
         <div className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-2">
@@ -66,16 +72,16 @@ export default async function Page({ params }: ServerPageProps){
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-8 space-y-6">
-                <Suspense fallback={<div>{t('loading')}</div>}>
-                    <PlayerRankings serverPromise={server} />
-                    <TopPerformers serverPromise={server} />
+                <Suspense fallback={<><PlayerRankingsLoading/><TopPerformersLoading/></>}>
+                    <PlayerRankings serverPromise={server} initialDataPromise={rankingsPromise} />
+                    <TopPerformers serverPromise={server} initialDataPromise={topPlayersPromise} />
                 </Suspense>
             </div>
 
             <div className="lg:col-span-4 space-y-6">
-                <Suspense fallback={<div>{t('loading')}</div>}>
-                    <PlayersOnline />
-                    <PlayerByCountries />
+                <Suspense fallback={<><PlayersOnlineLoading/><PlayerByCountriesLoading/></>}>
+                    <PlayersOnline initialDataPromise={onlinePromise} />
+                    <PlayerByCountries initialDataPromise={countriesPromise} />
                 </Suspense>
             </div>
         </div>

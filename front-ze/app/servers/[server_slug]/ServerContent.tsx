@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import { useState } from "react";
+import { useState, Activity } from "react";
 import PlayerList from "components/players/PlayerList.tsx";
 import MapGraphList from "components/maps/MapGraphList.tsx";
 import dynamic from "next/dynamic";
@@ -159,13 +159,13 @@ export default function ServerContent({ server, description }: {server: Server, 
                         {graphLoading && <Progress value={undefined} className="h-1" />}
                     </Card>
                 </div>
-                {showPlayers && (
+                <Activity mode={showPlayers ? 'visible' : 'hidden'}>
                     <div className="col-span-12 md:col-span-12 xl:col-span-3">
                         <Card>
                             <PlayerList dateDisplay={{start, end}}/>
                         </Card>
                     </div>
-                )}
+                </Activity>
 
                 <div className="col-span-12 md:col-span-12 xl:col-span-9">
                     <Card className="min-h-[336px]">

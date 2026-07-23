@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {useState, useEffect, useMemo, ChangeEvent} from 'react';
+import {use, useState, useEffect, useMemo, ChangeEvent} from 'react';
 import {Gamepad2, Info, Circle, Search} from 'lucide-react';
 import {fetchUrl} from "utils/generalUtils";
 import {PlayerAvatar} from "./PlayerAvatar.tsx";
@@ -50,10 +50,32 @@ function getSessionDuration(startedAt: string): string {
     return `${minutes}m`;
 }
 
-function GlobalPlayersOnlineDisplay() {
+export function GlobalPlayersOnlineLoading() {
     const t = useTranslations('players.globalOnline');
-    const [players, setPlayers] = useState<PlayerDetailSessionCommunity[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
+    return (
+        <Card className="border-border/40 bg-card/50 backdrop-blur-xl">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div className="flex items-center gap-2">
+                    <Gamepad2 className="w-5 h-5 text-primary"/>
+                    <Skeleton className="h-6 w-32"/>
+                </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+                    <Input placeholder={t('searchPlayers')} disabled className="pl-10"/>
+                </div>
+                <GlobalPlayersOnlineSkeleton/>
+            </CardContent>
+        </Card>
+    );
+}
+
+function GlobalPlayersOnlineDisplay({ initialDataPromise }: { initialDataPromise: Promise<PlayerDetailSessionCommunity[]> }) {
+    const t = useTranslations('players.globalOnline');
+    const initialPlayers = use(initialDataPromise);
+    const [players, setPlayers] = useState<PlayerDetailSessionCommunity[]>(initialPlayers || []);
+    const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState<number>(0);
     const [searchQuery, setSearchQuery] = useState<string>('');
@@ -80,7 +102,6 @@ function GlobalPlayersOnlineDisplay() {
                 });
         };
 
-        load(true);
         const interval = setInterval(() => load(false), REFRESH_MS);
         return () => {
             clearInterval(interval);
@@ -227,11 +248,11 @@ function GlobalPlayersOnlineDisplay() {
     );
 }
 
-export default function GlobalPlayersOnline() {
+export default function GlobalPlayersOnline({ initialDataPromise }: { initialDataPromise: Promise<PlayerDetailSessionCommunity[]> }) {
     const t = useTranslations('players.globalOnline');
     return (
         <ErrorCatch message={t('loadError')}>
-            <GlobalPlayersOnlineDisplay/>
+            <GlobalPlayersOnlineDisplay initialDataPromise={initialDataPromise}/>
         </ErrorCatch>
     );
 }

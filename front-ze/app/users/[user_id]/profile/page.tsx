@@ -4,7 +4,7 @@ import ProfileOverview from "components/users/ProfileOverview";
 import ProfileStatsCards from "components/users/ProfileStatsCards";
 import getServerUser from "../../../getServerUser";
 import { redirect } from "next/navigation";
-import { ProfileResponse } from "types/community.ts";
+import { PlayerSessionTime, ProfileResponse } from "types/community.ts";
 import {
     fetchApiUrl,
     fetchUrl,
@@ -109,13 +109,14 @@ export default async function Page({ params }: { params: Promise<{ user_id: stri
 
     const sessionUserPromise = getServerUser();
     const profilePromise: Promise<ProfileResponse> = fetchApiUrl(`/accounts/${user_id}/profile`);
+    const heatmapPromise: Promise<PlayerSessionTime[]> = fetchApiUrl(`/accounts/${user_id}/playtime-heatmap`).catch(() => []);
 
     return (<>
         <ResponsiveAppBar userPromise={sessionUserPromise} server={null} setDisplayCommunity={null} />
         <div className="container mx-auto max-w-7xl px-4 py-8">
             <div className="flex flex-col gap-6">
                 <UserProfile profilePromise={profilePromise} />
-                <ProfileOverview userId={user_id} />
+                <ProfileOverview heatmapPromise={heatmapPromise} />
                 <ProfileStatsCards userId={user_id} profilePromise={profilePromise} />
                 <UserCommunityConnections profilePromise={profilePromise} />
             </div>

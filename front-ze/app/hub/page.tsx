@@ -1,10 +1,12 @@
 import { Metadata } from 'next';
-import { ExternalLink, Compass } from 'lucide-react';
+import { Compass } from 'lucide-react';
+import { Suspense } from 'react';
 import ResponsiveAppBar from 'components/ui/ResponsiveAppBar';
 import Footer from 'components/ui/Footer';
 import getServerUser from '../getServerUser';
 import { URI, formatTitle } from 'utils/generalUtils';
 import { getTranslations } from 'next-intl/server';
+import HubLinks, { HubLinksLoading } from './HubLinks';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('metadata');
@@ -35,76 +37,38 @@ async function getLinks(): Promise<CommunityLink[]> {
   }
 }
 
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
 export default async function HubPage() {
   const t = await getTranslations('hub');
   const user = getServerUser();
-  const links = await getLinks();
+  const linksPromise = getLinks();
 
   return (
-    <>
-      <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
+      <>
+        <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
 
-      <div className="min-h-screen py-12 px-4">
-        <div className="container mx-auto max-w-5xl space-y-10">
+        <div className="min-h-screen py-12 px-4">
+          <div className="container mx-auto max-w-5xl space-y-10">
 
-          {/* Page header */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Compass className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold">{t('title')}</h1>
+            {/* Page header */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Compass className="w-6 h-6 text-primary" />
+                <h1 className="text-3xl font-bold">{t('title')}</h1>
+              </div>
+              <p className="text-muted-foreground max-w-2xl">
+                {t('description')}
+              </p>
             </div>
-            <p className="text-muted-foreground max-w-2xl">
-              {t('description')}
-            </p>
+
+            {/* Links grid */}
+            <Suspense fallback={<HubLinksLoading />}>
+              <HubLinks linksPromise={linksPromise} />
+            </Suspense>
+
           </div>
-
-          {/* Links grid */}
-          {links.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {links.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex flex-col gap-2 rounded-xl border border-border/50 bg-muted/20 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <h2 className="font-semibold leading-tight group-hover:text-primary transition-colors">
-                      {link.name}
-                    </h2>
-                    <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  {link.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-3">
-                      {link.description}
-                    </p>
-                  )}
-                  <span className="text-xs text-muted-foreground/70 font-mono mt-auto pt-1 truncate">
-                    {hostOf(link.url)}
-                  </span>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 text-muted-foreground space-y-2">
-              <p className="text-lg font-medium">{t('nothingYet')}</p>
-              <p className="text-sm">{t('comingSoon')}</p>
-            </div>
-          )}
-
         </div>
-      </div>
 
-      <Footer />
-    </>
+        <Footer />
+      </>
   );
 }

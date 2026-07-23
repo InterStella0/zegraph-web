@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {useState, useEffect, use} from 'react';
+import {useState, useEffect, useRef, use} from 'react';
 import { Clock } from 'lucide-react';
 import { fetchUrl, secondsToHours } from "utils/generalUtils";
 import LeaderboardItem from "./LeaderboardItem";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from "components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
 import { Skeleton } from "components/ui/skeleton";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "components/ui/select.tsx";
+import ErrorCatch from "components/ui/ErrorMessage.tsx";
 
 const getPlayerStatus = (player) => {
     if (player.online_since) return 'online';
@@ -41,14 +42,18 @@ const timeFrames = [
     {id: '1yr', labelKey: 'frame1Year', value: 'year1'},
 ]
 
-const TopPerformers = ({ serverPromise }: { serverPromise: ServerSlugPromise }) => {
+type TopPerformersProps = { serverPromise: ServerSlugPromise, initialDataPromise: Promise<BriefPlayers> };
+
+const TopPerformersDisplay = ({ serverPromise, initialDataPromise }: TopPerformersProps) => {
     const t = useTranslations('players.topPerformers');
     const server = use(serverPromise)
+    const initialData = use(initialDataPromise);
     const [performanceTab, setPerformanceTab] = useState<number>(0);
-    const [topPlayers, setTopPlayers] = useState<BriefPlayers | null>(null);
-    const [topPlayersLoading, setTopPlayersLoading] = useState(true);
+    const [topPlayers, setTopPlayers] = useState<BriefPlayers | null>(initialData);
+    const [topPlayersLoading, setTopPlayersLoading] = useState(false);
     const [topPlayersError, setTopPlayersError] = useState(null);
     const serverId = server.id
+    const isFirstRun = useRef(true);
 
     const fetchTopPlayers = async () => {
         try {
@@ -67,6 +72,10 @@ const TopPerformers = ({ serverPromise }: { serverPromise: ServerSlugPromise }) 
     };
 
     useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
         fetchTopPlayers();
     }, [serverId, performanceTab]);
 
@@ -132,6 +141,29 @@ const TopPerformers = ({ serverPromise }: { serverPromise: ServerSlugPromise }) 
                 )}
             </CardContent>
         </Card>
+    );
+};
+
+export function TopPerformersLoading() {
+    const t = useTranslations('players.topPerformers');
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center gap-2 pb-3">
+                <Clock className="w-5 h-5 text-primary"/>
+                <h2 className="text-lg max-sm:text-md font-semibold">{t('title')}</h2>
+            </CardHeader>
+            <CardContent className="pt-0">
+                <LeaderboardSkeleton />
+            </CardContent>
+        </Card>
+    );
+}
+
+const TopPerformers = ({ serverPromise, initialDataPromise }: TopPerformersProps) => {
+    return (
+        <ErrorCatch message="Top performers couldn't be loaded.">
+            <TopPerformersDisplay serverPromise={serverPromise} initialDataPromise={initialDataPromise}/>
+        </ErrorCatch>
     );
 };
 

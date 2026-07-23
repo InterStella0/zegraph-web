@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {useState, useEffect, useMemo, ChangeEvent} from 'react';
+import {useState, useEffect, useMemo, useRef, use, ChangeEvent} from 'react';
 import { Gamepad2, Info, Circle, Search } from 'lucide-react';
 import { fetchServerUrl } from "utils/generalUtils.ts";
 import { PlayerAvatar } from "./PlayerAvatar.tsx";
@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "compon
 import { Button } from "components/ui/button";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
+import ErrorCatch from "components/ui/ErrorMessage.tsx";
 dayjs.extend(duration);
 
 const PlayerListSkeleton = ({ count = 20 }) => (
@@ -31,15 +32,19 @@ const PlayerListSkeleton = ({ count = 20 }) => (
     </div>
 );
 
-const PlayersOnline = () => {
+type PlayersOnlineProps = { initialDataPromise: Promise<PlayerDetailSession[]> };
+
+const PlayersOnlineDisplay = ({ initialDataPromise }: PlayersOnlineProps) => {
     const t = useTranslations('players.online');
-    const [onlinePlayers, setOnlinePlayers] = useState<PlayerDetailSession[]>([]);
-    const [onlinePlayersLoading, setOnlinePlayersLoading] = useState<boolean>(true);
+    const initialData = use(initialDataPromise);
+    const [onlinePlayers, setOnlinePlayers] = useState<PlayerDetailSession[]>(initialData || []);
+    const [onlinePlayersLoading, setOnlinePlayersLoading] = useState<boolean>(false);
     const [onlinePlayersError, setOnlinePlayersError] = useState<string | null>(null);
     const [onlinePage, setOnlinePage] = useState<number>(0);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const { server } = useServerData()
     const serverId = server.id
+    const isFirstRun = useRef(true);
 
     const PLAYERS_PER_PAGE = 20;
 
@@ -76,6 +81,10 @@ const PlayersOnline = () => {
     }
 
     useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
         setOnlinePlayersLoading(true);
         setOnlinePlayersError(null);
         fetchServerUrl(serverId, '/players/playing')
@@ -173,6 +182,35 @@ const PlayersOnline = () => {
                 )}
             </CardContent>
         </Card>
+    );
+};
+
+export function PlayersOnlineLoading() {
+    const t = useTranslations('players.online');
+    return (
+        <Card className="mb-6">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div className="flex items-center gap-2">
+                    <Gamepad2 className="w-5 h-5 text-primary" />
+                    <Skeleton className="h-6 w-32"/>
+                </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+                    <Input placeholder={t('searchPlayers')} disabled className="pl-10"/>
+                </div>
+                <PlayerListSkeleton count={20} />
+            </CardContent>
+        </Card>
+    );
+}
+
+const PlayersOnline = ({ initialDataPromise }: PlayersOnlineProps) => {
+    return (
+        <ErrorCatch message="Online players couldn't be loaded.">
+            <PlayersOnlineDisplay initialDataPromise={initialDataPromise}/>
+        </ErrorCatch>
     );
 };
 

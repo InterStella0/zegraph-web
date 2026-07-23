@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
 import Footer from "components/ui/Footer";
 import getServerUser from "app/getServerUser";
-import FetchStatusTable from "components/status/FetchStatusTable";
+import FetchStatusTable, { FetchStatusTableLoading } from "components/status/FetchStatusTable";
 import { Metadata } from "next";
-import {formatTitle} from "utils/generalUtils.ts";
+import {fetchUrl, formatTitle} from "utils/generalUtils.ts";
 import { getTranslations } from 'next-intl/server';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,6 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function StatusPage() {
     const t = await getTranslations('status');
     const user = getServerUser();
+    const statusPromise = fetchUrl("/fetch-status-truncated", { next: { revalidate: 60 } });
 
     return <>
         <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
@@ -34,7 +36,9 @@ export default async function StatusPage() {
                             {t('subtitle')}
                         </p>
                     </div>
-                    <FetchStatusTable />
+                    <Suspense fallback={<FetchStatusTableLoading />}>
+                        <FetchStatusTable initialDataPromise={statusPromise} />
+                    </Suspense>
                 </div>
             </div>
         </div>
