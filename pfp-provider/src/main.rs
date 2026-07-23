@@ -19,7 +19,7 @@ mod providers;
 mod cache;
 
 use providers::{SteamIdPro, SteamIdXyz, TradeItProvider, Provider};
-use cache::RedisCache;
+use cache::PfpCache;
 use crate::providers::{PlayerDb, SteamOfficialApi};
 
 #[derive(Debug, Error)]
@@ -67,7 +67,7 @@ enum ApiPfpResponse {
 
 struct AppState {
     providers: Vec<Box<dyn Provider>>,
-    cache: RedisCache,
+    cache: PfpCache,
     lookup_limit: Semaphore,
 }
 
@@ -98,13 +98,9 @@ async fn get_pfp_with_retry(provider: &dyn Provider, uuid: u64) -> anyhow::Resul
 impl Api {
     #[oai(path = "/steams/pfp/:uuid", method = "get")]
     async fn get_steam_profile(&self, Path(uuid): Path<u64>) -> PoemResult<ApiPfpResponse> {
-        let cache_result = self.state.cache.get(&uuid.to_string()).await;
+        let cache_result = self.state.cache.get(uuid).await;
         if let Ok(Some(url)) = cache_result {
-            let parts: Vec<&str> = url.split(':').collect();
-            if parts.len() >= 2 {
-                let provider = parts[0];
-                let actual_url = parts[1];
-
+            if let Some((provider, actual_url)) = url.split_once(':') {
                 return Ok(ApiPfpResponse::Ok(Json(PfpResponse {
                     provider: provider.to_string(),
                     url: actual_url.to_string(),
@@ -124,7 +120,7 @@ impl Api {
                 Ok(url) if !url.is_empty() => {
                     let cache_value = format!("{}:{}", provider.name(), url);
                     if let Err(e) = self.state.cache.set(
-                        &uuid.to_string(), &cache_value, Duration::from_hours(24 * 3)).await {
+                        uuid, &cache_value, Duration::from_hours(24 * 3)).await {
                         tracing::warn!("Failed to cache result: {}", e);
                     }
 
@@ -160,10 +156,10 @@ async fn main(){
         tracing::warn!("REDIS_URL environment was not set. Defaulting to localhost.");
         "redis://127.0.0.1/".to_string()
     });
-    let cache = RedisCache::new(&redis_url).await
+    let cache = PfpCache::new(&redis_url).await
         .expect("Failed to connect to redis");
     let http_client = reqwest::Client::builder()
-        .user_agent("ZEGraph-Pfp-Provider/0.5 (+https://zegraph.xyz)")
+        .user_agent("ZEGraph-Pfp-Provider/0.6 (+https://zegraph.xyz)")
         .timeout(Duration::from_secs(10))
         .build()
         .expect("Failed to create HTTP client");
