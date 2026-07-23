@@ -259,7 +259,15 @@ impl ServerApi {
         "#, search, paging, pagination).fetch_all(pool);
 
         let rows = if search.is_none() {
-            match cached_response(&format!("global-players:{page}"), &data.cache, 60, func).await {
+            let caching_time = match page {
+                1..=5 => 60 * 60,
+                6..=9 => 50 * 60,
+                10..=14 => 40 * 60,
+                15..=20 => 30 * 60,
+                21..=30 => 20 * 60,
+                _ => 10 * 60,
+            };
+            match cached_response(&format!("global-players:{page}"), &data.cache, caching_time, func).await {
                 Ok(cached) => cached.result,
                 Err(_) => return response!(internal_server_error),
             }
@@ -285,7 +293,7 @@ impl ServerApi {
         let pool = &*app.pool.clone();
         let user_id = user_token.as_ref().map(|t| t.id);
 
-        let Ok(result) = sqlx::query_as!(DbPlayerDetailSession, r#"
+        let func = || sqlx::query_as!(DbPlayerDetailSession, r#"
             WITH user_perms AS (
                 SELECT
                     COALESCE(website.is_superuser($1), FALSE) AS is_superuser
@@ -317,8 +325,11 @@ impl ServerApi {
             LEFT JOIN website.user_anonymization ua ON ua.user_id::TEXT = p.player_id AND ua.community_id = sc.community_id
             WHERE pss.ended_at IS NULL AND CURRENT_TIMESTAMP - pss.last_verified < INTERVAL '20 minutes'
             ORDER BY pss.started_at
-        "#, user_id).fetch_all(pool).await else {
-            return response!(internal_server_error)
+        "#, user_id).fetch_all(pool);
+
+        let result = match cached_response("global-players-playing", &app.cache, 10 * 60, func).await {
+            Ok(cached) => cached.result,
+            Err(_) => return response!(internal_server_error),
         };
         let converted = result.into_iter().map(|e| {
             let server_id = e.server_id.clone();
