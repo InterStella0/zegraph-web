@@ -1,28 +1,63 @@
 'use client'
 import MapsSearchControls from "components/maps/MapsSearchControls.tsx";
 import MapsFilterTabs, {FilterTypes} from "components/maps/MapsFilterTab.tsx";
-import MapsTable from "components/maps/MapsTable";
-import MapsMobileView from "components/maps/MapsMobileView";
+import MapsTable, {MapsTableSkeleton} from "components/maps/MapsTable";
+import MapsMobileView, {MapsMobileViewSkeleton} from "components/maps/MapsMobileView";
 import LoginDialog from "components/ui/LoginDialog.tsx";
-import {use, useEffect, useState} from "react";
+import {use, useEffect, useRef, useState} from "react";
 import {fetchApiServerUrl, fetchServerUrl} from "utils/generalUtils";
 import {MapPlayedPaginated, ServerMap} from "types/maps.ts";
 import {ServerSlugPromise} from "../util.ts";
 import {SteamProfile} from "../../../../next-auth-steam/steam.ts";
 import {useMapNotifications} from "lib/hooks/useMapNotifications";
+import {Skeleton} from "components/ui/skeleton";
 
 import {useTranslations} from 'next-intl';
 
 export type SortByIndex = "LastPlayed" |  "HighestCumHour" |  "UniquePlayers" |  "FrequentlyPlayed" |  "HighestHour"
 
-export default function MapsSearchIndex({ serverPromise, userPromise }: { serverPromise: ServerSlugPromise, userPromise: Promise<SteamProfile | null> }) {
+export function MapsSearchIndexLoading() {
+    return <>
+        <div className="border border-border rounded-lg bg-card p-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-8">
+                    <Skeleton className="h-10 w-full" />
+                </div>
+                <div className="md:col-span-4">
+                    <Skeleton className="h-10 w-full" />
+                </div>
+            </div>
+        </div>
+
+        <div className="border border-border rounded-lg bg-card mb-6 p-3">
+            <div className="flex gap-4 overflow-x-auto">
+                {Array.from({length: 6}).map((_, i) => (
+                    <Skeleton key={i} className="h-6 w-20 flex-shrink-0" />
+                ))}
+            </div>
+        </div>
+
+        <div className="hidden md:block">
+            <MapsTableSkeleton />
+        </div>
+
+        <div className="block md:hidden space-y-4">
+            {Array.from({length: 5}).map((_, i) => (
+                <MapsMobileViewSkeleton key={i} />
+            ))}
+        </div>
+    </>
+}
+
+export default function MapsSearchIndex({ serverPromise, userPromise, initialMapsPromise }: { serverPromise: ServerSlugPromise, userPromise: Promise<SteamProfile | null>, initialMapsPromise: Promise<MapPlayedPaginated> }) {
     const t = useTranslations('maps.searchIndex');
     const server = use(serverPromise)
     const user = use(userPromise)
+    const initialMapsData = use(initialMapsPromise)
     const server_id = server.id;
     const { getSubscriptionType, refresh: refreshNotifications } = useMapNotifications(!!user);
-    const [mapsData, setMapsData] = useState<MapPlayedPaginated | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [mapsData, setMapsData] = useState<MapPlayedPaginated | null>(initialMapsData);
+    const [loading, setLoading] = useState<boolean>(false);
     const [, setError] = useState<string | null>(null);
     const [autocompleteOptions, setAutocompleteOptions] = useState<ServerMap[]>([]);
 
@@ -30,10 +65,19 @@ export default function MapsSearchIndex({ serverPromise, userPromise }: { server
     const [searchInput, setSearchInput] = useState<string>('');
     const [sortBy, setSortBy] = useState<SortByIndex>('LastPlayed');
     const [filterTab, setFilterTab] = useState<FilterTypes>('all');
-    const [favorites, setFavorites] = useState<Set<string>>(new Set());
+    const [favorites, setFavorites] = useState<Set<string>>(() => {
+        const favoriteSet = new Set<string>();
+        if (user && initialMapsData?.maps) {
+            initialMapsData.maps.forEach(map => {
+                if (map.is_favorite) favoriteSet.add(map.map);
+            });
+        }
+        return favoriteSet;
+    });
     const [page, setPage] = useState<number>(0);
     const [autocompleteLoading, setAutocompleteLoading] = useState<boolean>(false);
     const [loginDialogOpen, setLoginDialogOpen] = useState<boolean>(false);
+    const isFirstRun = useRef(true);
 
     useEffect(() => {
         if (!searchInput.trim()) {
@@ -77,6 +121,11 @@ export default function MapsSearchIndex({ serverPromise, userPromise }: { server
 
     useEffect(() => {
         if (!server_id) return;
+
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
 
         const loadMaps = async () => {
             try {

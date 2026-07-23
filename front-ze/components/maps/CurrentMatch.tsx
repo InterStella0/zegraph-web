@@ -25,6 +25,36 @@ import {useTranslations} from "next-intl";
 
 dayjs.extend(duration);
 
+export function CurrentMatchLoading() {
+    return (
+        <div className="mb-6 border border-border rounded-lg bg-gradient-to-br from-primary/5 via-secondary/5 to-background p-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                <div className="md:col-span-4">
+                    <Skeleton className="w-full h-40 rounded-lg" />
+                </div>
+                <div className="md:col-span-5">
+                    <Skeleton className="h-3 w-32 mb-3" />
+                    <Skeleton className="h-8 w-3/4 mb-3" />
+                    <Skeleton className="h-4 w-1/2 mb-4" />
+                    <Skeleton className="h-6 w-20 mb-4" />
+                    <div className="flex flex-row gap-2 flex-wrap">
+                        <Skeleton className="h-8 w-24" />
+                        <Skeleton className="h-8 w-24" />
+                        <Skeleton className="h-8 w-20" />
+                        <Skeleton className="h-8 w-20" />
+                    </div>
+                </div>
+                <div className="md:col-span-3">
+                    <div className="flex flex-col gap-4 items-center">
+                        <Skeleton className="h-12 w-16" />
+                        <Skeleton className="h-3 w-16" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function CurrentMatch({ serverPromise, mapCurrentPromise, playerContinentsPromise, userPromise }:
 { serverPromise: ServerSlugPromise, mapCurrentPromise: Promise<ServerMapMatch>, playerContinentsPromise: Promise<ContinentStatistics>, userPromise: Promise<SteamProfile | null> }
 ){

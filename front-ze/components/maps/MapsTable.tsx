@@ -54,6 +54,34 @@ const MapsRowSkeleton = () => {
     );
 }
 
+export function MapsTableSkeleton() {
+    const t = useTranslations('maps.table');
+    return (
+        <div className="border border-border rounded-lg bg-card overflow-hidden">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="font-bold">{t('map')}</TableHead>
+                        <TableHead className="font-bold">{t('status')}</TableHead>
+                        <TableHead align="right" className="font-bold text-right">{t('cumulativeHours')}</TableHead>
+                        <TableHead align="right" className="font-bold text-right">{t('hours')}</TableHead>
+                        <TableHead align="right" className="font-bold text-right">{t('players')}</TableHead>
+                        <TableHead align="right" className="font-bold text-right">{t('sessions')}</TableHead>
+                        <TableHead align="center" className="font-bold text-center">{t('lastPlayed')}</TableHead>
+                        <TableHead align="center" className="font-bold text-center"></TableHead>
+                        <TableHead align="center" className="font-bold text-center"></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {Array.from({ length: 25 }).map((_, i) => (
+                        <MapsRowSkeleton key={i} />
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
 export const StatusChip = ({ map }) => {
     const t = useTranslations('maps.table');
     if (!map.enabled) return (

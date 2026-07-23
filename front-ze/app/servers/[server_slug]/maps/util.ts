@@ -1,5 +1,5 @@
-import {ServerMapMatch} from "types/maps";
-import {fetchServerUrl, fetchUrl} from "utils/generalUtils";
+import {MapPlayedPaginated, ServerMapMatch} from "types/maps";
+import {fetchApiServerUrl, fetchServerUrl, fetchUrl} from "utils/generalUtils";
 import {oneMinute} from "../util.ts";
 import {ContinentStatistics} from "types/players.ts";
 
@@ -10,4 +10,10 @@ export async function getMatchNow(serverId: string): Promise<ServerMapMatch> {
 export async function getContinentStatsNow(serverId: string): Promise<ContinentStatistics> {
     const data = await fetchUrl(`/radars/${serverId}/live_statistics/continents`, { next: {revalidate: oneMinute} })
     return data as ContinentStatistics
+}
+export async function getMapsIndexNow(serverId: string): Promise<MapPlayedPaginated> {
+    const data = await fetchApiServerUrl(serverId, '/maps/last/sessions', {
+        params: { page: 0, sorted_by: 'LastPlayed' },
+    })
+    return data as MapPlayedPaginated
 }

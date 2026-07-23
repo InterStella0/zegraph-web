@@ -1,14 +1,14 @@
-import CurrentMatch from "components/maps/CurrentMatch";
+import CurrentMatch, {CurrentMatchLoading} from "components/maps/CurrentMatch";
 import {fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils";
 import {getServerSlugOrNotFound, threeMinutes} from "../util";
-import MapsSearchIndex from "./MapsSearchIndex";
+import MapsSearchIndex, {MapsSearchIndexLoading} from "./MapsSearchIndex";
 import getServerUser from "../../../getServerUser";
 import {Metadata} from "next";
 import {MapPlayedPaginated} from "types/maps.ts";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {Suspense} from "react";
-import {getContinentStatsNow, getMatchNow} from "./util.ts";
+import {getContinentStatsNow, getMapsIndexNow, getMatchNow} from "./util.ts";
 import {AdSpot} from "components/ui/AdSpot";
 import { getTranslations } from 'next-intl/server';
 dayjs.extend(relativeTime)
@@ -46,14 +46,15 @@ export default async function Page({ params }){
     const user = getServerUser()
     const matchData = server.then(e => getMatchNow(e.id))
     const playerContinents = server.then(e => getContinentStatsNow(e.id))
+    const initialMapsPromise = server.then(e => getMapsIndexNow(e.id))
 
     return <div className="container max-w-screen-xl py-6 max-sm:px-0.5 mx-auto px-2">
-        <Suspense fallback={null}>
+        <Suspense fallback={<CurrentMatchLoading />}>
             <CurrentMatch serverPromise={server} mapCurrentPromise={matchData} playerContinentsPromise={playerContinents} userPromise={user} />
         </Suspense>
         <AdSpot className="my-4" />
-        <Suspense fallback={null}>
-            <MapsSearchIndex serverPromise={server} userPromise={user} />
+        <Suspense fallback={<MapsSearchIndexLoading />}>
+            <MapsSearchIndex serverPromise={server} userPromise={user} initialMapsPromise={initialMapsPromise} />
         </Suspense>
     </div>
 }
