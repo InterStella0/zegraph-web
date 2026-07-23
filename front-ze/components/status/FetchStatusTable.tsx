@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { use, useEffect, useState, useCallback } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { Badge } from "components/ui/badge";
@@ -19,6 +19,7 @@ import {
 } from "types/fetchStatus";
 import {fetchUrl} from "utils/generalUtils.ts";
 import { useTranslations } from 'next-intl';
+import ErrorCatch from "components/ui/ErrorMessage.tsx";
 
 dayjs.extend(relativeTime);
 
@@ -194,7 +195,7 @@ function ServerStatusCard({ group }: { group: FetchStatusServerGroupTruncated })
     );
 }
 
-function StatusSkeleton() {
+export function FetchStatusTableLoading() {
     return (
         <div className="flex flex-col gap-4">
             <Skeleton className="h-14 w-full rounded-xl" />
@@ -222,10 +223,11 @@ function StatusSkeleton() {
     );
 }
 
-export default function FetchStatusTable() {
+function FetchStatusTableDisplay({ initialDataPromise }: { initialDataPromise: Promise<FetchStatusCommunityGroupTruncated[]> }) {
     const t = useTranslations('status.table');
-    const [entries, setEntries] = useState<FetchStatusCommunityGroupTruncated[] | null>(null);
-    const [lastUpdated, setLastUpdated] = useState<dayjs.Dayjs | null>(null);
+    const initialData = use(initialDataPromise);
+    const [entries, setEntries] = useState<FetchStatusCommunityGroupTruncated[]>(initialData || []);
+    const [lastUpdated, setLastUpdated] = useState<dayjs.Dayjs | null>(initialData ? dayjs() : null);
 
     const fetchData = useCallback(async () => {
         try {
@@ -236,12 +238,9 @@ export default function FetchStatusTable() {
     }, []);
 
     useEffect(() => {
-        fetchData();
         const id = setInterval(fetchData, POLL_INTERVAL);
         return () => clearInterval(id);
     }, [fetchData]);
-
-    if (entries === null) return <StatusSkeleton />;
 
     const communities = entries;
     const overallStatus = computeOverallStatus(communities);
@@ -293,5 +292,13 @@ export default function FetchStatusTable() {
                 </>
             )}
         </div>
+    );
+}
+
+export default function FetchStatusTable({ initialDataPromise }: { initialDataPromise: Promise<FetchStatusCommunityGroupTruncated[]> }) {
+    return (
+        <ErrorCatch message="Fetch status couldn't be loaded.">
+            <FetchStatusTableDisplay initialDataPromise={initialDataPromise} />
+        </ErrorCatch>
     );
 }
