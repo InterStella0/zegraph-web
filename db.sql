@@ -1231,28 +1231,6 @@ SELECT cron.schedule_in_database(
     'cs2_tracker_db'  -- INSERT YOUR DB NAME
 );
 
-
--- Derives server.tracking_since from the earliest session we ever recorded on the server.
--- MIN(started_at) only ever moves earlier, so this is idempotent and settles to a no-op once
--- every server is populated. Run it by hand once as the backfill.
-SELECT cron.schedule_in_database(
-    'update-server-tracking-since',
-    '0 0 * * *',  -- Every day at midnight
-    $$
-        UPDATE server s
-        SET tracking_since = sub.first_seen
-        FROM (
-            SELECT server_id, MIN(started_at) AS first_seen
-            FROM player_server_session
-            GROUP BY server_id
-        ) sub
-        WHERE s.server_id = sub.server_id
-          AND (s.tracking_since IS NULL OR sub.first_seen < s.tracking_since);
-    $$,
-    'cs2_tracker_db'  -- INSERT YOUR DB NAME
-);
-
-
 SELECT cron.schedule_in_database(
     'cleanup-expired-refresh-tokens',
     '0 0 * * *',                        -- every day at midnight
