@@ -65,22 +65,12 @@ struct SitemapPlayer {
     recent_online: Option<String>,
 }
 
-#[derive(Object, Serialize)]
-struct SitemapGuide {
-    map_name: String,
-    server_id: Option<String>,
-    server_readable_link: Option<String>,
-    slug: String,
-    updated_at: String,
-}
-
 /// Everything needed to build the site's XML sitemaps.
 #[derive(Object, Serialize)]
 struct SitemapData {
     servers: Vec<SitemapServer>,
     maps: Vec<SitemapMap>,
     players: Vec<SitemapPlayer>,
-    guides: Vec<SitemapGuide>,
 }
 
 /// A dependency's reachability at the moment `/health` was called.
@@ -226,8 +216,8 @@ pub struct MiscApi;
 impl MiscApi {
     /// All URLs needed to generate the site's XML sitemaps.
     ///
-    /// Returns every server, every recently-active map, every non-anonymous player seen in the
-    /// last day (top 20 per server), and every published guide. Consumed by the frontend's
+    /// Returns every server, every recently-active map, and every non-anonymous player seen in the
+    /// last day (top 20 per server). Consumed by the frontend's
     /// sitemap generator, not meant for general use.
     #[oai(path = "/sitemap-data", method = "get")]
     async fn sitemap_data(&self, data: Data<&AppData>) -> Response<SitemapData> {
@@ -265,13 +255,6 @@ impl MiscApi {
         ).fetch_all(&*data.pool.clone()).await else {
             return response!(internal_server_error)
         };
-        let Ok(guides) = sqlx::query_as!(DbGuideSitemap, r#"
-            SELECT g.map_name as "map_name!", g.server_id, s.readable_link AS server_readable_link, g.slug as "slug!", g.updated_at as "updated_at!"
-            FROM website.guides g
-            LEFT JOIN server s ON g.server_id = s.server_id"#,
-        ).fetch_all(&*data.pool.clone()).await else {
-            return response!(internal_server_error)
-        };
 
         let servers: Vec<SitemapServer> = servers.into_iter().filter_map(|s| {
             Some(SitemapServer {
@@ -298,17 +281,7 @@ impl MiscApi {
             })
         }).collect();
 
-        let guides: Vec<SitemapGuide> = guides.into_iter().map(|g| {
-            SitemapGuide {
-                map_name: g.map_name,
-                server_id: g.server_id,
-                server_readable_link: g.server_readable_link,
-                slug: g.slug,
-                updated_at: g.updated_at.date().to_string(),
-            }
-        }).collect();
-
-        response!(ok SitemapData { servers, maps, players, guides })
+        response!(ok SitemapData { servers, maps, players })
     }
     /// Always answers 200, even when a dependency is down.
     ///

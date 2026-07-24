@@ -77,24 +77,6 @@ export function getAuthOptions(req?: NextRequest): AuthOptions {
                                     profile = responseJson.data
                                 }
 
-                                // Fetch ban status
-                                try {
-                                    const banResponse = await fetch(BACKEND_DOMAIN + '/accounts/me/guide-ban', {
-                                        headers: {
-                                            "Authorization": `Bearer ${temp_token}`
-                                        }
-                                    })
-                                    const banData = await banResponse.json()
-                                    if (banData.data) {
-                                        (profile as SteamProfile).is_banned = banData.data.is_banned ?? false;
-                                        (profile as SteamProfile).ban_reason = banData.data.reason ?? null;
-                                    }
-                                } catch (banError) {
-                                    (profile as SteamProfile).is_banned = false;
-                                    (profile as SteamProfile).ban_reason = null;
-                                    console.error("Failed to fetch ban status", banError)
-                                }
-
                                 return profile
                             }catch (e){
                                 console.error(e)

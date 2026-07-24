@@ -57,12 +57,11 @@ app/
 ├── page.tsx                # Landing page
 ├── admin/                  # Admin dashboard
 ├── live/                   # Live player tracking
-├── maps/[map_name]/guides/ # Global map guides
 └── servers/[server_slug]/
     ├── page.tsx            # Server dashboard
     ├── radar/              # Geographic player distribution
     ├── players/            # Player list and details
-    └── maps/               # Map list, details, and guides
+    └── maps/               # Map list and details
 
 components/
 ├── maps/                   # Map-related components

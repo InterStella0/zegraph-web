@@ -77,25 +77,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         })
     }
 
-    for (const guide of data.guides) {
-        const map_name = sanitizeUrl(guide.map_name).trim()
-        if (guide.server_id) {
-            const slug = guide.server_readable_link ?? guide.server_id
-            urls.push({
-                url: `${DOMAIN}/servers/${slug}/maps/${map_name}/guides/${guide.slug}`,
-                changeFrequency: 'weekly',
-                priority: 0.8,
-                lastModified: guide.updated_at,
-            })
-        } else {
-            urls.push({
-                url: `${DOMAIN}/maps/${map_name}/guides/${guide.slug}`,
-                changeFrequency: 'weekly',
-                priority: 0.8,
-                lastModified: guide.updated_at,
-            })
-        }
-    }
-
     return urls
 }

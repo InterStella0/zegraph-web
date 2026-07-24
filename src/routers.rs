@@ -26,8 +26,6 @@ pub enum ApiTags {
     Graphs,
     /// Map listings, sessions, analysis and 3D model metadata.
     Maps,
-    /// Map guides: articles, comments and voting.
-    Guides,
     /// 3D model uploads and downloads for maps.
     Models3D,
     /// Live and historical geographic player distribution.
@@ -36,10 +34,8 @@ pub enum ApiTags {
     Misc,
     /// Steam/Discord-authenticated user account settings.
     Accounts,
-    /// Moderation review queues for reported guides, comments and music.
+    /// Moderation review queues for reported music.
     AdminReports,
-    /// Guide-posting ban management.
-    AdminBans,
     /// Site-wide announcement management.
     Announcements,
     /// Web push notification subscriptions and preferences.

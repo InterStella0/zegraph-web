@@ -10,7 +10,6 @@ import {
 import { Card } from "components/ui/card";
 import MapHeader from "components/maps/MapHeader.tsx";
 import MapAnalyzeAttributes from "components/maps/MapAnalyzeAttributes.tsx";
-import MapGuidesButton from "components/maps/MapGuidesButton";
 import MapHeatRegion from "components/maps/MapHeatRegion.tsx";
 import MapRegionDistribution from "components/maps/MapRegionDistribution.tsx";
 import MapSessionList from "components/maps/MapSessionList.tsx";
@@ -180,9 +179,6 @@ export default async function Page({ params }){
                     </div>
                     <div className="col-span-12 xl:col-span-4 lg:col-span-3">
                         <MapAnalyzeAttributes />
-                        <div className="mt-4">
-                            <MapGuidesButton />
-                        </div>
                     </div>
                     <div className="col-span-12">
                         <MapMusicSection />

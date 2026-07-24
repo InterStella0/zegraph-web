@@ -17,18 +17,8 @@ type SitemapPlayer = {
     player_id: string
     recent_online: string | null
 }
-
-type SitemapGuide = {
-    map_name: string
-    server_id: string | null
-    server_readable_link: string | null
-    slug: string
-    updated_at: string
-}
-
 type SitemapData = {
     servers: SitemapServer[]
     maps: SitemapMap[]
     players: SitemapPlayer[]
-    guides: SitemapGuide[]
 }

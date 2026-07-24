@@ -442,7 +442,6 @@ mod route_tests {
         ("POST", "/accounts/create"),
         ("POST", "/accounts/server-requests"),
         ("GET", "/accounts/me/push/subscriptions"),
-        ("GET", "/admin/reports/guides"),
         ("GET", "/admin/bans"),
         ("GET", "/admin/audit-logs"),
     ];
@@ -503,7 +502,6 @@ mod route_tests {
         for expected in [
             "/servers/{server_id}/maps/{map_name}/info",
             "/graph/{server_id}/unique_players/players/{player_id}/sessions/{session_id}",
-            "/maps/{map_name}/guides/{guide_id}/comments/{comment_id}",
             "/accounts/{user_id}/profile",
             "/communities/{community_id}/unique_players",
         ] {
@@ -641,7 +639,6 @@ mod route_tests {
         ("GET", "/accounts/me"),
         ("GET", "/accounts/me/communities"),
         ("GET", "/accounts/me/push/subscriptions"),
-        ("GET", "/admin/reports/guides"),
         ("GET", "/admin/bans"),
         ("GET", "/admin/audit-logs"),
     ];

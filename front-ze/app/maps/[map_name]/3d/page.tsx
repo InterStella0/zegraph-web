@@ -29,9 +29,7 @@ export default async function Map3DPage({ params, searchParams }: {
   const { map_name } = await params
   const server_slug = (await searchParams).server_slug
 
-  const backUrl = server_slug
-    ? `/servers/${server_slug}/maps/${map_name}`
-    : `/maps/${map_name}/guides`
+  const backUrl = `/servers/${server_slug}/maps/${map_name}`
 
   if (!map_name) {
     return null // Loading state while params resolve

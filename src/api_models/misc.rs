@@ -62,69 +62,6 @@ pub enum VoteType{
     DownVote
 }
 
-#[derive(Object, Serialize, Deserialize)]
-pub struct VoteDto {
-    pub vote_type: VoteType,
-}
-
-/// A guide's author.
-#[derive(Object)]
-pub struct GuideAuthor {
-    /// String rather than a numeric type: bigint Steam IDs lose precision in JS.
-    pub id: String,
-    pub name: String,
-    pub avatar: Option<String>,
-}
-
-/// A map guide.
-#[derive(Object)]
-pub struct Guide {
-    pub id: String,
-    pub map_name: String,
-    pub server_id: Option<String>,
-    pub title: String,
-    pub content: String,
-    pub category: String,
-    pub author: GuideAuthor,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub upvotes: i64,
-    pub downvotes: i64,
-    pub comment_count: i64,
-    /// URL-safe slug for this guide, unique per map.
-    pub slug: String,
-    /// The requester's own vote on this guide, if signed in and if they voted.
-    pub user_vote: Option<VoteType>,
-}
-
-/// A comment on a guide.
-#[derive(Object)]
-pub struct GuideComment {
-    pub id: String,
-    pub guide_id: String,
-    pub author: GuideAuthor,
-    pub content: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub upvotes: i64,
-    pub downvotes: i64,
-    pub user_vote: Option<VoteType>
-}
-
-/// A page of a map's guide listing.
-#[derive(Object)]
-pub struct GuideCommentPaginated{
-    pub comments: Vec<GuideComment>,
-    pub total_comments: i32,
-}
-
-/// A page of guides.
-#[derive(Object)]
-pub struct GuidesPaginated {
-    pub(crate) total_guides: i32,
-    pub(crate) guides: Vec<Guide>,
-}
-
 /// Server-side state of an in-progress chunked map 3D model upload, cached in redis.
 #[derive(Object, Serialize, Deserialize, Clone)]
 pub struct UploadSession {

@@ -39,16 +39,7 @@ const navSections: NavSection[] = [
     title: 'Reports',
     icon: Shield,
     items: [
-      { label: 'Guide Reports', href: '/admin/reports/guides', icon: FileText },
-      { label: 'Comment Reports', href: '/admin/reports/comments', icon: MessageSquare },
       { label: 'Music Reports', href: '/admin/reports/music', icon: Music },
-    ],
-  },
-  {
-    title: 'Moderation',
-    icon: Ban,
-    items: [
-      { label: 'Banned Users', href: '/admin/bans', icon: Ban },
     ],
   },
   {

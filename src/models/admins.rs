@@ -300,149 +300,6 @@ impl Into<VoteType> for DataVoteType {
     }
 }
 
-#[auto_serde_with]
-pub struct DbGuideBrief{
-    pub id: uuid::Uuid,
-    pub map_name: String,
-    pub server_id: Option<String>,
-    pub author_id: i64
-}
-#[derive(Debug, DbInto)]
-#[auto_serde_with]
-#[db_into(Guide)]
-#[extra(author = GuideAuthor { id: self.author_id.to_string(), name: self.author_name.unwrap_or("Unknown".into()), avatar: self.author_avatar })]
-pub struct DbGuide {
-    #[method(to_string)]
-    pub id: uuid::Uuid,
-    pub map_name: String,
-    pub server_id: Option<String>,
-    pub title: String,
-    pub content: String,
-    pub category: String,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
-    pub upvotes: i64,
-    pub downvotes: i64,
-    pub comment_count: i64,
-    #[expr(self.user_vote.map(Into::into))]
-    pub user_vote: Option<DataVoteType>,
-    #[skip]
-    pub author_id: i64,
-    #[skip]
-    pub author_name: Option<String>,
-    #[skip]
-    pub author_avatar: Option<String>,
-    pub slug: String,
-    #[skip]
-    pub total_guides: Option<i32>
-}
-
-
-#[derive(DbInto)]
-#[auto_serde_with]
-#[db_into(GuideComment)]
-#[extra(author = GuideAuthor { id: self.author_id.to_string(), name: self.author_name.unwrap_or("Unknown".into()), avatar: self.author_avatar })]
-pub struct DbGuideComment {
-    #[method(to_string)]
-    pub id: uuid::Uuid,
-    #[method(to_string)]
-    pub guide_id: uuid::Uuid,
-    #[skip]
-    pub author_id: i64,
-    #[skip]
-    pub author_name: Option<String>,
-    #[skip]
-    pub author_avatar: Option<String>,
-    pub content: String,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
-    pub upvotes: i64,
-    pub downvotes: i64,
-    #[expr(self.user_vote.map(Into::into))]
-    pub user_vote: Option<DataVoteType>,
-    #[skip]
-    pub total_comments: Option<i32>
-}
-#[auto_serde_with]
-pub struct DbGuideCommentBrief{
-    pub id: uuid::Uuid,
-    pub guide_id: uuid::Uuid,
-    pub author_id: i64,
-}
-
-#[auto_serde_with]
-pub struct DbReportGuide {
-    guide_id: String,
-    user_id: i64,
-    reason: String,
-    details: String,
-    timestamp: OffsetDateTime
-}
-
-// Admin models for guide moderation
-#[derive(DbInto)]
-#[auto_serde_with]
-#[db_into(GuideReportAdmin)]
-pub struct DbGuideReportFull {
-    #[method(to_string)]
-    pub id: uuid::Uuid,
-    #[method(to_string)]
-    pub guide_id: uuid::Uuid,
-    #[rename(reporter_id)]
-    #[method(to_string)]
-    pub user_id: i64,
-    pub reason: String,
-    pub details: String,
-    pub status: String,
-    #[expr(self.resolved_by.map(|id| id.to_string()))]
-    pub resolved_by: Option<i64>,
-    pub resolved_at: Option<OffsetDateTime>,
-    #[rename(created_at)]
-    pub timestamp: OffsetDateTime,
-    // Joined fields
-    pub guide_title: Option<String>,
-    pub guide_map_name: Option<String>,
-    #[expr(self.guide_author_id.map(|id| id.to_string()))]
-    pub guide_author_id: Option<i64>,
-    pub guide_author_name: Option<String>,
-    pub reporter_name: Option<String>,
-    pub resolver_name: Option<String>,
-    #[skip]
-    pub total_reports: Option<i64>,
-}
-
-#[derive(DbInto)]
-#[auto_serde_with]
-#[db_into(CommentReportAdmin)]
-pub struct DbCommentReportFull {
-    #[method(to_string)]
-    pub id: uuid::Uuid,
-    #[method(to_string)]
-    pub comment_id: uuid::Uuid,
-    #[rename(reporter_id)]
-    #[method(to_string)]
-    pub user_id: i64,
-    pub reason: String,
-    pub details: String,
-    pub status: String,
-    #[expr(self.resolved_by.map(|id| id.to_string()))]
-    pub resolved_by: Option<i64>,
-    pub resolved_at: Option<OffsetDateTime>,
-    #[rename(created_at)]
-    pub timestamp: OffsetDateTime,
-    // Joined fields
-    pub comment_content: Option<String>,
-    #[expr(self.comment_author_id.map(|id| id.to_string()))]
-    pub comment_author_id: Option<i64>,
-    pub comment_author_name: Option<String>,
-    #[expr(self.guide_id.map(|id| id.to_string()))]
-    pub guide_id: Option<uuid::Uuid>,
-    pub reporter_name: Option<String>,
-    pub resolver_name: Option<String>,
-    #[skip]
-    pub total_reports: Option<i64>,
-}
-
 #[derive(DbInto)]
 #[auto_serde_with]
 #[db_into(MapMusicReportAdmin)]
@@ -480,29 +337,6 @@ pub struct DbMapMusicReportFull {
     #[skip]
     pub total_reports: Option<i64>,
 }
-
-#[derive(DbInto)]
-#[auto_serde_with]
-#[db_into(GuideBanAdmin)]
-pub struct DbGuideBan {
-    #[method(to_string)]
-    pub id: uuid::Uuid,
-    #[method(to_string)]
-    pub user_id: i64,
-    #[method(to_string)]
-    pub banned_by: i64,
-    pub reason: String,
-    pub created_at: OffsetDateTime,
-    pub expires_at: Option<OffsetDateTime>,
-    pub is_active: bool,
-    // Joined fields
-    pub user_name: Option<String>,
-    pub user_avatar: Option<String>,
-    pub banned_by_name: Option<String>,
-    #[skip]
-    pub total_bans: Option<i64>,
-}
-
 
 #[derive(DbInto)]
 #[auto_serde_with]
@@ -620,11 +454,6 @@ pub struct DbGlobalMapRankEntry {
     pub global_position: Option<i64>,
     pub map: Option<String>,
     pub rank: Option<i64>,
-}
-
-pub struct DbGuideBanStatus {
-    pub reason: String,
-    pub expires_at: Option<OffsetDateTime>,
 }
 
 pub struct DbMapName {

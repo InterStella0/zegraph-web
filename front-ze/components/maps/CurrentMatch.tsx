@@ -323,16 +323,6 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                                     </HoverPrefetchLink>
                                 </Button>
                                 <Button
-                                    variant="outline"
-                                    size="sm"
-                                    asChild
-                                >
-                                    <Link href={`/servers/${server.gotoLink}/maps/${currentMatch.map}/guides/`}>
-                                        <Book className="mr-2 h-4 w-4" />
-                                        {t('guides')}
-                                    </Link>
-                                </Button>
-                                <Button
                                     variant="default"
                                     size="sm"
                                     asChild
