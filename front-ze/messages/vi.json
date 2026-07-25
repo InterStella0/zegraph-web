@@ -181,7 +181,6 @@
       "rank": "Hạng #{rank}",
       "online": "Trực tuyến",
       "lastSeen": "Lần cuối online {ago}",
-      "serversSummary": "{count, plural, one {# máy chủ} other {# máy chủ}} · {game}",
       "serversCount": "{count, plural, one {# máy chủ} other {# máy chủ}}",
       "moreCommunities": "+{count} cộng đồng khác",
       "noPlayersFound": "Không tìm thấy người chơi nào",

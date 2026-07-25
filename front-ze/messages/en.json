@@ -181,7 +181,6 @@
       "rank": "Rank #{rank}",
       "online": "Online",
       "lastSeen": "Last seen {ago}",
-      "serversSummary": "{count, plural, one {# server} other {# servers}} · {game}",
       "serversCount": "{count, plural, one {# server} other {# servers}}",
       "moreCommunities": "+{count} more",
       "noPlayersFound": "No players found",

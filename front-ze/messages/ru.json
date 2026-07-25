@@ -181,7 +181,6 @@
       "rank": "Ранг №{rank}",
       "online": "В сети",
       "lastSeen": "Был(а) в сети {ago}",
-      "serversSummary": "{count, plural, one {# сервер} few {# сервера} other {# серверов}} · {game}",
       "serversCount": "{count, plural, one {# сервер} few {# сервера} other {# серверов}}",
       "moreCommunities": "+{count} ещё",
       "noPlayersFound": "Игроки не найдены",

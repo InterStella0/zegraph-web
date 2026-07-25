@@ -181,7 +181,6 @@
       "rank": "Peringkat #{rank}",
       "online": "Daring",
       "lastSeen": "Terakhir terlihat {ago}",
-      "serversSummary": "{count, plural, one {# server} other {# server}} · {game}",
       "serversCount": "{count, plural, one {# server} other {# server}}",
       "moreCommunities": "+{count} lainnya",
       "noPlayersFound": "Tidak ada pemain ditemukan",

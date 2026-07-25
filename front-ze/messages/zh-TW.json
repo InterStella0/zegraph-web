@@ -181,7 +181,6 @@
       "rank": "排名 #{rank}",
       "online": "在線",
       "lastSeen": "最近上線 {ago}",
-      "serversSummary": "{count} 個伺服器 · {game}",
       "serversCount": "{count} 個伺服器",
       "moreCommunities": "+{count} 個更多",
       "noPlayersFound": "找不到玩家",

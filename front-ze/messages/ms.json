@@ -181,7 +181,6 @@
       "rank": "Kedudukan #{rank}",
       "online": "Dalam talian",
       "lastSeen": "Kali terakhir dilihat {ago}",
-      "serversSummary": "{count, plural, other {# pelayan}} · {game}",
       "serversCount": "{count, plural, other {# pelayan}}",
       "moreCommunities": "+{count} lagi",
       "noPlayersFound": "Tiada pemain dijumpai",

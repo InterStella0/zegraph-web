@@ -181,7 +181,6 @@
       "rank": "ランク #{rank}",
       "online": "オンライン",
       "lastSeen": "最終ログイン {ago}",
-      "serversSummary": "{count, plural, one {# サーバー} other {# サーバー}} · {game}",
       "serversCount": "{count, plural, one {# サーバー} other {# サーバー}}",
       "moreCommunities": "他 +{count}",
       "noPlayersFound": "プレイヤーが見つかりません",

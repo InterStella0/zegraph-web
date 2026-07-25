@@ -181,7 +181,6 @@
       "rank": "Rango #{rank}",
       "online": "En línea",
       "lastSeen": "Visto por última vez {ago}",
-      "serversSummary": "{count, plural, one {# servidor} other {# servidores}} · {game}",
       "serversCount": "{count, plural, one {# servidor} other {# servidores}}",
       "moreCommunities": "+{count} más",
       "noPlayersFound": "No se encontraron jugadores",

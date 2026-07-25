@@ -8,10 +8,12 @@ import {Avatar, AvatarImage} from "components/ui/avatar";
 import {Skeleton} from "components/ui/skeleton";
 import {PlayerAvatar} from "./PlayerAvatar.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
+import {GAME_META} from "components/ui/ServerIndicator";
 import {GlobalPlayerBrief, PlayerCommunityPlaytime} from "types/players.ts";
 import {fetchUrl, secondsToHours} from "utils/generalUtils.ts";
 import {cn} from "components/lib/utils";
 import {useCommunityColors} from "lib/hooks/useCommunityColors";
+import {Gamepad2} from "lucide-react";
 
 dayjs.extend(relativeTime)
 
@@ -93,6 +95,7 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
     const [communitiesLoading, setCommunitiesLoading] = useState<boolean>(true);
     const isOnline = !!player.online_since;
     const lastCommunity = communities.find(c => c.community_id === player.last_community_id);
+    const gameMeta = player.game ? GAME_META[player.game] : undefined;
 
     useEffect(() => {
         const controller = new AbortController();
@@ -114,14 +117,15 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
     }, [player.id]);
 
     return (
-        <HoverPrefetchLink
-            href={`/users/${player.id}/profile`}
+        <div
             className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3 hover:bg-accent/50 transition-colors"
         >
             <div className="flex items-center gap-3 min-w-0 sm:w-56">
                 <PlayerAvatar uuid={player.id} name={player.name} width={40} height={40} className="flex-shrink-0"/>
                 <div className="min-w-0">
-                    <p className="font-semibold text-sm sm:text-base truncate">{player.name}</p>
+                    <HoverPrefetchLink href={`/users/${player.id}/profile`} className="font-semibold text-sm sm:text-base hover:underline truncate">
+                        {player.name}
+                    </HoverPrefetchLink>
                     <div
                         className={cn(
                             "text-xs flex items-center gap-1.5",
@@ -140,11 +144,21 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
                             {isOnline ? t('online') : t('lastSeen', {ago: dayjs(player.last_played).fromNow()})}
                         </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                        {player.game
-                            ? t('serversSummary', {count: player.server_count, game: player.game})
-                            : t('serversCount', {count: player.server_count})}
-                    </p>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                        <span>{t('serversCount', {count: player.server_count})}</span>
+                        {gameMeta && (
+                            <>
+                                <span>·</span>
+                                <Badge
+                                    variant="outline"
+                                    className={`h-5 px-1.5 gap-1 text-[10px] flex-shrink-0 ${gameMeta.className}`}
+                                >
+                                    <Gamepad2 className="h-3 w-3" />
+                                    <span className="whitespace-nowrap">{gameMeta.label}</span>
+                                </Badge>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -163,6 +177,6 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
                 </div>
                 <Badge variant="outline">{t('rank', {rank: player.rank})}</Badge>
             </div>
-        </HoverPrefetchLink>
+        </div>
     );
 }

@@ -181,7 +181,6 @@
       "rank": "순위 #{rank}",
       "online": "온라인",
       "lastSeen": "마지막 접속 {ago}",
-      "serversSummary": "{count, plural, one {# 서버} other {# 서버}} · {game}",
       "serversCount": "{count, plural, one {# 서버} other {# 서버}}",
       "moreCommunities": "+{count}개 더보기",
       "noPlayersFound": "플레이어를 찾을 수 없습니다",
