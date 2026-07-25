@@ -1,17 +1,12 @@
 "use client";
 
-import { use, useEffect, useState, useCallback } from "react";
+import { use, useEffect, useState, useCallback, useMemo, memo, type PointerEvent as ReactPointerEvent } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { Badge } from "components/ui/badge";
 import { Card } from "components/ui/card";
 import { Separator } from "components/ui/separator";
 import { Skeleton } from "components/ui/skeleton";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from "components/ui/tooltip";
 import {
     FetchStatusBucket,
     FetchStatusCommunityGroupTruncated,
@@ -48,55 +43,82 @@ function computeOverallStatus(communities: FetchStatusCommunityGroupTruncated[])
     return "operational";
 }
 
-function UptimeBar({ buckets }: { buckets: FetchStatusBucket[] }) {
-    const now = dayjs();
+function bucketColor(b: FetchStatusBucket): string {
+    const total = b.ok + b.error;
+    if (total === 0) return "bg-muted";
+    if (b.error / total >= 0.5) return "bg-red-500";
+    if (b.error > 0) return "bg-yellow-500";
+    return "bg-green-500";
+}
+
+function bucketLabel(b: FetchStatusBucket): string {
+    const total = b.ok + b.error;
+    if (total === 0) return "No data";
+    if (b.error > 0) return `${b.error} error${b.error > 1 ? "s" : ""}, ${b.ok} ok`;
+    return `${b.ok} ok`;
+}
+
+const UptimeBar = memo(function UptimeBar({ buckets }: { buckets: FetchStatusBucket[] }) {
+    // hovered bucket index + pointer x relative to the bar (for tooltip placement)
+    const [hover, setHover] = useState<{ idx: number; x: number } | null>(null);
+
+    // color is needed for every div on every render; precompute cheaply.
+    const colors = useMemo(() => buckets.map(bucketColor), [buckets]);
+
+    const handleMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+        const raw = (e.target as HTMLElement).dataset.idx;
+        if (raw === undefined) {
+            setHover(null);
+            return;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        setHover({ idx: Number(raw), x: e.clientX - rect.left });
+    }, []);
+
+    const clear = useCallback(() => setHover(null), []);
+
+    const hovered = hover ? buckets[hover.idx] : null;
+    // dayjs formatting is done only for the hovered bucket, not all 90 every render.
+    let tooltip: { time: string; label: string; firstError: string | null } | null = null;
+    if (hovered) {
+        const minutesFromNow = (BUCKET_COUNT - 1 - hovered.bucket_index) * BUCKET_MINUTES;
+        const end = dayjs().subtract(minutesFromNow, "minute");
+        const start = end.subtract(BUCKET_MINUTES, "minute");
+        tooltip = {
+            time: `${start.format("MMM D, HH:mm")} – ${end.format("HH:mm")}`,
+            label: bucketLabel(hovered),
+            firstError: hovered.first_error,
+        };
+    }
+
     return (
-        <div className="flex gap-px flex-1">
-            {buckets.map((b) => {
-                const minutesFromNow = (BUCKET_COUNT - 1 - b.bucket_index) * BUCKET_MINUTES;
-                const end = now.subtract(minutesFromNow, "minute");
-                const start = end.subtract(BUCKET_MINUTES, "minute");
-
-                const total = b.ok + b.error;
-                const bucketErrorRate = total > 0 ? b.error / total : 0;
-                const color =
-                    total === 0
-                        ? "bg-muted"
-                        : bucketErrorRate >= 0.5
-                        ? "bg-red-500"
-                        : b.error > 0
-                        ? "bg-yellow-500"
-                        : "bg-green-500";
-
-                const label =
-                    total === 0
-                        ? "No data"
-                        : b.error > 0
-                        ? `${b.error} error${b.error > 1 ? "s" : ""}, ${b.ok} ok`
-                        : `${b.ok} ok`;
-
-                return (
-                    <Tooltip key={b.bucket_index}>
-                        <TooltipTrigger asChild>
-                            <div
-                                className={`h-8 flex-1 rounded-sm ${color} cursor-default transition-opacity hover:opacity-70${b.bucket_index % 2 !== 0 ? " hidden sm:block" : ""}`}
-                            />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-60">
-                            <p className="font-medium">
-                                {start.format("MMM D, HH:mm")} – {end.format("HH:mm")}
-                            </p>
-                            <p>{label}</p>
-                            {b.first_error && (
-                                <p className="mt-1 truncate text-red-300">{b.first_error}</p>
-                            )}
-                        </TooltipContent>
-                    </Tooltip>
-                );
-            })}
+        <div
+            className="relative flex gap-px flex-1"
+            onPointerMove={handleMove}
+            onPointerLeave={clear}
+        >
+            {buckets.map((b, i) => (
+                <div
+                    key={b.bucket_index}
+                    data-idx={b.bucket_index}
+                    className={`h-8 flex-1 rounded-sm ${colors[i]} cursor-default transition-opacity hover:opacity-70${b.bucket_index % 2 !== 0 ? " hidden sm:block" : ""}`}
+                />
+            ))}
+            {hover && tooltip && (
+                <div
+                    className="pointer-events-none absolute bottom-full mb-1.5 z-50 w-fit max-w-60 -translate-x-1/2 rounded-md bg-foreground px-3 py-1.5 text-xs text-background"
+                    style={{ left: hover.x }}
+                >
+                    <p className="font-medium whitespace-nowrap">{tooltip.time}</p>
+                    <p>{tooltip.label}</p>
+                    {tooltip.firstError && (
+                        <p className="mt-1 truncate text-red-300">{tooltip.firstError}</p>
+                    )}
+                </div>
+            )}
         </div>
     );
-}
+});
 
 function StatusBanner({
     status,
