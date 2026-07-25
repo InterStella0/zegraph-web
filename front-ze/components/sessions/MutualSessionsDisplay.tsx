@@ -45,17 +45,17 @@ export default function MutualSessionsDisplay<T extends SessionType>(
 
             <CardContent className="p-0">
                 {getCurrentPageMutual().map((player: PlayerSeen | PlayerBrief) => (
-                    <HoverPrefetchLink
+                    <div
                         key={player.id}
-                        href={`/servers/${server.gotoLink}/players/${player.id}`}
                         className="flex items-center gap-4 p-4 hover:bg-accent transition-colors border-b last:border-0"
                     >
                         <PlayerAvatar uuid={player.id} name={player.name} />
                         <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
                             <div className="min-w-0">
-                                <p className="font-medium truncate max-w-[10rem] lg:max-w-[15rem]">
+                                <HoverPrefetchLink className="font-medium truncate max-w-[10rem] lg:max-w-[15rem] hover:underline"
+                                                   href={`/servers/${server.gotoLink}/players/${player.id}`}>
                                     {player.name}
-                                </p>
+                                </HoverPrefetchLink>
                                 <p className="text-sm text-muted-foreground hidden sm:block">
                                     {player.id}
                                 </p>
@@ -64,7 +64,7 @@ export default function MutualSessionsDisplay<T extends SessionType>(
                                 {t('minutesValue', {value: (player[isPlayer ? 'total_time_together' : isMap ? 'total_playtime' : ''] / 60).toFixed(1)})}
                             </div>
                         </div>
-                    </HoverPrefetchLink>
+                    </div>
                 ))}
             </CardContent>
         </Card>
