@@ -432,8 +432,8 @@ impl GraphApi {
 		let key = format!("graph-top-players:{}:{}", server.server_id, time_frame);
 		let ttl = match time_frame{
 			TopPlayersTimeFrame::Today => 30 * 60,
-			TopPlayersTimeFrame::Week1 => 6 * 60 * 60,
-			TopPlayersTimeFrame::Week2 => 12 * 60 * 60,
+			TopPlayersTimeFrame::Week1 => 6 * HOUR,
+			TopPlayersTimeFrame::Week2 => 12 * HOUR,
 			TopPlayersTimeFrame::Month1 => DAY,
 			TopPlayersTimeFrame::Month6
 			| TopPlayersTimeFrame::Year1 => 2 * DAY,

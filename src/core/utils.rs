@@ -31,6 +31,7 @@ use crate::models::players::DbPlayerBrief;
 use crate::models::servers::DbServer;
 use crate::workers::*;
 
+pub const HOUR: u64 = 60 * 60;
 pub const DAY: u64 = 24 * 60 * 60;
 pub fn get_env(name: &str) -> String{
     env::var(name).expect(&format!("Couldn't load environment '{name}'"))
@@ -577,7 +578,7 @@ pub async fn get_server(pool: &sqlx::Pool<Postgres>, cache: &FastCache, server_i
             WHERE s.server_id=$1 OR readable_link=$1 LIMIT 1"
             , server_id_or_link)
             .fetch_one(pool);
-    let data = cached_response(&key, cache, 60 * 60, func).await.ok();
+    let data = cached_response(&key, cache, HOUR, func).await.ok();
     data.map(|e| e.result)
 }
 

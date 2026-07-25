@@ -518,7 +518,7 @@ impl WorkerQuery<DbMapInfo> for MapBasicQuery<DbMapInfo> {
     }
 
     fn ttl(&self) -> u64 {
-        60 * 60
+        HOUR
     }
 
     fn priority(&self) -> QueryPriority {

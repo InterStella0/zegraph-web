@@ -253,7 +253,7 @@ async fn run_main() {
 
     // Hour-chunked player count cache for short-span graph queries (memory only).
     let count_chunk_cache = Arc::new(Cache::builder()
-        .time_to_live(Duration::from_secs(2 * 24 * 60 * 60))
+        .time_to_live(Duration::from_secs(2 * DAY))
         .max_capacity(8192)
         .build());
 

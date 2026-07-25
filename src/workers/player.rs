@@ -1214,7 +1214,7 @@ impl PlayerWorker {
             SELECT COUNT(*) FROM website.player_global_playtime WHERE total_playtime > INTERVAL '0'
         ").fetch_one(&*pool);
 
-        cached_response("global-playtime-ranked-count", &self.background_worker.cache, 60 * 60 * 12, func)
+        cached_response("global-playtime-ranked-count", &self.background_worker.cache, HOUR * 12, func)
             .await
             .ok()
             .and_then(|cached: CachedResult<Option<i64>>| cached.result)

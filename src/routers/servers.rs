@@ -86,7 +86,7 @@ pub async fn get_community(pool: &sqlx::Pool<Postgres>, cache: &FastCache, commu
             ORDER BY player_count DESC, online DESC, c.community_name
         ", community_id).fetch_one(pool);
 
-    let data = cached_response(&key, cache, 60 * 60, func).await.ok();
+    let data = cached_response(&key, cache, HOUR, func).await.ok();
     data.map(|e| e.result)
 }
 struct CommunityWithAllExtractor(pub Option<DbServerCommunity>);
@@ -260,11 +260,12 @@ impl ServerApi {
 
         let rows = if search.is_none() {
             let caching_time = match page {
-                1..=5 => 60 * 60,
-                6..=9 => 50 * 60,
-                10..=14 => 40 * 60,
-                15..=20 => 30 * 60,
-                21..=30 => 20 * 60,
+                1..=3 => 2 * DAY,
+                4..=5 => DAY,
+                6..=9 => 12 * HOUR,
+                10..=14 => 6 * HOUR,
+                15..=20 => 3 * HOUR,
+                21..=30 => HOUR,
                 _ => 10 * 60,
             };
             match cached_response(&format!("global-players:{page}"), &data.cache, caching_time, func).await {
@@ -362,8 +363,8 @@ impl ServerApi {
         };
         let width_seconds: i64 = match time_type {
             CommunityGraphTime::TenMinutes => 600,
-            CommunityGraphTime::OneHour => 3600,
-            CommunityGraphTime::OneDay => 86400,
+            CommunityGraphTime::OneHour => HOUR as i64,
+            CommunityGraphTime::OneDay => DAY as i64,
         };
         let rounded_secs = time.timestamp() / width_seconds * width_seconds;
         let truncated_time = DateTime::from_timestamp(rounded_secs, 0).unwrap_or(time);
@@ -375,7 +376,7 @@ impl ServerApi {
         let cache_ttl: u64 = match time_type {
             CommunityGraphTime::TenMinutes => 3 * 60,
             CommunityGraphTime::OneHour => 30 * 60,
-            CommunityGraphTime::OneDay => 2 * 60 * 60,
+            CommunityGraphTime::OneDay => 2 * HOUR,
         };
 
         let bound_time = truncated_time.to_db_time();

@@ -83,7 +83,7 @@ async fn get_map(pool: &Pool<Postgres>, cache: &FastCache, server_id: &str, map_
         .fetch_one(pool);
 
     let key = format!("server-map-exist:{server_id}:{map_name}");
-    cached_response(&key, cache, 60 * 60, func).await.and_then(|s| Ok(s.result)).ok()
+    cached_response(&key, cache, 6 * HOUR, func).await.and_then(|s| Ok(s.result)).ok()
 }
 async fn get_any_map(pool: &Pool<Postgres>, cache: &FastCache, map_name: &str) -> Option<DbAnyMap> {
     let func = || sqlx::query_as!(DbAnyMap,
@@ -96,7 +96,7 @@ async fn get_any_map(pool: &Pool<Postgres>, cache: &FastCache, map_name: &str) -
         .fetch_one(pool);
 
     let key = format!("any-map-exist:{map_name}");
-    cached_response(&key, cache, 60 * 60, func).await.and_then(|s| Ok(s.result)).ok()
+    cached_response(&key, cache, 6 * HOUR, func).await.and_then(|s| Ok(s.result)).ok()
 }
 async fn get_map_cache_key(pool: &Pool<Postgres>, cache: &FastCache, server_id: &str, map_name: &str) -> CacheKey{
     let func = || sqlx::query_as!(DbMapLastPlayed,

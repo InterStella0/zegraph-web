@@ -581,7 +581,7 @@ impl MiscApi {
             ORDER BY created_at DESC
         ").fetch_all(pool);
 
-        let Ok(value) = cached_response("announced", &app.cache, 60 * 60, func).await else {
+        let Ok(value) = cached_response("announced", &app.cache, HOUR, func).await else {
             return response!(internal_server_error)
         } ;
         response!(ok value.result.iter_into())
