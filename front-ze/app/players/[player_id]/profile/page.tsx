@@ -25,12 +25,12 @@ import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime)
 
 export async function generateMetadata({ params }: {
-    params: Promise<{ user_id: string }>
+    params: Promise<{ player_id: string }>
 }): Promise<Metadata> {
-    const { user_id } = await params;
+    const { player_id } = await params;
     const t = await getTranslations('metadata');
     const tHeader = await getTranslations('players.profile.header');
-    const profile: ProfileResponse = await fetchApiUrl(`/accounts/${user_id}/profile`);
+    const profile: ProfileResponse = await fetchApiUrl(`/players/${player_id}/profile`);
     const summary = profile.summary
     const global = summary.global
     const name = profile.name || tHeader('unknownUser')
@@ -95,21 +95,21 @@ export async function generateMetadata({ params }: {
         description: description,
         ...socialMeta({title, description, images: image? [image]: [], noTwitter: true}),
         alternates: {
-            canonical: `/users/${profile.steamid}/profile`,
+            canonical: `/players/${profile.steamid}/profile`,
         },
     }
 }
 
-export default async function Page({ params }: { params: Promise<{ user_id: string }> }) {
-    const { user_id } = await params;
+export default async function Page({ params }: { params: Promise<{ player_id: string }> }) {
+    const { player_id } = await params;
 
-    if (user_id === "me" && !await getServerUser()) {
+    if (player_id === "me" && !await getServerUser()) {
         redirect('/');
     }
 
     const sessionUserPromise = getServerUser();
-    const profilePromise: Promise<ProfileResponse> = fetchApiUrl(`/accounts/${user_id}/profile`);
-    const heatmapPromise: Promise<PlayerSessionTime[]> = fetchApiUrl(`/accounts/${user_id}/playtime-heatmap`).catch(() => []);
+    const profilePromise: Promise<ProfileResponse> = fetchApiUrl(`/players/${player_id}/profile`);
+    const heatmapPromise: Promise<PlayerSessionTime[]> = fetchApiUrl(`/players/${player_id}/playtime-heatmap`).catch(() => []);
 
     return (<>
         <ResponsiveAppBar userPromise={sessionUserPromise} server={null} setDisplayCommunity={null} />
@@ -117,7 +117,7 @@ export default async function Page({ params }: { params: Promise<{ user_id: stri
             <div className="flex flex-col gap-6">
                 <UserProfile profilePromise={profilePromise} />
                 <ProfileOverview heatmapPromise={heatmapPromise} />
-                <ProfileStatsCards userId={user_id} profilePromise={profilePromise} />
+                <ProfileStatsCards userId={player_id} profilePromise={profilePromise} />
                 <UserCommunityConnections profilePromise={profilePromise} />
             </div>
         </div>

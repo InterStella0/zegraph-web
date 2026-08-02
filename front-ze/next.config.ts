@@ -23,6 +23,16 @@ const nextConfig: NextConfig = {
             ]
         return []
     },
+    async redirects() {
+        // The global profile moved out from under /users to sit with the rest of /players.
+        return [
+            {
+                source: '/users/:player_id/profile',
+                destination: '/players/:player_id/profile',
+                permanent: true,
+            },
+        ]
+    },
     async rewrites() {
         return [
             {

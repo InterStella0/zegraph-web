@@ -131,7 +131,7 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
                             )}
                             {steamId && (
                                 <Button variant="outline" size="sm" asChild>
-                                    <Link href={`/users/${steamId}/profile`}>
+                                    <Link href={`/players/${steamId}/profile`}>
                                         <UserRound />
                                         {t('globalProfile')}
                                     </Link>

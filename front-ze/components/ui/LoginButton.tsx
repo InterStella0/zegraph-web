@@ -23,7 +23,7 @@ function UserMenu({ user }: { user: SteamProfile | null }) {
     const canAccessAdmin = user?.is_superuser || user?.is_map_manager || false;
 
     const handleProfile = () => {
-        router.push('/users/me/profile');
+        router.push('/players/me/profile');
     };
 
     const handleAdmin = () => {

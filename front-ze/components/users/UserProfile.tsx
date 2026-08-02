@@ -31,7 +31,7 @@ export default function UserProfile({ profilePromise }: UserProfileProps) {
     const pathname = usePathname();
 
     const handleShareProfile = async () => {
-        const path = pathname.replace(/\/users\/[^/]+/, `/users/${steamid}`);
+        const path = pathname.replace(/\/players\/[^/]+/, `/players/${steamid}`);
         const url = `${window.location.origin}${path}`;
         try {
             await navigator.clipboard.writeText(url);

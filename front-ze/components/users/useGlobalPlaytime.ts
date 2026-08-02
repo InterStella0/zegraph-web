@@ -23,7 +23,7 @@ export function useGlobalPlaytime(userId: string, initial: GlobalPlaytimeSummary
                 return;
             }
             try {
-                const next: GlobalPlaytimeSummary = await fetchApiUrl(`/accounts/${userId}/global-playtime`);
+                const next: GlobalPlaytimeSummary = await fetchApiUrl(`/players/${userId}/global-playtime`);
                 if (!cancelled) setGlobal(next);
             } catch {
                 // Keep the last known values on the screen and try again on the next tick.

@@ -506,21 +506,21 @@ impl AccountsApi {
 
         response!(ok results.into_values().collect())
     }
-    /// A user's public profile: aggregate stats, global rank, and per-community/server detail.
+    /// A player's public profile: aggregate stats, global rank, and per-community/server detail.
     ///
-    /// `user_id` may be `"me"` (requires auth) or a numeric Steam ID. Communities where the
+    /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID. Communities where the
     /// target anonymized themselves are omitted for non-owners, and — if that would hide every
     /// community — the profile name itself is replaced with "Anonymous" too, so the opt-out
     /// can't be inferred from what's left visible.
-    #[oai(path="/accounts/:user_id/profile", method="get")]
+    #[oai(path="/players/:player_id/profile", method="get", tag = "ApiTags::Players")]
     async fn get_user_profile(
         &self,
         Data(app): Data<&AppData>,
         OptionalTokenBearer(requester): OptionalTokenBearer,
-        user_id: Path<String>,
+        Path(player_id): Path<String>,
     ) -> Response<ProfileResponse> {
         let pool = &*app.pool;
-        let target_user_id = match resolve_user_id(&user_id.0, &requester) {
+        let target_user_id = match resolve_user_id(&player_id, &requester) {
             Ok(id) => id,
             Err(e) => return e,
         };
@@ -754,17 +754,17 @@ impl AccountsApi {
             anonymization,
         })
     }
-    /// A user's total playtime summed across every server. `user_id` may be `"me"` or a numeric
+    /// A player's total playtime summed across every server. `player_id` may be `"me"` or a numeric
     /// Steam ID.
-    #[oai(path="/accounts/:user_id/global-playtime", method="get")]
+    #[oai(path="/players/:player_id/global-playtime", method="get", tag = "ApiTags::Players")]
     async fn get_user_global_playtime(
         &self,
         Data(app): Data<&AppData>,
         OptionalTokenBearer(requester): OptionalTokenBearer,
-        user_id: Path<String>,
+        Path(player_id): Path<String>,
     ) -> Response<GlobalPlaytimeSummary> {
         let pool = &*app.pool;
-        let target_user_id = match resolve_user_id(&user_id.0, &requester) {
+        let target_user_id = match resolve_user_id(&player_id, &requester) {
             Ok(id) => id,
             Err(e) => return e,
         };
@@ -777,16 +777,16 @@ impl AccountsApi {
         handle_worker_result(result, "Player not found")
     }
 
-    /// A user's playtime broken down per community. `user_id` may be `"me"` or a numeric Steam ID.
-    #[oai(path="/accounts/:user_id/communities_playtime", method="get")]
+    /// A player's playtime broken down per community. `player_id` may be `"me"` or a numeric Steam ID.
+    #[oai(path="/players/:player_id/communities_playtime", method="get", tag = "ApiTags::Players")]
     async fn get_user_communities_playtime(
         &self,
         Data(app): Data<&AppData>,
         OptionalTokenBearer(requester): OptionalTokenBearer,
-        user_id: Path<String>,
+        Path(player_id): Path<String>,
     ) -> Response<Vec<PlayerCommunityPlaytime>> {
         let pool = &*app.pool;
-        let target_user_id = match resolve_user_id(&user_id.0, &requester) {
+        let target_user_id = match resolve_user_id(&player_id, &requester) {
             Ok(id) => id,
             Err(e) => return e,
         };
@@ -799,19 +799,19 @@ impl AccountsApi {
         handle_worker_result(result, "Player not found")
     }
 
-    /// A user's playtime by day, summed across every server they've played on.
+    /// A player's playtime by day, summed across every server they've played on.
     ///
-    /// `user_id` may be `"me"` or a numeric Steam ID. Communities where the target anonymized
+    /// `player_id` may be `"me"` or a numeric Steam ID. Communities where the target anonymized
     /// themselves are excluded for non-owners.
-    #[oai(path="/accounts/:user_id/playtime-heatmap", method="get")]
+    #[oai(path="/players/:player_id/playtime-heatmap", method="get", tag = "ApiTags::Players")]
     async fn get_user_playtime_heatmap(
         &self,
         Data(app): Data<&AppData>,
         OptionalTokenBearer(requester): OptionalTokenBearer,
-        user_id: Path<String>,
+        Path(player_id): Path<String>,
     ) -> Response<Vec<PlayerSessionTime>> {
         let pool = &*app.pool;
-        let target_user_id = match resolve_user_id(&user_id.0, &requester) {
+        let target_user_id = match resolve_user_id(&player_id, &requester) {
             Ok(id) => id,
             Err(e) => return e,
         };
@@ -932,17 +932,16 @@ impl AccountsApi {
         &self,
         Data(data): Data<&AppData>,
         TokenBearer(requester_token): TokenBearer,
-        user_id: Path<i64>,
+        Path(user_id): Path<i64>,
         Json(request): Json<AnonymizationRequest>,
     ) -> Response<UserAnonymization> {
         let requester_id = requester_token.id;
-        let target_user_id = user_id.0;
 
         let Ok(uuid) = Uuid::parse_str(&request.community_id) else {
             return response!(err "Invalid community ID", ErrorCode::BadRequest);
         };
 
-        let has_permission = match check_permission(data, requester_id, target_user_id, uuid).await {
+        let has_permission = match check_permission(data, requester_id, user_id, uuid).await {
             Ok(p) => p,
             Err(_) => return response!(internal_server_error)
         };
@@ -953,7 +952,7 @@ impl AccountsApi {
 
         let user_exists = match sqlx::query_scalar!(
             "SELECT EXISTS(SELECT 1 FROM website.steam_user WHERE user_id = $1)",
-            target_user_id
+            user_id
         )
         .fetch_one(&*data.pool)
         .await {
@@ -972,7 +971,7 @@ impl AccountsApi {
              ON CONFLICT (user_id, community_id)
              DO UPDATE SET anonymized = $3, hide_location=$4, updated_at = CURRENT_TIMESTAMP
              RETURNING user_id, community_id, anonymized, hide_location",
-            target_user_id,
+            user_id,
             uuid,
             request.anonymize,
             request.hide_location
@@ -1831,12 +1830,12 @@ impl AccountsApi {
         &self,
         Data(data): Data<&AppData>,
         TokenBearer(user_token): TokenBearer,
-        server_id: Path<String>,
+        Path(server_id): Path<String>,
     ) -> Response<String> {
         let result = sqlx::query!(
             "DELETE FROM website.map_change_subscriptions WHERE user_id = $1 AND server_id = $2 AND triggered = FALSE",
             user_token.id,
-            &server_id.0,
+            &server_id,
         )
         .execute(&*data.pool)
         .await;
@@ -2468,10 +2467,10 @@ impl UriPatternExt for AccountsApi{
             "/accounts/me/communities",
             "/accounts/me/anonymize",
             "/accounts/{user_id}/anonymize",
-            "/accounts/{user_id}/profile",
-            "/accounts/{user_id}/global-playtime",
-            "/accounts/{user_id}/communities_playtime",
-            "/accounts/{user_id}/playtime-heatmap",
+            "/players/{player_id}/profile",
+            "/players/{player_id}/global-playtime",
+            "/players/{player_id}/communities_playtime",
+            "/players/{player_id}/playtime-heatmap",
             "/admin/reports/music",
             "/admin/reports/music/{report_id}/status",
             "/admin/music/{music_id}/youtube",

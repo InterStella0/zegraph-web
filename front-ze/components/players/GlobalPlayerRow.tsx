@@ -101,7 +101,7 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
         const controller = new AbortController();
         const signal = controller.signal;
         setCommunitiesLoading(true);
-        fetchUrl(`/accounts/${player.id}/communities_playtime`, {signal})
+        fetchUrl(`/players/${player.id}/communities_playtime`, {signal})
             .then((data: PlayerCommunityPlaytime[]) => setCommunities(data ?? []))
             .catch(error => {
                 if (signal.aborted) return;
@@ -123,7 +123,7 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
             <div className="flex items-center gap-3 min-w-0 sm:w-56">
                 <PlayerAvatar uuid={player.id} name={player.name} width={40} height={40} className="flex-shrink-0"/>
                 <div className="min-w-0">
-                    <HoverPrefetchLink href={`/users/${player.id}/profile`} className="font-semibold text-sm sm:text-base hover:underline truncate">
+                    <HoverPrefetchLink href={`/players/${player.id}/profile`} className="font-semibold text-sm sm:text-base hover:underline truncate">
                         {player.name}
                     </HoverPrefetchLink>
                     <div
