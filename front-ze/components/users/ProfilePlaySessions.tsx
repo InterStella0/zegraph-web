@@ -31,14 +31,14 @@ function SessionSkeleton() {
         setIsClient(true);
     }, []);
     return (
-        <Card className="my-1">
-            <CardContent className="flex items-center gap-3">
-                <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+        <Card className="my-1 p-0">
+            <CardContent className="flex items-center gap-2 p-2 max-sm:p-2">
+                <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
                 <div className="min-w-0 flex-1 space-y-1.5">
-                    <Skeleton className="h-[18px]" style={{ width: simpleRandom(140, 160, isClient) }} />
-                    <Skeleton className="h-[14px]" style={{ width: simpleRandom(100, 170, isClient) }} />
+                    <Skeleton className="h-[14px]" style={{ width: simpleRandom(100, 130, isClient) }} />
+                    <Skeleton className="h-[12px]" style={{ width: simpleRandom(60, 110, isClient) }} />
                 </div>
-                <Skeleton className="h-[22px] shrink-0 rounded-full" style={{ width: simpleRandom(35, 75, isClient) }} />
+                <Skeleton className="h-[18px] shrink-0 rounded-full" style={{ width: simpleRandom(30, 55, isClient) }} />
             </CardContent>
         </Card>
     );
@@ -55,23 +55,23 @@ function SessionRow({ session }: { session: GlobalPlayerSession }): ReactElement
     const avatarText = getServerAvatarText(session.community_name || serverName).toUpperCase();
 
     return (
-        <Card className="my-1">
-            <CardContent className="flex items-center gap-3">
-                <Avatar className="h-9 w-9 shrink-0">
+        <Card className="my-1 p-0">
+            <CardContent className="flex items-center gap-2 p-2 max-sm:p-2">
+                <Avatar className="h-8 w-8 shrink-0">
                     {session.community_icon_url && (
                         <AvatarImage src={session.community_icon_url} alt={session.community_name ?? ''} />
                     )}
-                    <AvatarFallback className="text-xs font-bold">{avatarText}</AvatarFallback>
+                    <AvatarFallback className="text-[10px] font-bold">{avatarText}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">
+                    <p className="truncate text-xs font-medium">
                         {dayjs(session.started_at).format('MMM DD, YYYY h:mm a')}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">{serverName}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">{serverName}</p>
                 </div>
                 <Badge
                     variant={session.ended_at ? 'secondary' : 'default'}
-                    className="shrink-0 text-xs font-bold"
+                    className="shrink-0 px-1.5 text-[10px] font-bold"
                 >
                     {session.ended_at
                         ? formatDuration(session.started_at, session.ended_at)
@@ -144,13 +144,13 @@ export default function ProfilePlaySessions({ userId }: { userId: string }): Rea
     };
 
     return (
-        <Card className="border-border/40 bg-card/50 backdrop-blur-xl">
-            <CardContent>
-                <div className="mb-3 flex items-center gap-4 flex-wrap">
-                    <h2 className="text-lg sm:text-xl font-semibold">{t('title')}</h2>
-                    <div className="flex gap-2 items-center">
+        <Card className="border-border/40 bg-card/50 p-2 backdrop-blur-xl">
+            <CardContent className="px-1 max-sm:px-1">
+                <div className="mb-2 space-y-2">
+                    <h2 className="text-base font-semibold">{t('title')}</h2>
+                    <div className="flex gap-1 items-center">
                         {selectedDate && (
-                            <Button variant="ghost" size="icon" onClick={handlePreviousDay}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handlePreviousDay}>
                                 <ChevronLeft className="h-4 w-4" />
                             </Button>
                         )}
@@ -158,13 +158,16 @@ export default function ProfilePlaySessions({ userId }: { userId: string }): Rea
                             <PopoverTrigger asChild>
                                 <Button
                                     variant="outline"
+                                    size="sm"
                                     className={cn(
-                                        "min-w-[140px] sm:min-w-[200px] justify-start text-left font-normal",
+                                        "h-8 min-w-0 flex-1 justify-start text-left text-xs font-normal",
                                         !selectedDate && "text-muted-foreground"
                                     )}
                                 >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {selectedDate ? dayjs(selectedDate).format('MMM DD, YYYY') : t('filterByDate')}
+                                    <CalendarIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">
+                                        {selectedDate ? dayjs(selectedDate).format('MMM DD, YYYY') : t('filterByDate')}
+                                    </span>
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
@@ -172,7 +175,7 @@ export default function ProfilePlaySessions({ userId }: { userId: string }): Rea
                             </PopoverContent>
                         </Popover>
                         {selectedDate && (
-                            <Button variant="ghost" size="icon" onClick={handleNextDay}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleNextDay}>
                                 <ChevronRight className="h-4 w-4" />
                             </Button>
                         )}
@@ -180,6 +183,7 @@ export default function ProfilePlaySessions({ userId }: { userId: string }): Rea
                             <Button
                                 variant="ghost"
                                 size="sm"
+                                className="h-8 shrink-0 px-2 text-xs"
                                 onClick={() => { setSelectedDate(undefined); setPage(0); }}
                             >
                                 {t('clear')}
@@ -188,8 +192,8 @@ export default function ProfilePlaySessions({ userId }: { userId: string }): Rea
                     </div>
                 </div>
 
-                <div className="max-h-[525px] overflow-y-auto mb-3 pr-2">
-                    <div className="space-y-2">
+                <div className="max-h-[525px] overflow-y-auto mb-2 pr-1">
+                    <div className="space-y-1">
                         {loading ? (
                             Array.from({ length: 10 }).map((_, index) => (<SessionSkeleton key={index} />))
                         ) : (
@@ -202,13 +206,13 @@ export default function ProfilePlaySessions({ userId }: { userId: string }): Rea
 
                 {sessionList.length === 0 && !loading && (
                     <div className="text-center py-8">
-                        <p className="text-muted-foreground">{t('noSessions')}</p>
+                        <p className="text-sm text-muted-foreground">{t('noSessions')}</p>
                     </div>
                 )}
 
                 {totalPages > 1 && (
-                    <div className="flex justify-center mt-3 px-2">
-                        <PaginationPage totalPages={totalPages} page={page} setPage={setPage} />
+                    <div className="flex justify-center mt-2">
+                        <PaginationPage totalPages={totalPages} page={page} setPage={setPage} compact />
                     </div>
                 )}
             </CardContent>

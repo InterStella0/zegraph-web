@@ -114,13 +114,17 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
 
     return (<>
         <ResponsiveAppBar userPromise={sessionUserPromise} server={null} setDisplayCommunity={null} />
-        <div className="container mx-auto max-w-7xl px-4 py-8">
+        <div className="container mx-auto max-w-10xl px-2 py-8">
             <div className="flex flex-col gap-6">
                 <UserProfile profilePromise={profilePromise} />
                 <ProfileOverview heatmapPromise={heatmapPromise} />
                 <ProfileStatsCards userId={player_id} profilePromise={profilePromise} />
-                <UserCommunityConnections profilePromise={profilePromise} />
-                <ProfilePlaySessions userId={player_id} />
+                <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_450px] lg:gap-3">
+                    <UserCommunityConnections profilePromise={profilePromise} />
+                    <div className="lg:mt-8">
+                        <ProfilePlaySessions userId={player_id} />
+                    </div>
+                </div>
             </div>
         </div>
         <Footer />
