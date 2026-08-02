@@ -2,6 +2,7 @@ import UserProfile from "components/users/UserProfile";
 import UserCommunityConnections from "components/users/UserCommunityConnections";
 import ProfileOverview from "components/users/ProfileOverview";
 import ProfileStatsCards from "components/users/ProfileStatsCards";
+import ProfilePlaySessions from "components/users/ProfilePlaySessions";
 import getServerUser from "../../../getServerUser";
 import { redirect } from "next/navigation";
 import { PlayerSessionTime, ProfileResponse } from "types/community.ts";
@@ -119,6 +120,7 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
                 <ProfileOverview heatmapPromise={heatmapPromise} />
                 <ProfileStatsCards userId={player_id} profilePromise={profilePromise} />
                 <UserCommunityConnections profilePromise={profilePromise} />
+                <ProfilePlaySessions userId={player_id} />
             </div>
         </div>
         <Footer />

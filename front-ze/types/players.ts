@@ -144,6 +144,21 @@ export type PlayerSessionPage = {
     total_pages: number,
     rows: PlayerSession[]
 }
+/** A session from the cross-server list, which has to say which server it happened on. */
+export type GlobalPlayerSession = {
+    id: string,
+    player_id: string,
+    server_id: string,
+    server_name: string | null,
+    community_name: string | null,
+    community_icon_url: string | null,
+    started_at: string,
+    ended_at: string | null,
+}
+export type GlobalPlayerSessionPage = {
+    total_pages: number,
+    rows: GlobalPlayerSession[]
+}
 export type PlayerDetailSession = {
     id: string,
     session_id: string,

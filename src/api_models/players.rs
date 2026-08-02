@@ -163,6 +163,30 @@ pub struct PlayerSessionPage{
     pub rows: Vec<PlayerSession>
 }
 
+/// A single player session, carrying the server and community it happened on.
+///
+/// Unlike `PlayerSession` this is not scoped to one server, so each row has to identify where it
+/// took place — that's what the global profile's session list shows.
+#[derive(Object)]
+pub struct GlobalPlayerSession{
+    pub id: String,
+    pub player_id: String,
+    pub server_id: String,
+    pub server_name: Option<String>,
+    pub community_name: Option<String>,
+    pub community_icon_url: Option<String>,
+    pub started_at: DateTime<Utc>,
+    /// `None` while the session is still active.
+    pub ended_at: Option<DateTime<Utc>>,
+}
+
+/// A page of a player's cross-server session list.
+#[derive(Object)]
+pub struct GlobalPlayerSessionPage{
+    pub total_pages: i64,
+    pub rows: Vec<GlobalPlayerSession>
+}
+
 /// One bucket of a player's playtime-over-time chart.
 #[derive(Object)]
 pub struct PlayerSessionTime{

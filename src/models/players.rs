@@ -50,6 +50,22 @@ pub struct DbPlayerSessionPage{
     #[skip]
     pub total_rows: Option<i64>
 }
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(GlobalPlayerSession)]
+pub struct DbGlobalPlayerSession{
+    #[rename(id)]
+    pub session_id: String,
+    pub player_id: String,
+    pub server_id: String,
+    pub server_name: Option<String>,
+    pub community_name: Option<String>,
+    pub community_icon_url: Option<String>,
+    pub started_at: OffsetDateTime,
+    pub ended_at: Option<OffsetDateTime>,
+    #[skip]
+    pub total_rows: Option<i64>
+}
 #[derive(Serialize, Deserialize, DbInto)]
 #[db_into(PlayerWithLegacyRanks)]
 pub struct DbPlayerWithLegacyRanks {

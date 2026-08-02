@@ -360,7 +360,8 @@
       "ongoing": "進行中",
       "filterByDate": "日付でフィルター",
       "clear": "クリア",
-      "noSessions": "選択した条件に一致するセッションがありません。"
+      "noSessions": "選択した条件に一致するセッションがありません。",
+      "unknownServer": "不明なサーバー"
     },
     "byCountries": {
       "title": "国別プレイヤー",
@@ -437,7 +438,7 @@
         "current": "現在",
         "renameNotice": "名前を変更すると、このサーバーで別の記録が分岐します。",
         "onlineNow": "現在オンライン",
-        "onlineHere": "現在このサーバーでプレイ中",
+        "onlineHere": "オンライン",
         "recentSessions": "最近のセッション",
         "sessionTooltip": "{date} · {hours} 時間",
         "noRecentSessions": "最近のセッションはありません",

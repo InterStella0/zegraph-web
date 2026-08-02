@@ -360,7 +360,8 @@
       "ongoing": "Sedang berlangsung",
       "filterByDate": "Tapis mengikut tarikh",
       "clear": "Kosongkan",
-      "noSessions": "Tiada sesi dijumpai untuk kriteria yang dipilih."
+      "noSessions": "Tiada sesi dijumpai untuk kriteria yang dipilih.",
+      "unknownServer": "Pelayan tidak diketahui"
     },
     "byCountries": {
       "title": "Pemain mengikut negara",
@@ -437,7 +438,7 @@
         "current": "SEMASA",
         "renameNotice": "Penukaran nama mencipta rekod berasingan di pelayan ini.",
         "onlineNow": "Dalam talian sekarang",
-        "onlineHere": "Sedang bermain di sini",
+        "onlineHere": "Dalam talian",
         "recentSessions": "Sesi terkini",
         "sessionTooltip": "{date} · {hours} jam",
         "noRecentSessions": "Tiada sesi terkini",

@@ -360,7 +360,8 @@
       "ongoing": "Текущая",
       "filterByDate": "Фильтр по дате",
       "clear": "Очистить",
-      "noSessions": "Не найдены сессии по выбранным критериям."
+      "noSessions": "Не найдены сессии по выбранным критериям.",
+      "unknownServer": "Неизвестный сервер"
     },
     "byCountries": {
       "title": "Игроки по странам",
@@ -437,7 +438,7 @@
         "current": "ТЕКУЩИЙ",
         "renameNotice": "Переименование создаёт отдельную запись на этом сервере.",
         "onlineNow": "Сейчас в сети",
-        "onlineHere": "Сейчас играет здесь",
+        "onlineHere": "В сети",
         "recentSessions": "Последние сессии",
         "sessionTooltip": "{date} · {hours} ч",
         "noRecentSessions": "Нет недавних сессий",

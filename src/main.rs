@@ -502,6 +502,7 @@ mod route_tests {
             "/servers/{server_id}/maps/{map_name}/info",
             "/graph/{server_id}/unique_players/players/{player_id}/sessions/{session_id}",
             "/players/{player_id}/profile",
+            "/players/{player_id}/sessions",
             "/communities/{community_id}/unique_players",
         ] {
             assert!(paths.contains(expected), "expected {expected} in the spec, got {paths:#?}");

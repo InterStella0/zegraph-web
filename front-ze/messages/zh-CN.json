@@ -360,7 +360,8 @@
       "ongoing": "进行中",
       "filterByDate": "按日期筛选",
       "clear": "清除",
-      "noSessions": "未找到符合条件的场次。"
+      "noSessions": "未找到符合条件的场次。",
+      "unknownServer": "未知服务器"
     },
     "byCountries": {
       "title": "按国家划分的玩家",
@@ -437,7 +438,7 @@
         "current": "当前",
         "renameNotice": "重命名会在此服务器上分叉出一条独立记录。",
         "onlineNow": "当前在线",
-        "onlineHere": "正在此服务器游玩",
+        "onlineHere": "在线",
         "recentSessions": "最近的会话",
         "sessionTooltip": "{date} · {hours} 小时",
         "noRecentSessions": "暂无最近会话",

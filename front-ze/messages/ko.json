@@ -360,7 +360,8 @@
       "ongoing": "진행 중",
       "filterByDate": "날짜별 필터",
       "clear": "지우기",
-      "noSessions": "선택한 기준에 일치하는 세션이 없습니다."
+      "noSessions": "선택한 기준에 일치하는 세션이 없습니다.",
+      "unknownServer": "알 수 없는 서버"
     },
     "byCountries": {
       "title": "국가별 플레이어",
@@ -437,7 +438,7 @@
         "current": "현재",
         "renameNotice": "이름을 변경하면 이 서버에서 별도의 기록이 분리됩니다.",
         "onlineNow": "현재 온라인",
-        "onlineHere": "지금 여기서 플레이 중",
+        "onlineHere": "온라인",
         "recentSessions": "최근 세션",
         "sessionTooltip": "{date} · {hours}시간",
         "noRecentSessions": "최근 세션 없음",

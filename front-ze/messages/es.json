@@ -360,7 +360,8 @@
       "ongoing": "En curso",
       "filterByDate": "Filtrar por fecha",
       "clear": "Limpiar",
-      "noSessions": "No se encontraron sesiones con los criterios seleccionados."
+      "noSessions": "No se encontraron sesiones con los criterios seleccionados.",
+      "unknownServer": "Servidor desconocido"
     },
     "byCountries": {
       "title": "Jugadores por países",
@@ -437,7 +438,7 @@
         "current": "ACTUAL",
         "renameNotice": "Un cambio de nombre crea un registro independiente en este servidor.",
         "onlineNow": "En línea ahora",
-        "onlineHere": "Jugando aquí ahora",
+        "onlineHere": "En línea",
         "recentSessions": "Sesiones recientes",
         "sessionTooltip": "{date} · {hours} h",
         "noRecentSessions": "Sin sesiones recientes",

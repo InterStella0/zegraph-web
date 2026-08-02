@@ -360,7 +360,8 @@
       "ongoing": "Ongoing",
       "filterByDate": "Filter by date",
       "clear": "Clear",
-      "noSessions": "No sessions found for the selected criteria."
+      "noSessions": "No sessions found for the selected criteria.",
+      "unknownServer": "Unknown server"
     },
     "byCountries": {
       "title": "Players by countries",
@@ -437,7 +438,7 @@
         "current": "CURRENT",
         "renameNotice": "A rename forks a separate record on this server.",
         "onlineNow": "Online now",
-        "onlineHere": "Playing here now",
+        "onlineHere": "Online",
         "recentSessions": "Recent sessions",
         "sessionTooltip": "{date} · {hours} hrs",
         "noRecentSessions": "No recent sessions",

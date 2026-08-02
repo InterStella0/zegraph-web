@@ -360,7 +360,8 @@
       "ongoing": "Đang diễn ra",
       "filterByDate": "Lọc theo ngày",
       "clear": "Xóa",
-      "noSessions": "Không tìm thấy phiên nào cho các tiêu chí đã chọn."
+      "noSessions": "Không tìm thấy phiên nào cho các tiêu chí đã chọn.",
+      "unknownServer": "Máy chủ không xác định"
     },
     "byCountries": {
       "title": "Người chơi theo quốc gia",
@@ -437,7 +438,7 @@
         "current": "HIỆN TẠI",
         "renameNotice": "Việc đổi tên sẽ tạo một bản ghi riêng biệt trên máy chủ này.",
         "onlineNow": "Đang trực tuyến",
-        "onlineHere": "Đang chơi ở đây",
+        "onlineHere": "Trực tuyến",
         "recentSessions": "Phiên gần đây",
         "sessionTooltip": "{date} · {hours} giờ",
         "noRecentSessions": "Không có phiên gần đây",

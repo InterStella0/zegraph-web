@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use indexmap::IndexMap;
 use poem::web::Data;
 use poem_openapi::payload::Json;
@@ -847,6 +847,101 @@ impl AccountsApi {
         };
 
         response!(ok result.iter_into())
+    }
+    /// Paginated list of a player's sessions across every server they have played on.
+    ///
+    /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID. `datetime` narrows the list
+    /// to the single UTC day it falls in; omitted, every session is listed. `page` is zero-based and
+    /// pages are 10 rows. Communities where the target anonymized themselves are omitted for
+    /// non-owners, matching `/players/{player_id}/profile`.
+    #[oai(path="/players/:player_id/sessions", method="get", tag = "ApiTags::Players")]
+    async fn get_user_global_sessions(
+        &self,
+        Data(app): Data<&AppData>,
+        OptionalTokenBearer(requester): OptionalTokenBearer,
+        Path(player_id): Path<String>,
+        Query(page): Query<Option<usize>>,
+        Query(datetime): Query<Option<DateTime<Utc>>>,
+    ) -> Response<GlobalPlayerSessionPage> {
+        const PAGE_SIZE: i64 = 10;
+
+        let pool = &*app.pool;
+        let target_user_id = match resolve_user_id(&player_id, &requester) {
+            Ok(id) => id,
+            Err(e) => return e,
+        };
+        let steam_id = target_user_id.to_string();
+        let is_owner = requester.map(|t| t.id) == Some(target_user_id);
+
+        let anonymization_settings = sqlx::query_as!(
+            DbUserAnonymization,
+            "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
+            target_user_id
+        ).fetch_all(pool).await.unwrap_or_default();
+
+        let excluded_community_ids: Vec<Uuid> = if is_owner {
+            vec![]
+        } else {
+            anonymization_settings.iter()
+                .filter(|s| s.anonymized)
+                .filter_map(|s| s.community_id)
+                .collect()
+        };
+
+        let offset = PAGE_SIZE * page.unwrap_or(0) as i64;
+        // NULL bounds mean "no filter", so the whole history is listed rather than the per-server
+        // endpoint's hardcoded 2024-02-01 floor.
+        let (start, end) = match datetime {
+            Some(date) => (
+                Some(date.to_db_time()),
+                Some((date + TimeDelta::days(1)).to_db_time()),
+            ),
+            None => (None, None),
+        };
+
+        let result = sqlx::query_as!(
+            DbGlobalPlayerSession,
+            "WITH user_players AS (
+                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+            )
+            SELECT
+                pss.session_id::text AS \"session_id!\",
+                pss.player_id,
+                pss.server_id,
+                s.server_name,
+                c.community_name,
+                c.community_icon_url,
+                pss.started_at,
+                pss.ended_at,
+                COUNT(*) OVER() AS total_rows
+            FROM player_server_session pss
+            JOIN user_players up ON up.player_id = pss.player_id
+            JOIN server s ON s.server_id = pss.server_id
+            LEFT JOIN community c ON c.community_id = s.community_id
+            WHERE (c.community_id IS NULL OR NOT (c.community_id = ANY($2)))
+                AND ($3::timestamptz IS NULL OR pss.started_at >= $3)
+                AND ($4::timestamptz IS NULL OR pss.started_at < $4)
+            ORDER BY pss.started_at DESC
+            LIMIT $5
+            OFFSET $6",
+            steam_id,
+            &excluded_community_ids,
+            start,
+            end,
+            PAGE_SIZE,
+            offset
+        ).fetch_all(pool).await;
+
+        let Ok(result) = result else {
+            return response!(internal_server_error);
+        };
+
+        let total_rows = result.first().and_then(|e| e.total_rows).unwrap_or_default();
+        // Ceiling division: plain integer division leaves a partial last page unreachable.
+        // (`i64::div_ceil` is still unstable, hence the manual form.)
+        let total_pages = (total_rows + PAGE_SIZE - 1) / PAGE_SIZE;
+
+        response!(ok GlobalPlayerSessionPage{ total_pages, rows: result.iter_into() })
     }
     /// Set the signed-in user's anonymization/location-hiding preference for one community.
     #[oai(path="/accounts/me/anonymize", method="post")]
@@ -2457,6 +2552,7 @@ impl UriPatternExt for AccountsApi{
             "/accounts/me/anonymize",
             "/accounts/{user_id}/anonymize",
             "/players/{player_id}/profile",
+            "/players/{player_id}/sessions",
             "/players/{player_id}/global-playtime",
             "/players/{player_id}/communities_playtime",
             "/players/{player_id}/playtime-heatmap",

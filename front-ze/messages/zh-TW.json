@@ -360,7 +360,8 @@
       "ongoing": "進行中",
       "filterByDate": "依日期篩選",
       "clear": "清除",
-      "noSessions": "找不到符合條件的場次。"
+      "noSessions": "找不到符合條件的場次。",
+      "unknownServer": "未知伺服器"
     },
     "byCountries": {
       "title": "依國家劃分的玩家",
@@ -437,7 +438,7 @@
         "current": "目前",
         "renameNotice": "重新命名會在此伺服器上分岔出一筆獨立記錄。",
         "onlineNow": "目前上線",
-        "onlineHere": "正在此伺服器遊玩",
+        "onlineHere": "上線",
         "recentSessions": "最近的連線紀錄",
         "sessionTooltip": "{date} · {hours} 小時",
         "noRecentSessions": "沒有最近的連線紀錄",

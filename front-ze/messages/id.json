@@ -360,7 +360,8 @@
       "ongoing": "Berlangsung",
       "filterByDate": "Filter berdasarkan tanggal",
       "clear": "Hapus",
-      "noSessions": "Tidak ada sesi yang ditemukan untuk kriteria yang dipilih."
+      "noSessions": "Tidak ada sesi yang ditemukan untuk kriteria yang dipilih.",
+      "unknownServer": "Server tidak dikenal"
     },
     "byCountries": {
       "title": "Pemain berdasarkan negara",
@@ -437,7 +438,7 @@
         "current": "SAAT INI",
         "renameNotice": "Perubahan nama membuat catatan terpisah di server ini.",
         "onlineNow": "Sedang daring",
-        "onlineHere": "Sedang bermain di sini",
+        "onlineHere": "Daring",
         "recentSessions": "Sesi terbaru",
         "sessionTooltip": "{date} · {hours} jam",
         "noRecentSessions": "Tidak ada sesi terbaru",
