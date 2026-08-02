@@ -600,35 +600,23 @@ impl AccountsApi {
 
             let Ok(mut detail) = app.player_worker.get_detail_stored(&ctx).await else { continue };
 
-            let stat = sqlx::query_as!(
-                DbProfileServerStat,
+            let mut sessions = sqlx::query_as!(
+                DbProfileRecentSession,
                 "WITH user_players AS (
                     SELECT player_id FROM player WHERE player_id = $2 OR associated_player_id = $2
                 )
                 SELECT
-                    LEAST(
-                        (SELECT COUNT(DISTINCT player_id) FROM player_server_session p
-                            WHERE p.server_id = s.server_id AND p.ended_at IS NULL
-                            AND CURRENT_TIMESTAMP - p.started_at < INTERVAL '24 hours'),
-                        COALESCE(s.max_players, 64)
-                    ) AS online_count,
-                    smp.map,
-                    ls.started_at AS last_started_at,
-                    ls.ended_at AS last_ended_at
-                FROM server s
-                LEFT JOIN LATERAL (
-                    SELECT map FROM server_map_played WHERE server_id = s.server_id AND ended_at IS NULL
-                    ORDER BY started_at DESC LIMIT 1
-                ) smp ON true
-                LEFT JOIN LATERAL (
-                    SELECT started_at, ended_at FROM player_server_session
-                    WHERE server_id = s.server_id AND player_id IN (SELECT player_id FROM user_players)
-                    ORDER BY started_at DESC LIMIT 1
-                ) ls ON true
-                WHERE s.server_id = $1",
+                    started_at,
+                    ended_at,
+                    EXTRACT(EPOCH FROM (COALESCE(ended_at, CURRENT_TIMESTAMP) - started_at))::float8 AS \"duration!\",
+                    (ended_at IS NULL AND CURRENT_TIMESTAMP - last_verified < INTERVAL '20 minutes') AS \"is_live!\"
+                FROM player_server_session
+                WHERE server_id = $1 AND player_id IN (SELECT player_id FROM user_players)
+                ORDER BY started_at DESC
+                LIMIT 7",
                 server_id,
                 steam_id
-            ).fetch_optional(pool).await.ok().flatten();
+            ).fetch_all(pool).await.unwrap_or_default();
 
             let by_id = server.source_by_id.unwrap_or(false);
             let mut linked_names: Vec<LinkedName> = vec![];
@@ -656,23 +644,19 @@ impl AccountsApi {
                 }
             }
 
-            let (server_online, server_last_played, server_duration) = match &stat {
-                Some(s) => {
-                    let online = s.last_ended_at.is_none() && s.last_started_at.is_some();
-                    let last_played = s.last_ended_at.or(s.last_started_at).map(db_to_utc);
-                    let duration = s.last_started_at.map(|start| {
-                        let end = s.last_ended_at.unwrap_or_else(OffsetDateTime::now_utc);
-                        (end - start).as_seconds_f64()
-                    });
-                    (online, last_played, duration)
-                }
+            let (server_online, server_last_played, server_duration) = match sessions.first() {
+                Some(s) => (
+                    s.is_live,
+                    Some(db_to_utc(s.ended_at.unwrap_or(s.started_at))),
+                    Some(s.duration),
+                ),
                 None => (false, None, None),
             };
 
             if server_online {
                 is_online = true;
             }
-            if let Some(started) = stat.as_ref().and_then(|s| s.last_started_at) {
+            if let Some(started) = sessions.first().map(|s| s.started_at) {
                 let is_newer = match latest_started_at {
                     Some(latest) => started > latest,
                     None => true,
@@ -686,18 +670,23 @@ impl AccountsApi {
 
             total_playtime += detail.total_playtime;
 
+            sessions.reverse();
+            let recent_sessions = sessions.into_iter().map(|s| ProfileRecentSession {
+                started_at: db_to_utc(s.started_at),
+                ended_at: s.ended_at.map(db_to_utc),
+                duration: s.duration,
+            }).collect();
+
             let server_entry = ProfileServerEntry {
                 server_id: server_id.clone(),
                 server_name: server.server_name.clone().unwrap_or_default(),
-                map: stat.as_ref().and_then(|s| s.map.clone()),
                 by_id,
-                online_count: stat.as_ref().and_then(|s| s.online_count).unwrap_or(0),
-                max_players: server.max_players.unwrap_or(64) as i64,
                 is_online: server_online,
                 last_played: server_last_played,
                 last_played_duration: server_duration,
                 player: detail,
                 linked_names,
+                recent_sessions,
             };
 
             let community_id = entry.community_id.to_string();

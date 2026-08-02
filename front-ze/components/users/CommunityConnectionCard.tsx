@@ -11,15 +11,18 @@ import { Label } from "components/ui/label";
 import { Separator } from "components/ui/separator";
 import { Badge } from "components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
-import { Clock, Users, ChevronDown, Info } from "lucide-react";
+import { Clock, ChevronDown, Info } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import ServerSessionStrip from "./ServerSessionStrip";
 
 interface CommunityConnectionCardProps {
     community: ProfileCommunityDetail;
     settings: UserAnonymization | null;
     onToggleAnonymize: (communityId: string | number, type: "location" | "anonymous", value: boolean, settings: UserAnonymization | null) => void;
     showAnonymizeToggle?: boolean;
+    /** Session length that saturates a heatmap cell, shared across the whole profile. */
+    scaleMax: number;
 }
 
 function LinkedNamesPanel({ names }: { names: { name: string; total_playtime: number; is_current: boolean }[] }) {
@@ -61,14 +64,13 @@ export default function CommunityConnectionCard({
     settings,
     onToggleAnonymize,
     showAnonymizeToggle = false,
+    scaleMax,
 }: CommunityConnectionCardProps) {
     const t = useTranslations('players.profile.connectionCard');
     const totalPlaytime = community.servers.reduce(
         (sum, s) => sum + s.player.total_playtime, 0
     );
-    const totalOnline = community.servers.reduce(
-        (sum, s) => sum + s.online_count, 0
-    );
+    const isOnlineHere = community.servers.some(s => s.is_online);
     const hasAnyPlaytime = totalPlaytime > 0;
 
     return (
@@ -96,11 +98,11 @@ export default function CommunityConnectionCard({
                                             {secondsToHours(totalPlaytime)} {t('hoursUnit')}
                                         </span>
                                     </div>
-                                    {totalOnline > 0 && (
-                                        <div className="flex items-center gap-1">
-                                            <span className="h-2 w-2 rounded-full bg-green-500" />
-                                            <span className="text-sm text-muted-foreground">
-                                                {t('online', { count: totalOnline })}
+                                    {isOnlineHere && (
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                                            <span className="text-sm text-green-500">
+                                                {t('onlineNow')}
                                             </span>
                                         </div>
                                     )}
@@ -159,54 +161,54 @@ export default function CommunityConnectionCard({
                                     serverPlayer.player.total_playtime > 0 ? 'hover:border-primary hover:translate-x-1' : ''
                                 }`}
                             >
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        {serverPlayer.player.total_playtime > 0 ? (
-                                            <Link
-                                                href={`/servers/${serverPlayer.server_id}/players/${serverPlayer.player.id}`}
-                                                className="text-sm font-medium hover:underline"
-                                            >
-                                                {serverPlayer.server_name}
-                                            </Link>
-                                        ) : (
-                                            <p className="text-sm font-medium">
-                                                {serverPlayer.server_name}
-                                            </p>
-                                        )}
-                                        <Badge variant={serverPlayer.by_id ? "secondary" : "outline"} className="text-[10px]">
-                                            {serverPlayer.by_id ? t('steamId') : t('nameMatched')}
-                                        </Badge>
-                                    </div>
-                                    {serverPlayer.map && (
-                                        <p className="text-xs text-muted-foreground/80">
-                                            {serverPlayer.map}
-                                        </p>
-                                    )}
-
-                                    <div className="flex items-center justify-between flex-wrap gap-3">
-                                        <div className="flex items-center gap-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             {serverPlayer.player.total_playtime > 0 ? (
-                                                <div className="flex items-center gap-1">
-                                                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {secondsToHours(serverPlayer.player.total_playtime)} {t('hoursUnit')}
-                                                    </span>
-                                                </div>
+                                                <Link
+                                                    href={`/servers/${serverPlayer.server_id}/players/${serverPlayer.player.id}`}
+                                                    className="text-sm font-medium hover:underline"
+                                                >
+                                                    {serverPlayer.server_name}
+                                                </Link>
                                             ) : (
-                                                <span className="text-xs text-muted-foreground/60">
-                                                    {t('noPlaytime')}
-                                                </span>
+                                                <p className="text-sm font-medium">
+                                                    {serverPlayer.server_name}
+                                                </p>
+                                            )}
+                                            <Badge variant={serverPlayer.by_id ? "secondary" : "outline"} className="text-[10px]">
+                                                {serverPlayer.by_id ? t('steamId') : t('nameMatched')}
+                                            </Badge>
+                                            {serverPlayer.is_online && (
+                                                <div className="flex items-center gap-1.5 text-xs text-green-500">
+                                                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+                                                    <span>{t('onlineHere')}</span>
+                                                </div>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-1">
-                                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                                            <span className="text-xs text-muted-foreground">
-                                                {serverPlayer.online_count}/{serverPlayer.max_players}
+
+                                        {serverPlayer.player.total_playtime > 0 ? (
+                                            <div className="flex items-center gap-1">
+                                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                                                <span className="text-xs text-muted-foreground">
+                                                    {secondsToHours(serverPlayer.player.total_playtime)} {t('hoursUnit')}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground/60">
+                                                {t('noPlaytime')}
                                             </span>
-                                        </div>
+                                        )}
+
+                                        <LinkedNamesPanel names={serverPlayer.linked_names} />
                                     </div>
 
-                                    <LinkedNamesPanel names={serverPlayer.linked_names} />
+                                    <div className="shrink-0">
+                                        <ServerSessionStrip
+                                            sessions={serverPlayer.recent_sessions}
+                                            scaleMax={scaleMax}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         ))}

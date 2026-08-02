@@ -52,18 +52,24 @@ export interface LinkedName {
     is_current: boolean;
 }
 
+export interface ProfileRecentSession {
+    started_at: string;
+    ended_at: string | null;
+    /** Session length in seconds; elapsed-so-far for a session still running. */
+    duration: number;
+}
+
 export interface ProfileServerEntry {
     server_id: string;
     server_name: string;
-    map: string | null;
     by_id: boolean;
-    online_count: number;
-    max_players: number;
     is_online: boolean;
     last_played: string | null;
     last_played_duration: number | null;
     player: DetailedPlayer;
     linked_names: LinkedName[];
+    /** The player's last few sessions on this server, oldest first. */
+    recent_sessions: ProfileRecentSession[];
 }
 
 export interface ProfileCommunityDetail extends CommunityBase {

@@ -406,11 +406,11 @@ pub struct DbCommunityServerEntry {
     pub community_icon_url: Option<String>,
 }
 
-pub struct DbProfileServerStat {
-    pub online_count: Option<i64>,
-    pub map: Option<String>,
-    pub last_started_at: Option<OffsetDateTime>,
-    pub last_ended_at: Option<OffsetDateTime>,
+pub struct DbProfileRecentSession {
+    pub started_at: OffsetDateTime,
+    pub ended_at: Option<OffsetDateTime>,
+    pub duration: f64,
+    pub is_live: bool,
 }
 
 pub struct DbLinkedName {

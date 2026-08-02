@@ -287,22 +287,30 @@ pub struct LinkedName {
     pub is_current: bool,
 }
 
+/// One of a player's recent sessions on a server, for the profile activity strip.
+#[derive(Object)]
+pub struct ProfileRecentSession {
+    pub started_at: DateTime<Utc>,
+    pub ended_at: Option<DateTime<Utc>>,
+    /// Session length in seconds; elapsed-so-far for a session still running.
+    pub duration: f64,
+}
+
 /// A player's profile detail on one server, for the public profile page.
 #[derive(Object)]
 pub struct ProfileServerEntry {
     pub server_id: String,
     pub server_name: String,
-    pub map: Option<String>,
     /// Whether this server tracks players by Steam ID rather than only by name.
     pub by_id: bool,
-    pub online_count: i64,
-    pub max_players: i64,
     pub is_online: bool,
     pub last_played: Option<DateTime<Utc>>,
     pub last_played_duration: Option<f64>,
     pub player: DetailedPlayer,
     /// Other names this player has used on this server, if not tracked by Steam ID.
     pub linked_names: Vec<LinkedName>,
+    /// The player's last few sessions on this server, oldest first.
+    pub recent_sessions: Vec<ProfileRecentSession>,
 }
 
 pub type ProfileCommunityDetail = BaseCommunity<ProfileServerEntry>;

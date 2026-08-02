@@ -76,6 +76,11 @@ export default function UserCommunityConnections({
         }
     }, [addOptimisticAnonymizedCommunities]);
 
+    const scaleMax = Math.max(
+        7200,
+        ...(communities ?? []).flatMap(c => c.servers.flatMap(s => s.recent_sessions.map(r => r.duration)))
+    );
+
     if (!communities || communities.length === 0) {
         return (
             <div className="w-full">
@@ -111,6 +116,7 @@ export default function UserCommunityConnections({
                         settings={settings ?? null}
                         onToggleAnonymize={handleToggleAnonymize}
                         showAnonymizeToggle={isOwner}
+                        scaleMax={scaleMax}
                     />
                 })}
             </div>
