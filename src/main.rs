@@ -442,7 +442,6 @@ mod route_tests {
         ("POST", "/accounts/create"),
         ("POST", "/accounts/server-requests"),
         ("GET", "/accounts/me/push/subscriptions"),
-        ("GET", "/admin/bans"),
         ("GET", "/admin/audit-logs"),
     ];
 
@@ -639,7 +638,7 @@ mod route_tests {
         ("GET", "/accounts/me"),
         ("GET", "/accounts/me/communities"),
         ("GET", "/accounts/me/push/subscriptions"),
-        ("GET", "/admin/bans"),
+        ("GET", "/admin/communities"),
         ("GET", "/admin/audit-logs"),
     ];
 
