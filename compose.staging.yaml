@@ -20,15 +20,21 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - staging-pgdata:/var/lib/postgresql/data
+      # PG18 images put the cluster in a major-version subdirectory (/var/lib/postgresql/18/docker)
+      # and refuse to start if the mount is the old /var/lib/postgresql/data.
+      - staging-pgdata:/var/lib/postgresql
     ports:
       - "${STAGING_DB_HOST_ADDR:-172.17.0.1}:${STAGING_DB_HOST_PORT:-55432}:5432"
     logging: *default-logging
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      # -h 127.0.0.1 matters: during initdb the entrypoint runs a temporary socket-only server, and
+      # a plain pg_isready reports healthy against *that* -- then the real server restarts and
+      # whatever connected gets "the database system is shutting down". Only TCP proves it is up.
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 20
+      start_period: 60s
   reverse:
     restart: always
     build:
