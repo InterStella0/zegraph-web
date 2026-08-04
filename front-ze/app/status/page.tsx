@@ -3,6 +3,7 @@ import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
 import Footer from "components/ui/Footer";
 import getServerUser from "app/getServerUser";
 import FetchStatusTable, { FetchStatusTableLoading } from "components/status/FetchStatusTable";
+import ApiHealthPanel, { ApiHealthPanelLoading } from "components/status/ApiHealthPanel";
 import { Metadata } from "next";
 import {fetchUrl, formatTitle} from "utils/generalUtils.ts";
 import { getTranslations } from 'next-intl/server';
@@ -22,6 +23,7 @@ export default async function StatusPage() {
     const t = await getTranslations('status');
     const user = getServerUser();
     const statusPromise = fetchUrl("/fetch-status-truncated", { next: { revalidate: 60 } });
+    const healthPromise = fetchUrl("/health", { next: { revalidate: 30 } });
 
     return <>
         <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
@@ -36,6 +38,9 @@ export default async function StatusPage() {
                             {t('subtitle')}
                         </p>
                     </div>
+                    <Suspense fallback={<ApiHealthPanelLoading />}>
+                        <ApiHealthPanel initialDataPromise={healthPromise} />
+                    </Suspense>
                     <Suspense fallback={<FetchStatusTableLoading />}>
                         <FetchStatusTable initialDataPromise={statusPromise} />
                     </Suspense>

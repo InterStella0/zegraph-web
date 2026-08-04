@@ -871,6 +871,30 @@
       "hoursAgo24": "24 hours ago",
       "now": "Now",
       "minorErrors": "Minor errors (<50%)"
+    },
+    "api": {
+      "sectionTitle": "API Health",
+      "servedRelative": "{count} requests served over the past {period}",
+      "servedNoPeriod": "{count} requests served",
+      "exactCount": "{count} requests",
+      "exactSince": "since {date}",
+      "avgResponse": "avg {ms}ms",
+      "postgres": "Postgres",
+      "redis": "Redis",
+      "qgis": "QGIS",
+      "wms": "WMS",
+      "jobsRun": "Jobs Run",
+      "queued": "{count} queued",
+      "queuedUnknown": "queue unknown",
+      "jobsBreakdown": "{heavy} heavy · {light} light",
+      "up": "Up",
+      "down": "Down",
+      "topEndpoints": "Top {count} endpoints",
+      "colEndpoint": "Endpoint",
+      "colServed": "Served",
+      "colAvg": "Avg",
+      "metricsUnavailable": "Traffic metrics unavailable — the cache is unreachable.",
+      "loadFailed": "API health couldn't be loaded."
     }
   },
   "radar": {

@@ -1,12 +1,13 @@
 use std::sync::Arc;
 use std::time::Duration;
-use redis::{AsyncCommands, RedisResult};
+use redis::RedisResult;
 use sqlx::{Pool, Postgres};
 use tokio::sync::Semaphore;
 
+use crate::api_models::common::METRICS_JOBS_KEY;
 use crate::FastCache;
 use super::job::{dispatch, inflight_key, RefreshJob, QUEUE_HEAVY, QUEUE_LIGHT};
-use super::BackgroundWorker;
+use super::{BackgroundWorker, QueryPriority};
 
 /// Heavy queries are the ones that used to contend with request handling. With a single worker
 /// replica this bound is the true global limit — the old in-process semaphore never was one,
@@ -129,12 +130,26 @@ async fn run_job(job: RefreshJob, pool: Arc<Pool<Postgres>>, cache: Arc<FastCach
 
     // Cleared whether the job succeeded or failed. On success the result is already cached, so the
     // next reader gets data; on failure the next reader re-enqueues rather than waiting out the TTL.
-    clear_marker(&job.cache_key, &cache).await;
+    finish_job(&job.cache_key, job.priority, &cache).await;
 }
 
-async fn clear_marker(cache_key: &str, cache: &FastCache) {
+/// Clears the in-flight marker and counts the job, in one pipeline on one pooled connection.
+///
+/// The tally rides along with the marker delete rather than getting its own round trip, and is not
+/// buffered the way request metrics are: jobs are orders of magnitude rarer than requests, and each
+/// one has already done several redis operations by the time it lands here.
+async fn finish_job(cache_key: &str, priority: QueryPriority, cache: &FastCache) {
     let marker = inflight_key(cache_key);
+    let field = match priority {
+        QueryPriority::Heavy => "heavy",
+        QueryPriority::Light => "light",
+    };
+
     if let Ok(mut conn) = cache.redis_pool.get().await {
-        let _: RedisResult<()> = conn.del(&marker).await;
+        let _: RedisResult<()> = redis::pipe()
+            .del(&marker)
+            .hincr(METRICS_JOBS_KEY, field, 1)
+            .query_async(&mut *conn)
+            .await;
     }
 }

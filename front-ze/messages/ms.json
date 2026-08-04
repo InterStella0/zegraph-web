@@ -871,6 +871,30 @@
       "hoursAgo24": "24 jam lalu",
       "now": "Sekarang",
       "minorErrors": "Ralat kecil (<50%)"
+    },
+    "api": {
+      "sectionTitle": "Status API",
+      "servedRelative": "{count} permintaan dilayan sejak {period} lalu",
+      "servedNoPeriod": "{count} permintaan dilayan",
+      "exactCount": "{count} permintaan",
+      "exactSince": "sejak {date}",
+      "avgResponse": "purata {ms}ms",
+      "postgres": "Postgres",
+      "redis": "Redis",
+      "qgis": "QGIS",
+      "wms": "WMS",
+      "jobsRun": "Tugas Dijalankan",
+      "queued": "{count} dalam baris gilir",
+      "queuedUnknown": "baris gilir tidak diketahui",
+      "jobsBreakdown": "{heavy} berat · {light} ringan",
+      "up": "Aktif",
+      "down": "Terputus",
+      "topEndpoints": "{count} endpoint teratas",
+      "colEndpoint": "Endpoint",
+      "colServed": "Dilayan",
+      "colAvg": "Purata",
+      "metricsUnavailable": "Metrik trafik tidak tersedia — cache tidak dapat dicapai.",
+      "loadFailed": "Status API tidak dapat dimuatkan."
     }
   },
   "radar": {

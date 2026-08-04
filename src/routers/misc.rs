@@ -116,11 +116,17 @@ impl QgisHealth {
     }
 }
 
-/// Depth of the background job queues, `None` if redis was unreachable.
+/// Background job activity, all `None` if redis was unreachable.
 #[derive(Object)]
 struct QueueHealth {
+    /// Depth right now. Near-always 0 by design — `BRPOP` hands a job straight to a waiting
+    /// consumer, so this only rises under genuine saturation, which is what makes it worth
+    /// reporting and a poor thing to display on its own.
     heavy: Option<i64>,
     light: Option<i64>,
+    /// Jobs finished since the counters started, which unlike the depths climbs steadily.
+    completed_heavy: Option<i64>,
+    completed_light: Option<i64>,
 }
 
 /// Request volume and latency for a single route pattern (e.g. `"GET /health"`).
@@ -136,6 +142,9 @@ struct EndpointStat {
 struct TrafficHealth {
     served: i64,
     average_ms: f64,
+    /// Unix seconds at which the counters started, so `served` can be read against the period it
+    /// covers. None when redis is up but no flush has happened yet — unknown, not "just now".
+    since: Option<i64>,
     busiest: Vec<EndpointStat>,
 }
 
@@ -187,7 +196,11 @@ impl Display for ThumbnailError {
 /// landing mid-flush can see a field in one and not the other, and dividing by that count would
 /// yield an infinity. Ties are broken by name so the list does not reshuffle between calls —
 /// `HGETALL` hands back an unordered map.
-fn summarize_traffic(counts: HashMap<String, i64>, durations: HashMap<String, i64>) -> TrafficHealth {
+fn summarize_traffic(
+    counts: HashMap<String, i64>,
+    durations: HashMap<String, i64>,
+    since: Option<i64>,
+) -> TrafficHealth {
     let mut busiest: Vec<EndpointStat> = counts.iter()
         .filter(|(_, served)| **served > 0)
         .map(|(endpoint, served)| EndpointStat {
@@ -205,6 +218,7 @@ fn summarize_traffic(counts: HashMap<String, i64>, durations: HashMap<String, i6
     TrafficHealth {
         served,
         average_ms: if served > 0 { total_micros as f64 / served as f64 / 1000.0 } else { 0.0 },
+        since,
         busiest,
     }
 }
@@ -369,7 +383,12 @@ impl MiscApi {
     /// anywhere leaves the queue depths and traffic *unknown* rather than zero — an unreachable
     /// redis says nothing about how much work is queued.
     async fn check_redis(&self, app: &AppData) -> (DependencyHealth, QueueHealth, Option<TrafficHealth>) {
-        let unknown_queues = || QueueHealth { heavy: None, light: None };
+        let unknown_queues = || QueueHealth {
+            heavy: None,
+            light: None,
+            completed_heavy: None,
+            completed_light: None,
+        };
         let started = Instant::now();
 
         let probe = async {
@@ -383,15 +402,27 @@ impl MiscApi {
                 .await.map_err(|e| e.to_string())?;
             let durations: HashMap<String, i64> = conn.hgetall(METRICS_DURATION_KEY)
                 .await.map_err(|e| e.to_string())?;
+            // Absent until the first flush; that deserializes to None rather than failing the probe.
+            let since: Option<i64> = conn.get(METRICS_SINCE_KEY)
+                .await.map_err(|e| e.to_string())?;
+            // Missing fields mean no job of that priority has finished yet, which is a real zero
+            // here — unlike the depths above, redis being up is enough to know the count.
+            let jobs: HashMap<String, i64> = conn.hgetall(METRICS_JOBS_KEY)
+                .await.map_err(|e| e.to_string())?;
 
-            Ok::<_, String>((latency, heavy, light, counts, durations))
+            Ok::<_, String>((latency, heavy, light, counts, durations, since, jobs))
         };
 
         match timeout(HEALTH_CHECK_TIMEOUT, probe).await {
-            Ok(Ok((latency, heavy, light, counts, durations))) => (
+            Ok(Ok((latency, heavy, light, counts, durations, since, jobs))) => (
                 DependencyHealth::up(latency),
-                QueueHealth { heavy: Some(heavy), light: Some(light) },
-                Some(summarize_traffic(counts, durations)),
+                QueueHealth {
+                    heavy: Some(heavy),
+                    light: Some(light),
+                    completed_heavy: Some(jobs.get("heavy").copied().unwrap_or(0)),
+                    completed_light: Some(jobs.get("light").copied().unwrap_or(0)),
+                },
+                Some(summarize_traffic(counts, durations, since)),
             ),
             Ok(Err(e)) => (DependencyHealth::down(e), unknown_queues(), None),
             Err(_) => (DependencyHealth::down("timed out"), unknown_queues(), None),
@@ -670,9 +701,11 @@ mod traffic_tests {
         let traffic = summarize_traffic(
             hash(&[("GET /health", 4), ("GET /servers", 2)]),
             hash(&[("GET /health", 2_000), ("GET /servers", 10_000)]),
+            Some(1_700_000_000),
         );
 
         assert_eq!(traffic.served, 6);
+        assert_eq!(traffic.since, Some(1_700_000_000), "the period the total covers rides along");
         // 12_000us over 6 requests.
         assert_eq!(traffic.average_ms, 2.0);
         assert_eq!(traffic.busiest[0].endpoint, "GET /health");
@@ -684,11 +717,11 @@ mod traffic_tests {
     /// other. Neither half may produce a NaN or an infinity in the response.
     #[test]
     fn a_half_written_field_does_not_poison_the_averages() {
-        let counted_only = summarize_traffic(hash(&[("GET /health", 2)]), hash(&[]));
+        let counted_only = summarize_traffic(hash(&[("GET /health", 2)]), hash(&[]), None);
         assert_eq!(counted_only.busiest[0].average_ms, 0.0);
         assert_eq!(counted_only.served, 2);
 
-        let timed_only = summarize_traffic(hash(&[]), hash(&[("GET /health", 5_000)]));
+        let timed_only = summarize_traffic(hash(&[]), hash(&[("GET /health", 5_000)]), None);
         assert!(timed_only.busiest.is_empty());
         assert_eq!(timed_only.served, 0);
         assert_eq!(timed_only.average_ms, 0.0);
@@ -703,7 +736,7 @@ mod traffic_tests {
             .collect();
         let counts: HashMap<String, i64> = entries.into_iter().collect();
 
-        let traffic = summarize_traffic(counts.clone(), HashMap::new());
+        let traffic = summarize_traffic(counts.clone(), HashMap::new(), None);
         assert_eq!(traffic.busiest.len(), TRAFFIC_TOP_N);
         assert_eq!(traffic.served, 7 * (TRAFFIC_TOP_N as i64 + 5), "the total counts every endpoint, not just the listed ones");
 
@@ -711,7 +744,7 @@ mod traffic_tests {
         assert_eq!(names[0], "GET /route-00");
         assert_eq!(
             names,
-            summarize_traffic(counts, HashMap::new()).busiest.iter()
+            summarize_traffic(counts, HashMap::new(), None).busiest.iter()
                 .map(|e| e.endpoint.as_str()).collect::<Vec<_>>()
         );
     }
