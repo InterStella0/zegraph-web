@@ -12,7 +12,7 @@ concurrency:
 env:
   # Absolute path on stella-pc to the real production .env, kept outside the
   # repo so actions/checkout cannot wipe it. Edit to match your machine.
-  ENV_SOURCE: /home/stella/deploy-secrets/zegraph-web/.env
+  ENV_SOURCE: /home/sarah/deploy-secrets/zegraph-web/.env
 
 jobs:
   deploy:
