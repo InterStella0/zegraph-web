@@ -58,6 +58,7 @@ export interface PlayerBrief extends PlayerBase{
     rank: number,
     online_since: string | null,
     last_played: string,
+    last_played_ended: string | null,
     last_played_duration: number,
 }
 
@@ -103,7 +104,7 @@ export interface DetailedPlayer extends PlayerBase{
 }
 export interface DetailedPlayerInfo extends DetailedPlayer{
     last_played: string,
-    last_played_ended: string,
+    last_played_ended: string | null,
     online_since: string | null,
     last_played_duration: number | null,
 }

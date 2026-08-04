@@ -1,0 +1,121 @@
+name: Staging
+
+on:
+  push:
+    branches: [development]
+  workflow_dispatch:
+    inputs:
+      reset_db:
+        description: "Rebuild the staging database from db.sql even if it has not changed"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-staging
+  # Unlike production, where deploys queue: on staging the newest development commit is the only
+  # one worth having, so supersede anything still running.
+  cancel-in-progress: true
+
+env:
+  # Absolute path on the runner to the staging .env, kept outside the repo so actions/checkout
+  # cannot wipe it. Set as the STAGING_ENV_LOCATION repository variable. This is a different file
+  # from production's ENV_LOCATION and must stay that way.
+  ENV_SOURCE: ${{ vars.STAGING_ENV_LOCATION }}
+  RESET_DB: ${{ inputs.reset_db && '1' || '0' }}
+
+jobs:
+  # The gate. Also the thing that brings the staging database up to this branch's db.sql, because
+  # sqlx resolves query! at compile time and everything below compiles against it.
+  check:
+    runs-on: [self-hosted, stella-pc]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Stage staging .env
+        shell: bash
+        run: |
+          if [[ -z "$ENV_SOURCE" ]]; then
+            echo "error: STAGING_ENV_LOCATION repository variable is not set" >&2
+            exit 1
+          fi
+          if [[ ! -f "$ENV_SOURCE" ]]; then
+            echo "error: $ENV_SOURCE not found on this runner" >&2
+            exit 1
+          fi
+          cp "$ENV_SOURCE" .env
+
+      - name: Bring up and seed the staging database
+        shell: bash
+        run: DB_ONLY=1 bash ./deployment/deploy-staging.sh
+
+      - name: Backend tests
+        shell: bash
+        run: |
+          set -a; source .env; set +a
+          # --target test never runs on the path to `final`, so this is CI-only. --add-host is what
+          # lets the build container reach the staging database published on the host.
+          docker build \
+            --target test \
+            --add-host host.docker.internal:host-gateway \
+            --build-arg DATABASE_URL="$BUILD_DATABASE_URL" \
+            .
+
+      - name: Build images
+        shell: bash
+        # Exercises the frontend's `bun run build` and the release backend build. The images land in
+        # the local daemon for the deploy job to use -- nothing is pushed to Docker Hub.
+        run: docker compose -p ze-staging -f compose.staging.yaml build
+
+      - name: Remove staged secrets
+        if: always()
+        shell: bash
+        run: rm -f .env
+
+  deploy:
+    needs: check
+    runs-on: [self-hosted, stella-pc]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Stage staging .env
+        shell: bash
+        run: |
+          if [[ ! -f "$ENV_SOURCE" ]]; then
+            echo "error: $ENV_SOURCE not found on this runner" >&2
+            exit 1
+          fi
+          cp "$ENV_SOURCE" .env
+
+      - name: Deploy
+        shell: bash
+        # The images are already built and the schema marker already matches, so both steps inside
+        # the script are no-ops here.
+        run: SKIP_BUILD=1 bash ./deployment/deploy-staging.sh
+
+      - name: Smoke check
+        shell: bash
+        run: |
+          set -a; source .env; set +a
+          port="${STAGING_EXPOSE_PORT:-51021}"
+          for _ in $(seq 30); do
+            if curl -fsS "http://localhost:$port/data/api/health" >/dev/null; then
+              echo "staging is answering on :$port"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "error: staging did not answer on :$port" >&2
+          docker compose -p ze-staging -f compose.staging.yaml ps
+          docker compose -p ze-staging -f compose.staging.yaml logs --tail 50 backend reverse
+          exit 1
+
+      - name: Remove staged secrets
+        if: always()
+        shell: bash
+        run: rm -f .env

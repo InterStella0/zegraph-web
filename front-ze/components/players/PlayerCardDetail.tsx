@@ -78,7 +78,7 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
     const locale = useLocale();
     const cStats = getCStatsCSGO(server.id, player.id)
     const ranks = player?.ranks
-    let lastPlayedText = t('lastOnline', {ago: dayjs(player.last_played).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
+    let lastPlayedText = t('lastOnline', {ago: dayjs(player.last_played_ended).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
     if (player.online_since) {
         lastPlayedText = t('playingSince', {ago: dayjs(player.online_since).fromNow()});
     }

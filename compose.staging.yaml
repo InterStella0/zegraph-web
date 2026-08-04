@@ -1,0 +1,239 @@
+# Staging stack. Builds and runs on the self-hosted runner, so unlike compose.yaml there are no
+# `image:` keys -- nothing is pushed to Docker Hub and the production tags can never be clobbered.
+# Always drive it through `-p ze-staging` (deployment/deploy-staging.sh does) so it cannot collide
+# with a dev stack on the same machine.
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # Staging's own database, seeded from db.sql by deployment/staging-db-reset.sh. The published
+  # port is bound to the docker bridge address rather than loopback so one URL works both from the
+  # runner process (cargo test) and from inside a BuildKit container (the sqlx compile-time check).
+  postgres:
+    image: postgis/postgis:18-3.6
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      # PG18 images put the cluster in a major-version subdirectory (/var/lib/postgresql/18/docker)
+      # and refuse to start if the mount is the old /var/lib/postgresql/data.
+      - staging-pgdata:/var/lib/postgresql
+    ports:
+      - "${STAGING_DB_HOST_ADDR:-172.17.0.1}:${STAGING_DB_HOST_PORT:-55432}:5432"
+    logging: *default-logging
+    healthcheck:
+      # -h 127.0.0.1 matters: during initdb the entrypoint runs a temporary socket-only server, and
+      # a plain pg_isready reports healthy against *that* -- then the real server restarts and
+      # whatever connected gets "the database system is shutting down". Only TCP proves it is up.
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+  reverse:
+    restart: always
+    build:
+      context: nginx
+    environment:
+      BACKEND_HOST: ${BACKEND_HOST:-backend}
+      FRONTEND_HOST: ${FRONTEND_HOST:-frontend}
+      QGIS_HOST: ${QGIS_HOST:-qgis-server}
+    volumes:
+      - ${STORAGE_PATH}/maps:/var/www/frontend/public:ro
+      - ${STORAGE_PATH}/characters:/var/www/characters:ro
+      - ${STORAGE_PATH}/communities:/var/www/communities:ro
+      - ${PUBLIC_FILES_PATH:-/front-ze/public}:/var/www/public/any:ro
+    networks:
+      - default
+    # 51020 is production's; staging takes the next one and cloudflared points at it.
+    ports:
+      - "${STAGING_EXPOSE_PORT:-51021}:80"
+    logging: *default-logging
+    depends_on:
+      backend:
+        condition: service_healthy
+  frontend:
+    restart: always
+    build:
+      context: front-ze
+      args:
+        BUILD_ENV: production
+        R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
+        DISCORD_CLIENT_ID: ${DISCORD_AUTH2_CLIENT_ID}
+        NEXT_PUBLIC_DISCORD_AUTH2_REDIRECT_URI: ${DISCORD_AUTH2_REDIRECT_URI}
+        NEXTAUTH_URL: ${CLIENT_AUTH_REDIRECT_URI}
+        DISCORD_CLIENT_SECRET: ${DISCORD_AUTH2_CLIENT_SECRET}
+        STEAM_SECRET: ${STEAM_API_KEY}
+        NEXT_PUBLIC_DOMAIN: ${NEXT_PUBLIC_DOMAIN}
+        NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY}
+        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST}
+        NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+        FRONTEND_URL: ${FRONTEND_URL}
+        ANALYZE: ${ANALYZE}
+        NEXT_PUBLIC_ADSENSE_CLIENT_ID: ${NEXT_PUBLIC_ADSENSE_CLIENT_ID}
+        NEXT_PUBLIC_ADSENSE_AD_SLOT: ${NEXT_PUBLIC_ADSENSE_AD_SLOT}
+        NEXT_PUBLIC_AD_SHOW: ${NEXT_PUBLIC_AD_SHOW}
+    volumes:
+      - staging-thumbnails:/var/www/thumbnails:ro
+      - staging-tile_cache:/var/cache/nginx/qgis_tiles
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - default
+  backend:
+    restart: always
+    # Production pins gid 956 for the storage group on the VPS; that group does not exist on the
+    # runner, so staging stays inside the image's own uid.
+    user: "10001:10001"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    env_file:
+      - .env
+    build:
+      context: .
+      target: final
+      # sqlx checks query! at compile time and .dockerignore excludes .sqlx/, so the build needs to
+      # reach the staging database -- which lives on the host, not on this network.
+      extra_hosts:
+        - host.docker.internal:host-gateway
+      args:
+        DATABASE_URL: ${BUILD_DATABASE_URL}
+    environment:
+      ROLE: api
+      DATABASE_URL: ${DATABASE_URL}
+      CACHE_THUMBNAIL: /var/www/thumbnails
+      STORE_UPLOAD: /var/www/storage
+      QGIS_WMS_URL: http://${REVERSE_HOST:-reverse}/qgis-server
+    volumes:
+      - staging-thumbnails:/var/www/thumbnails
+      - ${STORAGE_PATH}:/var/www/storage:rw
+      - ${VAPIDS_PATH}:/app/vapids:ro
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  # Same image as backend, other half of the split. Spelled out in full rather than relying on a
+  # merge so this file stands on its own, the way compose.dev.yaml does.
+  worker:
+    restart: always
+    user: "10001:10001"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    env_file:
+      - .env
+    build:
+      context: .
+      target: final
+      extra_hosts:
+        - host.docker.internal:host-gateway
+      args:
+        DATABASE_URL: ${BUILD_DATABASE_URL}
+    environment:
+      ROLE: worker
+      DATABASE_URL: ${DATABASE_URL}
+      INTERNAL_API_BASE: http://backend:3000
+    volumes:
+      - ${VAPIDS_PATH}:/app/vapids:ro
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3001/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  redis:
+    restart: always
+    image: redis:8.8-alpine
+    volumes:
+      - staging-redis-data:/data
+      - ${REDIS_CONF_PATH}:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  pfp-provider:
+    restart: always
+    build:
+      context: ./pfp-provider
+    environment:
+      REDIS_URL: ${REDIS_URL}
+      STEAM_API_KEY: ${STEAM_API_KEY}
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+  # Renders nothing until the hand-imported `layers` schema is loaded into the staging database --
+  # db.sql does not declare it. The service is kept so staging matches production's shape.
+  qgis-server:
+    build:
+      context: ./qgis-server
+    environment:
+      LANG: en_EN.UTF-8
+      QGIS_PROJECT_FILE: /home/qgis/project/project.qgz
+      QGIS_SERVER_LOG_LEVEL: 0
+      DB_NAME: ${DB_NAME}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+volumes:
+  staging-thumbnails:
+  staging-tile_cache:
+  staging-redis-data:
+  staging-pgdata:
+
+networks:
+  default:

@@ -24,8 +24,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # compose.yaml interpolates ${STORAGE_PATH}, ${R2_PUBLIC_BASE_URL} and the
-      # frontend build args from .env, so it has to be here before the build.
       - name: Stage production .env
         shell: bash
         run: |
@@ -39,8 +37,6 @@ jobs:
           fi
           cp "$ENV_SOURCE" .env
 
-      # Builds the 'server' alias deploy-scripts.sh uses, so the runner needs no
-      # hand-maintained ~/.ssh/config or key.
       - name: Configure ssh access to the deploy target
         shell: bash
         env:
@@ -79,7 +75,6 @@ jobs:
         shell: bash
         run: bash ./deployment/deploy-scripts.sh
 
-      # Self-hosted workspaces persist between jobs; don't leave prod creds behind.
       - name: Remove staged secrets
         if: always()
         shell: bash

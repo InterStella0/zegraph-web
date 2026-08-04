@@ -179,6 +179,8 @@ pub struct DbPlayerDetail{
     #[skip]
     pub last_played: Option<OffsetDateTime>,
     #[skip]
+    pub last_played_ended: Option<OffsetDateTime>,
+    #[skip]
     pub last_played_duration: Option<PgInterval>,
     pub associated_player_id: Option<String>
 }
@@ -193,6 +195,7 @@ impl Into<DbPlayerBrief> for DbPlayerDetail{
             rank: self.rank,
             online_since: self.online_since,
             last_played: self.last_played,
+            last_played_ended: self.last_played_ended,
             last_played_duration: self.last_played_duration,
             is_anonymous: false,
         }
@@ -237,6 +240,7 @@ pub struct DbPlayerBrief{
     pub online_since: Option<OffsetDateTime>,
     #[method(to_utc_time)]
     pub last_played: Option<OffsetDateTime>,
+    pub last_played_ended: Option<OffsetDateTime>,
     pub last_played_duration: Option<PgInterval>,
     pub is_anonymous: bool,
 }
