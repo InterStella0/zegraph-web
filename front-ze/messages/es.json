@@ -871,6 +871,30 @@
       "hoursAgo24": "Hace 24 horas",
       "now": "Ahora",
       "minorErrors": "Errores menores (<50%)"
+    },
+    "api": {
+      "sectionTitle": "Estado de la API",
+      "servedRelative": "{count} solicitudes atendidas en los últimos {period}",
+      "servedNoPeriod": "{count} solicitudes atendidas",
+      "exactCount": "{count} solicitudes",
+      "exactSince": "desde {date}",
+      "avgResponse": "media {ms}ms",
+      "postgres": "Postgres",
+      "redis": "Redis",
+      "qgis": "QGIS",
+      "wms": "WMS",
+      "jobsRun": "Trabajos ejecutados",
+      "queued": "{count} en cola",
+      "queuedUnknown": "cola desconocida",
+      "jobsBreakdown": "{heavy} pesados · {light} ligeros",
+      "up": "Activo",
+      "down": "Caído",
+      "topEndpoints": "Top {count} endpoints",
+      "colEndpoint": "Endpoint",
+      "colServed": "Atendidas",
+      "colAvg": "Media",
+      "metricsUnavailable": "Métricas de tráfico no disponibles: la caché no está accesible.",
+      "loadFailed": "No se pudo cargar el estado de la API."
     }
   },
   "radar": {

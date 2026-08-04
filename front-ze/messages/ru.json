@@ -488,7 +488,8 @@
     "tracker": "Трекер",
     "hub": "Хаб",
     "status": "Статус",
-    "donors": "Доноры"
+    "donors": "Доноры",
+    "api": "API"
   },
   "maps": {
     "graph": "График",
@@ -870,6 +871,30 @@
       "hoursAgo24": "24 часа назад",
       "now": "Сейчас",
       "minorErrors": "Незначительные ошибки (<50%)"
+    },
+    "api": {
+      "sectionTitle": "Состояние API",
+      "servedRelative": "Обработано запросов: {count} за последние {period}",
+      "servedNoPeriod": "Обработано запросов: {count}",
+      "exactCount": "запросов: {count}",
+      "exactSince": "с {date}",
+      "avgResponse": "в среднем {ms} мс",
+      "postgres": "Postgres",
+      "redis": "Redis",
+      "qgis": "QGIS",
+      "wms": "WMS",
+      "jobsRun": "Выполнено задач",
+      "queued": "{count} в очереди",
+      "queuedUnknown": "очередь неизвестна",
+      "jobsBreakdown": "тяжёлых: {heavy} · лёгких: {light}",
+      "up": "Работает",
+      "down": "Недоступен",
+      "topEndpoints": "Топ-{count} эндпоинтов",
+      "colEndpoint": "Эндпоинт",
+      "colServed": "Запросов",
+      "colAvg": "Среднее",
+      "metricsUnavailable": "Метрики трафика недоступны — нет связи с кэшем.",
+      "loadFailed": "Не удалось загрузить состояние API."
     }
   },
   "radar": {

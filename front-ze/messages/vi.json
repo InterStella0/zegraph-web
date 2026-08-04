@@ -871,6 +871,30 @@
       "hoursAgo24": "24 giờ trước",
       "now": "Bây giờ",
       "minorErrors": "Lỗi nhỏ (<50%)"
+    },
+    "api": {
+      "sectionTitle": "Tình trạng API",
+      "servedRelative": "Đã xử lý {count} yêu cầu trong {period} qua",
+      "servedNoPeriod": "Đã xử lý {count} yêu cầu",
+      "exactCount": "{count} yêu cầu",
+      "exactSince": "từ {date}",
+      "avgResponse": "trung bình {ms}ms",
+      "postgres": "Postgres",
+      "redis": "Redis",
+      "qgis": "QGIS",
+      "wms": "WMS",
+      "jobsRun": "Tác vụ đã chạy",
+      "queued": "{count} đang chờ",
+      "queuedUnknown": "không rõ hàng đợi",
+      "jobsBreakdown": "{heavy} nặng · {light} nhẹ",
+      "up": "Hoạt động",
+      "down": "Ngừng",
+      "topEndpoints": "Top {count} endpoint",
+      "colEndpoint": "Endpoint",
+      "colServed": "Đã xử lý",
+      "colAvg": "Trung bình",
+      "metricsUnavailable": "Không có số liệu lưu lượng — không kết nối được bộ nhớ đệm.",
+      "loadFailed": "Không thể tải tình trạng API."
     }
   },
   "radar": {

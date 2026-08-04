@@ -871,6 +871,30 @@
       "hoursAgo24": "24 小時前",
       "now": "現在",
       "minorErrors": "輕微錯誤（<50%）"
+    },
+    "api": {
+      "sectionTitle": "API 健康狀態",
+      "servedRelative": "過去 {period} 已處理 {count} 次請求",
+      "servedNoPeriod": "已處理 {count} 次請求",
+      "exactCount": "{count} 次請求",
+      "exactSince": "自 {date} 起",
+      "avgResponse": "平均 {ms}ms",
+      "postgres": "Postgres",
+      "redis": "Redis",
+      "qgis": "QGIS",
+      "wms": "WMS",
+      "jobsRun": "已執行工作",
+      "queued": "{count} 個排隊中",
+      "queuedUnknown": "佇列未知",
+      "jobsBreakdown": "{heavy} 個重工作 · {light} 個輕工作",
+      "up": "正常",
+      "down": "中斷",
+      "topEndpoints": "前 {count} 個端點",
+      "colEndpoint": "端點",
+      "colServed": "請求數",
+      "colAvg": "平均",
+      "metricsUnavailable": "流量統計無法取得 — 無法連線至快取。",
+      "loadFailed": "無法載入 API 健康狀態。"
     }
   },
   "radar": {

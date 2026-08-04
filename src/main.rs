@@ -710,6 +710,10 @@ mod route_tests {
         assert_eq!(data["redis"]["status"], "down");
         assert!(data["queues"]["heavy"].is_null(), "an unreachable redis is not an empty queue");
         assert!(data["queues"]["light"].is_null());
+        assert!(
+            data["queues"]["completed_heavy"].is_null() && data["queues"]["completed_light"].is_null(),
+            "the job tally lives in redis too, so it is unknown rather than zero"
+        );
         assert!(data["traffic"].is_null(), "the traffic counters live in redis, which is down");
         // QGIS_WMS_URL is unset here, so the second layer must not have been attempted.
         assert!(data["qgis"]["wms"].is_null());

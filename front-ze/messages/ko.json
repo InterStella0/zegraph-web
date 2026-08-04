@@ -871,6 +871,30 @@
       "hoursAgo24": "24시간 전",
       "now": "지금",
       "minorErrors": "경미한 오류(<50%)"
+    },
+    "api": {
+      "sectionTitle": "API 상태",
+      "servedRelative": "지난 {period} 동안 {count}건의 요청 처리",
+      "servedNoPeriod": "{count}건의 요청 처리",
+      "exactCount": "{count}건의 요청",
+      "exactSince": "{date}부터",
+      "avgResponse": "평균 {ms}ms",
+      "postgres": "Postgres",
+      "redis": "Redis",
+      "qgis": "QGIS",
+      "wms": "WMS",
+      "jobsRun": "실행된 작업",
+      "queued": "{count}개 대기 중",
+      "queuedUnknown": "대기열 알 수 없음",
+      "jobsBreakdown": "무거움 {heavy}개 · 가벼움 {light}개",
+      "up": "정상",
+      "down": "중단",
+      "topEndpoints": "상위 {count}개 엔드포인트",
+      "colEndpoint": "엔드포인트",
+      "colServed": "처리량",
+      "colAvg": "평균",
+      "metricsUnavailable": "트래픽 지표를 사용할 수 없습니다 — 캐시에 연결할 수 없습니다.",
+      "loadFailed": "API 상태를 불러오지 못했습니다."
     }
   },
   "radar": {

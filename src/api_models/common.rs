@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::{Arc, LazyLock, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use poem::http::StatusCode;
 use poem::{Endpoint, Middleware, Request};
 use poem_openapi::{ApiResponse, Object};
@@ -156,6 +156,21 @@ pub const METRICS_COUNT_KEY: &str = "gfl-ze-watcher:metrics:endpoint:count";
 /// are cache hits well under 1ms; accumulating rounded milliseconds would floor a large share of
 /// requests to zero and drag every average down with them.
 pub const METRICS_DURATION_KEY: &str = "gfl-ze-watcher:metrics:endpoint:duration_us";
+/// Unix seconds at which the two hashes above started accumulating, so a cumulative total can be
+/// reported with the period it covers rather than as a number with no scale.
+///
+/// It lives beside the counters rather than in Postgres on purpose. The counters are evictable
+/// (`redis.conf`: `maxmemory-policy allkeys-lru`, `appendonly no`), so losing them resets `served`
+/// to zero — a durable start date elsewhere would outlive the reset and keep claiming a period the
+/// counts no longer cover. Here both vanish together and the pair stays honest.
+pub const METRICS_SINCE_KEY: &str = "gfl-ze-watcher:metrics:endpoint:since";
+/// Cumulative background jobs the consumers have finished, as `"heavy"|"light"` -> count.
+///
+/// Counted at completion rather than at enqueue, and incremented for failures too, matching what
+/// [`PatternLoggerEndpoint`] does for requests. Queue *depth* answers a different question and is a
+/// poor one to display: `BRPOP` hands a job straight to a waiting consumer, so `LLEN` reads zero
+/// except under real saturation. This climbs visibly instead.
+pub const METRICS_JOBS_KEY: &str = "gfl-ze-watcher:metrics:jobs:completed";
 
 const METRICS_FLUSH_INTERVAL: Duration = Duration::from_secs(10);
 
@@ -233,6 +248,10 @@ impl EndpointMetrics {
         };
 
         let mut pipe = redis::pipe();
+        // `NX` makes this write-once, and the empty-buffer return above means it lands on the first
+        // flush that carries real counts — never on a process that started and served nothing.
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        pipe.cmd("SET").arg(METRICS_SINCE_KEY).arg(now).arg("NX").ignore();
         for (key, (count, micros)) in &drained {
             pipe.hincr(METRICS_COUNT_KEY, key, *count)
                 .hincr(METRICS_DURATION_KEY, key, *micros);

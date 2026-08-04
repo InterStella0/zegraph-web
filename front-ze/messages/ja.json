@@ -871,6 +871,30 @@
       "hoursAgo24": "24時間前",
       "now": "今",
       "minorErrors": "軽微なエラー(<50%)"
+    },
+    "api": {
+      "sectionTitle": "API ヘルス",
+      "servedRelative": "過去 {period} で {count} 件のリクエストを処理",
+      "servedNoPeriod": "{count} 件のリクエストを処理",
+      "exactCount": "{count} 件のリクエスト",
+      "exactSince": "{date} から",
+      "avgResponse": "平均 {ms}ms",
+      "postgres": "Postgres",
+      "redis": "Redis",
+      "qgis": "QGIS",
+      "wms": "WMS",
+      "jobsRun": "実行済みジョブ",
+      "queued": "{count} 件待機中",
+      "queuedUnknown": "キュー不明",
+      "jobsBreakdown": "重 {heavy} 件 · 軽 {light} 件",
+      "up": "正常",
+      "down": "停止",
+      "topEndpoints": "上位 {count} エンドポイント",
+      "colEndpoint": "エンドポイント",
+      "colServed": "処理数",
+      "colAvg": "平均",
+      "metricsUnavailable": "トラフィック指標を取得できません — キャッシュに接続できません。",
+      "loadFailed": "API ヘルスを読み込めませんでした。"
     }
   },
   "radar": {

@@ -871,6 +871,30 @@
       "hoursAgo24": "24 jam yang lalu",
       "now": "Sekarang",
       "minorErrors": "Kesalahan kecil (<50%)"
+    },
+    "api": {
+      "sectionTitle": "Kesehatan API",
+      "servedRelative": "{count} permintaan dilayani selama {period} terakhir",
+      "servedNoPeriod": "{count} permintaan dilayani",
+      "exactCount": "{count} permintaan",
+      "exactSince": "sejak {date}",
+      "avgResponse": "rata-rata {ms}ms",
+      "postgres": "Postgres",
+      "redis": "Redis",
+      "qgis": "QGIS",
+      "wms": "WMS",
+      "jobsRun": "Tugas Dijalankan",
+      "queued": "{count} dalam antrean",
+      "queuedUnknown": "antrean tidak diketahui",
+      "jobsBreakdown": "{heavy} berat · {light} ringan",
+      "up": "Aktif",
+      "down": "Mati",
+      "topEndpoints": "{count} endpoint teratas",
+      "colEndpoint": "Endpoint",
+      "colServed": "Dilayani",
+      "colAvg": "Rata-rata",
+      "metricsUnavailable": "Metrik lalu lintas tidak tersedia — cache tidak dapat dijangkau.",
+      "loadFailed": "Kesehatan API tidak dapat dimuat."
     }
   },
   "radar": {
