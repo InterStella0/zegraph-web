@@ -55,25 +55,22 @@ info "Recreating database $DB_NAME"
 psql_db postgres -c "DROP DATABASE IF EXISTS \"$DB_NAME\" WITH (FORCE)" >/dev/null
 psql_db postgres -c "CREATE DATABASE \"$DB_NAME\"" >/dev/null
 
-# Two things db.sql cannot bring with it, worked out originally in check-schema.sh:
+# pg_cron is the one thing db.sql cannot bring with it: it is not in the postgis image, and it can
+# only ever live on one database per cluster. Stubbing schedule_in_database lets the rest of db.sql
+# run untouched; the trade-off is that materialized views never refresh in staging.
 #
-#   pg_cron  -- not in the postgis image, and it can only ever live on one database per cluster.
-#               Stubbing schedule_in_database lets the rest of db.sql run untouched; the trade-off
-#               is that materialized views never refresh in staging.
-#   layers   -- imported by hand through QGIS, so db.sql never declares it. countries_counted will
-#               not compile without at least countries_fixed present.
-info "Installing pg_cron and layers stubs"
+# Deliberately NOT stubbed: layers.countries_fixed. check-schema.sh stubs it because that script
+# excludes the layers schema from its diff, but db.sql declares the real table in full at line 999.
+# Creating a stub first makes db.sql's own CREATE TABLE fail as "already exists", leaving a 3-column
+# table behind and breaking every query that reads "CONTINENT" and friends.
+info "Installing pg_cron stub"
 psql_db "$DB_NAME" -c "
 CREATE SCHEMA cron;
 CREATE TABLE cron.expected_jobs(jobname TEXT, schedule TEXT, database TEXT);
 CREATE FUNCTION cron.schedule_in_database(jobname TEXT, schedule TEXT, command TEXT, database TEXT)
 RETURNS BIGINT LANGUAGE sql AS \$\$
     INSERT INTO cron.expected_jobs VALUES (jobname, schedule, database) RETURNING 0::BIGINT;
-\$\$;
-
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE SCHEMA layers;
-CREATE TABLE layers.countries_fixed(\"NAME\" TEXT, \"ISO_A2_EH\" TEXT, geom geometry);" >/dev/null
+\$\$;" >/dev/null
 
 workdir=$(mktemp -d)
 trap 'rm -rf "$workdir"' EXIT
