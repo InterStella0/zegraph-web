@@ -10,9 +10,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Absolute path on stella-pc to the real production .env, kept outside the
-  # repo so actions/checkout cannot wipe it. Edit to match your machine.
-  ENV_SOURCE: /home/sarah/deploy-secrets/zegraph-web/.env
+  # Absolute path on the machine deploying real production .env, kept outside the
+  # repo so actions/checkout cannot wipe it. Set as the ENV_LOCATION repository
+  # variable (Settings -> Secrets and variables -> Actions -> Variables).
+  ENV_SOURCE: ${{ vars.ENV_LOCATION }}
 
 jobs:
   deploy:
@@ -21,25 +22,67 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # compose.yaml interpolates ${STORAGE_PATH}, ${R2_PUBLIC_BASE_URL} and the
       # frontend build args from .env, so it has to be here before the build.
       - name: Stage production .env
         shell: bash
         run: |
+          if [[ -z "$ENV_SOURCE" ]]; then
+            echo "error: ENV_LOCATION repository variable is not set" >&2
+            exit 1
+          fi
           if [[ ! -f "$ENV_SOURCE" ]]; then
             echo "error: $ENV_SOURCE not found on this runner" >&2
             exit 1
           fi
           cp "$ENV_SOURCE" .env
 
+      # Builds the 'server' alias deploy-scripts.sh uses, so the runner needs no
+      # hand-maintained ~/.ssh/config or key.
+      - name: Configure ssh access to the deploy target
+        shell: bash
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+          DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+        run: |
+          for v in DEPLOY_SSH_KEY DEPLOY_SSH_KNOWN_HOSTS DEPLOY_SSH_HOST DEPLOY_SSH_USER; do
+            if [[ -z "${!v}" ]]; then
+              echo "error: $v secret is empty or not set" >&2
+              exit 1
+            fi
+          done
+          ssh_dir="$RUNNER_TEMP/deploy-ssh"
+          rm -rf "$ssh_dir"
+          mkdir -p "$ssh_dir"
+          chmod 700 "$ssh_dir"
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/id_deploy"
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          cat > "$ssh_dir/config" <<EOF
+          Host server
+            HostName $DEPLOY_SSH_HOST
+            User $DEPLOY_SSH_USER
+            Port ${DEPLOY_SSH_PORT:-22}
+            IdentityFile $ssh_dir/id_deploy
+            IdentitiesOnly yes
+            UserKnownHostsFile $ssh_dir/known_hosts
+            StrictHostKeyChecking yes
+          EOF
+          echo "SSH_CONFIG_FILE=$ssh_dir/config" >> "$GITHUB_ENV"
+
       - name: Build, push, and deploy
         shell: bash
         run: bash ./deployment/deploy-scripts.sh
 
       # Self-hosted workspaces persist between jobs; don't leave prod creds behind.
-      - name: Remove staged .env
+      - name: Remove staged secrets
         if: always()
         shell: bash
-        run: rm -f .env
+        run: |
+          rm -f .env
+          rm -rf "$RUNNER_TEMP/deploy-ssh"
