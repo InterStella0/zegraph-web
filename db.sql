@@ -10,7 +10,7 @@ CREATE TABLE player(
     location_code JSONB,
     location GEOMETRY,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    associated_player_id REFERENCES player(player_id) ON DELETE SET NULL
+    associated_player_id VARCHAR(100) REFERENCES player(player_id) ON DELETE SET NULL
 );
 CREATE INDEX idx_player_name_trgm ON player USING gin (lower(player_name) gin_trgm_ops);
 
@@ -44,7 +44,7 @@ CREATE TABLE server(
     community_id UUID REFERENCES community(community_id) ON DELETE SET NULL,
     readable_link VARCHAR(20) UNIQUE,
     last_polled_at TIMESTAMPTZ,
-    tracking_since TIMESTAMPTZ,
+    tracking_since TIMESTAMPTZ
 );
 
 CREATE TABLE server_fetch_status (
@@ -175,6 +175,52 @@ CREATE INDEX idx_player_server_session_server_id_player_id_started_ended
 
 CREATE INDEX idx_player_server_session_started_at
     ON player_server_session (started_at);
+
+
+-- server_map and map_music live in public but the website schema below has foreign keys into
+-- them, so they have to exist first.
+CREATE TABLE server_map
+(
+    server_id VARCHAR(100) NOT NULL REFERENCES server(server_id) ON DELETE CASCADE,
+    map text NOT NULL,
+    first_occurrence timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cleared_at timestamp with time zone,
+    is_tryhard boolean,
+    is_casual boolean,
+    cooldown DOUBLE PRECISION,
+    current_cooldown TIMESTAMP WITH TIME ZONE,
+    pending_cooldown boolean DEFAULT FALSE,
+    no_noms boolean NOT NULL DEFAULT FALSE,
+    workshop_id BIGINT,
+    resolved_workshop_id BIGINT,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    min_players SMALLINT DEFAULT 0,
+    max_players SMALLINT,
+    removed BOOLEAN NOT NULL DEFAULT FALSE,
+    map_left INTEGER,
+    map_left_last_update TIMESTAMP WITH TIME ZONE,
+    nom_available_from TIME,
+    nom_available_until TIME,
+    available BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (server_id, map)
+);
+
+CREATE TABLE map_music (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    music_name TEXT NOT NULL UNIQUE,
+    duration DOUBLE PRECISION,
+    youtube_music TEXT,
+    source TEXT NOT NULL,
+    tried_searching BOOLEAN NOT NULL DEFAULT false,
+    yt_source BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE associated_map_music (
+    id SERIAL PRIMARY KEY,
+    map_music_id UUID NOT NULL REFERENCES map_music(id) ON DELETE CASCADE,
+    map_name TEXT NOT NULL,
+    tags TEXT[] NOT NULL
+);
 
 
 CREATE SCHEMA website;
@@ -436,7 +482,7 @@ SELECT player_id,
        RANK() OVER (ORDER BY total_playtime DESC) AS global_playtime_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY total_playtime DESC) AS playtime_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY casual_playtime DESC) AS casual_rank,
-       RANK() OVER (PARTITION BY server_id ORDER BY tryhard_playtime DESC) AS tryhard_rank
+       RANK() OVER (PARTITION BY server_id ORDER BY tryhard_playtime DESC) AS tryhard_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY mixed_playtime DESC) AS mixed_rank
 FROM website.player_playtime;
 
@@ -667,23 +713,6 @@ CREATE TABLE map_metadata(
     resolved_workshop_id BIGINT
 );
 
-CREATE TABLE map_music (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    music_name TEXT NOT NULL UNIQUE,
-    duration DOUBLE PRECISION,
-    youtube_music TEXT,
-    source TEXT NOT NULL,
-    tried_searching BOOLEAN NOT NULL DEFAULT false,
-    yt_source BIGINT NOT NULL DEFAULT 0
-);
-
-CREATE TABLE associated_map_music (
-    id SERIAL PRIMARY KEY,
-    map_music_id UUID NOT NULL REFERENCES map_music(id) ON DELETE CASCADE,
-    map_name TEXT NOT NULL,
-    tags TEXT[] NOT NULL
-);
-
 CREATE TABLE server_player_counts (
     server_id VARCHAR(100),
     bucket_time TIMESTAMP WITH TIME ZONE,
@@ -703,31 +732,6 @@ CREATE TABLE community_player_counts (
 CREATE INDEX idx_community_player_counts_desc
     ON community_player_counts (community_id, time_type, bucket_time DESC);
 
-CREATE TABLE server_map
-(
-    server_id VARCHAR(100) NOT NULL REFERENCES server(server_id) ON DELETE CASCADE,
-    map text NOT NULL,
-    first_occurrence timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    cleared_at timestamp with time zone,
-    is_tryhard boolean,
-    is_casual boolean,
-    cooldown DOUBLE PRECISION,
-    current_cooldown TIMESTAMP WITH TIME ZONE,
-    pending_cooldown boolean DEFAULT FALSE,
-    no_noms boolean NOT NULL DEFAULT FALSE,
-    workshop_id BIGINT,
-    resolved_workshop_id BIGINT,
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    min_players SMALLINT DEFAULT 0,
-    max_players SMALLINT,
-    removed BOOLEAN NOT NULL DEFAULT FALSE,
-    map_left INTEGER,
-    map_left_last_update TIMESTAMP WITH TIME ZONE,
-    nom_available_from TIME,
-    nom_available_until TIME,
-    available BOOLEAN DEFAULT TRUE,
-    PRIMARY KEY (server_id, map)
-);
 CREATE TABLE region_time (
     region_id SMALLSERIAL PRIMARY KEY,
     region_name VARCHAR(20) NOT NULL,
@@ -987,7 +991,7 @@ CREATE TABLE external_data.nide_players (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
 
-CREATE SCHEMA layers;
+CREATE SCHEMA IF NOT EXISTS layers;
 -- everything after this part, require PostGIS manual importing through QGIS
 
 CREATE VIEW countries_counted AS
