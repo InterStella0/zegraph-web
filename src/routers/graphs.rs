@@ -488,7 +488,8 @@ impl GraphApi {
 							sp.played_time AS total_playtime,
 							ROW_NUMBER() OVER (ORDER BY sp.played_time DESC)::int AS rank,
 							COALESCE(op.started_at, NULL) AS online_since,
-							lp.ended_at AS last_played,
+							lp.started_at AS last_played,
+							lp.ended_at AS last_played_ended,
 							(lp.ended_at - lp.started_at) AS last_played_duration,
 							sp.total_players,
 							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
@@ -586,7 +587,8 @@ impl GraphApi {
 							sp.played_time AS total_playtime,
 							ROW_NUMBER() OVER (ORDER BY sp.played_time DESC)::int AS rank,
 							COALESCE(op.started_at, NULL) AS online_since,
-							lp.ended_at AS last_played,
+							lp.started_at AS last_played,
+							lp.ended_at AS last_played_ended,
 							(lp.ended_at - lp.started_at) AS last_played_duration,
 							sp.total_players,
 							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
@@ -718,7 +720,8 @@ impl GraphApi {
                 durr.played_time as total_playtime,
                 durr.rank::int,
                 COALESCE(op.started_at, NULL) as online_since,
-                lp.ended_at as last_played,
+                lp.started_at as last_played,
+                lp.ended_at as last_played_ended,
                 (lp.ended_at - lp.started_at) as last_played_duration,
                 durr.total_players,
                 COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $3 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"

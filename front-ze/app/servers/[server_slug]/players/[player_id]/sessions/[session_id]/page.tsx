@@ -71,7 +71,7 @@ export async function generateMetadata({ params}: {
     if (player.online_since){
         description += ' ' + t('currentlyOnline', {time: dayjs(player.online_since).fromNow()});
     }else{
-        description += ' ' + t('lastOnline', {time: dayjs(player.last_played).fromNow()});
+        description += ' ' + t('lastOnline', {time: dayjs(player.last_played_ended).fromNow()});
     }
     try{
         const players = await getMutualSessions(server.id, session_id, "player", player_id)

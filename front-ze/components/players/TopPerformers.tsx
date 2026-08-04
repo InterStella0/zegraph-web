@@ -15,7 +15,7 @@ import ErrorCatch from "components/ui/ErrorMessage.tsx";
 
 const getPlayerStatus = (player) => {
     if (player.online_since) return 'online';
-    const lastPlayed = dayjs(player.last_played);
+    const lastPlayed = dayjs(player.last_played_ended ?? player.last_played);
     return lastPlayed > dayjs().subtract(30, 'minutes') ? 'away' : 'offline';
 };
 

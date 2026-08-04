@@ -622,6 +622,7 @@ impl MapApi{
                     ts.total AS total_playtime,
                     COALESCE(op.started_at, NULL) as online_since,
                     lps.started_at AS last_played,
+                    lps.ended_at AS last_played_ended,
                     (lps.ended_at - lps.started_at) AS last_played_duration,
                     0::int AS rank,
                     COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
@@ -917,6 +918,7 @@ impl MapApi{
                         pg.rank,
                         op.started_at AS \"online_since?\",
                         lp.started_at AS \"last_played?\",
+                        lp.ended_at AS \"last_played_ended?\",
                         (lp.ended_at - lp.started_at) AS \"last_played_duration?\",
                         COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
                     FROM pages pg
@@ -971,6 +973,7 @@ impl MapApi{
                         pg.rank,
                         op.started_at AS \"online_since?\",
                         lp.started_at AS \"last_played?\",
+                        lp.ended_at AS \"last_played_ended?\",
                         (lp.ended_at - lp.started_at) AS \"last_played_duration?\",
                         COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
                     FROM pages pg

@@ -529,6 +529,7 @@ impl WorkerQuery<DbPlayerDetail> for PlayerBasicQuery<DbPlayerDetail>{
                 pp.category,
                 NULL::TIMESTAMPTZ AS online_since,
                 NULL::TIMESTAMPTZ AS last_played,
+                NULL::TIMESTAMPTZ AS last_played_ended,
                 NULL::interval AS last_played_duration
             FROM player su
             JOIN website.player_playtime pp on pp.player_id = su.player_id
@@ -1110,6 +1111,7 @@ impl PlayerWorker {
                 pp.category,
                 NULL::TIMESTAMPTZ AS online_since,
                 NULL::TIMESTAMPTZ AS last_played,
+                NULL::TIMESTAMPTZ AS last_played_ended,
                 NULL::interval AS last_played_duration
             FROM player su
             LEFT JOIN website.player_playtime pp

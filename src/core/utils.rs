@@ -605,6 +605,7 @@ pub async fn update_online_brief(
               p.created_at,
               online.online_since,
               lp.started_at AS last_played,
+              lp.ended_at AS last_played_ended,
               lp.ended_at - lp.started_at AS last_played_duration,
               FALSE AS \"is_anonymous!\"
             FROM player p
@@ -627,6 +628,7 @@ pub async fn update_online_brief(
             };
             (*player).online_since = found.online_since;
             (*player).last_played = found.last_played;
+            (*player).last_played_ended = found.last_played_ended;
             (*player).last_played_duration = found.last_played_duration;
         }
     }else{

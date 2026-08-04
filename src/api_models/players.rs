@@ -75,6 +75,8 @@ pub struct PlayerBrief{
     /// Set if the player is currently connected.
     pub online_since: Option<DateTime<Utc>>,
     pub last_played: DateTime<Utc>,
+    /// End of that session; null while the player is still in it.
+    pub last_played_ended: Option<DateTime<Utc>>,
     pub last_played_duration: f64,
     pub is_anonymous: bool,
 }

@@ -52,7 +52,7 @@ function PlayerInformation(
     }else{
         statusText = isOnline
             ? t('playingSince', {ago: dayjs(player.online_since).fromNow()})
-            : t('lastOnline', {ago: dayjs(player.last_played).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
+            : t('lastOnline', {ago: dayjs(player.last_played_ended ?? player.last_played).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
     }
 
     return (
