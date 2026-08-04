@@ -8,9 +8,10 @@
 # into the environment first, then deploy.
 #
 # Run this ON THE VPS (the swarm manager), from the repo root:
-#   ./deploy-swarm.sh
+#   ./deployment/deploy-swarm.sh
 set -euo pipefail
-cd "$(dirname "$0")"
+# .env and compose-swarm.yaml live at the repo root, one level up from here.
+cd "$(dirname "$0")/.."
 
 if [[ ! -f ./.env ]]; then
   echo "error: .env not found in $(pwd) — refusing to deploy with empty vars" >&2

@@ -1,0 +1,45 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  # Absolute path on stella-pc to the real production .env, kept outside the
+  # repo so actions/checkout cannot wipe it. Edit to match your machine.
+  ENV_SOURCE: /home/stella/deploy-secrets/zegraph-web/.env
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, stella-pc]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # compose.yaml interpolates ${STORAGE_PATH}, ${R2_PUBLIC_BASE_URL} and the
+      # frontend build args from .env, so it has to be here before the build.
+      - name: Stage production .env
+        shell: bash
+        run: |
+          if [[ ! -f "$ENV_SOURCE" ]]; then
+            echo "error: $ENV_SOURCE not found on this runner" >&2
+            exit 1
+          fi
+          cp "$ENV_SOURCE" .env
+
+      - name: Build, push, and deploy
+        shell: bash
+        run: bash ./deployment/deploy-scripts.sh
+
+      # Self-hosted workspaces persist between jobs; don't leave prod creds behind.
+      - name: Remove staged .env
+        if: always()
+        shell: bash
+        run: rm -f .env
