@@ -24,6 +24,19 @@ RUN --mount=type=bind,source=src,target=src \
 cargo build --features docker --locked --release && \
 cp ./target/release/$APP_NAME /bin/server
 
+# CI gate, reached only via `--target test`. Nothing on the path to `final` depends on it, so
+# production builds never run it. Living here rather than on the runner keeps the toolchain and the
+# sqlx query check in one place -- the runner needs nothing but docker.
+FROM build AS test
+RUN --mount=type=bind,source=src,target=src \
+    --mount=type=bind,source=serde_macros,target=serde_macros \
+    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
+    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
+    --mount=type=cache,target=/app/target/ \
+    --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/ \
+cargo test --features docker --locked --all-targets
+
 FROM alpine:3.21 AS final
 
 ARG UID=10001
