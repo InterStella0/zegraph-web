@@ -1,0 +1,84 @@
+name: Deploy Label
+
+# Decides whether merging this PR needs a production deploy, and records the verdict as the
+# `documentation` label. deployment.yml reads that label at merge time and skips the deploy when
+# it is present. Kept separate from claude-code-review.yml so a failure here does not take the
+# review down with it.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: deploy-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    env:
+      # The action authenticates gh itself, but setting this at job level guarantees the Bash
+      # tool's subprocesses inherit a usable token.
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Judge whether this PR needs a deploy
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          claude_args: |
+            --max-turns 12
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh api:*),Read,Grep,Glob"
+          prompt: |
+            You are deciding one thing about PR #${{ github.event.pull_request.number }} in
+            ${{ github.repository }}: does merging it require a production deploy?
+
+            The answer is recorded as the `documentation` label. Label present means "no deploy
+            needed". Do not post comments, do not review the code, do not edit any files. Changing
+            labels is the only action you may take.
+
+            STEP 1 — check whether a human has already overruled this decision. Run:
+
+              gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/timeline" \
+                --paginate --jq '.[] | select((.event=="labeled" or .event=="unlabeled") and .label.name=="documentation") | .actor.login'
+
+            If any returned login does NOT end in `[bot]`, a human has made this call deliberately.
+            Say so in one line and stop immediately, changing nothing. This check comes first and
+            is absolute — a human decision outranks yours for the rest of this PR's life.
+
+            STEP 2 — read the diff with:
+
+              gh pr diff ${{ github.event.pull_request.number }}
+
+            Decide whether it changes anything that ends up in a built image or on the server.
+            compose.yaml builds from three contexts — `nginx/`, `front-ze/`, and `.` (the backend,
+            via the root Dockerfile) — and deployment/deploy-scripts.sh additionally git-pulls the
+            repo on the server and runs deployment/deploy-swarm.sh.
+
+            Needs a deploy: src/, front-ze/, nginx/, pfp-provider/, serde_macros/, qgis-server/,
+            Dockerfile, Cargo.toml, Cargo.lock, compose*.yaml, deployment/, redis.conf, db.sql,
+            default.env, assets/.
+
+            Does not need a deploy: *.md, LICENSE, .github/, and comment-only or whitespace-only
+            edits anywhere — including inside src/. That last case is the judgment call a plain
+            path filter cannot make, so actually read the hunks rather than just the file list.
+
+            When a diff mixes both, it needs a deploy.
+
+            STEP 3 — make the labels match your verdict, and only if they do not already:
+
+              needs no deploy  ->  gh pr edit ${{ github.event.pull_request.number }} --add-label documentation
+              needs a deploy   ->  gh pr edit ${{ github.event.pull_request.number }} --remove-label documentation
+
+            Use `gh pr view ${{ github.event.pull_request.number }} --json labels` to see the
+            current state first. Finish by stating your verdict and reasoning in one line.
