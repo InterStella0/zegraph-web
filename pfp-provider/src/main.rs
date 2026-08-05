@@ -1,6 +1,5 @@
 use poem::{
-    listener::TcpListener, middleware::Tracing, EndpointExt, Route, Server,
-    Result as PoemResult, Error as PoemError
+    listener::TcpListener, middleware::Tracing, EndpointExt, Route, Server
 };
 use poem_openapi::{
     OpenApi, OpenApiService, Object, ApiResponse, param::Path, payload::Json
@@ -8,7 +7,6 @@ use poem_openapi::{
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use std::{sync::Arc, time::Duration};
-use thiserror::Error;
 use tokio::sync::Semaphore;
 use tracing::level_filters::LevelFilter;
 
@@ -22,30 +20,6 @@ use providers::{SteamIdPro, SteamIdXyz, TradeItProvider, Provider};
 use cache::PfpCache;
 use crate::providers::{PlayerDb, SteamOfficialApi};
 
-#[derive(Debug, Error)]
-enum AppError {
-    #[error("No provider available")]
-    NoProvider,
-
-    #[error("Cache error: {0}")]
-    CacheError(#[from] redis::RedisError),
-
-    #[error("Request error: {0}")]
-    RequestError(#[from] reqwest::Error),
-
-    #[error("Regex error: {0}")]
-    RegexError(#[from] regex::Error),
-}
-
-impl From<AppError> for PoemError {
-    fn from(err: AppError) -> Self {
-        match err {
-            AppError::NoProvider => PoemError::from_string("No provider found", poem::http::StatusCode::NOT_FOUND),
-            _ => PoemError::from_string(err.to_string(), poem::http::StatusCode::INTERNAL_SERVER_ERROR),
-        }
-    }
-}
-
 #[derive(Debug, Object, Clone)]
 struct PfpResponse {
     provider: String,
@@ -53,7 +27,6 @@ struct PfpResponse {
 }
 
 #[derive(Debug, ApiResponse)]
-#[allow(dead_code)]  // This is temporary
 enum ApiPfpResponse {
     #[oai(status = 200)]
     Ok(Json<PfpResponse>),
@@ -97,14 +70,14 @@ async fn get_pfp_with_retry(provider: &dyn Provider, uuid: u64) -> anyhow::Resul
 #[OpenApi]
 impl Api {
     #[oai(path = "/steams/pfp/:uuid", method = "get")]
-    async fn get_steam_profile(&self, Path(uuid): Path<u64>) -> PoemResult<ApiPfpResponse> {
+    async fn get_steam_profile(&self, Path(uuid): Path<u64>) -> ApiPfpResponse {
         let cache_result = self.state.cache.get(uuid).await;
         if let Ok(Some(url)) = cache_result {
             if let Some((provider, actual_url)) = url.split_once(':') {
-                return Ok(ApiPfpResponse::Ok(Json(PfpResponse {
+                return ApiPfpResponse::Ok(Json(PfpResponse {
                     provider: provider.to_string(),
                     url: actual_url.to_string(),
-                })));
+                }));
             }
         } else if let Err(e) = cache_result {
             tracing::warn!("Redis cache error: {}", e);
@@ -115,6 +88,7 @@ impl Api {
             .await
             .expect("lookup semaphore never closed");
 
+        let mut had_error = false;
         for provider in &self.state.providers {
             match get_pfp_with_retry(provider.as_ref(), uuid).await {
                 Ok(url) if !url.is_empty() => {
@@ -124,20 +98,26 @@ impl Api {
                         tracing::warn!("Failed to cache result: {}", e);
                     }
 
-                    return Ok(ApiPfpResponse::Ok(Json(PfpResponse {
+                    return ApiPfpResponse::Ok(Json(PfpResponse {
                         provider: provider.name(),
                         url,
-                    })));
+                    }));
                 }
                 Ok(_) => continue,
                 Err(e) => {
                     tracing::debug!("Provider {} failed: {}", provider.name(), e);
+                    had_error = true;
                     continue;
                 }
             }
         }
 
-        Err(AppError::NoProvider.into())
+        // A provider blowing up means the upstreams are broken, not that the profile is missing.
+        if had_error {
+            ApiPfpResponse::InternalError
+        } else {
+            ApiPfpResponse::NotFound
+        }
     }
 }
 
@@ -159,7 +139,7 @@ async fn main(){
     let cache = PfpCache::new(&redis_url).await
         .expect("Failed to connect to redis");
     let http_client = reqwest::Client::builder()
-        .user_agent("ZEGraph-Pfp-Provider/0.6 (+https://zegraph.xyz)")
+        .user_agent("ZEGraph-Pfp-Provider/0.7 (+https://zegraph.xyz)")
         .timeout(Duration::from_secs(10))
         .build()
         .expect("Failed to create HTTP client");
