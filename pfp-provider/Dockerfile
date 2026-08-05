@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 ARG RUST_VERSION=1.97.1
-ARG APP_NAME=pfp-provider
+ARG APP_NAME=zegraph-pfp-provider
 
 ################################################################################
 # Create a stage for building the application.
