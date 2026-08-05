@@ -16,7 +16,54 @@ env:
   ENV_SOURCE: ${{ vars.ENV_LOCATION }}
 
 jobs:
+  # Skips the deploy when the merged PR carries the `documentation` label, which deploy-label.yml
+  # applies while the PR is open. Every unexpected condition here fails open: a deploy that should
+  # have run but silently did not is far worse than a redundant one.
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+    steps:
+      - id: check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" != "push" ]]; then
+            echo "manual dispatch — deploying"
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" > pulls.json; then
+            echo "pr lookup failed — deploying"
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # This endpoint also returns *open* prs that merely contain the commit, so match the
+          # merge commit exactly rather than trusting merged_at alone. A direct push to main
+          # matches nothing and deploys, which is right — there was no PR to judge it.
+          labels=$(jq -r --arg sha "$GITHUB_SHA" \
+            '.[] | select(.merged_at != null and .merge_commit_sha == $sha) | .labels[].name' \
+            pulls.json)
+
+          if grep -qx 'documentation' <<< "$labels"; then
+            echo "merged pr is labelled documentation — skipping deploy"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploying"
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
+    needs: gate
+    # Deliberately not `== 'true'`: if the gate job itself crashes its output is empty, and that
+    # must still deploy rather than silently skip.
+    if: ${{ !cancelled() && needs.gate.outputs.deploy != 'false' }}
     runs-on: [self-hosted, stella-pc]
     timeout-minutes: 60
     permissions:
