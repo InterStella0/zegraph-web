@@ -56,12 +56,6 @@ pub struct UserAnonymization {
     pub hide_location: bool,
 }
 
-#[derive(Enum, Serialize, Deserialize)]
-pub enum VoteType{
-    UpVote,
-    DownVote
-}
-
 /// Server-side state of an in-progress chunked map 3D model upload, cached in redis.
 #[derive(Object, Serialize, Deserialize, Clone)]
 pub struct UploadSession {

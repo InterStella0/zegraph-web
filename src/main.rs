@@ -135,7 +135,7 @@ fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
         AdminAuditApi,
         AdminServersApi,
     );
-    OpenApiService::new(apis, "ZE Graph API", "1.0.1")
+    OpenApiService::new(apis, "ZE Graph API", "1.0.2")
         .description(
             "Read-only API behind zegraph.xyz, tracking CS Zombie Escape servers across the \
             western community (GFL and others) plus player playtime, map statistics and \

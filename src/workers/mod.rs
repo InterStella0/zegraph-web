@@ -285,12 +285,11 @@ pub struct PlayerGlobalData{
     pub canonical_id: String,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub enum WorkError {
     NotFound,
     Calculating,
-    Database(sqlx::Error),
+    Database(#[allow(dead_code)] sqlx::Error),
 }
 
 impl From<sqlx::Error> for WorkError {

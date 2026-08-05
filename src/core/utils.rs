@@ -828,45 +828,6 @@ pub fn handle_worker_result<T>(result: WorkResult<T>, error_not_found: &str) -> 
         }
 }
 
-/// Converts a string to a URL-safe slug
-/// - Converts to lowercase
-/// - Replaces spaces and special chars with hyphens
-/// - Removes consecutive hyphens
-/// - Trims hyphens from start/end
-/// - Truncates to max 120 characters
-pub fn slugify(text: &str) -> String {
-    let mut slug = text
-        .to_lowercase()
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() {
-                c
-            } else if c.is_whitespace() || c == '-' || c == '_' {
-                '-'
-            } else {
-                '\0' // Mark for removal
-            }
-        })
-        .filter(|&c| c != '\0')
-        .collect::<String>();
-
-    // Remove consecutive hyphens
-    while slug.contains("--") {
-        slug = slug.replace("--", "-");
-    }
-
-    // Trim hyphens from start and end
-    slug = slug.trim_matches('-').to_string();
-
-    // Truncate to 120 characters
-    if slug.len() > 120 {
-        slug.truncate(120);
-        slug = slug.trim_matches('-').to_string();
-    }
-
-    slug
-}
-
 
 #[cfg(test)]
 mod cached_result_tests {

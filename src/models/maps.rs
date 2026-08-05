@@ -172,11 +172,6 @@ pub struct DbMap{
     pub server_id: String,
     pub map: String
 }
-#[derive(Serialize, Deserialize)]
-pub struct DbAnyMap{
-    pub map: String
-}
-
 
 #[derive(DbInto)]
 #[auto_serde_with]

@@ -8,7 +8,6 @@ use crate::core::utils::*;
 use crate::global_serializer::*;
 
 #[derive(Serialize, Deserialize, Clone)]
-#[allow(dead_code)]
 pub struct DbServer{
     pub server_name: Option<String>,
     pub server_id: String,

@@ -85,19 +85,7 @@ async fn get_map(pool: &Pool<Postgres>, cache: &FastCache, server_id: &str, map_
     let key = format!("server-map-exist:{server_id}:{map_name}");
     cached_response(&key, cache, 6 * HOUR, func).await.and_then(|s| Ok(s.result)).ok()
 }
-async fn get_any_map(pool: &Pool<Postgres>, cache: &FastCache, map_name: &str) -> Option<DbAnyMap> {
-    let func = || sqlx::query_as!(DbAnyMap,
-            "SELECT map
-                FROM server_map
-                WHERE map=$1
-                LIMIT 1",
-            map_name
-        )
-        .fetch_one(pool);
 
-    let key = format!("any-map-exist:{map_name}");
-    cached_response(&key, cache, 6 * HOUR, func).await.and_then(|s| Ok(s.result)).ok()
-}
 async fn get_map_cache_key(pool: &Pool<Postgres>, cache: &FastCache, server_id: &str, map_name: &str) -> CacheKey{
     let func = || sqlx::query_as!(DbMapLastPlayed,
             "SELECT started_at last_played
@@ -174,26 +162,6 @@ impl<'a> poem::FromRequest<'a> for MapExtractor {
         };
 
         Ok(MapExtractor::new(data, server, map).await)
-    }
-}
-struct BasicMapExtractor{
-    pub map: DbAnyMap
-}
-impl<'a> poem::FromRequest<'a> for BasicMapExtractor {
-    async fn from_request(req: &'a poem::Request, _body: &mut poem::RequestBody) -> poem::Result<Self> {
-        let map_name = req.raw_path_param("map_name")
-            .ok_or_else(|| poem::Error::from_string("Invalid map_name", StatusCode::BAD_REQUEST))?;
-
-        let data: &AppData = req.data()
-            .ok_or_else(|| poem::Error::from_string("Invalid data", StatusCode::BAD_REQUEST))?;
-
-        let Some(map) = get_any_map(&data.pool, &data.cache, map_name).await else {
-            return Err(poem::Error::from_string("Map not found", StatusCode::NOT_FOUND))
-        };
-
-        Ok(BasicMapExtractor{
-            map
-        })
     }
 }
 
