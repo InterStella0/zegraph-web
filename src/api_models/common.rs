@@ -172,6 +172,35 @@ pub const METRICS_SINCE_KEY: &str = "gfl-ze-watcher:metrics:endpoint:since";
 /// except under real saturation. This climbs visibly instead.
 pub const METRICS_JOBS_KEY: &str = "gfl-ze-watcher:metrics:jobs:completed";
 
+/// Per-minute slices of [`METRICS_COUNT_KEY`] and [`METRICS_DURATION_KEY`], suffixed with the unix
+/// minute (`unix_secs / 60`) and expiring on their own.
+///
+/// They exist because the cumulative hashes above answer "how fast has this API been since the
+/// counters were created", which months of history make useless for spotting a slowdown happening
+/// now. Summing a handful of these instead gives a rolling average. The cumulative pair is still
+/// what `served` and the busiest ranking are built from — only the averages read these.
+const METRICS_COUNT_BUCKET_PREFIX: &str = "gfl-ze-watcher:metrics:endpoint:count:";
+const METRICS_DURATION_BUCKET_PREFIX: &str = "gfl-ze-watcher:metrics:endpoint:duration_us:";
+
+/// How many minute buckets an average covers. Five buckets span between 4:00 and 5:00 of wall time
+/// depending on where in the current minute the read lands; minute granularity is the point.
+pub const TRAFFIC_WINDOW_MINUTES: u64 = 5;
+
+/// Comfortably longer than the read window, so a bucket is never expiring while still being summed.
+/// redis here is `allkeys-lru` with `appendonly no`, so an early eviction is possible regardless —
+/// the read side treats a missing bucket as *no data* and falls back to the lifetime average, never
+/// as a zero.
+const METRICS_BUCKET_TTL: Duration = Duration::from_secs(8 * 60);
+
+/// The `(count, duration)` hash keys for one unix minute. Both sides of the window — the flusher
+/// writing and `/health` reading — go through here so they cannot drift apart.
+pub fn metrics_bucket_keys(minute: u64) -> (String, String) {
+    (
+        format!("{METRICS_COUNT_BUCKET_PREFIX}{minute}"),
+        format!("{METRICS_DURATION_BUCKET_PREFIX}{minute}"),
+    )
+}
+
 const METRICS_FLUSH_INTERVAL: Duration = Duration::from_secs(10);
 
 /// Request counts and service time accumulated by [`PatternLoggerEndpoint`], buffered in process
@@ -252,10 +281,22 @@ impl EndpointMetrics {
         // flush that carries real counts — never on a process that started and served nothing.
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         pipe.cmd("SET").arg(METRICS_SINCE_KEY).arg(now).arg("NX").ignore();
+        // Buffered counts are attributed to the minute they are *flushed* in, so a request served
+        // just before a minute boundary can land in the following bucket. That smear is bounded by
+        // METRICS_FLUSH_INTERVAL (10s) and is not worth a timestamp on every recorded request.
+        let (bucket_count_key, bucket_duration_key) = metrics_bucket_keys(now / 60);
         for (key, (count, micros)) in &drained {
             pipe.hincr(METRICS_COUNT_KEY, key, *count)
-                .hincr(METRICS_DURATION_KEY, key, *micros);
+                .hincr(METRICS_DURATION_KEY, key, *micros)
+                .hincr(&bucket_count_key, key, *count)
+                .hincr(&bucket_duration_key, key, *micros);
         }
+        // Re-set on every flush rather than only at bucket creation: EXPIRE is idempotent, and a
+        // bucket only receives writes while it is the current minute, so the TTL never gets pushed
+        // out from under a bucket that has stopped accumulating.
+        let ttl = METRICS_BUCKET_TTL.as_secs();
+        pipe.expire(&bucket_count_key, ttl as i64).ignore()
+            .expire(&bucket_duration_key, ttl as i64).ignore();
 
         if let Err(e) = pipe.query_async::<()>(&mut *conn).await {
             tracing::warn!("Endpoint metrics flush failed: {e}");

@@ -880,7 +880,7 @@
       "servedNoPeriod": "{count} 件のリクエストを処理",
       "exactCount": "{count} 件のリクエスト",
       "exactSince": "{date} から",
-      "avgResponse": "平均 {ms}ms",
+      "avgResponse": "平均 {ms}ms · 直近5分",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "上位 {count} エンドポイント",
       "colEndpoint": "エンドポイント",
       "colServed": "処理数",
-      "colAvg": "平均",
+      "colAvg": "平均 · 5分",
       "metricsUnavailable": "トラフィック指標を取得できません — キャッシュに接続できません。",
       "loadFailed": "API ヘルスを読み込めませんでした。"
     }

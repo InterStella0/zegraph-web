@@ -880,7 +880,7 @@
       "servedNoPeriod": "Обработано запросов: {count}",
       "exactCount": "запросов: {count}",
       "exactSince": "с {date}",
-      "avgResponse": "в среднем {ms} мс",
+      "avgResponse": "в среднем {ms} мс · 5 мин",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "Топ-{count} эндпоинтов",
       "colEndpoint": "Эндпоинт",
       "colServed": "Запросов",
-      "colAvg": "Среднее",
+      "colAvg": "Среднее · 5 мин",
       "metricsUnavailable": "Метрики трафика недоступны — нет связи с кэшем.",
       "loadFailed": "Не удалось загрузить состояние API."
     }

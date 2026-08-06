@@ -880,7 +880,7 @@
       "servedNoPeriod": "{count}건의 요청 처리",
       "exactCount": "{count}건의 요청",
       "exactSince": "{date}부터",
-      "avgResponse": "평균 {ms}ms",
+      "avgResponse": "평균 {ms}ms · 최근 5분",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "상위 {count}개 엔드포인트",
       "colEndpoint": "엔드포인트",
       "colServed": "처리량",
-      "colAvg": "평균",
+      "colAvg": "평균 · 5분",
       "metricsUnavailable": "트래픽 지표를 사용할 수 없습니다 — 캐시에 연결할 수 없습니다.",
       "loadFailed": "API 상태를 불러오지 못했습니다."
     }

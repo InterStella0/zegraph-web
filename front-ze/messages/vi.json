@@ -880,7 +880,7 @@
       "servedNoPeriod": "Đã xử lý {count} yêu cầu",
       "exactCount": "{count} yêu cầu",
       "exactSince": "từ {date}",
-      "avgResponse": "trung bình {ms}ms",
+      "avgResponse": "trung bình {ms}ms · 5 phút",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "Top {count} endpoint",
       "colEndpoint": "Endpoint",
       "colServed": "Đã xử lý",
-      "colAvg": "Trung bình",
+      "colAvg": "Trung bình · 5p",
       "metricsUnavailable": "Không có số liệu lưu lượng — không kết nối được bộ nhớ đệm.",
       "loadFailed": "Không thể tải tình trạng API."
     }

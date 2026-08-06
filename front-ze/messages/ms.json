@@ -880,7 +880,7 @@
       "servedNoPeriod": "{count} permintaan dilayan",
       "exactCount": "{count} permintaan",
       "exactSince": "sejak {date}",
-      "avgResponse": "purata {ms}ms",
+      "avgResponse": "purata {ms}ms · 5 min",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "{count} endpoint teratas",
       "colEndpoint": "Endpoint",
       "colServed": "Dilayan",
-      "colAvg": "Purata",
+      "colAvg": "Purata · 5 min",
       "metricsUnavailable": "Metrik trafik tidak tersedia — cache tidak dapat dicapai.",
       "loadFailed": "Status API tidak dapat dimuatkan."
     }

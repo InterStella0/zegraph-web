@@ -880,7 +880,7 @@
       "servedNoPeriod": "{count} permintaan dilayani",
       "exactCount": "{count} permintaan",
       "exactSince": "sejak {date}",
-      "avgResponse": "rata-rata {ms}ms",
+      "avgResponse": "rata-rata {ms}ms · 5 mnt",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "{count} endpoint teratas",
       "colEndpoint": "Endpoint",
       "colServed": "Dilayani",
-      "colAvg": "Rata-rata",
+      "colAvg": "Rata-rata · 5 mnt",
       "metricsUnavailable": "Metrik lalu lintas tidak tersedia — cache tidak dapat dijangkau.",
       "loadFailed": "Kesehatan API tidak dapat dimuat."
     }

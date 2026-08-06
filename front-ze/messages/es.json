@@ -880,7 +880,7 @@
       "servedNoPeriod": "{count} solicitudes atendidas",
       "exactCount": "{count} solicitudes",
       "exactSince": "desde {date}",
-      "avgResponse": "media {ms}ms",
+      "avgResponse": "media {ms}ms · 5 min",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "Top {count} endpoints",
       "colEndpoint": "Endpoint",
       "colServed": "Atendidas",
-      "colAvg": "Media",
+      "colAvg": "Media · 5 min",
       "metricsUnavailable": "Métricas de tráfico no disponibles: la caché no está accesible.",
       "loadFailed": "No se pudo cargar el estado de la API."
     }

@@ -196,7 +196,9 @@ function TopEndpoints({ traffic }: { traffic: NonNullable<ApiHealth["traffic"]> 
                         <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase tracking-wider">
                             <span className="flex-1 min-w-0">{t("colEndpoint")}</span>
                             <span className="w-20 text-right shrink-0">{t("colServed")}</span>
-                            <span className="w-20 text-right shrink-0">{t("colAvg")}</span>
+                            {/* Wider than Served: this header carries the window ("Avg · 5m"), and
+                                the locales that spell it out need the room. */}
+                            <span className="w-28 text-right shrink-0 whitespace-nowrap">{t("colAvg")}</span>
                         </div>
                         {traffic.busiest.map((stat) => (
                             <div key={stat.endpoint} className="flex items-center gap-3 text-sm">
@@ -206,7 +208,7 @@ function TopEndpoints({ traffic }: { traffic: NonNullable<ApiHealth["traffic"]> 
                                 <span className="w-20 text-right shrink-0 tabular-nums">
                                     {stat.served.toLocaleString(locale)}
                                 </span>
-                                <span className="w-20 text-right shrink-0 tabular-nums text-muted-foreground">
+                                <span className="w-28 text-right shrink-0 tabular-nums text-muted-foreground">
                                     {stat.average_ms.toFixed(1)}ms
                                 </span>
                             </div>
