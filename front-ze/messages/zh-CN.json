@@ -880,7 +880,7 @@
       "servedNoPeriod": "已处理 {count} 次请求",
       "exactCount": "{count} 次请求",
       "exactSince": "自 {date} 起",
-      "avgResponse": "平均 {ms}ms",
+      "avgResponse": "平均 {ms}ms · 近5分钟",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "前 {count} 个接口",
       "colEndpoint": "接口",
       "colServed": "请求数",
-      "colAvg": "平均",
+      "colAvg": "平均 · 5分钟",
       "metricsUnavailable": "流量统计不可用 — 无法连接缓存。",
       "loadFailed": "无法加载 API 健康状态。"
     }

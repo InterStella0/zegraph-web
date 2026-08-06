@@ -880,7 +880,7 @@
       "servedNoPeriod": "{count} requests served",
       "exactCount": "{count} requests",
       "exactSince": "since {date}",
-      "avgResponse": "avg {ms}ms",
+      "avgResponse": "avg {ms}ms · 5 min",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "Top {count} endpoints",
       "colEndpoint": "Endpoint",
       "colServed": "Served",
-      "colAvg": "Avg",
+      "colAvg": "Avg · 5m",
       "metricsUnavailable": "Traffic metrics unavailable — the cache is unreachable.",
       "loadFailed": "API health couldn't be loaded."
     }

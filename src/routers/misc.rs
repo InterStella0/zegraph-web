@@ -133,14 +133,22 @@ struct QueueHealth {
 #[derive(Object)]
 struct EndpointStat {
     endpoint: String,
+    /// Cumulative, matching [`TrafficHealth::served`] — this is what the list is ranked by.
     served: i64,
+    /// Mean service time over the last [`TRAFFIC_WINDOW_MINUTES`] minutes, falling back to the
+    /// cumulative mean for an endpoint that served nothing in that window. A busy route's lifetime
+    /// average would otherwise bury a slowdown happening right now under months of fast requests.
     average_ms: f64,
 }
 
 /// Traffic served since the redis counters were created, as accumulated by `PatternLogger`.
+///
+/// The counts are cumulative; the averages are not — see [`EndpointStat::average_ms`].
 #[derive(Object)]
 struct TrafficHealth {
     served: i64,
+    /// Mean over the last [`TRAFFIC_WINDOW_MINUTES`] minutes across all endpoints, falling back to
+    /// the cumulative mean when nothing at all was served in that window.
     average_ms: f64,
     /// Unix seconds at which the counters started, so `served` can be read against the period it
     /// covers. None when redis is up but no flush has happened yet — unknown, not "just now".
@@ -190,15 +198,87 @@ impl Display for ThumbnailError {
     }
 }
 
-/// Joins the two metrics hashes on their shared `"{METHOD} {pattern}"` field.
+/// Field-wise sum of two maps, used to collapse the window's minute buckets into one pair.
+fn merge_into(target: &mut HashMap<String, i64>, bucket: HashMap<String, i64>) {
+    for (key, value) in bucket {
+        *target.entry(key).or_insert(0) += value;
+    }
+}
+
+/// The `(counts, durations)` of the last [`TRAFFIC_WINDOW_MINUTES`] minute buckets, summed.
 ///
-/// Endpoints with a zero count are dropped: the two hashes are written by a pipeline, so a read
-/// landing mid-flush can see a field in one and not the other, and dividing by that count would
-/// yield an infinity. Ties are broken by name so the list does not reshuffle between calls —
-/// `HGETALL` hands back an unordered map.
+/// All `2 * TRAFFIC_WINDOW_MINUTES` reads go out as one pipeline: this probe runs under
+/// [`HEALTH_CHECK_TIMEOUT`] and is called by the container healthcheck *and* every open status tab,
+/// so it can afford one extra round trip and not ten. Buckets that do not exist — no traffic that
+/// minute, or evicted early by `allkeys-lru` — come back empty and simply contribute nothing.
+async fn read_recent_window(
+    conn: &mut impl redis::aio::ConnectionLike,
+) -> redis::RedisResult<(HashMap<String, i64>, HashMap<String, i64>)> {
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let minute = now / 60;
+
+    let mut pipe = redis::pipe();
+    for offset in 0..TRAFFIC_WINDOW_MINUTES {
+        let (count_key, duration_key) = metrics_bucket_keys(minute.saturating_sub(offset));
+        pipe.hgetall(count_key).hgetall(duration_key);
+    }
+
+    // Replies come back in the order queued: count, duration, count, duration, …
+    let replies: Vec<HashMap<String, i64>> = pipe.query_async(conn).await?;
+    let mut counts = HashMap::new();
+    let mut durations = HashMap::new();
+    for (index, bucket) in replies.into_iter().enumerate() {
+        if index % 2 == 0 {
+            merge_into(&mut counts, bucket);
+        } else {
+            merge_into(&mut durations, bucket);
+        }
+    }
+    Ok((counts, durations))
+}
+
+/// Mean service time for one endpoint, in milliseconds, or `None` when there is nothing to divide
+/// by.
+///
+/// The `None` is what keeps a silent window distinguishable from a genuinely instant endpoint, and
+/// it is also the guard against a half-written flush: the two hashes are filled by one pipeline, so
+/// a read landing mid-flush can see a field in the duration hash and not the count hash, and
+/// dividing by that missing count would yield an infinity.
+fn mean_ms(counts: &HashMap<String, i64>, durations: &HashMap<String, i64>, key: &str) -> Option<f64> {
+    let served = counts.get(key).copied().filter(|served| *served > 0)?;
+    Some(durations.get(key).copied().unwrap_or(0) as f64 / served as f64 / 1000.0)
+}
+
+/// Same, across every endpoint in the pair. Numerator and denominator are taken over the *same*
+/// keys, so a half-written field is excluded from both rather than inflating the mean.
+fn overall_mean_ms(counts: &HashMap<String, i64>, durations: &HashMap<String, i64>) -> Option<f64> {
+    let counted = || counts.iter().filter(|(_, served)| **served > 0);
+
+    let served: i64 = counted().map(|(_, served)| *served).sum();
+    if served <= 0 {
+        return None;
+    }
+    let total_micros: i64 = counted()
+        .filter_map(|(key, _)| durations.get(key))
+        .sum();
+    Some(total_micros as f64 / served as f64 / 1000.0)
+}
+
+/// Joins the metrics hashes on their shared `"{METHOD} {pattern}"` field.
+///
+/// `counts`/`durations` are the cumulative hashes and supply `served` and the ranking;
+/// `recent_counts`/`recent_durations` are the summed minute buckets and supply the averages. An
+/// endpoint absent from the recent pair — idle through the window, or its buckets evicted — reports
+/// its cumulative average rather than a zero, which would read as "instant" rather than "no data".
+///
+/// Endpoints with a zero cumulative count are dropped entirely; see [`mean_ms`] for why a count can
+/// be missing. Ties are broken by name so the list does not reshuffle between calls — `HGETALL`
+/// hands back an unordered map.
 fn summarize_traffic(
     counts: HashMap<String, i64>,
     durations: HashMap<String, i64>,
+    recent_counts: HashMap<String, i64>,
+    recent_durations: HashMap<String, i64>,
     since: Option<i64>,
 ) -> TrafficHealth {
     let mut busiest: Vec<EndpointStat> = counts.iter()
@@ -206,21 +286,20 @@ fn summarize_traffic(
         .map(|(endpoint, served)| EndpointStat {
             endpoint: endpoint.clone(),
             served: *served,
-            average_ms: durations.get(endpoint).copied().unwrap_or(0) as f64 / *served as f64 / 1000.0,
+            average_ms: mean_ms(&recent_counts, &recent_durations, endpoint)
+                .or_else(|| mean_ms(&counts, &durations, endpoint))
+                .unwrap_or(0.0),
         })
         .collect();
     busiest.sort_by(|a, b| b.served.cmp(&a.served).then_with(|| a.endpoint.cmp(&b.endpoint)));
 
     let served: i64 = busiest.iter().map(|e| e.served).sum();
-    let total_micros: i64 = counts.keys().filter_map(|key| durations.get(key)).sum();
+    let average_ms = overall_mean_ms(&recent_counts, &recent_durations)
+        .or_else(|| overall_mean_ms(&counts, &durations))
+        .unwrap_or(0.0);
     busiest.truncate(TRAFFIC_TOP_N);
 
-    TrafficHealth {
-        served,
-        average_ms: if served > 0 { total_micros as f64 / served as f64 / 1000.0 } else { 0.0 },
-        since,
-        busiest,
-    }
+    TrafficHealth { served, average_ms, since, busiest }
 }
 
 pub struct MiscApi;
@@ -379,9 +458,9 @@ impl MiscApi {
             Err(_) => DependencyHealth::down("timed out"),
         }
     }
-    /// One connection covers the ping, both queue depths and both metrics hashes. A failure
-    /// anywhere leaves the queue depths and traffic *unknown* rather than zero — an unreachable
-    /// redis says nothing about how much work is queued.
+    /// One connection covers the ping, both queue depths, both metrics hashes and the window
+    /// buckets. A failure anywhere leaves the queue depths and traffic *unknown* rather than zero —
+    /// an unreachable redis says nothing about how much work is queued.
     async fn check_redis(&self, app: &AppData) -> (DependencyHealth, QueueHealth, Option<TrafficHealth>) {
         let unknown_queues = || QueueHealth {
             heavy: None,
@@ -409,12 +488,14 @@ impl MiscApi {
             // here — unlike the depths above, redis being up is enough to know the count.
             let jobs: HashMap<String, i64> = conn.hgetall(METRICS_JOBS_KEY)
                 .await.map_err(|e| e.to_string())?;
+            let (recent_counts, recent_durations) = read_recent_window(&mut *conn)
+                .await.map_err(|e| e.to_string())?;
 
-            Ok::<_, String>((latency, heavy, light, counts, durations, since, jobs))
+            Ok::<_, String>((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs))
         };
 
         match timeout(HEALTH_CHECK_TIMEOUT, probe).await {
-            Ok(Ok((latency, heavy, light, counts, durations, since, jobs))) => (
+            Ok(Ok((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs))) => (
                 DependencyHealth::up(latency),
                 QueueHealth {
                     heavy: Some(heavy),
@@ -422,7 +503,7 @@ impl MiscApi {
                     completed_heavy: Some(jobs.get("heavy").copied().unwrap_or(0)),
                     completed_light: Some(jobs.get("light").copied().unwrap_or(0)),
                 },
-                Some(summarize_traffic(counts, durations, since)),
+                Some(summarize_traffic(counts, durations, recent_counts, recent_durations, since)),
             ),
             Ok(Err(e)) => (DependencyHealth::down(e), unknown_queues(), None),
             Err(_) => (DependencyHealth::down("timed out"), unknown_queues(), None),
@@ -696,9 +777,19 @@ mod traffic_tests {
         entries.iter().map(|(k, v)| (k.to_string(), *v)).collect()
     }
 
+    /// The cumulative hashes with no window behind them at all, which is what an idle API or a
+    /// freshly evicted set of buckets looks like.
+    fn lifetime_only(
+        counts: HashMap<String, i64>,
+        durations: HashMap<String, i64>,
+        since: Option<i64>,
+    ) -> TrafficHealth {
+        summarize_traffic(counts, durations, HashMap::new(), HashMap::new(), since)
+    }
+
     #[test]
     fn averages_are_microseconds_per_request_in_milliseconds() {
-        let traffic = summarize_traffic(
+        let traffic = lifetime_only(
             hash(&[("GET /health", 4), ("GET /servers", 2)]),
             hash(&[("GET /health", 2_000), ("GET /servers", 10_000)]),
             Some(1_700_000_000),
@@ -713,18 +804,107 @@ mod traffic_tests {
         assert_eq!(traffic.busiest[1].average_ms, 5.0);
     }
 
-    /// A read landing between the two `HINCRBY`s of a flush sees a field in one hash and not the
-    /// other. Neither half may produce a NaN or an infinity in the response.
+    /// The point of the whole change: a route that has been fast for months but is slow right now
+    /// must report the slowness, not the months.
+    #[test]
+    fn the_recent_window_wins_over_the_lifetime_figures() {
+        let traffic = summarize_traffic(
+            hash(&[("GET /health", 1_000_000)]),
+            hash(&[("GET /health", 500_000_000)]),   // lifetime 0.5ms
+            hash(&[("GET /health", 10)]),
+            hash(&[("GET /health", 400_000)]),       // last 5 minutes: 40ms
+            None,
+        );
+
+        assert_eq!(traffic.average_ms, 40.0);
+        assert_eq!(traffic.busiest[0].average_ms, 40.0);
+        assert_eq!(traffic.served, 1_000_000, "the volume figure stays cumulative");
+    }
+
+    /// An endpoint idle through the window has no recent mean to report. Zero would render as
+    /// "instant", so the cumulative mean stands in — per endpoint and overall.
+    #[test]
+    fn an_endpoint_idle_through_the_window_falls_back_to_its_lifetime_average() {
+        let traffic = summarize_traffic(
+            hash(&[("GET /health", 100), ("GET /servers", 50)]),
+            hash(&[("GET /health", 200_000), ("GET /servers", 500_000)]),
+            hash(&[("GET /health", 4)]),
+            hash(&[("GET /health", 40_000)]),
+            None,
+        );
+
+        assert_eq!(traffic.busiest[0].endpoint, "GET /health");
+        assert_eq!(traffic.busiest[0].average_ms, 10.0, "seen in the window");
+        assert_eq!(traffic.busiest[1].endpoint, "GET /servers");
+        assert_eq!(traffic.busiest[1].average_ms, 10.0, "not seen in the window, so 500_000us/50");
+
+        // The overall figure is the window's own total, not a blend with the endpoints that fell
+        // back: 40_000us over 4 requests.
+        assert_eq!(traffic.average_ms, 10.0);
+
+        // And with nothing at all in the window, the overall figure falls back too: 700_000/150.
+        let idle = lifetime_only(
+            hash(&[("GET /health", 100), ("GET /servers", 50)]),
+            hash(&[("GET /health", 200_000), ("GET /servers", 500_000)]),
+            None,
+        );
+        assert!((idle.average_ms - 700_000.0 / 150.0 / 1000.0).abs() < f64::EPSILON);
+    }
+
+    /// Only the averages moved to the window. Ranking and totals must not follow, or the panel's
+    /// "N requests served over the past 5 months" headline stops meaning that.
+    #[test]
+    fn the_window_does_not_reorder_or_retotal_the_list() {
+        let traffic = summarize_traffic(
+            hash(&[("GET /busy-lifetime", 900), ("GET /busy-now", 10)]),
+            hash(&[("GET /busy-lifetime", 900), ("GET /busy-now", 10)]),
+            // Reversed in the window — the ranking must ignore this entirely.
+            hash(&[("GET /busy-now", 500), ("GET /busy-lifetime", 1)]),
+            hash(&[("GET /busy-now", 500), ("GET /busy-lifetime", 1)]),
+            Some(1_700_000_000),
+        );
+
+        assert_eq!(traffic.busiest[0].endpoint, "GET /busy-lifetime");
+        assert_eq!(traffic.busiest[0].served, 900);
+        assert_eq!(traffic.served, 910, "cumulative, not the window's 501");
+        assert_eq!(traffic.since, Some(1_700_000_000));
+    }
+
+    /// A read landing between the `HINCRBY`s of a flush sees a field in one hash and not the
+    /// other. Neither half may produce a NaN or an infinity in the response, in either scope.
     #[test]
     fn a_half_written_field_does_not_poison_the_averages() {
-        let counted_only = summarize_traffic(hash(&[("GET /health", 2)]), hash(&[]), None);
+        let counted_only = lifetime_only(hash(&[("GET /health", 2)]), hash(&[]), None);
         assert_eq!(counted_only.busiest[0].average_ms, 0.0);
         assert_eq!(counted_only.served, 2);
 
-        let timed_only = summarize_traffic(hash(&[]), hash(&[("GET /health", 5_000)]), None);
+        let timed_only = lifetime_only(hash(&[]), hash(&[("GET /health", 5_000)]), None);
         assert!(timed_only.busiest.is_empty());
         assert_eq!(timed_only.served, 0);
         assert_eq!(timed_only.average_ms, 0.0);
+
+        // A duration landing in the window ahead of its count is not a divide-by-zero; the endpoint
+        // falls back to its lifetime average as if the window were empty.
+        let recent_timed_only = summarize_traffic(
+            hash(&[("GET /health", 4)]),
+            hash(&[("GET /health", 8_000)]),
+            hash(&[]),
+            hash(&[("GET /health", 999_000)]),
+            None,
+        );
+        assert_eq!(recent_timed_only.busiest[0].average_ms, 2.0);
+        assert_eq!(recent_timed_only.average_ms, 2.0);
+
+        // And a zero count in the window is treated the same as an absent one.
+        let recent_zero_count = summarize_traffic(
+            hash(&[("GET /health", 4)]),
+            hash(&[("GET /health", 8_000)]),
+            hash(&[("GET /health", 0)]),
+            hash(&[("GET /health", 999_000)]),
+            None,
+        );
+        assert_eq!(recent_zero_count.busiest[0].average_ms, 2.0);
+        assert_eq!(recent_zero_count.average_ms, 2.0);
     }
 
     /// `HGETALL` returns an unordered map, so equal counts have to be broken deterministically or
@@ -736,7 +916,7 @@ mod traffic_tests {
             .collect();
         let counts: HashMap<String, i64> = entries.into_iter().collect();
 
-        let traffic = summarize_traffic(counts.clone(), HashMap::new(), None);
+        let traffic = lifetime_only(counts.clone(), HashMap::new(), None);
         assert_eq!(traffic.busiest.len(), TRAFFIC_TOP_N);
         assert_eq!(traffic.served, 7 * (TRAFFIC_TOP_N as i64 + 5), "the total counts every endpoint, not just the listed ones");
 
@@ -744,9 +924,20 @@ mod traffic_tests {
         assert_eq!(names[0], "GET /route-00");
         assert_eq!(
             names,
-            summarize_traffic(counts, HashMap::new(), None).busiest.iter()
+            lifetime_only(counts, HashMap::new(), None).busiest.iter()
                 .map(|e| e.endpoint.as_str()).collect::<Vec<_>>()
         );
+    }
+
+    /// Both sides of the window build their keys through the same helper; this pins the shape so a
+    /// drift between the flusher and the probe would fail here rather than silently read empty
+    /// buckets forever.
+    #[test]
+    fn bucket_keys_are_the_cumulative_keys_suffixed_with_the_minute() {
+        let (counts, durations) = metrics_bucket_keys(28_333_333);
+        assert_eq!(counts, format!("{METRICS_COUNT_KEY}:28333333"));
+        assert_eq!(durations, format!("{METRICS_DURATION_KEY}:28333333"));
+        assert_ne!(metrics_bucket_keys(28_333_334).0, counts);
     }
 }
 

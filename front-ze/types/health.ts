@@ -29,14 +29,23 @@ export interface QueueHealth {
 export interface EndpointStat {
     /** A route pattern, never a raw path — e.g. "GET /servers/{server_id}/maps". */
     endpoint: string;
+    /** Cumulative, matching TrafficHealth.served — this is what the list is ranked by. */
     served: number;
+    /**
+     * Mean over the last 5 minutes, falling back to the cumulative mean for an endpoint that served
+     * nothing in that window. Never null: the fallback is what stands in for "no data", since a 0
+     * would read as "instant".
+     */
     average_ms: number;
 }
 
+/** Counts are cumulative; the averages are not — see EndpointStat.average_ms. */
 export interface TrafficHealth {
     served: number;
+    /** Mean over the last 5 minutes across all endpoints, cumulative mean if that window is empty. */
     average_ms: number;
-    /** Unix seconds at which the counters started; null before the first flush. */
+    /** Unix seconds at which the counters started; null before the first flush. Covers `served`
+     *  only — the averages have their own, much shorter window. */
     since: number | null;
     busiest: EndpointStat[];
 }

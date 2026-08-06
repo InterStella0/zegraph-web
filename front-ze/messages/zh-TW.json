@@ -880,7 +880,7 @@
       "servedNoPeriod": "已處理 {count} 次請求",
       "exactCount": "{count} 次請求",
       "exactSince": "自 {date} 起",
-      "avgResponse": "平均 {ms}ms",
+      "avgResponse": "平均 {ms}ms · 近5分鐘",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
@@ -894,7 +894,7 @@
       "topEndpoints": "前 {count} 個端點",
       "colEndpoint": "端點",
       "colServed": "請求數",
-      "colAvg": "平均",
+      "colAvg": "平均 · 5分鐘",
       "metricsUnavailable": "流量統計無法取得 — 無法連線至快取。",
       "loadFailed": "無法載入 API 健康狀態。"
     }

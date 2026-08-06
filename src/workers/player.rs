@@ -1204,7 +1204,8 @@ impl PlayerWorker {
     async fn total_ranked_players(&self) -> i64 {
         let pool = self.pool.clone();
         let func = || sqlx::query_scalar!("
-            SELECT COUNT(*) FROM website.player_global_playtime WHERE total_playtime > INTERVAL '0'
+            SELECT COUNT(*) FROM website.player_global_playtime
+            WHERE total_playtime > INTERVAL '0' AND player_id ~ '^[0-9]+$'
         ").fetch_one(&*pool);
 
         cached_response("global-playtime-ranked-count", &self.background_worker.cache, HOUR * 12, func)
