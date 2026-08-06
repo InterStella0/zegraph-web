@@ -1263,6 +1263,7 @@ SELECT cron.schedule_in_database(
             FROM website.player_playtime pp
             JOIN player p ON p.player_id = pp.player_id
             JOIN server s ON s.server_id = pp.server_id
+            WHERE COALESCE(p.associated_player_id, p.player_id) ~ '^[0-9]+$'
             GROUP BY 1
         ),
         categorized AS (
@@ -1280,8 +1281,7 @@ SELECT cron.schedule_in_database(
             SELECT categorized.*,
                    RANK() OVER (ORDER BY total_playtime DESC) AS global_rank,
                    RANK() OVER (ORDER BY casual_playtime DESC) AS casual_rank,
-                   RANK() OVER (ORDER BY tryhard_playtime DESC) AS tryhard_rank,
-                   RANK() OVER (ORDER BY mixed_playtime DESC) AS mixed_playtime,
+                   RANK() OVER (ORDER BY tryhard_playtime DESC) AS tryhard_rank
             FROM categorized
         )
         INSERT INTO website.player_global_playtime(

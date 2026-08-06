@@ -189,6 +189,10 @@ impl ServerApi {
     /// `page` is a 0-indexed page of 10 players, ranked by total playtime. `search` filters by
     /// player name (case-insensitive substring, minimum 2 characters); results are cached for 60
     /// seconds when unfiltered, computed live when searching.
+    ///
+    /// Only canonical players with a numeric (Steam ID) `player_id` are listed. Servers scraped by
+    /// name rather than by ID mint synthetic ids that are not real accounts, and every global
+    /// profile endpoint rejects them anyway — see `resolve_user_id`.
     #[oai(path = "/communities/all/players", method="get")]
     async fn get_global_players(
         &self, Data(data): Data<&AppData>,
@@ -219,6 +223,7 @@ impl ServerApi {
                 FROM player p
                 LEFT JOIN website.player_global_playtime gp ON gp.player_id = p.player_id
                 WHERE p.associated_player_id IS NULL
+                  AND p.player_id ~ '^[0-9]+$'
                   AND ($1::TEXT IS NULL OR LOWER(p.player_name) LIKE $1)
                 ORDER BY COALESCE(gp.total_playtime, INTERVAL '0') DESC, p.player_id
                 LIMIT $3 OFFSET $2
