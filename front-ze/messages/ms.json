@@ -39,7 +39,9 @@
     "donate": "Derma",
     "beNice": "Sila bersikap baik~",
     "privacyPolicy": "Dasar Privasi",
-    "apiStatus": "Status API"
+    "apiStatus": "Status API",
+    "build": "binaan {sha}",
+    "builtAt": "Dibina {date}"
   },
   "home": {
     "title": "Komuniti",

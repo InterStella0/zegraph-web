@@ -1,6 +1,6 @@
 # Steam Profile Picture Provider
 This is a steam profile picture provider specifically
-for GFL ZE Watcher. I wrote this privately but decided to release
+for ZE Graph. I wrote this privately but decided to release
 it for the public as a reference. Rewrote it into Rust instead
 of using Python.
 

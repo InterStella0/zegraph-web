@@ -87,6 +87,8 @@ fi
 
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
     info "Building images"
+    # shellcheck disable=SC1091
+    source ./deployment/build-meta.sh
     dc build
 fi
 

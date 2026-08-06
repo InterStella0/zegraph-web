@@ -66,9 +66,9 @@ struct Meta {
     pub steam64id: String,
     pub steamid: String,
     pub communityvisibilitystate: i64,
-    pub profilestate: i64,
+    pub profilestate: Option<i64>,
     pub personaname: String,
-    pub commentpermission: i64,
+    pub commentpermission: Option<i64>,
     pub profileurl: String,
     pub avatar: String,
     pub avatarmedium: String,
@@ -88,7 +88,8 @@ struct Player {
 
 #[derive(Serialize, Deserialize)]
 struct Data {
-    pub player: Player,
+    // Error responses still carry a `data` object, just an empty one.
+    pub player: Option<Player>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -101,8 +102,6 @@ struct PlayerDbResponse {
 
 #[derive(Debug, thiserror::Error)]
 enum PlayerDbError{
-    #[error("not found")]
-    NotFound,
     #[error("error: {0}")]
     Error(String)
 }
@@ -115,15 +114,16 @@ impl Provider for PlayerDb {
 
         let response: PlayerDbResponse = self.client.get(&url).send().await?.json().await?;
         if !response.success{
+            // A rejected id is a definitive "no picture", not a provider failure.
             if response.code == "steam.invalid_id"{
-                return Err(PlayerDbError::NotFound.into());
+                return Ok(String::new());
             }
             return Err(PlayerDbError::Error(response.message).into());
         }
-        let Some(data) = response.data else {
+        let Some(player) = response.data.and_then(|d| d.player) else {
             return Err(PlayerDbError::Error(response.message).into());
         };
-        Ok(data.player.meta.avatarfull)
+        Ok(player.meta.avatarfull)
     }
 
     fn name(&self) -> String {
@@ -225,9 +225,9 @@ pub struct SteamOfficialApi {
 struct SteamProfile {
     pub steamid: String,
     pub communityvisibilitystate: i64,
-    pub profilestate: i64,
+    pub profilestate: Option<i64>,
     pub personaname: String,
-    pub commentpermission: i64,
+    pub commentpermission: Option<i64>,
     pub profileurl: String,
     pub avatar: String,
     pub avatarmedium: String,

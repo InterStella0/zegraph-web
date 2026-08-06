@@ -1,5 +1,6 @@
 import { Star, Coffee, Mail } from "lucide-react";
 import Link from "next/link";
+import BuildInfo from "./BuildInfo";
 import FooterFab from "./FooterFab";
 import ThemeToggle from "./ThemeToggle";
 import LanguageToggle from "./LanguageToggle";
@@ -96,6 +97,7 @@ export default function Footer() {
                             </div>
 
                             <div className="flex justify-center sm:justify-end max-sm:flex-col gap-4">
+                                <BuildInfo />
                                 <Button
                                     variant="outline"
                                     asChild

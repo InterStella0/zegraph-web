@@ -37,6 +37,12 @@ services:
         ANALYZE: ${ANALYZE}
         NEXT_PUBLIC_ADSENSE_CLIENT_ID: ${NEXT_PUBLIC_ADSENSE_CLIENT_ID}
         NEXT_PUBLIC_ADSENSE_AD_SLOT: ${NEXT_PUBLIC_ADSENSE_AD_SLOT}
+        BUILD_COMMIT: ${BUILD_COMMIT:-}
+    volumes:
+      # next.config.ts reads HEAD from here for the footer's build line. Mounted rather than passed
+      # as a build arg so a plain `docker compose -f compose.dev.yaml up --build` still shows the
+      # commit; .dockerignore keeps .git out of the image itself.
+      - ./.git:/app/.git:ro
     depends_on:
       backend:
         condition: service_healthy

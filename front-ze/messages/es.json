@@ -39,7 +39,9 @@
     "donate": "Donar",
     "beNice": "Sé amable, por favor~",
     "privacyPolicy": "Política de privacidad",
-    "apiStatus": "Estado de la API"
+    "apiStatus": "Estado de la API",
+    "build": "compilación {sha}",
+    "builtAt": "Compilado {date}"
   },
   "home": {
     "title": "Comunidades",

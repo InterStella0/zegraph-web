@@ -39,7 +39,9 @@
     "donate": "기부",
     "beNice": "친절하게 대해주세요~",
     "privacyPolicy": "개인정보 보호정책",
-    "apiStatus": "API 상태"
+    "apiStatus": "API 상태",
+    "build": "빌드 {sha}",
+    "builtAt": "빌드 시각 {date}"
   },
   "home": {
     "title": "커뮤니티",

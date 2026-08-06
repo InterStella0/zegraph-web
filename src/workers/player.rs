@@ -384,15 +384,6 @@ struct DbServerMapState{
     server_id: String,
     sum_key: Option<String>,
 }
-#[allow(dead_code)]
-struct DbPlayerPlayTime{
-    server_id: String,
-    player_id: String,
-    total_playtime: PgInterval,
-    casual_playtime: PgInterval,
-    tryhard_playtime: PgInterval,
-    sum_key: Option<String>,
-}
 
 
 async fn update_worker_time(context: &Query<PlayerData>, worker_type: &str, end_calculation: &str) -> Result<PgQueryResult, sqlx::Error>{

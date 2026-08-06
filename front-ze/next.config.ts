@@ -1,10 +1,65 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
+// HEAD is either a raw SHA (detached -- what actions/checkout leaves behind) or a symbolic ref.
+function resolveHead(gitDir: string): string {
+    const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
+    if (!head.startsWith('ref:')) return head;
+
+    const ref = head.slice(4).trim();
+    const loose = path.join(gitDir, ref);
+    if (fs.existsSync(loose)) return fs.readFileSync(loose, 'utf8').trim();
+
+    // A freshly cloned or gc'd repository keeps its refs in packed-refs instead of as loose files.
+    const packed = path.join(gitDir, 'packed-refs');
+    if (!fs.existsSync(packed)) return '';
+    for (const line of fs.readFileSync(packed, 'utf8').split('\n')) {
+        const [sha, name] = line.split(' ');
+        if (name === ref) return sha;
+    }
+    return '';
+}
+
+// Read .git directly rather than shelling out to `git`: the dev container mounts the repository's
+// .git read-only but has no git binary, and plain fs works identically on the host. Walks up
+// because this runs from front-ze/, while .git sits at the repository root.
+function readCommitFromGitDir(start: string): string {
+    for (let dir = start; ; dir = path.dirname(dir)) {
+        const dotGit = path.join(dir, '.git');
+        if (fs.existsSync(dotGit)) {
+            // A .git *file* points elsewhere (worktrees, submodules).
+            const gitDir = fs.statSync(dotGit).isDirectory()
+                ? dotGit
+                : path.resolve(dir, fs.readFileSync(dotGit, 'utf8').replace(/^gitdir:/, '').trim());
+            return resolveHead(gitDir);
+        }
+        if (path.dirname(dir) === dir) return '';
+    }
+}
+
+// The production image has neither .git nor a mount for it (.dockerignore excludes it), so its SHA
+// arrives as the BUILD_COMMIT build arg. Empty means the footer hides the build line entirely.
+function resolveBuildCommit(): string {
+    const fromEnv = process.env.BUILD_COMMIT?.trim();
+    if (fromEnv) return fromEnv;
+    try {
+        return readCommitFromGitDir(process.cwd());
+    } catch {
+        return '';
+    }
+}
+
 const nextConfig: NextConfig = {
     output: 'standalone',
+    // Inlined at build time through both webpack and turbopack, unlike a DefinePlugin.
+    env: {
+        NEXT_PUBLIC_BUILD_COMMIT: resolveBuildCommit(),
+        NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
+    },
     typescript: {
         ignoreBuildErrors: true,
     },

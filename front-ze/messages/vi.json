@@ -39,7 +39,9 @@
     "donate": "Quyên góp",
     "beNice": "Vui lòng hãy tử tế~",
     "privacyPolicy": "Chính sách bảo mật",
-    "apiStatus": "Trạng thái API"
+    "apiStatus": "Trạng thái API",
+    "build": "bản dựng {sha}",
+    "builtAt": "Dựng lúc {date}"
   },
   "home": {
     "title": "Cộng đồng",

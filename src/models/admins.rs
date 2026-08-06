@@ -275,30 +275,6 @@ pub struct DbAssociatedMapMusic{
     #[expr(Some(if self.yt_source == Some(0) { String::from("System") } else { self.yt_source_name.unwrap_or("Unknown".into()) }))]
     pub yt_source_name: Option<String>,
 }
-#[derive(Clone, sqlx::Type, Deserialize, Serialize, Debug)]
-#[sqlx(type_name = "data_vote_type_enum")]
-pub enum DataVoteType{
-    UpVote,
-    DownVote
-}
-
-impl From<VoteType> for DataVoteType {
-    fn from(vote_type: VoteType) -> Self {
-        match vote_type {
-            VoteType::UpVote => DataVoteType::UpVote,
-            VoteType::DownVote => DataVoteType::DownVote,
-        }
-    }
-}
-
-impl Into<VoteType> for DataVoteType {
-    fn into(self) -> VoteType {
-        match self {
-            DataVoteType::UpVote => VoteType::UpVote,
-            DataVoteType::DownVote => VoteType::DownVote,
-        }
-    }
-}
 
 #[derive(DbInto)]
 #[auto_serde_with]

@@ -39,7 +39,9 @@
     "donate": "寄付",
     "beNice": "優しくしてね~",
     "privacyPolicy": "プライバシーポリシー",
-    "apiStatus": "APIステータス"
+    "apiStatus": "APIステータス",
+    "build": "ビルド {sha}",
+    "builtAt": "ビルド日時 {date}"
   },
   "home": {
     "title": "コミュニティ",
