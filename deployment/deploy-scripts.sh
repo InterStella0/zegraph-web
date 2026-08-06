@@ -14,6 +14,9 @@ if [[ -n "${SSH_CONFIG_FILE:-}" ]]; then
   ssh_args=(-F "$SSH_CONFIG_FILE")
 fi
 
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/build-meta.sh"
+
 docker compose -f compose.yaml build
 docker compose -f compose.yaml push
 if ! ssh "${ssh_args[@]}" -o BatchMode=yes -o ConnectTimeout=10 server true; then

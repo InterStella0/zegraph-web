@@ -67,7 +67,11 @@ jobs:
         shell: bash
         # Exercises the frontend's `bun run build` and the release backend build. The images land in
         # the local daemon for the deploy job to use -- nothing is pushed to Docker Hub.
-        run: docker compose -p ze-staging -f compose.staging.yaml build
+        # build-meta.sh is sourced here rather than left to deploy-staging.sh, because the deploy
+        # job runs that script with SKIP_BUILD=1 -- this step is the only place staging builds.
+        run: |
+          source ./deployment/build-meta.sh
+          docker compose -p ze-staging -f compose.staging.yaml build
 
       - name: Remove staged secrets
         if: always()

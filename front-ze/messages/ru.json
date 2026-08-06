@@ -39,7 +39,9 @@
     "donate": "Пожертвовать",
     "beNice": "Пожалуйста, будьте вежливы~",
     "privacyPolicy": "Политика конфиденциальности",
-    "apiStatus": "Статус API"
+    "apiStatus": "Статус API",
+    "build": "сборка {sha}",
+    "builtAt": "Собрано {date}"
   },
   "home": {
     "title": "Сообщества",

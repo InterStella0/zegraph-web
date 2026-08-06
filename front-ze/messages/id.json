@@ -39,7 +39,9 @@
     "donate": "Donasi",
     "beNice": "Mohon bersikap baik~",
     "privacyPolicy": "Kebijakan Privasi",
-    "apiStatus": "Status API"
+    "apiStatus": "Status API",
+    "build": "build {sha}",
+    "builtAt": "Dibangun {date}"
   },
   "home": {
     "title": "Komunitas",

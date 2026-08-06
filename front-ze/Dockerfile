@@ -31,6 +31,9 @@ ARG R2_PUBLIC_BASE_URL=""
 ARG NEXT_PUBLIC_ADSENSE_CLIENT_ID=""
 ARG NEXT_PUBLIC_ADSENSE_AD_SLOT=""
 ARG NEXT_PUBLIC_AD_SHOW=""
+# Not repeated in the runner stage: next.config.ts inlines this into the bundles at build time, so
+# nothing reads it at runtime. .git is dockerignored, hence the arg rather than a git call.
+ARG BUILD_COMMIT=""
 # Create environment file for build
 RUN cat <<EOF > .env.production
 R2_PUBLIC_BASE_URL=${R2_PUBLIC_BASE_URL}
@@ -48,6 +51,7 @@ NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
 NEXT_PUBLIC_ADSENSE_CLIENT_ID=${NEXT_PUBLIC_ADSENSE_CLIENT_ID}
 NEXT_PUBLIC_ADSENSE_AD_SLOT=${NEXT_PUBLIC_ADSENSE_AD_SLOT}
 NEXT_PUBLIC_AD_SHOW=${NEXT_PUBLIC_AD_SHOW}
+BUILD_COMMIT=${BUILD_COMMIT}
 EOF
 
 # Build the Next.js application with standalone output
