@@ -313,7 +313,7 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                                             <HoverCardTrigger asChild>
                                                 <button
                                                     type="button"
-                                                    title={community.name}
+                                                    title={`${community.name} — ${t('playerCount', {count: community.players})}`}
                                                     className="relative cursor-pointer outline-none focus:outline-none focus-visible:outline-none"
                                                 >
                                                     <Avatar className={`w-11 h-11 transition-all ${
@@ -326,6 +326,14 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                                                             {getServerAvatarText(community.name).toUpperCase()}
                                                         </AvatarFallback>
                                                     </Avatar>
+                                                    {/* Sibling of the Avatar, like the status dot, so it keeps full
+                                                        opacity while an unselected avatar dims to 70% */}
+                                                    {community.players > 0 && (
+                                                        <span className=" absolute -top-1 -right-1 h-[18px] px-1 flex items-center justify-center gap-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none tabular-nums border-2 border-background">
+                                                            <Users className="h-2.5 w-2.5 flex-shrink-0" />
+                                                            {community.players > 99 ? '99+' : community.players}
+                                                        </span>
+                                                    )}
                                                     <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${getStatusColor(community.status)}`} />
                                                 </button>
                                             </HoverCardTrigger>
