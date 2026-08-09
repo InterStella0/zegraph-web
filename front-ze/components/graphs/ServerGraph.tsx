@@ -45,6 +45,7 @@ ChartJS.register(
 
 const TIMEZONE_CHOSEN_FROM = "Asia/Kuala_Lumpur"
 const MAX_ZOOM_OUT_MS = 365 * 24 * 60 * 60 * 1000 // 1 year
+const MAX_EVENT_COUNT_HOURS = 24 // backend rejects event_count ranges wider than 1 day
 const REGION_MAPPING = [
     { start: 18, end: 24, label: "Asia + EU" },
     { start: 0, end: 6, label: "EU + NA" },
@@ -211,18 +212,29 @@ function ServerGraphDisplay(
             try {
                 const promises = [
                     fetchUrl(`/graph/${server_id}/unique_players`, { params, signal })
-                        .then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count }))),
-
-                    fetchUrl(`/graph/${server_id}/event_count`, {
-                        params: { event_type: 'Join', ...params },
-                        signal
-                    }).then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count }))),
-
-                    fetchUrl(`/graph/${server_id}/event_count`, {
-                        params: { event_type: 'Leave', ...params },
-                        signal
-                    }).then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count })))
+                        .then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count })))
                 ];
+
+                // Only fetch join/leave counts if date range is small enough.
+                // Fractional diff on purpose: end.diff(start, "day") truncates, so a 1.9 day
+                // range would read as 1 and get rejected by the backend.
+                if (end.diff(start, "hour", true) <= MAX_EVENT_COUNT_HOURS) {
+                    promises.push(
+                        fetchUrl(`/graph/${server_id}/event_count`, {
+                            params: { event_type: 'Join', ...params },
+                            signal
+                        }).then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count })))
+                            .catch(() => []),
+
+                        fetchUrl(`/graph/${server_id}/event_count`, {
+                            params: { event_type: 'Leave', ...params },
+                            signal
+                        }).then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count })))
+                            .catch(() => [])
+                    );
+                } else {
+                    promises.push(Promise.resolve([]), Promise.resolve([]));
+                }
 
                 // Only fetch maps if date range is small enough
                 if (end.diff(start, "day") <= 2) {

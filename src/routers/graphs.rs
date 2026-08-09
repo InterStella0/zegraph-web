@@ -372,7 +372,7 @@ impl GraphApi {
 	/// Time series of how often a given event type occurred.
 	///
 	/// Counts rows in `player_server_activity` matching `event_type`, bucketed to the minute and
-	/// then downsampled to roughly 360 points. `start`/`end` must span at most 1 year.
+	/// then downsampled to roughly 360 points. `start`/`end` must span at most 1 day.
 	#[oai(path="/graph/:server_id/event_count", method="get")]
 	async fn get_server_event_count(
 		&self, Data(data): Data<&AppData>,
@@ -381,8 +381,8 @@ impl GraphApi {
 		Query(end): Query<DateTime<Utc>>
 	) -> Response<Vec<ServerCountData>>{
 		let pool = &*data.pool.clone();
-		if end.signed_duration_since(start) > Duration::days(366) {
-			return response!(err "You can only get data within 1 year", ErrorCode::BadRequest);
+		if end.signed_duration_since(start) > Duration::days(1) {
+			return response!(err "You can only get data within 1 day", ErrorCode::BadRequest);
 		};
 		let Ok(result) = sqlx::query_as!(DbServerCountData, "
 			WITH buckets AS (
