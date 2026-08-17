@@ -33,7 +33,7 @@
     "logout": "Cerrar sesión"
   },
   "footer": {
-    "copyright": "© {year} ZE Graph. Todos los derechos reservados.",
+    "copyright": "© {year} ZE Graph. Licenciado bajo la Licencia Pública General Affero de GNU v3.0.",
     "supportServer": "Servidor de soporte",
     "supportZeGraph": "Apoya a ZE Graph",
     "donate": "Donar",

@@ -33,7 +33,7 @@
     "logout": "Đăng xuất"
   },
   "footer": {
-    "copyright": "© {year} ZE Graph. Tất cả các quyền được bảo vệ.",
+    "copyright": "© {year} ZE Graph. Được cấp phép theo GNU Affero General Public License v3.0.",
     "supportServer": "Máy chủ hỗ trợ",
     "supportZeGraph": "Hỗ trợ ZE Graph",
     "donate": "Quyên góp",

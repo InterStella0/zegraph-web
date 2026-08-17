@@ -33,7 +33,7 @@
     "logout": "로그아웃"
   },
   "footer": {
-    "copyright": "© {year} ZE Graph. 모든 권리 보유.",
+    "copyright": "© {year} ZE Graph. GNU Affero General Public License v3.0에 따라 라이선스가 부여됩니다.",
     "supportServer": "지원 서버",
     "supportZeGraph": "ZE Graph 지원",
     "donate": "기부",

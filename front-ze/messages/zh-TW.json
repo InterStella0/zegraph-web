@@ -33,7 +33,7 @@
     "logout": "登出"
   },
   "footer": {
-    "copyright": "© {year} ZE Graph。保留所有權利。",
+    "copyright": "© {year} ZE Graph。依 GNU Affero General Public License v3.0 授權。",
     "supportServer": "支援伺服器",
     "supportZeGraph": "支持 ZE Graph",
     "donate": "捐款",

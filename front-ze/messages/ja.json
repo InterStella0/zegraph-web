@@ -33,7 +33,7 @@
     "logout": "ログアウト"
   },
   "footer": {
-    "copyright": "© {year} ZE Graph. すべての権利を保有。",
+    "copyright": "© {year} ZE Graph. GNU Affero General Public License v3.0 の下でライセンスされています。",
     "supportServer": "サポートサーバー",
     "supportZeGraph": "ZE Graphをサポート",
     "donate": "寄付",
