@@ -33,7 +33,7 @@
     "logout": "登出"
   },
   "footer": {
-    "copyright": "© {year} ZE Graph。保留所有权利。",
+    "copyright": "© {year} ZE Graph。根据 GNU Affero General Public License v3.0 授权。",
     "supportServer": "支持服务器",
     "supportZeGraph": "支持 ZE Graph",
     "donate": "捐赠",

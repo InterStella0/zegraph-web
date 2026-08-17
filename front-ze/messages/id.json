@@ -33,7 +33,7 @@
     "logout": "Keluar"
   },
   "footer": {
-    "copyright": "© {year} ZE Graph. Semua hak dilindungi.",
+    "copyright": "© {year} ZE Graph. Dilisensikan berdasarkan GNU Affero General Public License v3.0.",
     "supportServer": "Server Dukungan",
     "supportZeGraph": "Dukung ZE Graph",
     "donate": "Donasi",

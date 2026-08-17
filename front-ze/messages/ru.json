@@ -33,7 +33,7 @@
     "logout": "Выход"
   },
   "footer": {
-    "copyright": "© {year} ZE Graph. Все права защищены.",
+    "copyright": "© {year} ZE Graph. Лицензировано в соответствии с GNU Affero General Public License v3.0.",
     "supportServer": "Сервер поддержки",
     "supportZeGraph": "Поддержать ZE Graph",
     "donate": "Пожертвовать",

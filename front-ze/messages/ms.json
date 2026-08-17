@@ -33,7 +33,7 @@
     "logout": "Log keluar"
   },
   "footer": {
-    "copyright": "© {year} ZE Graph. Hak cipta terpelihara.",
+    "copyright": "© {year} ZE Graph. Dilesenkan di bawah GNU Affero General Public License v3.0.",
     "supportServer": "Pelayan sokongan",
     "supportZeGraph": "Sokong ZE Graph",
     "donate": "Derma",
