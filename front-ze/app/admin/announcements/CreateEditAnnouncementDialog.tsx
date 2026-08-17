@@ -22,9 +22,7 @@ import {
   SelectValue,
 } from 'components/ui/select';
 import { toast } from 'sonner';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeSanitize from 'rehype-sanitize';
+import { AnnouncementMarkdown } from 'components/announcements/AnnouncementMarkdown';
 import { fetchApiUrl } from 'utils/generalUtils';
 import type { Announcement, AnnouncementType, CreateAnnouncementDto, UpdateAnnouncementDto } from 'types/announcements';
 import dayjs from 'dayjs';
@@ -194,9 +192,7 @@ export function CreateEditAnnouncementDialog({
                 </TabsContent>
                 <TabsContent value="preview">
                   <div className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-4 min-h-[300px]">
-                    <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-                      {content || '*No content yet...*'}
-                    </Markdown>
+                    <AnnouncementMarkdown content={content || '*No content yet...*'} />
                   </div>
                 </TabsContent>
               </Tabs>

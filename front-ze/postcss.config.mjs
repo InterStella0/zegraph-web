@@ -1,10 +1,6 @@
 const config = {
     plugins: {
-        "@tailwindcss/postcss": {
-            plugins: {
-                "@tailwindcss/typography": {},
-            },
-        },
+        "@tailwindcss/postcss": {},
     },
 };
 
