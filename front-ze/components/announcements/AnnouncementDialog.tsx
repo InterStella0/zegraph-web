@@ -7,20 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from 'components/ui/dialog';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
-
-const sanitizeSchema = {
-  ...defaultSchema,
-  tagNames: [...(defaultSchema.tagNames || []), 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-  attributes: {
-    ...defaultSchema.attributes,
-    h1: ['id', 'className'],
-    h2: ['id', 'className'],
-    h3: ['id', 'className'],
-  }
-};
+import { AnnouncementMarkdown } from './AnnouncementMarkdown';
 
 interface AnnouncementDialogProps {
   id: string;
@@ -55,12 +42,7 @@ export function AnnouncementDialog({ id, title, content }: AnnouncementDialogPro
           <DialogTitle className="text-2xl">{title}</DialogTitle>
         </DialogHeader>
         <div className="prose prose-sm dark:prose-invert max-w-none">
-          <Markdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}
-          >
-            {content}
-          </Markdown>
+          <AnnouncementMarkdown content={content} />
         </div>
       </DialogContent>
     </Dialog>
