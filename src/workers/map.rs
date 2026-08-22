@@ -597,7 +597,7 @@ impl WorkerQuery<DbMapAnalyze> for MapBasicQuery<DbMapAnalyze> {
                   md.map,
                   md.total_playtime,
                   md.total_sessions,
-                  pd.cum_hours cum_player_hours,
+                  COALESCE(pd.cum_hours, '00:00:00'::interval) cum_player_hours,
                   pd.unique_players,
 			    (SELECT MAX(started_at)
                     FROM server_map_played
