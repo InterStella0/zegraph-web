@@ -625,7 +625,7 @@ impl WorkerQuery<DbMapAnalyze> for MapBasicQuery<DbMapAnalyze> {
              ON CONFLICT (server_id, map) DO UPDATE SET
               total_playtime = EXCLUDED.total_playtime,
               total_sessions = EXCLUDED.total_sessions,
-              cum_player_hours = EXCLUDED.cum_player_hours,
+              cum_player_hours = COALESCE(EXCLUDED.cum_player_hours, '00:00:00'::interval),
               unique_players = EXCLUDED.unique_players,
               last_played = EXCLUDED.last_played,
               last_played_ended = EXCLUDED.last_played_ended,
