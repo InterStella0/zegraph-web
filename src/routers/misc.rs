@@ -3,19 +3,21 @@ use std::fmt::Display;
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use futures::stream::{empty, BoxStream};
+use futures::stream::BoxStream;
 use futures::{StreamExt, TryFutureExt};
 use image::imageops::{FilterType};
 use poem::{Request};
 use poem::web::{Data};
-use poem_openapi::{Object, OpenApi};
+use poem_openapi::{ApiResponse, Object, OpenApi};
 use poem_openapi::param::{Path, Query};
 use poem_openapi::payload::{Binary, EventStream};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
-use sqlx::postgres::PgListener;
+use std::sync::Arc;
 use tokio::fs;
 use tokio::net::TcpStream;
+use tokio::sync::broadcast::{self, error::RecvError};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::time::{interval, timeout};
 use crate::{response, AppData};
 use crate::core::utils::*;
@@ -169,18 +171,96 @@ struct IAmOkie{
     traffic: Option<TrafficHealth>,
 }
 /// One LISTEN/NOTIFY event forwarded to `/events/data-updates`.
-#[derive(Object)]
-struct NewRowEvent {
+#[derive(Object, Clone, Debug)]
+pub struct NewRowEvent {
     /// The Postgres NOTIFY channel this event came from, or `"heartbeat"`.
-    channel: String,
+    pub channel: String,
     /// The raw NOTIFY payload (JSON-encoded), unparsed.
-    payload: String,
+    pub payload: String,
 }
 
 #[derive(Deserialize)]
 struct PlayerActivityPayload {
     player_id: String,
     server_id: String,
+}
+
+/// The NOTIFY channels `/events/data-updates` forwards.
+pub(crate) const LIVE_EVENT_CHANNELS: [&str; 5] = [
+    "player_activity", "map_changed", "map_update", "infraction_new", "infraction_update",
+];
+
+/// Room for a burst of notifications while a client is between polls. A client that falls further
+/// behind than this is told how many it missed and carries on from the newest event; it is never
+/// held in memory on the sender's behalf.
+const LIVE_EVENT_BUFFER: usize = 256;
+
+/// Ceiling on concurrent `/events/data-updates` streams. Each one is a task, a socket and a
+/// subscription — cheap, but not free, and unbounded is what got us here.
+const MAX_SSE_CLIENTS: usize = 512;
+
+/// Process-wide fan-out for the Postgres `LISTEN/NOTIFY` stream behind `/events/data-updates`.
+///
+/// One listener task feeds every connected client through a broadcast channel. The endpoint used to
+/// call `PgListener::connect` *per request*, and a `PgListener` is a dedicated Postgres backend
+/// outside `AppData.pool` — so viewer count translated directly into server-side connections, with
+/// nothing in the backend bounding it. Enough concurrent viewers and Postgres itself starts
+/// refusing connections with `sorry, too many clients already` (SQLSTATE 53300), which takes the
+/// whole site down rather than just the live page. This makes it exactly one connection, forever.
+pub(crate) struct LiveEventHub {
+    events: broadcast::Sender<NewRowEvent>,
+    clients: Arc<Semaphore>,
+}
+
+impl LiveEventHub {
+    pub(crate) fn new() -> Self {
+        let (events, _) = broadcast::channel(LIVE_EVENT_BUFFER);
+        Self { events, clients: Arc::new(Semaphore::new(MAX_SSE_CLIENTS)) }
+    }
+
+    /// Handle the listener task publishes into. Cloning it does not create a subscription, so
+    /// events sent while nobody is connected are simply dropped.
+    pub(crate) fn publisher(&self) -> broadcast::Sender<NewRowEvent> {
+        self.events.clone()
+    }
+}
+
+/// Whether a live event should reach subscribers at all.
+///
+/// Drops `player_activity` for players who anonymized themselves on that server. The check takes no
+/// viewer identity, so the answer is the same for everyone connected — it runs once in the
+/// publisher rather than once per subscriber, which is what keeps a burst of activity from turning
+/// into one pool query per connected client. Anything unparseable is forwarded: this filter exists
+/// to honour an opt-out, not to validate payloads.
+pub(crate) async fn should_forward_live_event(app: &AppData, event: &NewRowEvent) -> bool {
+    if event.channel != "player_activity" {
+        return true;
+    }
+    let Ok(activity) = serde_json::from_str::<PlayerActivityPayload>(&event.payload) else {
+        return true;
+    };
+    !is_player_activity_anonymized(app, &activity.server_id, &activity.player_id).await
+}
+
+/// Response for `/events/data-updates`.
+///
+/// The headers are the point: nginx routes this path through `proxy_cache` + `proxy_buffering`
+/// along with the rest of `/data/api/`, and poem-openapi's `EventStream` sets only a content type.
+/// A proxy that buffers an endless stream keeps the upstream alive after the viewer is gone, which
+/// would turn the fan-out below back into a connection that outlives its client. `X-Accel-Buffering`
+/// covers nginx specifically; `Cache-Control` covers every other proxy in the chain, Cloudflare
+/// included.
+#[derive(ApiResponse)]
+pub enum LiveEventResponse {
+    #[oai(status = 200)]
+    Stream(
+        EventStream<BoxStream<'static, NewRowEvent>>,
+        #[oai(header = "Cache-Control")] String,
+        #[oai(header = "X-Accel-Buffering")] String,
+    ),
+    /// The concurrent-stream ceiling is reached. Clients back off and retry.
+    #[oai(status = 503)]
+    TooManyClients,
 }
 
 enum ThumbnailError{
@@ -679,8 +759,6 @@ impl MiscApi {
         }
     }
     /// Currently-published, non-expired site announcements, newest first.
-    ///
-    /// Cached for 1 hour.
     #[oai(path="/announcements", method="get")]
     async fn get_annouce(&self, Data(app): Data<&AppData>) -> Response<Vec<Announcement>>{
         let pool = &*app.pool.clone();
@@ -699,76 +777,124 @@ impl MiscApi {
         response!(ok value.result.iter_into())
     }
     /// Server-sent event stream of live database changes.
-    ///
-    /// Forwards PostgreSQL `LISTEN/NOTIFY` events on `player_activity`, `map_changed`,
-    /// `map_update`, `infraction_new` and `infraction_update` as they happen, plus a heartbeat
-    /// event every 10 seconds. `player_activity` events for a player who anonymized themselves
-    /// on that server are silently dropped. Used by the frontend to refresh live views without
-    /// polling.
     #[oai(path = "/events/data-updates", method = "get")]
-    async fn sse_new_rows(&self, Data(app): Data<&AppData>) -> EventStream<BoxStream<'static, NewRowEvent>> {
-        let Some(db_url) = get_env_default("DATABASE_URL") else {
-            let empty_stream: BoxStream<'static, NewRowEvent> = empty().boxed();
-            return EventStream::new(empty_stream);
+    async fn sse_new_rows(&self, Data(app): Data<&AppData>) -> LiveEventResponse {
+        let Ok(permit) = app.live_events.clients.clone().try_acquire_owned() else {
+            tracing::warn!("Refusing SSE client: {MAX_SSE_CLIENTS} streams already open");
+            return LiveEventResponse::TooManyClients;
         };
-        let app = app.clone();
+        let mut receiver = app.live_events.events.subscribe();
 
-        let valid_listeners = vec![
-            "player_activity", "map_changed", "map_update", "infraction_new", "infraction_update"
-        ];
         let stream = async_stream::stream! {
+            let _permit: OwnedSemaphorePermit = permit;
             let mut heartbeat_interval = interval(Duration::from_secs(10));
 
-            match PgListener::connect(&db_url).await {
-                Ok(mut listener) => {
-                    for listener_name in valid_listeners {
-                        if let Err(e) = listener.listen(listener_name).await {
-                            tracing::warn!("Failed to LISTEN on {listener_name}: {e}");
-                        }
-                    }
-
-                    loop {
-                        tokio::select! {
-                            result = listener.recv() => {
-                                match result {
-                                    Ok(notification) => {
-                                        if notification.channel() == "player_activity" {
-                                            if let Ok(activity) = serde_json::from_str::<PlayerActivityPayload>(notification.payload()) {
-                                                if is_player_activity_anonymized(&app, &activity.server_id, &activity.player_id).await {
-                                                    continue;
-                                                }
-                                            }
-                                        }
-                                        yield NewRowEvent {
-                                            channel: notification.channel().to_string(),
-                                            payload: notification.payload().to_string(),
-                                        };
-                                    },
-                                    Err(e) => {
-                                        tracing::error!("Error receiving notification: {}", e);
-                                        break;
-                                    },
-                                }
+            loop {
+                tokio::select! {
+                    result = receiver.recv() => {
+                        match result {
+                            Ok(event) => yield event,
+                            Err(RecvError::Lagged(missed)) => {
+                                tracing::warn!("SSE client lagged behind, skipped {missed} events");
+                                continue;
                             },
-                            _ = heartbeat_interval.tick() => {
-                                yield NewRowEvent {
-                                    channel: "heartbeat".to_string(),
-                                    payload: "{}".to_string(),
-                                };
-                            },
+                            // Only when the hub itself is gone, i.e. the process is shutting down.
+                            Err(RecvError::Closed) => break,
                         }
-
-                    }
-                },
-                Err(e) => {
-                    tracing::error!("PgListener connect error: {e}");
+                    },
+                    _ = heartbeat_interval.tick() => {
+                        yield NewRowEvent {
+                            channel: "heartbeat".to_string(),
+                            payload: "{}".to_string(),
+                        };
+                    },
                 }
             }
         };
 
-        EventStream::new(stream.boxed())
+        LiveEventResponse::Stream(
+            EventStream::new(stream.boxed()),
+            "no-cache, no-transform".to_string(),
+            "no".to_string(),
+        )
     }
 }
+/// The property that matters for [`LiveEventHub`]: viewer count no longer drives Postgres
+/// connection count.
+#[cfg(test)]
+mod live_event_tests {
+    use super::*;
+
+    fn event(channel: &str) -> NewRowEvent {
+        NewRowEvent { channel: channel.to_string(), payload: "{}".to_string() }
+    }
+
+    #[tokio::test]
+    async fn one_publisher_reaches_every_subscriber() {
+        let hub = LiveEventHub::new();
+        let mut first = hub.events.subscribe();
+        let mut second = hub.events.subscribe();
+
+        hub.publisher().send(event("map_changed")).expect("subscribers are listening");
+
+        assert_eq!(first.recv().await.unwrap().channel, "map_changed");
+        assert_eq!(second.recv().await.unwrap().channel, "map_changed");
+    }
+
+    #[tokio::test]
+    async fn publishing_with_nobody_connected_is_not_fatal() {
+        let hub = LiveEventHub::new();
+        assert!(hub.publisher().send(event("player_activity")).is_err());
+        // The channel is still usable afterwards.
+        let mut receiver = hub.events.subscribe();
+        hub.publisher().send(event("player_activity")).expect("subscriber is listening");
+        assert_eq!(receiver.recv().await.unwrap().channel, "player_activity");
+    }
+
+    #[tokio::test]
+    async fn a_lagging_subscriber_is_told_what_it_missed_and_carries_on() {
+        let hub = LiveEventHub::new();
+        let mut slow = hub.events.subscribe();
+
+        for _ in 0..LIVE_EVENT_BUFFER + 1 {
+            let _ = hub.publisher().send(event("player_activity"));
+        }
+
+        assert!(matches!(slow.recv().await, Err(RecvError::Lagged(_))));
+        assert_eq!(slow.recv().await.unwrap().channel, "player_activity");
+    }
+
+    #[tokio::test]
+    async fn only_player_activity_is_filtered_and_it_fails_open() {
+        let app = crate::workers::test_support::fake_app_data();
+
+        assert!(should_forward_live_event(&app, &event("map_changed")).await);
+        assert!(should_forward_live_event(&app, &event("heartbeat")).await);
+        assert!(
+            should_forward_live_event(
+                &app,
+                &NewRowEvent {
+                    channel: "player_activity".to_string(),
+                    payload: "not json".to_string(),
+                },
+            ).await
+        );
+    }
+
+    #[tokio::test]
+    async fn a_finished_stream_returns_its_client_slot() {
+        let hub = LiveEventHub::new();
+        let permits: Vec<_> = (0..MAX_SSE_CLIENTS)
+            .map(|_| hub.clients.clone().try_acquire_owned().expect("under the cap"))
+            .collect();
+
+        assert!(hub.clients.clone().try_acquire_owned().is_err(), "cap should reject the next client");
+
+        drop(permits);
+        assert!(hub.clients.clone().try_acquire_owned().is_ok(), "a closed stream frees its slot");
+    }
+}
+
 #[cfg(test)]
 mod traffic_tests {
     use super::*;
@@ -777,8 +903,6 @@ mod traffic_tests {
         entries.iter().map(|(k, v)| (k.to_string(), *v)).collect()
     }
 
-    /// The cumulative hashes with no window behind them at all, which is what an idle API or a
-    /// freshly evicted set of buckets looks like.
     fn lifetime_only(
         counts: HashMap<String, i64>,
         durations: HashMap<String, i64>,
@@ -804,8 +928,6 @@ mod traffic_tests {
         assert_eq!(traffic.busiest[1].average_ms, 5.0);
     }
 
-    /// The point of the whole change: a route that has been fast for months but is slow right now
-    /// must report the slowness, not the months.
     #[test]
     fn the_recent_window_wins_over_the_lifetime_figures() {
         let traffic = summarize_traffic(
@@ -821,8 +943,6 @@ mod traffic_tests {
         assert_eq!(traffic.served, 1_000_000, "the volume figure stays cumulative");
     }
 
-    /// An endpoint idle through the window has no recent mean to report. Zero would render as
-    /// "instant", so the cumulative mean stands in — per endpoint and overall.
     #[test]
     fn an_endpoint_idle_through_the_window_falls_back_to_its_lifetime_average() {
         let traffic = summarize_traffic(

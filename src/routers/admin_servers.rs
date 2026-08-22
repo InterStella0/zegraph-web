@@ -732,10 +732,12 @@ impl AdminServersApi {
             Ok(r) => r.is_some(),
             Err(e) => {
                 tracing::error!("Failed to check server existence: {}", e);
+                let _ = tx.rollback().await;
                 return response!(internal_server_error);
             }
         };
         if !exists {
+            let _ = tx.rollback().await;
             return response!(err "Server not found", ErrorCode::NotFound);
         }
 
@@ -768,6 +770,7 @@ impl AdminServersApi {
             Ok(r) => r,
             Err(e) => {
                 tracing::error!("Failed to update server_metadata: {}", e);
+                let _ = tx.rollback().await;
                 return response!(internal_server_error);
             }
         };
@@ -792,6 +795,7 @@ impl AdminServersApi {
             .await
             {
                 tracing::error!("Failed to insert server_metadata: {}", e);
+                let _ = tx.rollback().await;
                 return response!(internal_server_error);
             }
         }
@@ -815,6 +819,7 @@ impl AdminServersApi {
             Ok(r) => r,
             Err(e) => {
                 tracing::error!("Failed to reload server: {}", e);
+                let _ = tx.rollback().await;
                 return response!(internal_server_error);
             }
         };

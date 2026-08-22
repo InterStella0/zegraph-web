@@ -29,7 +29,7 @@ use dotenv::dotenv;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use crate::routers::maps::MapApi;
-use crate::routers::misc::MiscApi;
+use crate::routers::misc::{LiveEventHub, MiscApi};
 use crate::routers::radars::RadarApi;
 use core::updater::*;
 use moka::future::Cache;
@@ -61,6 +61,7 @@ struct AppData{
     character_storage: Arc<CharacterStorage>,
     community_storage: Arc<CommunityStorage>,
     count_chunk_cache: Arc<CountChunkCache>,
+    live_events: Arc<LiveEventHub>,
 }
 #[derive(Clone)]
 struct FastCache{
@@ -211,8 +212,13 @@ async fn run_main() {
         Role::All => "all (http + background)",
     });
     let pg_conn = get_env("DATABASE_URL");
+    // Kept at or above the worker's job concurrency so a running job never waits on the pool; see
+    // `consumer::TOTAL_JOB_CONCURRENCY`. Raising it is not the answer to connection exhaustion —
+    // every process holds this many, and the database has its own ceiling.
+    const POOL_SIZE: u32 = 20;
+    const _: () = assert!(POOL_SIZE as usize >= consumer::TOTAL_JOB_CONCURRENCY);
     let pool = PgPoolOptions::new()
-        .max_connections(20)
+        .max_connections(POOL_SIZE)
         .min_connections(5)
         .acquire_timeout(Duration::from_secs(30))
         .idle_timeout(Duration::from_secs(300))
@@ -251,6 +257,8 @@ async fn run_main() {
 
     let community_storage = Arc::new(CommunityStorage::new(storage_backend));
 
+    let live_events = Arc::new(LiveEventHub::new());
+
     // Hour-chunked player count cache for short-span graph queries (memory only).
     let count_chunk_cache = Arc::new(Cache::builder()
         .time_to_live(Duration::from_secs(2 * DAY))
@@ -268,7 +276,11 @@ async fn run_main() {
         character_storage,
         community_storage,
         count_chunk_cache,
+        live_events: live_events.clone(),
     };
+
+    // The listener needs the cache and pool the filter runs on; `data` itself is moved into the app.
+    let listener_data = data.clone();
 
     let port = DEFAULT_PORT;
     let swagger_ui_enabled = get_env_bool("ENABLE_SWAGGER_UI", false);
@@ -292,6 +304,12 @@ async fn run_main() {
                 listen_new_update(&pg_conn, port).await;
             });
         }
+    }
+
+    // Deliberately not under `role.runs_workers()` with the other listeners: the SSE route lives on
+    // the API process, and a hub nobody publishes into would serve heartbeats and nothing else.
+    if role.serves_api() {
+        init_live_events_listener(live_events, listener_data);
     }
 
     if !role.serves_api() {
@@ -325,6 +343,15 @@ async fn run_worker_health_server() {
         .run(route)
         .await
         .expect("Couldn't run the worker health server!");
+}
+
+/// Spawns the one Postgres `LISTEN` connection that feeds every `/events/data-updates` client.
+fn init_live_events_listener(hub: Arc<LiveEventHub>, app: AppData) {
+    let pg_conn = get_env("DATABASE_URL");
+    let events = hub.publisher();
+    tokio::spawn(async move {
+        live_events_listener(&pg_conn, app, events).await;
+    });
 }
 
 async fn init_map_change_listener(pool: Arc<PgPool>, push_service: Arc<PushNotificationService>) {
