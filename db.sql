@@ -939,6 +939,9 @@ FROM player_server_session pss
     JOIN player p ON p.player_id::text = pss.player_id::text
 WHERE p.location IS NOT NULL;
 
+CREATE INDEX player_server_session_mv_geometry_gist
+    ON player_server_timed
+    USING GIST (geometry);
 
 CREATE MATERIALIZED VIEW server_player_names AS
 SELECT DISTINCT pss.server_id, p.player_id, p.player_name,
