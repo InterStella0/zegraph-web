@@ -8,8 +8,10 @@ use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
+use tokio::sync::broadcast;
 use tokio::time::sleep;
-use crate::FastCache;
+use crate::{AppData, FastCache};
+use crate::routers::misc::{should_forward_live_event, NewRowEvent, LIVE_EVENT_CHANNELS};
 use crate::core::utils::*;
 use crate::core::push_service::{PushNotificationService, NotificationType};
 use crate::models::admins::DbServerNameMaxPlayers;
@@ -458,6 +460,51 @@ pub async fn listen_new_update(db_url: &str, port: &str) {
         let jitter = rng().random_range(0..1000);
         let delay = Duration::from_millis((base_delay * 1000) + jitter);
         tracing::warn!("Reconnecting in {delay:.2?}...");
+        sleep(delay).await;
+    }
+}
+
+/// The single Postgres `LISTEN` connection behind `/events/data-updates`.
+pub async fn live_events_listener(db_url: &str, app: AppData, events: broadcast::Sender<NewRowEvent>) {
+    let mut attempt = 0;
+
+    loop {
+        match connect_and_listen(db_url, &LIVE_EVENT_CHANNELS).await {
+            Ok(mut listener) => {
+                tracing::info!("Live event hub listening on {} channels", LIVE_EVENT_CHANNELS.len());
+                attempt = 0;
+
+                loop {
+                    match listener.recv().await {
+                        Ok(notification) => {
+                            let event = NewRowEvent {
+                                channel: notification.channel().to_string(),
+                                payload: notification.payload().to_string(),
+                            };
+                            if !should_forward_live_event(&app, &event).await {
+                                continue;
+                            }
+                            // `send` errors only when there are no subscribers, which is the
+                            // ordinary idle state of the live page. Nothing to do but drop it.
+                            let _ = events.send(event);
+                        }
+                        Err(e) => {
+                            tracing::error!("Error receiving live event notification: {}", e);
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to connect to PostgreSQL for live events: {}", e);
+            }
+        }
+
+        attempt += 1;
+        let base_delay = 2_u64.pow(attempt.min(5));
+        let jitter = rng().random_range(0..1000);
+        let delay = Duration::from_millis((base_delay * 1000) + jitter);
+        tracing::warn!("Reconnecting live event listener in {delay:.2?}...");
         sleep(delay).await;
     }
 }

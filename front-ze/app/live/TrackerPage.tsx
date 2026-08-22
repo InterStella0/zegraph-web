@@ -280,11 +280,15 @@ export default function LiveServerTrackerPage({ userPromise }){
     });
 
     useEffect(() => {
+        let attempt = 0;
+        let retryTimer = null;
+
         const connectEventSource = () => {
             const eventSource = new EventSource(URI('/events/data-updates'));
             eventSourceRef.current = eventSource;
 
             eventSource.onopen = () => {
+                attempt = 0;
                 setIsConnected(true);
             };
 
@@ -326,16 +330,20 @@ export default function LiveServerTrackerPage({ userPromise }){
             eventSource.onerror = (error) => {
                 console.error('Error with SSE connection:', error);
                 setIsConnected(false);
-
-                // Close and attempt to reconnect after delay
                 eventSource.close();
-                setTimeout(connectEventSource, 5000); // Try to reconnect after 5 seconds
+
+                const delay = Math.min(5000 * 2 ** attempt, 60000) + Math.random() * 1000;
+                attempt += 1;
+                retryTimer = setTimeout(connectEventSource, delay);
             };
 
             return eventSource;
         };
         connectEventSource();
         return () => {
+            if (retryTimer) {
+                clearTimeout(retryTimer);
+            }
             if (eventSourceRef.current) {
                 eventSourceRef.current.close();
             }

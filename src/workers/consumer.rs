@@ -9,23 +9,16 @@ use crate::FastCache;
 use super::job::{dispatch, inflight_key, RefreshJob, QUEUE_HEAVY, QUEUE_LIGHT};
 use super::{BackgroundWorker, QueryPriority};
 
-/// Heavy queries are the ones that used to contend with request handling. With a single worker
-/// replica this bound is the true global limit — the old in-process semaphore never was one,
-/// because every API replica had its own.
 const HEAVY_CONCURRENCY: usize = 5;
-const LIGHT_CONCURRENCY: usize = 20;
+const LIGHT_CONCURRENCY: usize = 15;
 
-/// How long a `BRPOP` parks before looping. It only exists so the redis connection is returned to
-/// the pool periodically; a job still wakes the consumer immediately, it does not wait this out.
+/// Asserted against the pool size at startup; see `main.rs`.
+pub const TOTAL_JOB_CONCURRENCY: usize = HEAVY_CONCURRENCY + LIGHT_CONCURRENCY;
+
 const POP_TIMEOUT_SECS: usize = 5;
 
-/// Connections popping jobs must tolerate the whole `POP_TIMEOUT_SECS` park. redis defaults
-/// `response_timeout` to 500ms, which aborts the park long before the server answers nil, so the
-/// consumer needs its own pool rather than the shared cache one.
 pub const BLOCKING_RESPONSE_TIMEOUT: Duration = Duration::from_secs(POP_TIMEOUT_SECS as u64 + 1);
 
-/// `blocking_redis` is separate from `cache.redis_pool` because only the `BRPOP` here needs a
-/// response timeout long enough to cover the park; see [`BLOCKING_RESPONSE_TIMEOUT`].
 pub fn spawn_consumers(
     pool: Arc<Pool<Postgres>>,
     cache: Arc<FastCache>,
@@ -57,8 +50,6 @@ async fn consume(
     tracing::info!("Worker consuming {queue} (concurrency {concurrency})");
 
     loop {
-        // Taken before the pop so we never hold more jobs than we can run: a job pulled off the
-        // list is off it for good, so popping past our capacity would risk losing it on a crash.
         let Ok(permit) = semaphore.clone().acquire_owned().await else {
             tracing::error!("{queue}: semaphore closed, consumer stopping");
             return;
@@ -134,10 +125,6 @@ async fn run_job(job: RefreshJob, pool: Arc<Pool<Postgres>>, cache: Arc<FastCach
 }
 
 /// Clears the in-flight marker and counts the job, in one pipeline on one pooled connection.
-///
-/// The tally rides along with the marker delete rather than getting its own round trip, and is not
-/// buffered the way request metrics are: jobs are orders of magnitude rarer than requests, and each
-/// one has already done several redis operations by the time it lands here.
 async fn finish_job(cache_key: &str, priority: QueryPriority, cache: &FastCache) {
     let marker = inflight_key(cache_key);
     let field = match priority {
