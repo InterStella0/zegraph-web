@@ -216,7 +216,8 @@
       "frame1Month": "1 Bulan",
       "frame6Months": "6 Bulan",
       "frame1Year": "Setahun",
-      "loadError": "Ralat memuatkan pemain terbaik: {error}"
+      "loadError": "Ralat memuatkan pemain terbaik: {error}",
+      "emptyState": "Tiada sesiapa bermain dalam tempoh ini."
     },
     "list": {
       "name": "Nama",
@@ -275,6 +276,13 @@
       "retryingIn": "Cuba lagi dalam {seconds}s",
       "refreshing": "Menyegarkan...",
       "retryNow": "Cuba Sekarang"
+    },
+    "staleStats": {
+      "showingAsOf": "Memaparkan statistik setakat {when}.",
+      "showingPrevious": "Memaparkan statistik yang dikira sebelum ini.",
+      "fetchLatest": "Dapatkan terkini",
+      "refreshing": "Mengemas kini...",
+      "stillCalculating": "Masih mengira — akan dikemas kini sebaik sahaja siap."
     },
     "rankings": {
       "title": "Kedudukan Pemain",

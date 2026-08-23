@@ -216,7 +216,8 @@
       "frame1Month": "1 个月",
       "frame6Months": "6 个月",
       "frame1Year": "1 年",
-      "loadError": "加载顶尖玩家时出错：{error}"
+      "loadError": "加载顶尖玩家时出错：{error}",
+      "emptyState": "此时间段内没有人游玩。"
     },
     "list": {
       "name": "名称",
@@ -275,6 +276,13 @@
       "retryingIn": "{seconds} 秒后重试",
       "refreshing": "正在刷新...",
       "retryNow": "立即重试"
+    },
+    "staleStats": {
+      "showingAsOf": "显示截至 {when} 的统计数据。",
+      "showingPrevious": "显示之前计算的统计数据。",
+      "fetchLatest": "获取最新",
+      "refreshing": "正在刷新...",
+      "stillCalculating": "仍在计算——完成后将自动更新。"
     },
     "rankings": {
       "title": "玩家排行榜",

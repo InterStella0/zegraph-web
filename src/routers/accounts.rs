@@ -1141,7 +1141,7 @@ impl AccountsApi {
                 r.timestamp,
                 m.music_name,
                 m.duration AS music_duration,
-                m.source AS music_source,
+                m.source AS "music_source?",
                 COALESCE(reporter.persona_name, NULL) AS reporter_name,
                 COALESCE(resolver.persona_name, NULL) AS resolver_name,
                 ARRAY_AGG(DISTINCT amm.map_name ORDER BY amm.map_name) FILTER (WHERE amm.map_name IS NOT NULL) AS associated_maps,

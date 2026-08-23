@@ -54,7 +54,7 @@ export class APIError extends Error{
 class UserError extends APIError{
     public method: string
     constructor(method: string, message: string, status: number){
-        super(`${message}`, status)
+        super(`${method}: ${message}`, status)
         this.method = method
     }
 }

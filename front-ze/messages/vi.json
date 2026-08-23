@@ -216,7 +216,8 @@
       "frame1Month": "1 tháng",
       "frame6Months": "6 tháng",
       "frame1Year": "1 năm",
-      "loadError": "Lỗi tải người chơi hàng đầu: {error}"
+      "loadError": "Lỗi tải người chơi hàng đầu: {error}",
+      "emptyState": "Không có ai chơi trong khoảng thời gian này."
     },
     "list": {
       "name": "Tên",
@@ -275,6 +276,13 @@
       "retryingIn": "Thử lại trong {seconds}s",
       "refreshing": "Đang làm mới...",
       "retryNow": "Thử lại ngay bây giờ"
+    },
+    "staleStats": {
+      "showingAsOf": "Đang hiển thị thống kê tính đến {when}.",
+      "showingPrevious": "Đang hiển thị thống kê đã tính trước đó.",
+      "fetchLatest": "Lấy mới nhất",
+      "refreshing": "Đang làm mới...",
+      "stillCalculating": "Vẫn đang tính toán — sẽ cập nhật ngay khi xong."
     },
     "rankings": {
       "title": "Xếp hạng người chơi",

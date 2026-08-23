@@ -216,7 +216,8 @@
       "frame1Month": "1개월",
       "frame6Months": "6개월",
       "frame1Year": "1년",
-      "loadError": "최고 플레이어 로드 오류: {error}"
+      "loadError": "최고 플레이어 로드 오류: {error}",
+      "emptyState": "이 기간에 플레이한 사람이 없습니다."
     },
     "list": {
       "name": "이름",
@@ -275,6 +276,13 @@
       "retryingIn": "{seconds}초 후 재시도",
       "refreshing": "새로고침 중...",
       "retryNow": "지금 재시도"
+    },
+    "staleStats": {
+      "showingAsOf": "{when} 기준 통계를 표시하고 있습니다.",
+      "showingPrevious": "이전에 계산된 통계를 표시하고 있습니다.",
+      "fetchLatest": "최신 정보 가져오기",
+      "refreshing": "새로 고치는 중...",
+      "stillCalculating": "아직 계산 중입니다 — 완료되는 대로 업데이트됩니다."
     },
     "rankings": {
       "title": "플레이어 랭킹",

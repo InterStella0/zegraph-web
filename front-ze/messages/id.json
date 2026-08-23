@@ -216,7 +216,8 @@
       "frame1Month": "1 Bulan",
       "frame6Months": "6 Bulan",
       "frame1Year": "1 Tahun",
-      "loadError": "Kesalahan memuat pemain terbaik: {error}"
+      "loadError": "Kesalahan memuat pemain terbaik: {error}",
+      "emptyState": "Tidak ada yang bermain dalam periode ini."
     },
     "list": {
       "name": "Nama",
@@ -275,6 +276,13 @@
       "retryingIn": "Coba lagi dalam {seconds}d",
       "refreshing": "Menyegarkan...",
       "retryNow": "Coba Sekarang"
+    },
+    "staleStats": {
+      "showingAsOf": "Menampilkan statistik per {when}.",
+      "showingPrevious": "Menampilkan statistik yang dihitung sebelumnya.",
+      "fetchLatest": "Ambil terbaru",
+      "refreshing": "Memperbarui...",
+      "stillCalculating": "Masih menghitung — akan diperbarui begitu selesai."
     },
     "rankings": {
       "title": "Peringkat Pemain",

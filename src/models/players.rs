@@ -159,7 +159,7 @@ pub struct DbPlayerAnonymized{
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
 #[db_into(DetailedPlayer)]
-#[extra(aliases=vec![], ranks=None)]
+#[extra(aliases=vec![], ranks=None, is_stale=false, calculated_at=None)]
 pub struct DbPlayerDetail{
     #[rename(id)]
     pub player_id: String,

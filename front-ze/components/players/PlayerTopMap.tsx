@@ -1,7 +1,7 @@
 'use client'
 import {useTranslations} from 'next-intl';
 import {useEffect, useState, useMemo, use} from "react";
-import {APIError, fetchApiServerUrl, formatNumber, StillCalculate} from "utils/generalUtils";
+import {APIError, formatNumber, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
 import { Input } from "components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
@@ -23,6 +23,7 @@ import {PlayerMostPlayedMap} from "types/players.ts";
 import { useTheme } from "next-themes";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
+import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
 
 ChartJS.register(
     ArcElement,
@@ -40,9 +41,6 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
     const tCommon = useTranslations('common');
     const { server, player } = use(serverPlayerPromise)
     const playerId = !(player instanceof StillCalculate)? player.id: null
-    const [maps, setMaps] = useState<PlayerTopMap[]>([]);
-    const [loading, setLoading] = useState<boolean>(false);
-    const [error, setError] = useState<Error | null>(null);
     const [viewType, setViewType] = useState<"chart" | "table">("chart");
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [page, setPage] = useState<number>(0);
@@ -59,6 +57,18 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
     const server_id = server.id
     const maxMapCount = isMobile ? 5 : 10;
     const rowsPerPage = 10;
+
+    const { data: mapData, loading, error } = usePlayerStat<PlayerMostPlayedMap[]>(
+        server_id, playerId, 'most_played_maps'
+    );
+    const maps: PlayerTopMap[] = useMemo(() => (mapData ?? [])
+        .map(e => ({
+            map: e.map,
+            duration: e.duration,
+            hours: e.duration / 3600,
+            rank: e.rank
+        }))
+        .sort((a, b) => b.duration - a.duration), [mapData]);
 
     const filteredMaps = useMemo(() => {
         if (!searchTerm) return maps;
@@ -81,27 +91,6 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
 
     const totalPages = Math.ceil(filteredMaps.length / rowsPerPage);
 
-    useEffect(() => {
-        setLoading(true);
-        setError(null);
-
-        fetchApiServerUrl(server_id, `/players/${playerId}/most_played_maps`)
-            .then((resp: PlayerMostPlayedMap[]) => resp.map(e => ({
-                map: e.map,
-                duration: e.duration,
-                hours: e.duration / 3600,
-                rank: e.rank
-            })))
-            .then(values => {
-                const sortedMaps = values.sort((a, b) => b.duration - a.duration);
-                setMaps(sortedMaps);
-                setLoading(false);
-            })
-            .catch(err => {
-                setError(err);
-                setLoading(false);
-            });
-    }, [server_id, playerId]);
 
     useEffect(() => {
         setPage(0);

@@ -941,9 +941,12 @@ impl PlayerApi{
     }
     /// Full profile for a player on a server: playtime, rank and related stats in one call.
     ///
-    /// Backed by `PlayerWorker`'s cache.
+    /// Backed by `PlayerWorker`'s cache. When nothing current is cached this falls back to db.
     #[oai(path = "/servers/:server_id/players/:player_id/detail", method = "get")]
-    async fn get_player_detail(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<DetailedPlayer>{
+    async fn get_player_detail(
+        &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
+        OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
+    ) -> Response<DetailedPlayer>{
         let ctx = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_detail(&ctx).await)
     }

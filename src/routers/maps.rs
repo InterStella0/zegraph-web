@@ -287,9 +287,9 @@ impl MapApi{
                 sm.no_noms,
                 sm.min_players,
                 sm.max_players,
-                smp.started_at as last_played,
+                smp.started_at as \"last_played?\",
                 smp.ended_at as last_played_ended,
-                smp.time_id as last_session_id
+                smp.time_id as \"last_session_id?\"
             FROM server_map sm
             LEFT JOIN website.map_analyze mp
                 ON sm.server_id=mp.server_id AND sm.map=mp.map

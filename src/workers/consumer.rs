@@ -105,6 +105,9 @@ async fn run_job(job: RefreshJob, pool: Arc<Pool<Postgres>>, cache: Arc<FastCach
         Ok(Some(json)) => {
             let worker = BackgroundWorker::new(cache.clone());
             worker.cache_raw(&job.cache_key, &json, job.ttl).await;
+            if let Some(latest) = &job.latest_key {
+                worker.cache_raw(latest, &json, job.ttl).await;
+            }
             if let Some(stale) = &job.stale_key {
                 worker.drop_cached(stale).await;
             }

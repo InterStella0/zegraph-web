@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use sqlx::{Pool, Postgres};
 use sqlx::postgres::PgQueryResult;
 use sqlx::postgres::types::PgInterval;
@@ -247,7 +248,7 @@ impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerBasicQuery<Vec<DbPlayerMapPla
         let worker_type = "playermap";
         let lock_key = format!("lock:player_map_time:{}:{}", ctx.data.server_id, ctx.data.player_id);
 
-        if let Some(lock_id) = acquire_redis_lock(&redis_pool, &lock_key, 60 * 5, 60).await {
+        if let Some(lock_id) = try_redis_lock(&redis_pool, &lock_key, 60 * 5).await {
             tracing::info!("LOCK ACQUIRED {}", &lock_key);
 
             let result = calculate_db_player_map(ctx, worker_type).await;
@@ -257,8 +258,7 @@ impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerBasicQuery<Vec<DbPlayerMapPla
 
             result?; // propagate error if any
         } else {
-            tracing::warn!("FAILED TO ACQUIRE LOCK {}", &lock_key);
-            return Ok(vec![]);
+            tracing::warn!("SKIPPING RECALCULATION, LOCK HELD {}", &lock_key);
         }
         sqlx::query_as!(DbPlayerMapPlayed, "
             SELECT server_id, map, total_playtime AS played
@@ -273,7 +273,7 @@ impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerBasicQuery<Vec<DbPlayerMapPla
     }
 
     fn ttl(&self) -> u64 {
-        60
+        60 * DAY
     }
 
     fn priority(&self) -> QueryPriority {
@@ -305,7 +305,7 @@ impl WorkerQuery<Option<DbPlayerRank>> for PlayerBasicQuery<Option<DbPlayerRank>
     }
 
     fn ttl(&self) -> u64 {
-        2 * 60
+        HOUR
     }
 
     fn priority(&self) -> QueryPriority {
@@ -338,7 +338,7 @@ impl WorkerQuery<Vec<DbMapRank>> for PlayerBasicQuery<Vec<DbMapRank>> {
     }
 
     fn ttl(&self) -> u64 {
-        2 * 60
+        HOUR
     }
 
     fn priority(&self) -> QueryPriority {
@@ -722,7 +722,7 @@ impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerSessionQuery<Vec<DbPlayerSeen>> {
         format!("player-seen-session:{}:{}:{}", ctx.data.server_id, ctx.data.player_id, ctx.data.session_id)
     }
 
-    fn ttl(&self) -> u64 { 130 * DAY }
+    fn ttl(&self) -> u64 { 7 * DAY }
     fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
 
     fn job_kind(&self) -> JobKind {
@@ -1005,13 +1005,23 @@ impl PlayerWorker {
         <PlayerBasicQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display,
         T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
     {
+        Ok(self.query_player_cached(context).await?.result)
+    }
+
+    async fn query_player_cached<T>(
+        &self, context: &PlayerContext
+    ) -> WorkResult<CachedResult<T>>
+    where
+        PlayerBasicQuery<T>: WorkerQuery<T> + Send + Sync,
+        <PlayerBasicQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display,
+        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+    {
         let query = PlayerBasicQuery::new(context, self.pool.clone(), self.background_worker.cache.clone());
-        let result = self.background_worker.execute_with_session_fallback(
+        self.background_worker.execute_with_session_fallback(
             query,
             &context.cache_key.current,
             context.cache_key.previous.as_deref(),
-        ).await?;
-        Ok(result.result)
+        ).await
     }
 
     async fn query_player_execute<T>(
@@ -1078,17 +1088,61 @@ impl PlayerWorker {
         Ok(result.iter_into())
     }
     pub async fn get_detail(&self, context: &PlayerContext) -> WorkResult<DetailedPlayer>{
-        let detail_db: DbPlayerDetail = self.query_player(context).await?;
+        let (detail_db, is_stale): (DbPlayerDetail, bool) = match self.query_player_cached(context).await {
+            Ok(cached) => (cached.result, cached.backup),
+            Err(WorkError::Calculating) => (
+                self.fetch_stored_detail(context)
+                    .await?
+                    .filter(|detail| detail.total_playtime.is_some())
+                    .ok_or(WorkError::Calculating)?,
+                true,
+            ),
+            Err(e) => return Err(e),
+        };
         let mut detail: DetailedPlayer = detail_db.into();
-        self.attach_ranks_and_aliases(context, &mut detail, false).await?;
+        detail.is_stale = is_stale;
+        if is_stale {
+            detail.calculated_at = self.fetch_playtime_calculated_at(context).await?;
+        }
+        self.attach_ranks_and_aliases(context, &mut detail).await?;
         Ok(detail)
     }
 
-    pub async fn get_detail_stored(&self, context: &PlayerContext) -> WorkResult<DetailedPlayer>{
+    async fn fetch_playtime_calculated_at(
+        &self, context: &PlayerContext,
+    ) -> Result<Option<DateTime<Utc>>, sqlx::Error>{
         let player_id = &context.player.player_id;
         let server_id = &context.server.server_id;
 
-        let detail_db = sqlx::query_as!(DbPlayerDetail, "
+        let ended_at = sqlx::query_scalar!("
+            SELECT s.ended_at
+            FROM website.player_server_worker w
+            JOIN player_server_session s ON s.session_id = w.last_calculated
+            WHERE w.player_id = $1 AND w.server_id = $2 AND w.type = 'player_playtime'
+            LIMIT 1
+        ", player_id, server_id).fetch_optional(&*self.pool).await?;
+
+        Ok(ended_at.flatten().map(db_to_utc))
+    }
+
+    pub async fn get_detail_stored(&self, context: &PlayerContext) -> WorkResult<DetailedPlayer>{
+        let Some(detail_db) = self.fetch_stored_detail(context).await? else {
+            return Err(WorkError::NotFound);
+        };
+        let mut detail: DetailedPlayer = detail_db.into();
+        detail.is_stale = true;
+        detail.calculated_at = self.fetch_playtime_calculated_at(context).await?;
+        self.attach_ranks_and_aliases(context, &mut detail).await?;
+        Ok(detail)
+    }
+
+    async fn fetch_stored_detail(
+        &self, context: &PlayerContext,
+    ) -> Result<Option<DbPlayerDetail>, sqlx::Error>{
+        let player_id = &context.player.player_id;
+        let server_id = &context.server.server_id;
+
+        sqlx::query_as!(DbPlayerDetail, "
             SELECT
                 su.player_id,
                 su.player_name,
@@ -1109,18 +1163,11 @@ impl PlayerWorker {
                 ON pp.player_id = su.player_id AND pp.server_id = $2
             WHERE su.player_id = $1
             LIMIT 1
-        ", player_id, server_id).fetch_optional(&*self.pool).await?;
-
-        let Some(detail_db) = detail_db else {
-            return Err(WorkError::NotFound);
-        };
-        let mut detail: DetailedPlayer = detail_db.into();
-        self.attach_ranks_and_aliases(context, &mut detail, true).await?;
-        Ok(detail)
+        ", player_id, server_id).fetch_optional(&*self.pool).await
     }
 
     async fn attach_ranks_and_aliases(
-        &self, context: &PlayerContext, detail: &mut DetailedPlayer, forced: bool,
+        &self, context: &PlayerContext, detail: &mut DetailedPlayer,
     ) -> WorkResult<()>{
         let playtime_ranks: Option<DbPlayerRank> = self.query_player_execute(context).await?;
         if let Some(playtime_ranks) = playtime_ranks {
@@ -1132,11 +1179,7 @@ impl PlayerWorker {
                 .map(Into::into);
             detail.ranks = Some(ranks)
         }
-        let aliases: Vec<DbPlayerAlias> = if forced {
-            self.query_player_execute(context).await?
-        } else {
-            self.query_player(context).await?
-        };
+        let aliases: Vec<DbPlayerAlias> = self.query_player_execute(context).await?;
         let mut aliases_filtered = vec![];
         let mut last_seen = String::from("");
         for alias in aliases{ // due to buggy impl lol
@@ -1149,9 +1192,7 @@ impl PlayerWorker {
         detail.aliases = aliases_filtered.iter_into();
         Ok(())
     }
-    /// Global queries carry no session, so there is no fallback key and nothing for `{session}`
-    /// substitution to do; the refresh job invalidates these keys instead (see
-    /// `run_global_refresh`).
+
     async fn query_global<T>(&self, canonical_id: &str) -> WorkResult<T>
     where
         PlayerGlobalQuery<T>: WorkerQuery<T> + Send + Sync,
@@ -1215,9 +1256,6 @@ impl PlayerWorker {
             .unwrap_or(0)
     }
 
-    /// Hands the refresh to the worker instead of running it here. This is the heaviest job in the
-    /// app, and it used to loop `execute_get` per server on the API's own runtime and connection
-    /// pool while requests were being served.
     async fn enqueue_global_refresh(&self, canonical_id: &str) {
         self.background_worker.enqueue_refresh_job(RefreshJob {
             kind: JobKind::PlayerGlobalPlaytime { canonical_id: canonical_id.to_string() },
@@ -1226,6 +1264,7 @@ impl PlayerWorker {
             ttl: 0,
             priority: QueryPriority::Heavy,
             stale_key: None,
+            latest_key: None,
         }).await;
     }
 
@@ -1452,6 +1491,36 @@ mod tests {
         assert_session_scoped!(
             player_query::<Vec<DbPlayerOnlineHeatmap>>(),
             "player-online-heatmap", QueryPriority::Light, JobKind::PlayerOnlineHeatmap(_)
+        );
+    }
+
+    #[tokio::test]
+    async fn the_map_played_ttl_matches_its_session_scoped_siblings() {
+        let map_played = player_query::<Vec<DbPlayerMapPlayed>>().ttl();
+
+        assert_eq!(map_played, 60 * DAY, "a session-scoped key must outlive a session");
+        assert_eq!(map_played, player_query::<DbPlayerDetail>().ttl());
+        assert_eq!(map_played, player_query::<Vec<DbPlayerSessionTime>>().ttl());
+    }
+
+    #[tokio::test]
+    async fn the_rank_ttls_are_not_shorter_than_the_views_they_read() {
+        let play_ranks = player_query::<Option<DbPlayerRank>>().ttl();
+        let map_ranks = player_query::<Vec<DbMapRank>>().ttl();
+
+        for (name, ttl) in [("player-play-ranks", play_ranks), ("player-map-ranks", map_ranks)] {
+            assert!(ttl >= HOUR, "{name} re-reads a once-daily view every {ttl}s");
+            assert!(ttl < DAY, "{name} must still pick up the nightly refresh");
+        }
+    }
+
+    #[tokio::test]
+    async fn the_per_session_key_does_not_outlive_the_per_player_ones() {
+        let seen = player_session_query::<Vec<DbPlayerSeen>>().ttl();
+
+        assert!(
+            seen < player_query::<DbPlayerDetail>().ttl(),
+            "a per-session key must not be retained longer than the per-player keys",
         );
     }
 

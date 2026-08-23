@@ -1,5 +1,6 @@
+'use client'
 import {useTranslations, useLocale} from 'next-intl';
-import {ReactElement, use} from "react";
+import {ReactElement} from "react";
 import {fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
@@ -26,6 +27,7 @@ import PlayerStats from "./PlayerStats";
 import PlayerAliasesButton from "./PlayerAliasesButton";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import {SiSteam} from "@icons-pack/react-simple-icons";
+import {usePatchedPlayer} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 dayjs.extend(relativeTime)
 
 function AliasesDropdown({ aliases }) {
@@ -73,10 +75,22 @@ async function getCStatsCSGO(server_id: string, player_id: string): Promise<Play
     }
 }
 
+const cStatsCache = new Map<string, Promise<PlayerWithLegacyRanks | null>>();
+
+function cStatsFor(server_id: string, player_id: string): Promise<PlayerWithLegacyRanks | null> {
+    const key = `${server_id}:${player_id}`;
+    let promise = cStatsCache.get(key);
+    if (!promise) {
+        promise = getCStatsCSGO(server_id, player_id);
+        cStatsCache.set(key, promise);
+    }
+    return promise;
+}
+
 function PlayerCardDetailDisplay({ server, player }: { server: Server, player: PlayerInfo }): ReactElement {
     const t = useTranslations('players.card');
     const locale = useLocale();
-    const cStats = getCStatsCSGO(server.id, player.id)
+    const cStats = cStatsFor(server.id, player.id)
     const ranks = player?.ranks
     let lastPlayedText = t('lastOnline', {ago: dayjs(player.last_played_ended).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
     if (player.online_since) {
@@ -175,7 +189,7 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
 
 export default function PlayerCardDetail({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed> }) {
     const t = useTranslations('players.card');
-    const {server, player } = use(serverPlayerPromise)
+    const {server, player } = usePatchedPlayer(serverPlayerPromise)
     if (player instanceof StillCalculate)
         return null // Should not reach here
 

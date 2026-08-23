@@ -216,7 +216,8 @@
       "frame1Month": "1ヶ月",
       "frame6Months": "6ヶ月",
       "frame1Year": "1年",
-      "loadError": "トップパフォーマーの読み込みエラー: {error}"
+      "loadError": "トップパフォーマーの読み込みエラー: {error}",
+      "emptyState": "この期間にプレイした人はいません。"
     },
     "list": {
       "name": "名前",
@@ -275,6 +276,13 @@
       "retryingIn": "{seconds}秒後に再試行",
       "refreshing": "更新中...",
       "retryNow": "今すぐ再試行"
+    },
+    "staleStats": {
+      "showingAsOf": "{when}時点の統計を表示しています。",
+      "showingPrevious": "以前に計算された統計を表示しています。",
+      "fetchLatest": "最新を取得",
+      "refreshing": "更新中...",
+      "stillCalculating": "まだ計算中です。完了次第更新されます。"
     },
     "rankings": {
       "title": "プレイヤーランキング",

@@ -216,7 +216,8 @@
       "frame1Month": "1 mes",
       "frame6Months": "6 meses",
       "frame1Year": "Un año",
-      "loadError": "Error al cargar los mejores jugadores: {error}"
+      "loadError": "Error al cargar los mejores jugadores: {error}",
+      "emptyState": "Nadie jugó en este período."
     },
     "list": {
       "name": "Nombre",
@@ -275,6 +276,13 @@
       "retryingIn": "Reintentando en {seconds}s",
       "refreshing": "Actualizando...",
       "retryNow": "Reintentar ahora"
+    },
+    "staleStats": {
+      "showingAsOf": "Mostrando estadísticas de {when}.",
+      "showingPrevious": "Mostrando estadísticas calculadas anteriormente.",
+      "fetchLatest": "Obtener las últimas",
+      "refreshing": "Actualizando...",
+      "stillCalculating": "Todavía calculando: se actualizará en cuanto esté listo."
     },
     "rankings": {
       "title": "Clasificación de jugadores",

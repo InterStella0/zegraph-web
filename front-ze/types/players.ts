@@ -100,7 +100,11 @@ export interface DetailedPlayer extends PlayerBase{
     total_playtime: number,
     rank: number,
     ranks: PlayerRanks | null,
-    associated_player_id: string | null
+    associated_player_id: string | null,
+    /** These are a previous calculation, not the current one; a refresh is already queued. */
+    is_stale: boolean,
+    /** End of the last session folded into these numbers. Null when they are current. */
+    calculated_at: string | null
 }
 export interface DetailedPlayerInfo extends DetailedPlayer{
     last_played: string,

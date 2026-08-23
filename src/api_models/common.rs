@@ -84,10 +84,16 @@ impl <T: ParseFromJSON + ToJSON + Send + Sync> ResponseObject<T>{
     }
 }
 
+#[cfg(test)]
+pub const CALCULATING_HEADER: &str = "X-Calculating";
+
 #[derive(ApiResponse)]
 pub enum GenericResponse<T: ParseFromJSON + ToJSON + Send + Sync> {
     #[oai(status = 200)]
-    Ok(Json<ResponseObject<T>>),
+    Ok(
+        Json<ResponseObject<T>>,
+        #[oai(header = "X-Calculating")] Option<String>,
+    ),
 }
 
 
@@ -96,33 +102,33 @@ macro_rules! response {
     (ok $data: expr) => {
         Ok(GenericResponse::Ok(poem_openapi::payload::Json(
             ResponseObject::ok($data)
-        )))
+        ), None))
     };
     (err $msg: expr, $code: expr) => {
         Ok(GenericResponse::Ok(poem_openapi::payload::Json(
-            ResponseObject::err($msg, $code)))
+            ResponseObject::err($msg, $code)), None)
         )
     };
     (calculating) => {
         Ok(GenericResponse::Ok(poem_openapi::payload::Json(
             ResponseObject::err(
                 "Still calculating", ErrorCode::Calculating
-            ))
-        ))
+            )
+        ), Some("1".to_string())))
     };
     (internal_server_error) => {
         Ok(GenericResponse::Ok(poem_openapi::payload::Json(
             ResponseObject::err(
                 "Something went wrong", ErrorCode::InternalServerError
-            ))
-        ))
+            )
+        ), None))
     };
     (todo) => {
         Ok(GenericResponse::Ok(
             poem_openapi::payload::Json(
                 ResponseObject::err(
             "Haven't done this yet sry.", ErrorCode::NotImplemented
-        ))))
+        )), None))
     }
 }
 
@@ -479,5 +485,45 @@ mod metrics_tests {
         metrics.restore(drained);
         metrics.record("GET /health".to_string(), Duration::from_micros(500));
         assert_eq!(metrics.drain().get("GET /health"), Some(&(2, 1000)));
+    }
+}
+
+#[cfg(test)]
+mod calculating_header_tests {
+    use poem::IntoResponse;
+    use super::*;
+
+    fn header_of<T>(response: Response<T>) -> Option<String>
+    where
+        T: ParseFromJSON + ToJSON + Send + Sync,
+    {
+        response
+            .expect("the response macro never produces an Err")
+            .into_response()
+            .headers()
+            .get(CALCULATING_HEADER)
+            .map(|value| value.to_str().expect("ascii").to_string())
+    }
+
+    #[test]
+    fn only_the_calculating_response_carries_the_marker() {
+        assert_eq!(header_of(response!(calculating) as Response<String>).as_deref(), Some("1"));
+
+        assert_eq!(header_of(response!(ok "data".to_string())), None);
+        assert_eq!(
+            header_of(response!(err "nope", ErrorCode::NotFound) as Response<String>),
+            None,
+        );
+        assert_eq!(header_of(response!(internal_server_error) as Response<String>), None);
+    }
+
+    /// Every endpoint returns HTTP 200, this header has to exist.
+    #[test]
+    fn the_marker_does_not_change_the_status_code() {
+        let calculating = (response!(calculating) as Response<String>)
+            .expect("infallible")
+            .into_response();
+
+        assert_eq!(calculating.status(), StatusCode::OK);
     }
 }

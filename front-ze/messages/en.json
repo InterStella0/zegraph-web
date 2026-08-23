@@ -216,7 +216,8 @@
       "frame1Month": "1 Month",
       "frame6Months": "6 Months",
       "frame1Year": "A Year",
-      "loadError": "Error loading top players: {error}"
+      "loadError": "Error loading top players: {error}",
+      "emptyState": "No one played in this period."
     },
     "list": {
       "name": "Name",
@@ -275,6 +276,13 @@
       "retryingIn": "Retrying in {seconds}s",
       "refreshing": "Refreshing...",
       "retryNow": "Retry Now"
+    },
+    "staleStats": {
+      "showingAsOf": "Showing stats as of {when}.",
+      "showingPrevious": "Showing previously calculated stats.",
+      "fetchLatest": "Fetch latest",
+      "refreshing": "Refreshing...",
+      "stillCalculating": "Still calculating — will update as soon as it lands."
     },
     "rankings": {
       "title": "Player Rankings",

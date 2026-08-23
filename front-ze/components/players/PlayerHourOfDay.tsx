@@ -1,8 +1,8 @@
 'use client'
 import {useTranslations} from 'next-intl';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {use, useEffect, useMemo, useState} from "react";
-import {fetchApiServerUrl, formatNumber, StillCalculate} from "utils/generalUtils.ts";
+import {use, useMemo, useState} from "react";
+import {formatNumber, StillCalculate} from "utils/generalUtils.ts";
 import {
     BarController,
     BarElement,
@@ -31,6 +31,7 @@ import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[pla
 import {PlayerHourDay, PlayerOnlineHeatmap} from "types/players.ts";
 import { useTheme } from "next-themes";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
+import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -74,42 +75,18 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     const server_id = server.id
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
-    const [ hours, setHours ] = useState<PlayerHourDay[]>([])
-    const [ loading, setLoading ] = useState<boolean>(false)
-    const [ error, setError ] = useState<Error | null>(null)
-    const [ heat, setHeat ] = useState<PlayerOnlineHeatmap[]>([])
-    const [ heatLoading, setHeatLoading ] = useState<boolean>(false)
-    const [ heatError, setHeatError ] = useState<Error | null>(null)
+    const { data: hoursData, loading, error } =
+        usePlayerStat<PlayerHourDay[]>(server_id, playerId, 'hours_of_day')
+    const { data: heatData, loading: heatLoading, error: heatError } =
+        usePlayerStat<PlayerOnlineHeatmap[]>(server_id, playerId, 'online_heatmap')
+    const hours = useMemo(() => hoursData ?? [], [hoursData])
+    const heat = useMemo(() => heatData ?? [], [heatData])
     const [ mode, setMode ] = useState<string>("user")
     const [ metric, setMetric ] = useState<Metric>("hour")
     const yAxis = useMemo(() => {
         let yMax = hours.reduce((a, b) => Math.max(a,  b.count), 0)
         return {min: 0, max: yMax}
     }, [hours])
-
-    useEffect(() => {
-        if (playerId === null) return
-
-        setLoading(true)
-        setError(null)
-        setHours([])
-        fetchApiServerUrl(server_id, `/players/${playerId}/hours_of_day`)
-            .then(setHours)
-            .catch(setError)
-            .finally(() => setLoading(false))
-    }, [server_id, playerId])
-
-    useEffect(() => {
-        if (playerId === null) return
-
-        setHeatLoading(true)
-        setHeatError(null)
-        setHeat([])
-        fetchApiServerUrl(server_id, `/players/${playerId}/online_heatmap`)
-            .then(setHeat)
-            .catch(setHeatError)
-            .finally(() => setHeatLoading(false))
-    }, [server_id, playerId])
 
     // Rotate the 24 buckets rather than remapping each point: a line chart needs its x
     // values to stay in order, and a per-point remap leaves them shuffled.

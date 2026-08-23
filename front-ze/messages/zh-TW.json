@@ -216,7 +216,8 @@
       "frame1Month": "1 個月",
       "frame6Months": "6 個月",
       "frame1Year": "1 年",
-      "loadError": "載入頂尖玩家時發生錯誤：{error}"
+      "loadError": "載入頂尖玩家時發生錯誤：{error}",
+      "emptyState": "此時間範圍內沒有人遊玩。"
     },
     "list": {
       "name": "名稱",
@@ -275,6 +276,13 @@
       "retryingIn": "{seconds} 秒後重試",
       "refreshing": "正在重新整理...",
       "retryNow": "立即重試"
+    },
+    "staleStats": {
+      "showingAsOf": "顯示截至 {when} 的統計資料。",
+      "showingPrevious": "顯示先前計算的統計資料。",
+      "fetchLatest": "取得最新",
+      "refreshing": "重新整理中...",
+      "stillCalculating": "仍在計算——完成後將自動更新。"
     },
     "rankings": {
       "title": "玩家排行榜",

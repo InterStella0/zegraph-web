@@ -6,15 +6,20 @@ import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
 import { Hourglass, Clock, RefreshCw } from "lucide-react";
 
+const FIRST_DELAY = 10;
+const MAX_DELAY = 40;
+
 export default function StillCalculatingPlayer() {
     const t = useTranslations('players.stillCalculating');
-    const [seconds, setSeconds] = useState(10);
+    const [delay, setDelay] = useState(FIRST_DELAY);
+    const [seconds, setSeconds] = useState(FIRST_DELAY);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const router = useRouter();
 
-    const onRetry = () => {
+    const onRetry = (nextDelay = FIRST_DELAY) => {
         setIsRefreshing(true);
-        setSeconds(10);
+        setDelay(nextDelay);
+        setSeconds(nextDelay);
 
         setTimeout(() => {
             router.refresh();
@@ -24,7 +29,7 @@ export default function StillCalculatingPlayer() {
 
     useEffect(() => {
         if (seconds === 0) {
-            onRetry();
+            onRetry(Math.min(delay * 2, MAX_DELAY));
             return;
         }
 
@@ -53,7 +58,7 @@ export default function StillCalculatingPlayer() {
 
             <Button
                 variant="outline"
-                onClick={onRetry}
+                onClick={() => onRetry()}
                 disabled={isRefreshing}
                 className="mt-2"
             >

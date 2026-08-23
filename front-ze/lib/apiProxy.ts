@@ -43,17 +43,21 @@ export async function proxyToBackend(
         });
 
         let response: Response;
+        let code: number | undefined;
+        let isStale = false;
         if (backendResponse.ok){
             const data = await backendResponse.json();
+            code = data?.code;
+            isStale = data?.data?.is_stale === true;
             response = NextResponse.json(data, { status: backendResponse.status });
         }else{
             const data = await backendResponse.text();
             response = NextResponse.json(data, { status: backendResponse.status });
         }
 
-        // Apply cache headers if specified
         if (cachePreset) {
-            return withCacheHeaders(response, cachePreset);
+            const cacheable = code === 0 && !isStale;
+            return withCacheHeaders(response, cacheable ? cachePreset : 'NO_CACHE');
         }
 
         return response;

@@ -29,7 +29,8 @@ export async function generateMetadata({ params}: ServerPageProps): Promise<Meta
     try{
         const data: BriefPlayers = await getCachedTopPlayers(server.id, 'today');
         const topPlayer = data.players[0]
-        description += ' ' + t('topPlayerToday', {name: topPlayer.name, hours: formatHours(topPlayer.total_playtime)});
+        if (topPlayer)
+            description += ' ' + t('topPlayerToday', {name: topPlayer.name, hours: formatHours(topPlayer.total_playtime)});
     }catch(e){}
 
     if (server.players)

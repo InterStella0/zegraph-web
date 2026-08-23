@@ -14,17 +14,11 @@ use super::{MapData, PlayerData, PlayerGlobalData, PlayerSessionData, Query, Que
 pub const QUEUE_HEAVY: &str = "gfl-ze-watcher:jobs:heavy";
 pub const QUEUE_LIGHT: &str = "gfl-ze-watcher:jobs:light";
 
-/// Marks a cache key as queued-or-running. Its presence is what a REST process reports as
-/// "calculating"; its TTL is what lets a key recover if the worker dies mid-job.
 pub fn inflight_key(cache_key: &str) -> String {
     format!("gfl-ze-watcher:job:inflight:{cache_key}")
 }
 
 /// A unit of work, fully described by data (no closures), so it can cross a process boundary.
-///
-/// `cache_key`, `ttl` and `priority` are resolved by the producer rather than re-derived by the
-/// consumer: the producer already substituted `{session}` into `cache_key_pattern()`, and copying
-/// the resolved values removes any chance of the two sides disagreeing about where a result lands.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RefreshJob {
     pub kind: JobKind,
@@ -33,7 +27,11 @@ pub struct RefreshJob {
     pub priority: QueryPriority,
     #[serde(default)]
     pub stale_key: Option<String>,
+    #[serde(default)]
+    pub latest_key: Option<String>,
 }
+
+pub const LATEST_SESSION_ALIAS: &str = "latest";
 
 impl RefreshJob {
     pub fn queue(&self) -> &'static str {
@@ -43,11 +41,6 @@ impl RefreshJob {
         }
     }
 
-    /// Resolves `{session}` in a query's key pattern and derives the stale key to evict once the
-    /// refresh lands. Returns the job alongside the current and fallback keys to read.
-    ///
-    /// Split out from `execute_with_session_fallback` so the key derivation — in particular the
-    /// stale-key guard below — can be exercised without a redis round trip.
     pub(crate) fn for_session<T, Q>(
         query: &Q,
         current_session: &str,
@@ -65,11 +58,11 @@ impl RefreshJob {
             cache_key: current_key.clone(),
             ttl: query.ttl(),
             priority: query.priority(),
-            // Drop the previous session's key once the refresh lands; guard against evicting the
-            // key we're about to write in case the session id hasn't actually rolled over.
             stale_key: fallback_key.as_deref()
                 .filter(|k| *k != current_key)
                 .map(str::to_string),
+            latest_key: Some(pattern.replace("{session}", LATEST_SESSION_ALIAS))
+                .filter(|k| *k != current_key),
         };
 
         (job, current_key, fallback_key)
@@ -116,10 +109,6 @@ pub enum JobKind {
 }
 
 /// Rebuilds the concrete query from its descriptor, runs it, and hands back the serialized result.
-///
-/// Returning JSON rather than a typed value is what lets a single function cover every arm: each
-/// arm resolves to a different `T`, but they all serialize into the same cache. `None` means the
-/// job was purely side-effecting and has no value to store.
 pub async fn dispatch(
     kind: &JobKind,
     pool: Arc<Pool<Postgres>>,
@@ -239,6 +228,7 @@ mod tests {
             ttl: 3600,
             priority,
             stale_key: Some("player-session:server-1:player-1:old".to_string()),
+            latest_key: Some("player-session:server-1:player-1:latest".to_string()),
         }
     }
 
@@ -266,6 +256,7 @@ mod tests {
         assert_eq!(decoded.cache_key, original.cache_key);
         assert_eq!(decoded.ttl, original.ttl);
         assert_eq!(decoded.stale_key, original.stale_key);
+        assert_eq!(decoded.latest_key, original.latest_key);
         assert_eq!(decoded.queue(), QUEUE_HEAVY);
         assert!(matches!(decoded.kind, JobKind::PlayerSessionTime(d) if d.player_id == player_data().player_id));
     }
@@ -284,6 +275,7 @@ mod tests {
         let decoded: RefreshJob = serde_json::from_str(legacy).expect("legacy payload must decode");
 
         assert!(decoded.stale_key.is_none());
+        assert!(decoded.latest_key.is_none());
         assert_eq!(decoded.queue(), QUEUE_LIGHT);
     }
 
@@ -316,7 +308,6 @@ mod tests {
             JobKind::PlayerGlobalPlaytime { canonical_id: "canon".to_string() },
         ];
 
-        // Exhaustiveness guard: no wildcard arm, so a new variant breaks the build here.
         for kind in &kinds {
             match kind {
                 JobKind::MapRegions(_) | JobKind::MapHeatRegions(_) | JobKind::MapEvents(_)
