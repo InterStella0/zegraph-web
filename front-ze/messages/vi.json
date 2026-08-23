@@ -216,7 +216,8 @@
       "frame1Month": "1 tháng",
       "frame6Months": "6 tháng",
       "frame1Year": "1 năm",
-      "loadError": "Lỗi tải người chơi hàng đầu: {error}"
+      "loadError": "Lỗi tải người chơi hàng đầu: {error}",
+      "emptyState": "Không có ai chơi trong khoảng thời gian này."
     },
     "list": {
       "name": "Tên",

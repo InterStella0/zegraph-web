@@ -216,7 +216,8 @@
       "frame1Month": "1ヶ月",
       "frame6Months": "6ヶ月",
       "frame1Year": "1年",
-      "loadError": "トップパフォーマーの読み込みエラー: {error}"
+      "loadError": "トップパフォーマーの読み込みエラー: {error}",
+      "emptyState": "この期間にプレイした人はいません。"
     },
     "list": {
       "name": "名前",

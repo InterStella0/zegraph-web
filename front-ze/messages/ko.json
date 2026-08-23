@@ -216,7 +216,8 @@
       "frame1Month": "1개월",
       "frame6Months": "6개월",
       "frame1Year": "1년",
-      "loadError": "최고 플레이어 로드 오류: {error}"
+      "loadError": "최고 플레이어 로드 오류: {error}",
+      "emptyState": "이 기간에 플레이한 사람이 없습니다."
     },
     "list": {
       "name": "이름",

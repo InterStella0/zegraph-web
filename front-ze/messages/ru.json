@@ -216,7 +216,8 @@
       "frame1Month": "1 месяц",
       "frame6Months": "6 месяцев",
       "frame1Year": "1 год",
-      "loadError": "Ошибка загрузки лучших игроков: {error}"
+      "loadError": "Ошибка загрузки лучших игроков: {error}",
+      "emptyState": "В этот период никто не играл."
     },
     "list": {
       "name": "Имя",

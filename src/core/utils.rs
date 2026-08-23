@@ -585,7 +585,7 @@ pub async fn update_online_brief(
               p.player_name,
               p.created_at,
               online.online_since,
-              lp.started_at AS last_played,
+              lp.started_at AS \"last_played?\",
               lp.ended_at AS last_played_ended,
               lp.ended_at - lp.started_at AS last_played_duration,
               FALSE AS \"is_anonymous!\"

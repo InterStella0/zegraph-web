@@ -216,7 +216,8 @@
       "frame1Month": "1 個月",
       "frame6Months": "6 個月",
       "frame1Year": "1 年",
-      "loadError": "載入頂尖玩家時發生錯誤：{error}"
+      "loadError": "載入頂尖玩家時發生錯誤：{error}",
+      "emptyState": "此時間範圍內沒有人遊玩。"
     },
     "list": {
       "name": "名稱",

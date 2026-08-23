@@ -216,7 +216,8 @@
       "frame1Month": "1 个月",
       "frame6Months": "6 个月",
       "frame1Year": "1 年",
-      "loadError": "加载顶尖玩家时出错：{error}"
+      "loadError": "加载顶尖玩家时出错：{error}",
+      "emptyState": "此时间段内没有人游玩。"
     },
     "list": {
       "name": "名称",

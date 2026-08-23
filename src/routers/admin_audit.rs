@@ -76,8 +76,8 @@ impl AdminAuditApi {
                 a.server_id,
                 s.server_name,
                 a.user_id,
-                u.persona_name AS user_name,
-                u.avatar AS user_avatar,
+                u.persona_name AS "user_name?",
+                u.avatar AS "user_avatar?",
                 a.changes,
                 a.created_at,
                 COUNT(*) OVER() AS total

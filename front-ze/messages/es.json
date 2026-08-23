@@ -216,7 +216,8 @@
       "frame1Month": "1 mes",
       "frame6Months": "6 meses",
       "frame1Year": "Un año",
-      "loadError": "Error al cargar los mejores jugadores: {error}"
+      "loadError": "Error al cargar los mejores jugadores: {error}",
+      "emptyState": "Nadie jugó en este período."
     },
     "list": {
       "name": "Nombre",

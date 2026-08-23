@@ -216,7 +216,8 @@
       "frame1Month": "1 Bulan",
       "frame6Months": "6 Bulan",
       "frame1Year": "Setahun",
-      "loadError": "Ralat memuatkan pemain terbaik: {error}"
+      "loadError": "Ralat memuatkan pemain terbaik: {error}",
+      "emptyState": "Tiada sesiapa bermain dalam tempoh ini."
     },
     "list": {
       "name": "Nama",

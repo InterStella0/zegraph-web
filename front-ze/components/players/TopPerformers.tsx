@@ -121,9 +121,13 @@ const TopPerformersDisplay = ({ serverPromise, initialDataPromise }: TopPerforme
                     <div className="p-4 text-center">
                         <p className="text-destructive">{t('loadError', {error: topPlayersError})}</p>
                     </div>
+                ) : !topPlayers?.players?.length ? (
+                    <div className="p-4 text-center">
+                        <p className="text-muted-foreground">{t('emptyState')}</p>
+                    </div>
                 ) : (
                     <div>
-                        {topPlayers?.players?.map((player) => (
+                        {topPlayers.players.map((player) => (
                             <LeaderboardItem
                                 key={player.id}
                                 item={{
