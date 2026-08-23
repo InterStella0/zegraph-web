@@ -58,8 +58,6 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
     const maxMapCount = isMobile ? 5 : 10;
     const rowsPerPage = 10;
 
-    // The transform lives in a memo rather than in the fetch, so a patched value goes through exactly
-    // the same shaping as a fetched one.
     const { data: mapData, loading, error } = usePlayerStat<PlayerMostPlayedMap[]>(
         server_id, playerId, 'most_played_maps'
     );

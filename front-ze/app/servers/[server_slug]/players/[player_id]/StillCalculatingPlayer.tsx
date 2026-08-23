@@ -11,17 +11,11 @@ const MAX_DELAY = 40;
 
 export default function StillCalculatingPlayer() {
     const t = useTranslations('players.stillCalculating');
-    // `delay` is the current interval, `seconds` the countdown within it. Two pieces of state
-    // because the countdown reaches zero having forgotten what it started from.
     const [delay, setDelay] = useState(FIRST_DELAY);
     const [seconds, setSeconds] = useState(FIRST_DELAY);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const router = useRouter();
 
-    // Every retry re-runs the whole server render, six backend fetches included. Reaching this
-    // screen at all now means the player has never been calculated on this server -- there is no
-    // stored result to fall back on -- so the wait is a genuine one and a fixed 10s poll is just
-    // load. Back off; the button is there for anyone who does not want to wait.
     const onRetry = (nextDelay = FIRST_DELAY) => {
         setIsRefreshing(true);
         setDelay(nextDelay);

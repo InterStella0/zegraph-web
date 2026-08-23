@@ -75,15 +75,6 @@ async function getCStatsCSGO(server_id: string, player_id: string): Promise<Play
     }
 }
 
-/**
- * The promise handed to `use()` must outlive the render that created it.
- *
- * `PlayerStats` suspends on this promise, and a suspended render is discarded -- `useMemo` included.
- * Memoizing it therefore builds an infinite loop: retry, fresh promise, suspend, discard, retry. A
- * module-level cache keyed on the ids is the state that survives, so every retry resolves the same
- * in-flight request. This dataset is a frozen CS:GO-era snapshot, so caching it for the tab's lifetime
- * costs nothing in freshness.
- */
 const cStatsCache = new Map<string, Promise<PlayerWithLegacyRanks | null>>();
 
 function cStatsFor(server_id: string, player_id: string): Promise<PlayerWithLegacyRanks | null> {
@@ -198,8 +189,6 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
 
 export default function PlayerCardDetail({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed> }) {
     const t = useTranslations('players.card');
-    // Not `use(serverPlayerPromise)` directly: this is the one component that renders detail-derived
-    // numbers, so it reads the copy the stale-stats banner can patch.
     const {server, player } = usePatchedPlayer(serverPlayerPromise)
     if (player instanceof StillCalculate)
         return null // Should not reach here

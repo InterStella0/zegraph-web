@@ -38,8 +38,7 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
     const server_id = server.id
-    // The transform lives in a memo rather than in the fetch, so a patched value goes through exactly
-    // the same shaping as a fetched one.
+
     const { data: regionData, loading, error } =
         usePlayerStat<PlayerRegionTime[]>(server_id, playerId, 'regions')
     const regions: RegionChartData[] = useMemo(

@@ -517,7 +517,7 @@ mod calculating_header_tests {
         assert_eq!(header_of(response!(internal_server_error) as Response<String>), None);
     }
 
-    /// Every one of these is HTTP 200 — that is the whole reason the header has to exist.
+    /// Every endpoint returns HTTP 200, this header has to exist.
     #[test]
     fn the_marker_does_not_change_the_status_code() {
         let calculating = (response!(calculating) as Response<String>)
