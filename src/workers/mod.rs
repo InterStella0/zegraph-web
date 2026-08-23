@@ -151,15 +151,7 @@ impl BackgroundWorker {
     }
 
     /// Hands the query to the worker process and returns immediately.
-    ///
-    /// The `SET NX EX` marker is the dedup: it replaces the old in-process `active_tasks` map,
-    /// which only ever deduped within one process and so double-ran every heavy query as soon as
-    /// the API was scaled past one replica. Its TTL is also the crash guard — if the worker dies
-    /// holding a job, the marker expires and the next reader re-enqueues, which is why a plain
-    /// `BRPOP` (at-most-once) is enough here and an ack/redelivery protocol is not.
     pub async fn enqueue_refresh_job(&self, job: RefreshJob) {
-        // Serialize before claiming the marker: a failure afterwards would strand the key as
-        // "calculating" with nothing queued to clear it.
         let payload = match serde_json::to_string(&job) {
             Ok(payload) => payload,
             Err(e) => {
@@ -182,8 +174,6 @@ impl BackgroundWorker {
         let queued: RedisResult<()> = conn.lpush(job.queue(), &payload).await;
         match queued {
             Ok(_) => tracing::info!("Queued {:?} refresh: {}", job.priority, job.cache_key),
-            // Leaving the marker set would stall this key until the TTL expires, so drop it and
-            // let the next request retry immediately.
             Err(e) => {
                 tracing::warn!("Failed to enqueue {}: {e}", job.cache_key);
                 let _: RedisResult<()> = conn.del(&marker).await;

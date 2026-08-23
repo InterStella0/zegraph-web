@@ -14,17 +14,11 @@ use super::{MapData, PlayerData, PlayerGlobalData, PlayerSessionData, Query, Que
 pub const QUEUE_HEAVY: &str = "gfl-ze-watcher:jobs:heavy";
 pub const QUEUE_LIGHT: &str = "gfl-ze-watcher:jobs:light";
 
-/// Marks a cache key as queued-or-running. Its presence is what a REST process reports as
-/// "calculating"; its TTL is what lets a key recover if the worker dies mid-job.
 pub fn inflight_key(cache_key: &str) -> String {
     format!("gfl-ze-watcher:job:inflight:{cache_key}")
 }
 
 /// A unit of work, fully described by data (no closures), so it can cross a process boundary.
-///
-/// `cache_key`, `ttl` and `priority` are resolved by the producer rather than re-derived by the
-/// consumer: the producer already substituted `{session}` into `cache_key_pattern()`, and copying
-/// the resolved values removes any chance of the two sides disagreeing about where a result lands.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RefreshJob {
     pub kind: JobKind,
@@ -115,10 +109,6 @@ pub enum JobKind {
 }
 
 /// Rebuilds the concrete query from its descriptor, runs it, and hands back the serialized result.
-///
-/// Returning JSON rather than a typed value is what lets a single function cover every arm: each
-/// arm resolves to a different `T`, but they all serialize into the same cache. `None` means the
-/// job was purely side-effecting and has no value to store.
 pub async fn dispatch(
     kind: &JobKind,
     pool: Arc<Pool<Postgres>>,
@@ -318,7 +308,6 @@ mod tests {
             JobKind::PlayerGlobalPlaytime { canonical_id: "canon".to_string() },
         ];
 
-        // Exhaustiveness guard: no wildcard arm, so a new variant breaks the build here.
         for kind in &kinds {
             match kind {
                 JobKind::MapRegions(_) | JobKind::MapHeatRegions(_) | JobKind::MapEvents(_)

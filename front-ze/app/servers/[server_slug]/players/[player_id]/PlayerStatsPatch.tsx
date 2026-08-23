@@ -13,11 +13,6 @@ import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
 import {ServerPlayerDetailed} from "./page.tsx";
 import {PlayerInfo} from "./util.ts";
 
-/**
- * Every endpoint whose answer is recalculated together with the player's playtime. `detail` leads the
- * list because it is the only one that reports whether the recalculation has landed -- see
- * `StalePlayerStats`.
- */
 export const STALE_PATHS = [
     "detail",
     "most_played_maps",
@@ -33,20 +28,12 @@ type PatchMap = Record<string, unknown>;
 
 type PlayerStatsPatchValue = {
     patches: PatchMap,
-    /** Merges a whole batch in one render, so every chart on the page updates on the same frame. */
     applyPatches: (entries: Iterable<readonly [string, unknown]>) => void,
     isPatched: boolean,
 };
 
 const PlayerStatsPatchContext = createContext<PlayerStatsPatchValue | null>(null);
 
-/**
- * Holds the freshly fetched values that replace what the components already rendered.
- *
- * This lives above the whole grid rather than inside `StalePlayerStats`: the banner removes itself the
- * moment the patch lands, and a provider owned by it would take the patch down with it, snapping every
- * chart back to the stale numbers.
- */
 export function PlayerStatsPatchProvider({ children }: { children: ReactNode }) {
     const [patches, setPatches] = useState<PatchMap>({});
 
@@ -79,12 +66,6 @@ export type PlayerStatResult<T> = {
     error: Error | null,
 };
 
-/**
- * Fetches one player endpoint and returns the patched value in preference to the fetched one.
- *
- * The fetch happens once; a patch never triggers a refetch, it simply wins. Outside the player page
- * there is no provider and this degrades to a plain fetch.
- */
 export function usePlayerStat<T>(
     serverId: string | null | undefined,
     playerId: string | null | undefined,
@@ -110,7 +91,7 @@ export function usePlayerStat<T>(
         fetchApiServerUrl(serverId as string, `/players/${playerId}/${path}`)
             .then((resp: T | StillCalculate) => {
                 if (cancelled) return;
-                // `fetchApiServerUrl` can resolve to this instead of throwing, depending on the caller.
+
                 if (resp instanceof StillCalculate) throw resp;
                 setFetched(resp);
             })
@@ -126,21 +107,12 @@ export function usePlayerStat<T>(
         };
     }, [serverId, playerId, path, active]);
 
-    // A patch is an answer: it ends both the loading and the error state, even if the original fetch
-    // failed while the data was mid-recalculation.
     if (patch !== undefined) {
         return { data: patch, loading: false, error: null };
     }
     return { data: fetched, loading, error };
 }
 
-/**
- * `use()`s the server-rendered player and folds the `detail` patch over it.
- *
- * Only the keys `/players/:id/detail` actually returns are overwritten. `online_since` and
- * `last_played*` are computed in `util.ts` from the separate `playing` endpoint, which is not part of
- * the recalculation, so they survive the merge untouched.
- */
 export function usePatchedPlayer<T extends ServerPlayerDetailed>(
     serverPlayerPromise: Promise<T>,
 ): T {
