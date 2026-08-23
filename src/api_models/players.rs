@@ -31,7 +31,9 @@ pub struct DetailedPlayer{
     pub rank: i64,
     pub ranks: Option<PlayerRanks>,
     /// Canonical player ID this record has been merged into, if it's a name-only alias.
-    pub associated_player_id: Option<String>
+    pub associated_player_id: Option<String>,
+    pub is_stale: bool,
+    pub calculated_at: Option<DateTime<Utc>>
 }
 
 #[derive(Object)]

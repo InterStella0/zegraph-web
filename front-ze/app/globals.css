@@ -148,6 +148,29 @@ body {
     --animate-progress-indeterminate: progress-indeterminate 1.5s ease-in-out infinite;
 }
 
+@keyframes stale-progress {
+    from {
+        transform: scaleX(0);
+    }
+    to {
+        transform: scaleX(1);
+    }
+}
+
+.stale-progress-fill {
+    animation-name: stale-progress;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stale-progress-fill {
+        animation: none;
+        transform: scaleX(1);
+        opacity: 0.35;
+    }
+}
+
 @keyframes progress-indeterminate {
     0% {
         transform: translateX(-100%);

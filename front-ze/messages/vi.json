@@ -276,6 +276,13 @@
       "refreshing": "Đang làm mới...",
       "retryNow": "Thử lại ngay bây giờ"
     },
+    "staleStats": {
+      "showingAsOf": "Đang hiển thị thống kê tính đến {when}.",
+      "showingPrevious": "Đang hiển thị thống kê đã tính trước đó.",
+      "fetchLatest": "Lấy mới nhất",
+      "refreshing": "Đang làm mới...",
+      "stillCalculating": "Vẫn đang tính toán — sẽ cập nhật ngay khi xong."
+    },
     "rankings": {
       "title": "Xếp hạng người chơi",
       "searchPlaceholder": "Tìm kiếm những người chơi yêu thích của bạn... (Nhấn Enter để tìm kiếm)",

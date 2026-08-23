@@ -1,7 +1,7 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {use, useEffect, useMemo, useState} from "react";
-import {fetchApiServerUrl, REGION_COLORS, StillCalculate} from "utils/generalUtils";
+import {use, useMemo} from "react";
+import {REGION_COLORS, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
 import { Skeleton } from "components/ui/skeleton";
 import {LazyPolarAreaChart as PolarArea} from "components/graphs/LazyCharts";
@@ -20,6 +20,7 @@ import {PlayerRegionTime} from "types/players.ts";
 import { useTheme } from "next-themes";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeRegionData } from "utils/chartSeoUtils.tsx";
+import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
 
 ChartJS.register(
     Title,
@@ -36,24 +37,15 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
-    const [ loading, setLoading ] = useState<boolean>(false)
-    const [ error, setError ] = useState<Error | null>(null)
-    const [regions, setTimeRegion] = useState<RegionChartData[]>([])
     const server_id = server.id
-    useEffect(() => {
-        if (playerId === null) return
-
-        setLoading(true)
-        setError(null)
-        setTimeRegion([])
-        fetchApiServerUrl(server_id, `/players/${playerId}/regions`)
-            .then((resp: PlayerRegionTime[]) => resp.map(e => ({x: e.name, y: e.duration / 3600})))
-            .then(r => {
-                setTimeRegion(r)
-            })
-            .catch(setError)
-            .finally(() => setLoading(false))
-    }, [server_id, playerId])
+    // The transform lives in a memo rather than in the fetch, so a patched value goes through exactly
+    // the same shaping as a fetched one.
+    const { data: regionData, loading, error } =
+        usePlayerStat<PlayerRegionTime[]>(server_id, playerId, 'regions')
+    const regions: RegionChartData[] = useMemo(
+        () => (regionData ?? []).map(e => ({x: e.name, y: e.duration / 3600})),
+        [regionData]
+    )
     const options = {
         responsive: true,
         maintainAspectRatio: false,

@@ -276,6 +276,13 @@
       "refreshing": "Menyegarkan...",
       "retryNow": "Coba Sekarang"
     },
+    "staleStats": {
+      "showingAsOf": "Menampilkan statistik per {when}.",
+      "showingPrevious": "Menampilkan statistik yang dihitung sebelumnya.",
+      "fetchLatest": "Ambil terbaru",
+      "refreshing": "Memperbarui...",
+      "stillCalculating": "Masih menghitung — akan diperbarui begitu selesai."
+    },
     "rankings": {
       "title": "Peringkat Pemain",
       "searchPlaceholder": "Cari pemain favorit Anda... (Tekan Enter untuk mencari)",

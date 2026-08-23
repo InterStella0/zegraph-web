@@ -33,7 +33,11 @@ pub struct RefreshJob {
     pub priority: QueryPriority,
     #[serde(default)]
     pub stale_key: Option<String>,
+    #[serde(default)]
+    pub latest_key: Option<String>,
 }
+
+pub const LATEST_SESSION_ALIAS: &str = "latest";
 
 impl RefreshJob {
     pub fn queue(&self) -> &'static str {
@@ -43,11 +47,6 @@ impl RefreshJob {
         }
     }
 
-    /// Resolves `{session}` in a query's key pattern and derives the stale key to evict once the
-    /// refresh lands. Returns the job alongside the current and fallback keys to read.
-    ///
-    /// Split out from `execute_with_session_fallback` so the key derivation — in particular the
-    /// stale-key guard below — can be exercised without a redis round trip.
     pub(crate) fn for_session<T, Q>(
         query: &Q,
         current_session: &str,
@@ -65,11 +64,11 @@ impl RefreshJob {
             cache_key: current_key.clone(),
             ttl: query.ttl(),
             priority: query.priority(),
-            // Drop the previous session's key once the refresh lands; guard against evicting the
-            // key we're about to write in case the session id hasn't actually rolled over.
             stale_key: fallback_key.as_deref()
                 .filter(|k| *k != current_key)
                 .map(str::to_string),
+            latest_key: Some(pattern.replace("{session}", LATEST_SESSION_ALIAS))
+                .filter(|k| *k != current_key),
         };
 
         (job, current_key, fallback_key)
@@ -239,6 +238,7 @@ mod tests {
             ttl: 3600,
             priority,
             stale_key: Some("player-session:server-1:player-1:old".to_string()),
+            latest_key: Some("player-session:server-1:player-1:latest".to_string()),
         }
     }
 
@@ -266,6 +266,7 @@ mod tests {
         assert_eq!(decoded.cache_key, original.cache_key);
         assert_eq!(decoded.ttl, original.ttl);
         assert_eq!(decoded.stale_key, original.stale_key);
+        assert_eq!(decoded.latest_key, original.latest_key);
         assert_eq!(decoded.queue(), QUEUE_HEAVY);
         assert!(matches!(decoded.kind, JobKind::PlayerSessionTime(d) if d.player_id == player_data().player_id));
     }
@@ -284,6 +285,7 @@ mod tests {
         let decoded: RefreshJob = serde_json::from_str(legacy).expect("legacy payload must decode");
 
         assert!(decoded.stale_key.is_none());
+        assert!(decoded.latest_key.is_none());
         assert_eq!(decoded.queue(), QUEUE_LIGHT);
     }
 

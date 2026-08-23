@@ -20,7 +20,6 @@ use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 use sqlx::{postgres::types::PgInterval, types::time::{Date, OffsetDateTime, Time, UtcOffset}, Postgres};
 use sqlx::postgres::types::PgTimeTz;
-use tokio::time::sleep;
 use uuid::Uuid;
 use crate::{response, FastCache, AppData};
 use crate::api_models::common::*;
@@ -501,24 +500,6 @@ fn generate_lock_id() -> String {
         .collect();
     format!("{}-{}", timestamp, random_suffix)
 }
-pub async fn acquire_redis_lock(
-    pool: &Pool,
-    key: &str,
-    ttl_secs: i64,
-    retries: u32,
-) -> Option<String> {
-    for _ in 0..retries {
-        if let Some(lock_value) = try_redis_lock(pool, key, ttl_secs).await {
-            return Some(lock_value);
-        }
-        sleep(Duration::from_millis(1000)).await;
-    }
-
-    None // couldn't acquire lock
-}
-
-/// Single non-blocking attempt, unlike `acquire_redis_lock` which sleeps between retries.
-/// `SET NX EX` is atomic, so the key can never outlive its expiry.
 pub async fn try_redis_lock(pool: &Pool, key: &str, ttl_secs: i64) -> Option<String> {
     let lock_value = generate_lock_id();
     let mut conn = pool.get().await.ok()?;

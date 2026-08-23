@@ -276,6 +276,13 @@
       "refreshing": "Actualizando...",
       "retryNow": "Reintentar ahora"
     },
+    "staleStats": {
+      "showingAsOf": "Mostrando estadísticas de {when}.",
+      "showingPrevious": "Mostrando estadísticas calculadas anteriormente.",
+      "fetchLatest": "Obtener las últimas",
+      "refreshing": "Actualizando...",
+      "stillCalculating": "Todavía calculando: se actualizará en cuanto esté listo."
+    },
     "rankings": {
       "title": "Clasificación de jugadores",
       "searchPlaceholder": "Busca a tus jugadores favoritos... (Pulsa Enter para buscar)",

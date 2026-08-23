@@ -276,6 +276,13 @@
       "refreshing": "Menyegarkan...",
       "retryNow": "Cuba Sekarang"
     },
+    "staleStats": {
+      "showingAsOf": "Memaparkan statistik setakat {when}.",
+      "showingPrevious": "Memaparkan statistik yang dikira sebelum ini.",
+      "fetchLatest": "Dapatkan terkini",
+      "refreshing": "Mengemas kini...",
+      "stillCalculating": "Masih mengira — akan dikemas kini sebaik sahaja siap."
+    },
     "rankings": {
       "title": "Kedudukan Pemain",
       "searchPlaceholder": "Cari pemain kegemaran anda... (Tekan Enter untuk cari)",

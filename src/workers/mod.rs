@@ -136,6 +136,13 @@ impl BackgroundWorker {
                 return Ok(CachedResult::backup_data(result));
             }
         }
+        if let Some(latest) = job.latest_key.as_deref() {
+            if let Ok(result) = self.try_cache_lookup(latest).await {
+                tracing::debug!("FOUND LATEST CACHE");
+                self.enqueue_refresh_job(job).await;
+                return Ok(CachedResult::backup_data(result));
+            }
+        }
 
         tracing::debug!("CALCULATING INSTEAD");
 
@@ -381,6 +388,16 @@ mod tests {
     }
 
     #[test]
+    fn the_latest_alias_carries_no_session_id() {
+        let (job, current_key, _) = for_session("now", Some("before"));
+        let latest = job.latest_key.expect("a session-scoped query gets a latest alias");
+
+        assert_eq!(latest, "thing:server-1:player-1:latest");
+        assert!(!latest.contains("now"), "the alias must not name a session");
+        assert_ne!(latest, current_key);
+    }
+
+    #[test]
     fn job_metadata_is_copied_from_the_query() {
         let (job, _, _) = for_session("now", None);
 
@@ -508,6 +525,37 @@ mod tests {
             worker.get_with_fallback("thing:now", Some("thing:before"), job).await;
 
         assert!(matches!(result, Err(WorkError::Calculating)));
+    }
+
+    #[tokio::test]
+    async fn the_latest_alias_is_served_once_both_session_keys_are_gone() {
+        let worker = worker();
+        worker.cache_raw("thing:server-1:player-1:latest", "\"from-latest\"", 60).await;
+
+        let (job, _, _) = for_session("now", Some("before"));
+        let result: CachedResult<String> = worker
+            .get_with_fallback("thing:now", Some("thing:before"), job)
+            .await
+            .expect("the latest alias should be served");
+
+        assert_eq!(result.result, "from-latest");
+        assert!(result.backup, "the alias is a fallback value, not a current one");
+    }
+
+    /// Tier order matters: the alias is written by every refresh, so it can lag the session keys.
+    #[tokio::test]
+    async fn the_session_keys_are_preferred_over_the_latest_alias() {
+        let worker = worker();
+        worker.cache_raw("thing:before", "\"stale\"", 60).await;
+        worker.cache_raw("thing:server-1:player-1:latest", "\"from-latest\"", 60).await;
+
+        let (job, _, _) = for_session("now", Some("before"));
+        let result: CachedResult<String> = worker
+            .get_with_fallback("thing:now", Some("thing:before"), job)
+            .await
+            .expect("the previous session should win");
+
+        assert_eq!(result.result, "stale");
     }
 
     #[tokio::test]

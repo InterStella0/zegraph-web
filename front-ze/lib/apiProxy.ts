@@ -43,17 +43,31 @@ export async function proxyToBackend(
         });
 
         let response: Response;
+        // The backend answers HTTP 200 even when the envelope's `code` is an error, so `ok` only
+        // tells us the request reached it. `code` carries the real outcome.
+        let code: number | undefined;
+        // A player's stats can also come back as a real 200 that is merely the *previous* snapshot,
+        // flagged `is_stale` while a recalculation runs.
+        let isStale = false;
         if (backendResponse.ok){
             const data = await backendResponse.json();
+            code = data?.code;
+            isStale = data?.data?.is_stale === true;
             response = NextResponse.json(data, { status: backendResponse.status });
         }else{
             const data = await backendResponse.text();
             response = NextResponse.json(data, { status: backendResponse.status });
         }
 
-        // Apply cache headers if specified
+        // Only a real, current answer is cacheable. `code: 202` means "still calculating" — stamping
+        // it with s-maxage pinned a placeholder at the edge for five minutes while the page retried
+        // every ten seconds, so the retry could not win until the cache entry aged out. A stale
+        // snapshot is the same trap wearing a 200: the banner polls this endpoint to learn when the
+        // recalculation lands, and a shared cache would keep answering "still stale" long after it
+        // had, since a request's `no-cache` is advisory to a CDN at best.
         if (cachePreset) {
-            return withCacheHeaders(response, cachePreset);
+            const cacheable = code === 0 && !isStale;
+            return withCacheHeaders(response, cacheable ? cachePreset : 'NO_CACHE');
         }
 
         return response;

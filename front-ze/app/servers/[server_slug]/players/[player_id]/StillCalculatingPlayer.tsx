@@ -6,15 +6,26 @@ import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
 import { Hourglass, Clock, RefreshCw } from "lucide-react";
 
+const FIRST_DELAY = 10;
+const MAX_DELAY = 40;
+
 export default function StillCalculatingPlayer() {
     const t = useTranslations('players.stillCalculating');
-    const [seconds, setSeconds] = useState(10);
+    // `delay` is the current interval, `seconds` the countdown within it. Two pieces of state
+    // because the countdown reaches zero having forgotten what it started from.
+    const [delay, setDelay] = useState(FIRST_DELAY);
+    const [seconds, setSeconds] = useState(FIRST_DELAY);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const router = useRouter();
 
-    const onRetry = () => {
+    // Every retry re-runs the whole server render, six backend fetches included. Reaching this
+    // screen at all now means the player has never been calculated on this server -- there is no
+    // stored result to fall back on -- so the wait is a genuine one and a fixed 10s poll is just
+    // load. Back off; the button is there for anyone who does not want to wait.
+    const onRetry = (nextDelay = FIRST_DELAY) => {
         setIsRefreshing(true);
-        setSeconds(10);
+        setDelay(nextDelay);
+        setSeconds(nextDelay);
 
         setTimeout(() => {
             router.refresh();
@@ -24,7 +35,7 @@ export default function StillCalculatingPlayer() {
 
     useEffect(() => {
         if (seconds === 0) {
-            onRetry();
+            onRetry(Math.min(delay * 2, MAX_DELAY));
             return;
         }
 
@@ -53,7 +64,7 @@ export default function StillCalculatingPlayer() {
 
             <Button
                 variant="outline"
-                onClick={onRetry}
+                onClick={() => onRetry()}
                 disabled={isRefreshing}
                 className="mt-2"
             >

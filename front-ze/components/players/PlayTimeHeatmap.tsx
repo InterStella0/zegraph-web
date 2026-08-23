@@ -8,7 +8,7 @@ import dayjs from "dayjs";
 import weekOfYear from "dayjs/plugin/weekOfYear";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { Skeleton } from "../ui/skeleton";
-import {fetchApiServerUrl, formatNumber} from "utils/generalUtils";
+import {formatNumber} from "utils/generalUtils";
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import { Server } from "types/community";
 import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/util";
@@ -16,6 +16,7 @@ import {ScrollArea, ScrollBar} from "components/ui/scroll-area.tsx";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { useTranslations } from "next-intl";
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
+import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 
 dayjs.extend(weekOfYear)
 dayjs.extend(isoWeek)
@@ -62,19 +63,13 @@ export default function PlayTimeHeatmap({
     const t = useTranslations('players.heatmap')
     const playerId = player.id
     const server_id = server.id
-    const [loading, setLoading] = useState(true)
     const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([])
-    const [rawData, setRawData] = useState<PlayerSessionTime[]>([])
     const [chartBarData, setChartBarData] = useState<{time: string, hours: number}[]>([])
 
-    // Fetch raw daily data
-    useEffect(() => {
-        setLoading(true)
-        fetchApiServerUrl(server_id, `/players/${playerId}/graph/sessions`)
-            .then(setRawData)
-            .catch(console.error)
-            .finally(() => setLoading(false))
-    }, [server_id, playerId])
+    const { data: sessionData, loading } = usePlayerStat<PlayerSessionTime[]>(
+        server_id, playerId, 'graph/sessions'
+    )
+    const rawData = useMemo(() => sessionData ?? [], [sessionData])
 
     // After rawData is loaded, notify parent of available periods
     useEffect(() => {

@@ -276,6 +276,13 @@
       "refreshing": "正在重新整理...",
       "retryNow": "立即重試"
     },
+    "staleStats": {
+      "showingAsOf": "顯示截至 {when} 的統計資料。",
+      "showingPrevious": "顯示先前計算的統計資料。",
+      "fetchLatest": "取得最新",
+      "refreshing": "重新整理中...",
+      "stillCalculating": "仍在計算——完成後將自動更新。"
+    },
     "rankings": {
       "title": "玩家排行榜",
       "searchPlaceholder": "搜尋您喜愛的玩家...（按 Enter 搜尋）",

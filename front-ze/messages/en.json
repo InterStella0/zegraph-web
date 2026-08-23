@@ -276,6 +276,13 @@
       "refreshing": "Refreshing...",
       "retryNow": "Retry Now"
     },
+    "staleStats": {
+      "showingAsOf": "Showing stats as of {when}.",
+      "showingPrevious": "Showing previously calculated stats.",
+      "fetchLatest": "Fetch latest",
+      "refreshing": "Refreshing...",
+      "stillCalculating": "Still calculating — will update as soon as it lands."
+    },
     "rankings": {
       "title": "Player Rankings",
       "searchPlaceholder": "Search for your favorite players... (Press Enter to search)",
