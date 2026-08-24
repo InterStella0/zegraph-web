@@ -19,7 +19,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast::{self, error::RecvError};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::time::{interval, timeout};
-use crate::{response, AppData};
+use crate::{response, AppData, FastCache};
 use crate::core::utils::*;
 use url;
 use crate::api_models::common::*;
@@ -293,7 +293,28 @@ fn summarize_traffic(
     TrafficHealth { served, average_ms, since, busiest }
 }
 
+const AVG_GRAPH_CACHE_KEY: &str = "health:avg_graph";
+
 async fn read_avg_graph(
+    cache: &FastCache,
+) -> Result<(Vec<Option<i64>>, Vec<Option<i64>>), String> {
+    if let Some(cached) = cache.memory.get(AVG_GRAPH_CACHE_KEY).await {
+        match serde_json::from_str(&cached) {
+            Ok(graph) => return Ok(graph),
+            Err(_) => tracing::warn!("Memory deserialize failed for {AVG_GRAPH_CACHE_KEY}"),
+        }
+    }
+
+    let mut conn = cache.redis_pool.get().await.map_err(|e| e.to_string())?;
+    let graph = fetch_avg_graph(&mut *conn).await.map_err(|e| e.to_string())?;
+
+    if let Ok(json) = serde_json::to_string(&graph) {
+        cache.memory.insert(AVG_GRAPH_CACHE_KEY.to_string(), json).await;
+    }
+    Ok(graph)
+}
+
+async fn fetch_avg_graph(
     conn: &mut impl redis::aio::ConnectionLike,
 ) -> redis::RedisResult<(Vec<Option<i64>>, Vec<Option<i64>>)> {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
@@ -485,8 +506,7 @@ impl MiscApi {
                 .await.map_err(|e| e.to_string())?;
             let (recent_counts, recent_durations) = read_recent_window(&mut *conn)
                 .await.map_err(|e| e.to_string())?;
-            let (overall_counts, overall_durations) = read_avg_graph(&mut *conn)
-                .await.map_err(|e| e.to_string())?;
+            let (overall_counts, overall_durations) = read_avg_graph(&app.cache).await?;
 
             Ok::<_, String>((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs, overall_counts, overall_durations))
         };
