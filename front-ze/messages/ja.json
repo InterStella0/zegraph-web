@@ -889,6 +889,7 @@
       "exactCount": "{count} 件のリクエスト",
       "exactSince": "{date} から",
       "avgResponse": "平均 {ms}ms · 直近5分",
+      "avgGraphTitle": "応答時間",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",

@@ -154,52 +154,18 @@ impl<'a> poem::FromRequest<'a> for ServerExtractor {
 
 type UriExtension = dyn UriPatternExt + Send + Sync;
 
-/// Cumulative per-endpoint request counts, as `"{METHOD} {pattern}"` -> count.
 pub const METRICS_COUNT_KEY: &str = "gfl-ze-watcher:metrics:endpoint:count";
-/// Cumulative per-endpoint service time in *microseconds*, keyed the same as [`METRICS_COUNT_KEY`].
-///
-/// Microseconds rather than milliseconds because `HINCRBY` is integer-only and most handlers here
-/// are cache hits well under 1ms; accumulating rounded milliseconds would floor a large share of
-/// requests to zero and drag every average down with them.
 pub const METRICS_DURATION_KEY: &str = "gfl-ze-watcher:metrics:endpoint:duration_us";
-/// Unix seconds at which the two hashes above started accumulating, so a cumulative total can be
-/// reported with the period it covers rather than as a number with no scale.
-///
-/// It lives beside the counters rather than in Postgres on purpose. The counters are evictable
-/// (`redis.conf`: `maxmemory-policy allkeys-lru`, `appendonly no`), so losing them resets `served`
-/// to zero — a durable start date elsewhere would outlive the reset and keep claiming a period the
-/// counts no longer cover. Here both vanish together and the pair stays honest.
 pub const METRICS_SINCE_KEY: &str = "gfl-ze-watcher:metrics:endpoint:since";
-/// Cumulative background jobs the consumers have finished, as `"heavy"|"light"` -> count.
-///
-/// Counted at completion rather than at enqueue, and incremented for failures too, matching what
-/// [`PatternLoggerEndpoint`] does for requests. Queue *depth* answers a different question and is a
-/// poor one to display: `BRPOP` hands a job straight to a waiting consumer, so `LLEN` reads zero
-/// except under real saturation. This climbs visibly instead.
 pub const METRICS_JOBS_KEY: &str = "gfl-ze-watcher:metrics:jobs:completed";
 
-/// Per-minute slices of [`METRICS_COUNT_KEY`] and [`METRICS_DURATION_KEY`], suffixed with the unix
-/// minute (`unix_secs / 60`) and expiring on their own.
-///
-/// They exist because the cumulative hashes above answer "how fast has this API been since the
-/// counters were created", which months of history make useless for spotting a slowdown happening
-/// now. Summing a handful of these instead gives a rolling average. The cumulative pair is still
-/// what `served` and the busiest ranking are built from — only the averages read these.
 const METRICS_COUNT_BUCKET_PREFIX: &str = "gfl-ze-watcher:metrics:endpoint:count:";
 const METRICS_DURATION_BUCKET_PREFIX: &str = "gfl-ze-watcher:metrics:endpoint:duration_us:";
 
-/// How many minute buckets an average covers. Five buckets span between 4:00 and 5:00 of wall time
-/// depending on where in the current minute the read lands; minute granularity is the point.
 pub const TRAFFIC_WINDOW_MINUTES: u64 = 5;
 
-/// Comfortably longer than the read window, so a bucket is never expiring while still being summed.
-/// redis here is `allkeys-lru` with `appendonly no`, so an early eviction is possible regardless —
-/// the read side treats a missing bucket as *no data* and falls back to the lifetime average, never
-/// as a zero.
 const METRICS_BUCKET_TTL: Duration = Duration::from_secs(8 * 60);
 
-/// The `(count, duration)` hash keys for one unix minute. Both sides of the window — the flusher
-/// writing and `/health` reading — go through here so they cannot drift apart.
 pub fn metrics_bucket_keys(minute: u64) -> (String, String) {
     (
         format!("{METRICS_COUNT_BUCKET_PREFIX}{minute}"),
@@ -207,22 +173,26 @@ pub fn metrics_bucket_keys(minute: u64) -> (String, String) {
     )
 }
 
+pub const METRICS_OVERALL_COUNT_PREFIX: &str = "gfl-ze-watcher:metrics:overall:count:";
+pub const METRICS_OVERALL_DURATION_PREFIX: &str = "gfl-ze-watcher:metrics:overall:duration_us:";
+
+pub const AVG_GRAPH_MINUTES: u64 = 3 * 24 * 60;
+
+const METRICS_OVERALL_TTL: Duration = Duration::from_secs((AVG_GRAPH_MINUTES + 5) * 60);
+
+pub fn overall_metric_keys(minute: u64) -> (String, String) {
+    (
+        format!("{METRICS_OVERALL_COUNT_PREFIX}{minute}"),
+        format!("{METRICS_OVERALL_DURATION_PREFIX}{minute}"),
+    )
+}
+
 const METRICS_FLUSH_INTERVAL: Duration = Duration::from_secs(10);
 
-/// Request counts and service time accumulated by [`PatternLoggerEndpoint`], buffered in process
-/// and flushed to redis on an interval.
-///
-/// The buffer exists so the request path does no I/O: redis traffic stays at one pipelined batch
-/// every [`METRICS_FLUSH_INTERVAL`] no matter the request rate. `HINCRBY` merges across processes,
-/// so several API replicas can flush into the same two hashes without coordinating.
 pub struct EndpointMetrics {
-    /// endpoint key -> (requests, total microseconds), drained on each flush.
     pending: Mutex<HashMap<String, (u64, u64)>>,
 }
 
-/// One accumulator per process, because there is one [`PatternLogger`] per process. A global
-/// avoids threading a handle through `build_app` and its test call sites purely to reach the
-/// flusher, which only `run_main` spawns — the tests accumulate into a map nothing ever drains.
 static METRICS: LazyLock<Arc<EndpointMetrics>> = LazyLock::new(|| {
     Arc::new(EndpointMetrics::new())
 });
@@ -236,9 +206,6 @@ impl EndpointMetrics {
         Self { pending: Mutex::new(HashMap::new()) }
     }
 
-    /// `key` must be built from a *resolved route pattern*, never a raw request path — the path is
-    /// attacker-controlled and would let a scanner grow the redis hash without bound. Unmatched
-    /// requests collapse to the literal `unknown_pattern`, which is what bounds the field set.
     pub fn record(&self, key: String, elapsed: Duration) {
         let Ok(mut pending) = self.pending.lock() else {
             // A poisoned lock means some other thread panicked mid-update. Metrics are not worth
@@ -257,8 +224,6 @@ impl EndpointMetrics {
         }
     }
 
-    /// Puts counts that failed to reach redis back into the buffer, so an outage costs a delay
-    /// rather than a hole in the totals.
     fn restore(&self, drained: HashMap<String, (u64, u64)>) {
         let Ok(mut pending) = self.pending.lock() else { return };
         for (key, (count, micros)) in drained {
@@ -283,23 +248,28 @@ impl EndpointMetrics {
         };
 
         let mut pipe = redis::pipe();
-        // `NX` makes this write-once, and the empty-buffer return above means it lands on the first
-        // flush that carries real counts — never on a process that started and served nothing.
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         pipe.cmd("SET").arg(METRICS_SINCE_KEY).arg(now).arg("NX").ignore();
-        // Buffered counts are attributed to the minute they are *flushed* in, so a request served
-        // just before a minute boundary can land in the following bucket. That smear is bounded by
-        // METRICS_FLUSH_INTERVAL (10s) and is not worth a timestamp on every recorded request.
-        let (bucket_count_key, bucket_duration_key) = metrics_bucket_keys(now / 60);
+
+        let minute = now / 60;
+        let (bucket_count_key, bucket_duration_key) = metrics_bucket_keys(minute);
         for (key, (count, micros)) in &drained {
             pipe.hincr(METRICS_COUNT_KEY, key, *count)
                 .hincr(METRICS_DURATION_KEY, key, *micros)
                 .hincr(&bucket_count_key, key, *count)
                 .hincr(&bucket_duration_key, key, *micros);
         }
-        // Re-set on every flush rather than only at bucket creation: EXPIRE is idempotent, and a
-        // bucket only receives writes while it is the current minute, so the TTL never gets pushed
-        // out from under a bucket that has stopped accumulating.
+
+        let overall_count: u64 = drained.values().map(|(count, _)| *count).sum();
+        let overall_duration: u64 = drained.values().map(|(_, micros)| *micros).sum();
+        if overall_count > 0 {
+            let (overall_count_key, overall_duration_key) = overall_metric_keys(minute);
+            let overall_ttl = METRICS_OVERALL_TTL.as_secs();
+            pipe.incr(&overall_count_key, overall_count)
+                .incr(&overall_duration_key, overall_duration)
+                .expire(&overall_count_key, overall_ttl as i64).ignore()
+                .expire(&overall_duration_key, overall_ttl as i64).ignore();
+        }
         let ttl = METRICS_BUCKET_TTL.as_secs();
         pipe.expire(&bucket_count_key, ttl as i64).ignore()
             .expire(&bucket_duration_key, ttl as i64).ignore();
@@ -327,8 +297,6 @@ pub struct PatternLogger {
 }
 
 impl PatternLogger{
-    /// Flattens every router's patterns into one sorted table here, so the per-request path is a
-    /// lookup rather than a rebuild of all ~150 patterns.
     pub fn new(apis: Vec<Arc<UriExtension>>) -> PatternLogger {
         PatternLogger{
             patterns: Arc::new(PatternTable::new(&apis))
@@ -376,8 +344,6 @@ where
                 "unknown_pattern".to_string()
             },
         };
-        // Built from the resolved pattern rather than `uri_path`, so the redis hash cannot be grown
-        // by requesting arbitrary paths; see [`EndpointMetrics::record`].
         let metric_key = format!("{} {transaction_name}", req.method().as_str());
 
         let span = tracing::info_span!(
@@ -392,8 +358,6 @@ where
             let now = Instant::now();
             let res = self.ep.call(req).await;
             let duration = now.elapsed();
-            // Recorded before the branch: a request that failed is still one served, and its
-            // latency is the one most worth knowing about.
             self.metrics.record(metric_key, duration);
 
             match &res {
@@ -444,8 +408,6 @@ pub struct Claims {
     pub iss: String,
 }
 
-/// The buffering half of [`EndpointMetrics`], which is the part with no I/O in it. The redis half
-/// is covered by the live checks in the `/health` verification steps.
 #[cfg(test)]
 mod metrics_tests {
     use super::*;

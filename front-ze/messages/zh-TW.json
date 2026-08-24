@@ -889,6 +889,7 @@
       "exactCount": "{count} 次請求",
       "exactSince": "自 {date} 起",
       "avgResponse": "平均 {ms}ms · 近5分鐘",
+      "avgGraphTitle": "回應時間",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",

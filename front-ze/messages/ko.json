@@ -889,6 +889,7 @@
       "exactCount": "{count}건의 요청",
       "exactSince": "{date}부터",
       "avgResponse": "평균 {ms}ms · 최근 5분",
+      "avgGraphTitle": "응답 시간",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",

@@ -889,6 +889,7 @@
       "exactCount": "{count} solicitudes",
       "exactSince": "desde {date}",
       "avgResponse": "media {ms}ms · 5 min",
+      "avgGraphTitle": "Tiempo de respuesta",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",

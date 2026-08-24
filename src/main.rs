@@ -76,8 +76,6 @@ fn make_redis_pool() -> deadpool_redis::Pool {
         .expect("Failed to create pool")
 }
 
-/// A pool for blocking reads, kept apart from [`make_redis_pool`] so only the job consumer pays for
-/// the longer `response_timeout`; request-path cache reads keep the short default and fail fast.
 fn make_blocking_redis_pool() -> deadpool_redis::Pool {
     let cfg = Config::from_url(get_env("REDIS_URL"));
     cfg.builder()
@@ -149,9 +147,6 @@ fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
 }
 
 /// For logging endpoints, because poem dev rly makes it hard for me.
-///
-/// This list is maintained by hand alongside the `#[oai(path = ...)]` attributes; `route_tests`
-/// cross-checks it against the generated spec so the two cannot drift apart silently.
 fn registered_patterns() -> Vec<Arc<dyn UriPatternExt + Send + Sync>> {
     vec![
         Arc::new(MapApi),
@@ -171,17 +166,11 @@ fn registered_patterns() -> Vec<Arc<dyn UriPatternExt + Send + Sync>> {
     ]
 }
 
-/// The fully assembled HTTP app. Kept separate from [`run_main`] so `poem::test::TestClient` can
-/// drive the real route tree — middleware, extractors and all — rather than a stand-in.
-// `use<>` keeps `environment` out of the returned type; under edition 2024 `impl Trait` would
-// otherwise capture the borrow and the app could not outlive the caller's local.
 fn build_app(data: AppData, environment: &str, swagger_ui_enabled: bool) -> impl poem::Endpoint + use<> {
     let api_service = build_api_service();
 
     let mut route = Route::new();
     if swagger_ui_enabled || environment.to_uppercase() == "DEVELOPMENT" {
-        // poem-openapi hardcodes `<title>Swagger UI</title>` in its template with no config knob
-        // for it, so the tab title is patched here instead of via `swagger_ui()` directly.
         let html = api_service.swagger_ui_html()
             .replacen("<title>Swagger UI</title>", "<title>ZE Graph API — Swagger UI</title>", 1);
         let ui = poem::endpoint::make_sync(move |_| poem::web::Html(html.clone()));
@@ -212,9 +201,6 @@ async fn run_main() {
         Role::All => "all (http + background)",
     });
     let pg_conn = get_env("DATABASE_URL");
-    // Kept at or above the worker's job concurrency so a running job never waits on the pool; see
-    // `consumer::TOTAL_JOB_CONCURRENCY`. Raising it is not the answer to connection exhaustion —
-    // every process holds this many, and the database has its own ceiling.
     const POOL_SIZE: u32 = 20;
     const _: () = assert!(POOL_SIZE as usize >= consumer::TOTAL_JOB_CONCURRENCY);
     let pool = PgPoolOptions::new()
@@ -279,9 +265,7 @@ async fn run_main() {
         live_events: live_events.clone(),
     };
 
-    // The listener needs the cache and pool the filter runs on; `data` itself is moved into the app.
     let listener_data = data.clone();
-
     let port = DEFAULT_PORT;
     let swagger_ui_enabled = get_env_bool("ENABLE_SWAGGER_UI", false);
     let app = build_app(data, &environment, swagger_ui_enabled);
@@ -306,22 +290,16 @@ async fn run_main() {
         }
     }
 
-    // Deliberately not under `role.runs_workers()` with the other listeners: the SSE route lives on
-    // the API process, and a hub nobody publishes into would serve heartbeats and nothing else.
     if role.serves_api() {
         init_live_events_listener(live_events, listener_data);
     }
 
     if !role.serves_api() {
-        // A worker-only process has no OpenAPI listener, so compose has nothing to probe. Serve
-        // just /health on its own port to keep the existing healthcheck shape.
         return run_worker_health_server().await;
     }
 
-    // Only a process serving HTTP records anything for this to flush.
     EndpointMetrics::spawn_flusher(endpoint_metrics(), metrics_cache);
 
-    // Shares {STORE_UPLOAD}/.tmp with the upload handlers, so it belongs wherever they do.
     let store_upload_clone = get_env_default("STORE_UPLOAD")
         .unwrap_or_else(|| "./maps".to_string());
     tokio::spawn(async move {
@@ -345,7 +323,6 @@ async fn run_worker_health_server() {
         .expect("Couldn't run the worker health server!");
 }
 
-/// Spawns the one Postgres `LISTEN` connection that feeds every `/events/data-updates` client.
 fn init_live_events_listener(hub: Arc<LiveEventHub>, app: AppData) {
     let pg_conn = get_env("DATABASE_URL");
     let events = hub.publisher();
@@ -397,14 +374,6 @@ async fn init_precalculate(port: &str){
     }
 }
 /// HTTP-level tests for the assembled app.
-///
-/// These drive the real route tree through `poem::test::TestClient`, but against the dead fixtures
-/// in [`crate::workers::test_support`] — no postgres, no redis. That bounds what they can assert:
-/// every route behind a database-touching extractor (`ServerExtractor`, `MapExtractor`, …) resolves
-/// to 404 once the lookup fails, so these tests cover only what is decided *before* the database is
-/// reached — route registration, path-param naming, auth rejection, and request validation.
-/// Response bodies of database-backed handlers are deliberately out of scope; asserting on them
-/// would require a live server and break the offline guarantee `run-tests.sh` depends on.
 #[cfg(test)]
 mod route_tests {
     use super::*;
@@ -490,12 +459,6 @@ mod route_tests {
     /// Guards the `poem-openapi = "=5.1.8"` pin in Cargo.toml, which exists because 5.1.9+
     /// registers path parameters positionally (`:param0`). Every custom `FromRequest` extractor
     /// here reads them by name via `raw_path_param`, so under a newer version they all get `None`.
-    ///
-    /// The generated spec does *not* reveal this — it still renders `{server_id}` on 5.1.16, which
-    /// was verified by actually bumping the dependency. The break is only observable at runtime, in
-    /// the status code: a named lookup that succeeds gives the extractor a value to look up, which
-    /// against the dead pool fails as 404; a lookup that returns `None` short-circuits to 400
-    /// before any database call. So the assertion is on 404, and 400 is the regression.
     #[tokio::test]
     async fn path_param_extractors_receive_named_params() {
         let cli = client();
@@ -626,8 +589,6 @@ mod route_tests {
         }
     }
 
-    /// A token signed with the wrong secret must not be accepted. This is the test that would catch
-    /// signature verification being disabled or the issuer check being dropped.
     #[tokio::test]
     async fn protected_routes_reject_token_signed_with_wrong_secret() {
         let cli = client();
@@ -653,15 +614,6 @@ mod route_tests {
         }
     }
 
-    /// The positive half of the auth tests, and what keeps the two above honest — without it they
-    /// would still pass if every request were rejected for some unrelated reason. A correctly signed
-    /// token must get *past* the auth layer; what happens after is a database call that cannot
-    /// succeed here, so the assertion is only that neither rejection code comes back.
-    /// A subset of [`PROTECTED`] whose next step after auth is a database query, which fails fast
-    /// against the dead pool. The rejection tests can use every protected route because they never
-    /// reach the handler body; this one does reach it, so routes that would call out to Steam (e.g.
-    /// `POST /accounts/create`) are excluded — running them would mean real outbound traffic, which
-    /// is exactly what the offline fixtures exist to prevent.
     const PROTECTED_DB_BACKED: &[(&str, &str)] = &[
         ("GET", "/accounts/me"),
         ("GET", "/accounts/me/communities"),
@@ -701,8 +653,6 @@ mod route_tests {
         );
     }
 
-    /// `/meta_thumbnails` takes a required `Query<String>` and sits behind no database extractor, so
-    /// it is one of the few places the validation layer can be observed in isolation.
     #[tokio::test]
     async fn missing_required_query_param_is_bad_request() {
         let cli = client();
@@ -713,11 +663,6 @@ mod route_tests {
         );
     }
 
-    /// `/health` must answer 200 even with everything it depends on down. The compose healthchecks
-    /// probe it with `curl -f`, and under Swarm a failing probe restarts the container while
-    /// `reverse` and `frontend` gate on `backend: service_healthy` — so a 503 during a database
-    /// blip would restart-loop the API tier at its worst moment. The fixtures point at a dead
-    /// postgres and a dead redis, which is exactly that case; the state belongs in the body.
     #[tokio::test]
     async fn health_reports_degraded_without_failing_the_probe() {
         let cli = client();
@@ -742,13 +687,11 @@ mod route_tests {
             "the job tally lives in redis too, so it is unknown rather than zero"
         );
         assert!(data["traffic"].is_null(), "the traffic counters live in redis, which is down");
-        // QGIS_WMS_URL is unset here, so the second layer must not have been attempted.
-        assert!(data["qgis"]["wms"].is_null());
+        assert!(data["avg_graph"].is_null(), "the response-time graph lives in redis, which is down");
+        assert!(data["qgis"]["wms"].is_null(), "second layer must not have been attempted");
         assert!(data["qgis"]["status"].is_string(), "qgis is always reported, never omitted");
     }
 
-    /// A route that needs neither auth nor the database, proving the fixture really does serve
-    /// traffic and the assertions above are not all passing for the same trivial reason.
     #[tokio::test]
     async fn database_free_route_succeeds() {
         let cli = client();

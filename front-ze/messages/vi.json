@@ -889,6 +889,7 @@
       "exactCount": "{count} yêu cầu",
       "exactSince": "từ {date}",
       "avgResponse": "trung bình {ms}ms · 5 phút",
+      "avgGraphTitle": "Thời gian phản hồi",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",

@@ -37,12 +37,7 @@ const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(2);
 
 const TRAFFIC_TOP_N: usize = 10;
 
-/// QGIS speaks FastCGI, not HTTP. Same port nginx's `/qgis-server` location passes to.
 const QGIS_FASTCGI_PORT: u16 = 9993;
-
-/// A warm GetCapabilities answers in ~20ms, but the first one after QGIS starts makes it read the
-/// project off disk and takes seconds. Bounded so that cold case costs one reported timeout rather
-/// than the healthcheck's 5s budget.
 const QGIS_WMS_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(Object, Serialize)]
@@ -67,7 +62,6 @@ struct SitemapPlayer {
     recent_online: Option<String>,
 }
 
-/// Everything needed to build the site's XML sitemaps.
 #[derive(Object, Serialize)]
 struct SitemapData {
     servers: Vec<SitemapServer>,
@@ -75,7 +69,6 @@ struct SitemapData {
     players: Vec<SitemapPlayer>,
 }
 
-/// A dependency's reachability at the moment `/health` was called.
 #[derive(Object)]
 struct DependencyHealth {
     /// "up" | "down"
@@ -98,12 +91,9 @@ impl DependencyHealth {
 
 #[derive(Object)]
 struct QgisHealth {
-    /// "up" when the FastCGI port accepts a connection, "down" otherwise.
     status: String,
     latency_ms: Option<u64>,
     error: Option<String>,
-    /// Attempted only once the port is known to accept connections, and null when QGIS_WMS_URL is
-    /// unset. Never affects `status` or the top-level `response`.
     wms: Option<DependencyHealth>,
 }
 
@@ -118,42 +108,25 @@ impl QgisHealth {
     }
 }
 
-/// Background job activity, all `None` if redis was unreachable.
 #[derive(Object)]
 struct QueueHealth {
-    /// Depth right now. Near-always 0 by design — `BRPOP` hands a job straight to a waiting
-    /// consumer, so this only rises under genuine saturation, which is what makes it worth
-    /// reporting and a poor thing to display on its own.
     heavy: Option<i64>,
     light: Option<i64>,
-    /// Jobs finished since the counters started, which unlike the depths climbs steadily.
     completed_heavy: Option<i64>,
     completed_light: Option<i64>,
 }
 
-/// Request volume and latency for a single route pattern (e.g. `"GET /health"`).
 #[derive(Object)]
 struct EndpointStat {
     endpoint: String,
-    /// Cumulative, matching [`TrafficHealth::served`] — this is what the list is ranked by.
     served: i64,
-    /// Mean service time over the last [`TRAFFIC_WINDOW_MINUTES`] minutes, falling back to the
-    /// cumulative mean for an endpoint that served nothing in that window. A busy route's lifetime
-    /// average would otherwise bury a slowdown happening right now under months of fast requests.
     average_ms: f64,
 }
 
-/// Traffic served since the redis counters were created, as accumulated by `PatternLogger`.
-///
-/// The counts are cumulative; the averages are not — see [`EndpointStat::average_ms`].
 #[derive(Object)]
 struct TrafficHealth {
     served: i64,
-    /// Mean over the last [`TRAFFIC_WINDOW_MINUTES`] minutes across all endpoints, falling back to
-    /// the cumulative mean when nothing at all was served in that window.
     average_ms: f64,
-    /// Unix seconds at which the counters started, so `served` can be read against the period it
-    /// covers. None when redis is up but no flush has happened yet — unknown, not "just now".
     since: Option<i64>,
     busiest: Vec<EndpointStat>,
 }
@@ -164,18 +137,14 @@ struct IAmOkie{
     postgres: DependencyHealth,
     redis: DependencyHealth,
     queues: QueueHealth,
-    /// Reported but deliberately excluded from `response`: nothing in this API calls QGIS, the
-    /// browser reaches it through nginx, so the backend serves every endpoint fine without it.
     qgis: QgisHealth,
-    /// None when redis is unreachable — the counters live there.
     traffic: Option<TrafficHealth>,
+    avg_graph: Option<Vec<Option<f64>>>,
 }
-/// One LISTEN/NOTIFY event forwarded to `/events/data-updates`.
+
 #[derive(Object, Clone, Debug)]
 pub struct NewRowEvent {
-    /// The Postgres NOTIFY channel this event came from, or `"heartbeat"`.
     pub channel: String,
-    /// The raw NOTIFY payload (JSON-encoded), unparsed.
     pub payload: String,
 }
 
@@ -185,28 +154,14 @@ struct PlayerActivityPayload {
     server_id: String,
 }
 
-/// The NOTIFY channels `/events/data-updates` forwards.
 pub(crate) const LIVE_EVENT_CHANNELS: [&str; 5] = [
     "player_activity", "map_changed", "map_update", "infraction_new", "infraction_update",
 ];
 
-/// Room for a burst of notifications while a client is between polls. A client that falls further
-/// behind than this is told how many it missed and carries on from the newest event; it is never
-/// held in memory on the sender's behalf.
 const LIVE_EVENT_BUFFER: usize = 256;
 
-/// Ceiling on concurrent `/events/data-updates` streams. Each one is a task, a socket and a
-/// subscription — cheap, but not free, and unbounded is what got us here.
 const MAX_SSE_CLIENTS: usize = 512;
 
-/// Process-wide fan-out for the Postgres `LISTEN/NOTIFY` stream behind `/events/data-updates`.
-///
-/// One listener task feeds every connected client through a broadcast channel. The endpoint used to
-/// call `PgListener::connect` *per request*, and a `PgListener` is a dedicated Postgres backend
-/// outside `AppData.pool` — so viewer count translated directly into server-side connections, with
-/// nothing in the backend bounding it. Enough concurrent viewers and Postgres itself starts
-/// refusing connections with `sorry, too many clients already` (SQLSTATE 53300), which takes the
-/// whole site down rather than just the live page. This makes it exactly one connection, forever.
 pub(crate) struct LiveEventHub {
     events: broadcast::Sender<NewRowEvent>,
     clients: Arc<Semaphore>,
@@ -218,20 +173,11 @@ impl LiveEventHub {
         Self { events, clients: Arc::new(Semaphore::new(MAX_SSE_CLIENTS)) }
     }
 
-    /// Handle the listener task publishes into. Cloning it does not create a subscription, so
-    /// events sent while nobody is connected are simply dropped.
     pub(crate) fn publisher(&self) -> broadcast::Sender<NewRowEvent> {
         self.events.clone()
     }
 }
 
-/// Whether a live event should reach subscribers at all.
-///
-/// Drops `player_activity` for players who anonymized themselves on that server. The check takes no
-/// viewer identity, so the answer is the same for everyone connected — it runs once in the
-/// publisher rather than once per subscriber, which is what keeps a burst of activity from turning
-/// into one pool query per connected client. Anything unparseable is forwarded: this filter exists
-/// to honour an opt-out, not to validate payloads.
 pub(crate) async fn should_forward_live_event(app: &AppData, event: &NewRowEvent) -> bool {
     if event.channel != "player_activity" {
         return true;
@@ -242,14 +188,6 @@ pub(crate) async fn should_forward_live_event(app: &AppData, event: &NewRowEvent
     !is_player_activity_anonymized(app, &activity.server_id, &activity.player_id).await
 }
 
-/// Response for `/events/data-updates`.
-///
-/// The headers are the point: nginx routes this path through `proxy_cache` + `proxy_buffering`
-/// along with the rest of `/data/api/`, and poem-openapi's `EventStream` sets only a content type.
-/// A proxy that buffers an endless stream keeps the upstream alive after the viewer is gone, which
-/// would turn the fan-out below back into a connection that outlives its client. `X-Accel-Buffering`
-/// covers nginx specifically; `Cache-Control` covers every other proxy in the chain, Cloudflare
-/// included.
 #[derive(ApiResponse)]
 pub enum LiveEventResponse {
     #[oai(status = 200)]
@@ -258,7 +196,6 @@ pub enum LiveEventResponse {
         #[oai(header = "Cache-Control")] String,
         #[oai(header = "X-Accel-Buffering")] String,
     ),
-    /// The concurrent-stream ceiling is reached. Clients back off and retry.
     #[oai(status = 503)]
     TooManyClients,
 }
@@ -278,19 +215,12 @@ impl Display for ThumbnailError {
     }
 }
 
-/// Field-wise sum of two maps, used to collapse the window's minute buckets into one pair.
 fn merge_into(target: &mut HashMap<String, i64>, bucket: HashMap<String, i64>) {
     for (key, value) in bucket {
         *target.entry(key).or_insert(0) += value;
     }
 }
 
-/// The `(counts, durations)` of the last [`TRAFFIC_WINDOW_MINUTES`] minute buckets, summed.
-///
-/// All `2 * TRAFFIC_WINDOW_MINUTES` reads go out as one pipeline: this probe runs under
-/// [`HEALTH_CHECK_TIMEOUT`] and is called by the container healthcheck *and* every open status tab,
-/// so it can afford one extra round trip and not ten. Buckets that do not exist — no traffic that
-/// minute, or evicted early by `allkeys-lru` — come back empty and simply contribute nothing.
 async fn read_recent_window(
     conn: &mut impl redis::aio::ConnectionLike,
 ) -> redis::RedisResult<(HashMap<String, i64>, HashMap<String, i64>)> {
@@ -317,20 +247,11 @@ async fn read_recent_window(
     Ok((counts, durations))
 }
 
-/// Mean service time for one endpoint, in milliseconds, or `None` when there is nothing to divide
-/// by.
-///
-/// The `None` is what keeps a silent window distinguishable from a genuinely instant endpoint, and
-/// it is also the guard against a half-written flush: the two hashes are filled by one pipeline, so
-/// a read landing mid-flush can see a field in the duration hash and not the count hash, and
-/// dividing by that missing count would yield an infinity.
 fn mean_ms(counts: &HashMap<String, i64>, durations: &HashMap<String, i64>, key: &str) -> Option<f64> {
     let served = counts.get(key).copied().filter(|served| *served > 0)?;
     Some(durations.get(key).copied().unwrap_or(0) as f64 / served as f64 / 1000.0)
 }
 
-/// Same, across every endpoint in the pair. Numerator and denominator are taken over the *same*
-/// keys, so a half-written field is excluded from both rather than inflating the mean.
 fn overall_mean_ms(counts: &HashMap<String, i64>, durations: &HashMap<String, i64>) -> Option<f64> {
     let counted = || counts.iter().filter(|(_, served)| **served > 0);
 
@@ -344,16 +265,6 @@ fn overall_mean_ms(counts: &HashMap<String, i64>, durations: &HashMap<String, i6
     Some(total_micros as f64 / served as f64 / 1000.0)
 }
 
-/// Joins the metrics hashes on their shared `"{METHOD} {pattern}"` field.
-///
-/// `counts`/`durations` are the cumulative hashes and supply `served` and the ranking;
-/// `recent_counts`/`recent_durations` are the summed minute buckets and supply the averages. An
-/// endpoint absent from the recent pair — idle through the window, or its buckets evicted — reports
-/// its cumulative average rather than a zero, which would read as "instant" rather than "no data".
-///
-/// Endpoints with a zero cumulative count are dropped entirely; see [`mean_ms`] for why a count can
-/// be missing. Ties are broken by name so the list does not reshuffle between calls — `HGETALL`
-/// hands back an unordered map.
 fn summarize_traffic(
     counts: HashMap<String, i64>,
     durations: HashMap<String, i64>,
@@ -382,16 +293,34 @@ fn summarize_traffic(
     TrafficHealth { served, average_ms, since, busiest }
 }
 
+async fn read_avg_graph(
+    conn: &mut impl redis::aio::ConnectionLike,
+) -> redis::RedisResult<(Vec<Option<i64>>, Vec<Option<i64>>)> {
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let minute = now / 60;
+    let start = minute.saturating_sub(AVG_GRAPH_MINUTES - 1);
+    let count_keys: Vec<String> = (start..=minute).map(|m| overall_metric_keys(m).0).collect();
+    let duration_keys: Vec<String> = (start..=minute).map(|m| overall_metric_keys(m).1).collect();
+    let counts = redis::cmd("MGET").arg(count_keys).query_async(conn).await?;
+    let durations = redis::cmd("MGET").arg(duration_keys).query_async(conn).await?;
+    Ok((counts, durations))
+}
+
+fn build_avg_graph(counts: &[Option<i64>], durations: &[Option<i64>]) -> Vec<Option<f64>> {
+    counts.iter().zip(durations.iter()).map(|(count, duration)| {
+        match count.filter(|c| *c > 0) {
+            Some(count) => Some(duration.unwrap_or(0) as f64 / count as f64 / 1000.0),
+            None => None,
+        }
+    }).collect()
+}
+
 pub struct MiscApi;
 
 
 #[OpenApi(tag = "ApiTags::Misc")]
 impl MiscApi {
     /// All URLs needed to generate the site's XML sitemaps.
-    ///
-    /// Returns every server, every recently-active map, and every non-anonymous player seen in the
-    /// last day (top 20 per server). Consumed by the frontend's
-    /// sitemap generator, not meant for general use.
     #[oai(path = "/sitemap-data", method = "get")]
     async fn sitemap_data(&self, data: Data<&AppData>) -> Response<SitemapData> {
         let Ok(servers) = sqlx::query_as!(DbServerSitemap, "
@@ -457,14 +386,9 @@ impl MiscApi {
         response!(ok SitemapData { servers, maps, players })
     }
     /// Always answers 200, even when a dependency is down.
-    ///
-    /// The compose healthchecks probe this with `curl -f`, and under Swarm an unhealthy container
-    /// is restarted while `reverse` and `frontend` both gate on `backend: service_healthy`. Failing
-    /// the probe during a database blip would therefore restart-loop the whole API tier at its
-    /// worst moment, so the state lives in `response` rather than in the status line.
     #[oai(path = "/health", method = "get")]
     async fn am_i_okie(&self, Data(app): Data<&AppData>) -> Response<IAmOkie>{
-        let (postgres, (redis, queues, traffic), qgis) = tokio::join!(
+        let (postgres, (redis, queues, traffic, avg_graph), qgis) = tokio::join!(
             self.check_postgres(app),
             self.check_redis(app),
             self.check_qgis(),
@@ -478,10 +402,9 @@ impl MiscApi {
             queues,
             qgis,
             traffic,
+            avg_graph,
         })
     }
-    /// Two layers: the FastCGI port has to accept a connection before a WMS request is worth
-    /// making. A WMS failure is reported and goes no further — see [`IAmOkie::qgis`].
     async fn check_qgis(&self) -> QgisHealth {
         let host = get_env_default("QGIS_HOST").unwrap_or_else(|| "qgis-server".to_string());
         let addr = format!("{host}:{QGIS_FASTCGI_PORT}");
@@ -500,8 +423,6 @@ impl MiscApi {
             wms: self.check_qgis_wms().await,
         }
     }
-    /// Goes through nginx because that is what translates HTTP to FastCGI; QGIS' own port 80 serves
-    /// a default nginx page with no WMS behind it.
     async fn check_qgis_wms(&self) -> Option<DependencyHealth> {
         let base = get_env_default("QGIS_WMS_URL").filter(|u| !u.trim().is_empty())?;
         let url = format!("{base}?SERVICE=WMS&REQUEST=GetCapabilities");
@@ -528,8 +449,6 @@ impl MiscApi {
             Err(_) => DependencyHealth::down("timed out"),
         })
     }
-    /// `sqlx::query` rather than `query!`: the macro is checked at compile time and would put this
-    /// trivial probe in the `.sqlx` cache, forcing a `--prepare` against a live database for it.
     async fn check_postgres(&self, app: &AppData) -> DependencyHealth {
         let started = Instant::now();
         match timeout(HEALTH_CHECK_TIMEOUT, sqlx::query("SELECT 1").execute(&*app.pool)).await {
@@ -538,10 +457,7 @@ impl MiscApi {
             Err(_) => DependencyHealth::down("timed out"),
         }
     }
-    /// One connection covers the ping, both queue depths, both metrics hashes and the window
-    /// buckets. A failure anywhere leaves the queue depths and traffic *unknown* rather than zero —
-    /// an unreachable redis says nothing about how much work is queued.
-    async fn check_redis(&self, app: &AppData) -> (DependencyHealth, QueueHealth, Option<TrafficHealth>) {
+    async fn check_redis(&self, app: &AppData) -> (DependencyHealth, QueueHealth, Option<TrafficHealth>, Option<Vec<Option<f64>>>) {
         let unknown_queues = || QueueHealth {
             heavy: None,
             light: None,
@@ -561,21 +477,22 @@ impl MiscApi {
                 .await.map_err(|e| e.to_string())?;
             let durations: HashMap<String, i64> = conn.hgetall(METRICS_DURATION_KEY)
                 .await.map_err(|e| e.to_string())?;
-            // Absent until the first flush; that deserializes to None rather than failing the probe.
+
             let since: Option<i64> = conn.get(METRICS_SINCE_KEY)
                 .await.map_err(|e| e.to_string())?;
-            // Missing fields mean no job of that priority has finished yet, which is a real zero
-            // here — unlike the depths above, redis being up is enough to know the count.
+
             let jobs: HashMap<String, i64> = conn.hgetall(METRICS_JOBS_KEY)
                 .await.map_err(|e| e.to_string())?;
             let (recent_counts, recent_durations) = read_recent_window(&mut *conn)
                 .await.map_err(|e| e.to_string())?;
+            let (overall_counts, overall_durations) = read_avg_graph(&mut *conn)
+                .await.map_err(|e| e.to_string())?;
 
-            Ok::<_, String>((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs))
+            Ok::<_, String>((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs, overall_counts, overall_durations))
         };
 
         match timeout(HEALTH_CHECK_TIMEOUT, probe).await {
-            Ok(Ok((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs))) => (
+            Ok(Ok((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs, overall_counts, overall_durations))) => (
                 DependencyHealth::up(latency),
                 QueueHealth {
                     heavy: Some(heavy),
@@ -584,9 +501,10 @@ impl MiscApi {
                     completed_light: Some(jobs.get("light").copied().unwrap_or(0)),
                 },
                 Some(summarize_traffic(counts, durations, recent_counts, recent_durations, since)),
+                Some(build_avg_graph(&overall_counts, &overall_durations)),
             ),
-            Ok(Err(e)) => (DependencyHealth::down(e), unknown_queues(), None),
-            Err(_) => (DependencyHealth::down("timed out"), unknown_queues(), None),
+            Ok(Err(e)) => (DependencyHealth::down(e), unknown_queues(), None, None),
+            Err(_) => (DependencyHealth::down("timed out"), unknown_queues(), None, None),
         }
     }
     async fn generate_thumbnail(&self, thumbnail_type: &ThumbnailType, filename: &str) -> Result<Vec<u8>, ThumbnailError> {
@@ -645,12 +563,6 @@ impl MiscApi {
         self.generate_thumbnail(thumbnail_type, &filename).await
     }
     /// Fetch (or generate and cache) a resized map thumbnail.
-    ///
-    /// `filename` is the source image name, optionally prefixed with `{game_type}--`. If the
-    /// resized image isn't already cached on disk, it's downloaded from the map image source,
-    /// resized to the requested `thumbnail_type` (`Small` 180px, `Medium` 500px, `Large`
-    /// 1122px, `ExtraLarge` original width), and saved for next time. Returns an empty body on
-    /// any failure rather than an error status.
     #[oai(path = "/thumbnails/:thumbnail_type/:filename", method = "get")]
     async fn get_thumbnail(&self, thumbnail_type: Path<ThumbnailType>, filename: Path<String>) -> Binary<Vec<u8>> {
         match self.get_map_thumbnail(&thumbnail_type.0, &filename).await {
@@ -662,11 +574,6 @@ impl MiscApi {
         }
     }
     /// Resolve an internal page URL to an Open Graph preview image.
-    ///
-    /// `url` must point back at this same site (the `Host` header is checked against it). For a
-    /// `/{server_id}/maps/{map_name}` path, returns that map's large thumbnail; for a
-    /// `/{server_id}/players/{player_id}` path, returns that player's Steam profile picture.
-    /// Any other shape, or a lookup failure, returns an empty body.
     #[oai(path="/meta_thumbnails", method="get")]
     async fn get_meta_thumbnails(
         &self, req: &Request, Data(app): Data<&AppData>, Query(url): Query<String>
@@ -798,7 +705,6 @@ impl MiscApi {
                                 tracing::warn!("SSE client lagged behind, skipped {missed} events");
                                 continue;
                             },
-                            // Only when the hub itself is gone, i.e. the process is shutting down.
                             Err(RecvError::Closed) => break,
                         }
                     },
@@ -1058,6 +964,37 @@ mod traffic_tests {
         assert_eq!(counts, format!("{METRICS_COUNT_KEY}:28333333"));
         assert_eq!(durations, format!("{METRICS_DURATION_KEY}:28333333"));
         assert_ne!(metrics_bucket_keys(28_333_334).0, counts);
+    }
+
+    /// The graph is a fixed 3-day window: exactly [`AVG_GRAPH_MINUTES`] points, oldest first, null
+    /// for a silent minute, and a half-written minute (count without its duration) reads 0 rather
+    /// than NaN — the same guarantee [`mean_ms`] makes for the windowed averages.
+    #[test]
+    fn the_graph_is_4320_points_oldest_first_with_nulls_for_silence() {
+        let mut counts = vec![None; AVG_GRAPH_MINUTES as usize];
+        let mut durations = vec![None; AVG_GRAPH_MINUTES as usize];
+
+        counts[0] = Some(2);
+        durations[0] = Some(3_000); // 3000us over 2 requests = 1.5ms
+        // index 1 left None: a minute with no traffic.
+        let last = AVG_GRAPH_MINUTES as usize - 1;
+        counts[last] = Some(1); // duration missing → half-written → 0.0, not NaN
+
+        let graph = build_avg_graph(&counts, &durations);
+        assert_eq!(graph.len(), AVG_GRAPH_MINUTES as usize);
+        assert_eq!(graph[0], Some(1.5));
+        assert_eq!(graph[1], None);
+        assert_eq!(graph[last], Some(0.0));
+    }
+
+    /// The overall keys mirror the bucket keys: same prefix shape, distinct per minute, so the
+    /// flusher and `/health` cannot drift apart.
+    #[test]
+    fn overall_metric_keys_are_prefixed_and_distinct_per_minute() {
+        let (counts, durations) = overall_metric_keys(28_333_333);
+        assert_eq!(counts, format!("{METRICS_OVERALL_COUNT_PREFIX}28333333"));
+        assert_eq!(durations, format!("{METRICS_OVERALL_DURATION_PREFIX}28333333"));
+        assert_ne!(overall_metric_keys(28_333_334).0, counts);
     }
 }
 

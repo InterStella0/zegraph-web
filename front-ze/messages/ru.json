@@ -889,6 +889,7 @@
       "exactCount": "запросов: {count}",
       "exactSince": "с {date}",
       "avgResponse": "в среднем {ms} мс · 5 мин",
+      "avgGraphTitle": "Время ответа",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",
