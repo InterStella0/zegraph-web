@@ -761,8 +761,6 @@ mod tests {
     use super::super::test_support::{map_query, TEST_MAP, TEST_SERVER};
     use super::*;
 
-    /// Only the pure half of `WorkerQuery` is touched — `execute` is never called, so no database
-    /// is involved.
     macro_rules! assert_map_metadata {
         ($query:expr, $prefix:literal, $priority:pat, $kind:pat) => {{
             let query = $query;
@@ -805,7 +803,6 @@ mod tests {
         assert_map_metadata!(
             map_query::<DbMapInfo>(), "map_info_data", QueryPriority::Light, JobKind::MapInfo(_)
         );
-        // The only heavy map query — it is the one that used to contend with request handling.
         assert_map_metadata!(
             map_query::<DbMapAnalyze>(), "map_analyze-2", QueryPriority::Heavy, JobKind::MapAnalyze(_)
         );

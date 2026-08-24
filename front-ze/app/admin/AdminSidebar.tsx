@@ -67,12 +67,10 @@ function SidebarContent({ onNavigate, mapManagerOnly }: { onNavigate?: () => voi
 
   return (
     <div className="h-full flex flex-col bg-background">
-      {/* Header */}
       <div className="flex items-center justify-between px-6 h-16 border-b border-border/40 bg-background/95 backdrop-blur flex-shrink-0">
         <h2 className="text-lg font-bold">Admin Dashboard</h2>
       </div>
 
-      {/* Navigation */}
       <ScrollArea className="flex-1">
         <div className="py-4">
           {sections.map((section) => (

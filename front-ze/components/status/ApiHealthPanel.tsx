@@ -4,23 +4,26 @@ import { use, useState, useEffect, useCallback, useMemo } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import localizedFormat from "dayjs/plugin/localizedFormat";
+import { Chart as ChartJS, Filler, LinearScale, LineController, LineElement, PointElement, TimeScale, Tooltip } from "chart.js";
+import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import { ChevronDown } from "lucide-react";
 import { Card } from "components/ui/card";
 import { Separator } from "components/ui/separator";
 import { Skeleton } from "components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
+import { LazyLineChart as Line } from "components/graphs/LazyCharts";
 import { ApiHealth, DependencyHealth } from "types/health";
 import { fetchUrl } from "utils/generalUtils.ts";
 import { useTranslations, useLocale } from "next-intl";
+import { useTheme } from "next-themes";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
 
-// Deliberately slower than the fetch-status table's 10s. Every call runs live probes — a postgres
-// SELECT 1, a redis connection doing PING + 2 LLEN + 3 reads, a TCP connect to QGIS and a WMS
-// GetCapabilities with a 3s timeout — so each open tab is real work on top of the container
-// healthcheck already hitting the same endpoint.
+ChartJS.register(LinearScale, PointElement, LineElement, LineController, TimeScale, Tooltip, Filler);
+
+// Deliberately slower than the fetch-status table's 10s.
 const POLL_INTERVAL = 30_000;
 
 /** Shared by the tiles and the up/down dot: `null` latency is unknown, not instant. */
@@ -82,8 +85,6 @@ function QgisTile({ health }: { health: ApiHealth["qgis"] }) {
                         {health.error}
                     </span>
                 )}
-                {/* The backend keeps QGIS out of the overall verdict — the browser reaches it through
-                    nginx and every API endpoint serves fine without it — so this stays informational. */}
                 {wms && (
                     <span className="text-xs text-muted-foreground">
                         {t("wms")}:{" "}
@@ -98,8 +99,6 @@ function QgisTile({ health }: { health: ApiHealth["qgis"] }) {
     );
 }
 
-/// Leads with the cumulative tally, which climbs week to week; the instantaneous depth is the
-/// secondary line, where a 0 is the healthy reading rather than a missing one.
 function JobsTile({ queues }: { queues: ApiHealth["queues"] }) {
     const t = useTranslations("status.api");
     const locale = useLocale();
@@ -109,7 +108,6 @@ function JobsTile({ queues }: { queues: ApiHealth["queues"] }) {
         [locale],
     );
 
-    // null is "redis was unreachable", which is not the same claim as "nothing has run".
     const known = queues.completed_heavy !== null && queues.completed_light !== null;
     const total = known ? queues.completed_heavy! + queues.completed_light! : null;
     const queued =
@@ -149,7 +147,6 @@ function ServedHeadline({ traffic }: { traffic: NonNullable<ApiHealth["traffic"]
         [locale],
     );
 
-    // `fromNow(true)` drops the "ago" suffix so the count reads as a span: "over the past 5 months".
     const period = traffic.since !== null ? dayjs.unix(traffic.since).fromNow(true) : null;
     const exact = [
         t("exactCount", { count: traffic.served.toLocaleString(locale) }),
@@ -196,8 +193,6 @@ function TopEndpoints({ traffic }: { traffic: NonNullable<ApiHealth["traffic"]> 
                         <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase tracking-wider">
                             <span className="flex-1 min-w-0">{t("colEndpoint")}</span>
                             <span className="w-20 text-right shrink-0">{t("colServed")}</span>
-                            {/* Wider than Served: this header carries the window ("Avg · 5m"), and
-                                the locales that spell it out need the room. */}
                             <span className="w-28 text-right shrink-0 whitespace-nowrap">{t("colAvg")}</span>
                         </div>
                         {traffic.busiest.map((stat) => (
@@ -220,6 +215,86 @@ function TopEndpoints({ traffic }: { traffic: NonNullable<ApiHealth["traffic"]> 
     );
 }
 
+function GraphTile({ points }: { points: (number | null)[] }) {
+    const t = useTranslations("status.api");
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === "dark";
+
+    const data = useMemo(() => {
+        const stepMs = 60_000;
+        const nowMs = Date.now();
+        const length = points.length;
+        return {
+            datasets: [{
+                data: points.map((y, i) => ({ x: nowMs - (length - 1 - i) * stepMs, y })),
+                borderColor: isDark ? "oklch(0.696 0.15 320)" : "oklch(0.6 0.07 310)",
+                backgroundColor: "transparent",
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.2,
+                fill: false,
+            }],
+        };
+    }, [points, isDark]);
+
+    const options = useMemo(() => ({
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "nearest", intersect: false },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    title: (items: { parsed: { x: number } }[]) => {
+                        const first = items[0];
+                        return first ? dayjs(first.parsed.x).format("MMM D, HH:mm") : "";
+                    },
+                    label: (ctx: { parsed: { y: number | null } }) => {
+                        const y = ctx.parsed.y;
+                        return y === null ? "" : `${y.toFixed(1)} ms`;
+                    },
+                },
+            },
+        },
+        scales: {
+            x: {
+                type: "time" as const,
+                time: {
+                    displayFormats: { hour: "MMM D", day: "MMM D" },
+                },
+                ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } },
+                grid: { display: false },
+                border: { display: false },
+            },
+            y: {
+                title: { display: true, text: "ms" },
+                beginAtZero: true,
+                ticks: { maxTicksLimit: 6 },
+                grid: { color: isDark ? "oklch(1 0 0 / 0.08)" : "oklch(0 0 0 / 0.06)" },
+                border: { display: false },
+            },
+        },
+    }), [isDark]);
+
+    if (points.length === 0) return null;
+
+    return (
+        <Card className="gap-0 p-0 overflow-hidden">
+            <div className="px-5 py-4 flex flex-col gap-3">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("avgGraphTitle")}</span>
+                <div className="h-32 w-full">
+                    <Line
+                        data={data}
+                        // @ts-ignore dynamic() collapses the chart generics; option literals widen to string
+                        options={options}
+                    />
+                </div>
+            </div>
+        </Card>
+    );
+}
+
 export function ApiHealthPanelLoading() {
     return (
         <div className="flex flex-col gap-3">
@@ -229,6 +304,7 @@ export function ApiHealthPanelLoading() {
                     <Skeleton key={i} className="h-20 w-full rounded-xl" />
                 ))}
             </div>
+            <Skeleton className="h-32 w-full rounded-xl" />
             <Skeleton className="h-11 w-full rounded-xl" />
         </div>
     );
@@ -271,6 +347,8 @@ function ApiHealthPanelDisplay({ initialDataPromise }: { initialDataPromise: Pro
                 <QgisTile health={health.qgis} />
                 <JobsTile queues={health.queues} />
             </div>
+
+            {health.avg_graph && <GraphTile points={health.avg_graph} />}
 
             {health.traffic && <TopEndpoints traffic={health.traffic} />}
         </div>

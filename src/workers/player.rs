@@ -842,9 +842,6 @@ impl WorkerQuery<Vec<DbPlayerOnlineHeatmap>> for PlayerBasicQuery<Vec<DbPlayerOn
 impl WorkerQuery<DbGlobalPlaytimeSnapshot> for PlayerGlobalQuery<DbGlobalPlaytimeSnapshot> {
     type Error = sqlx::Error;
 
-    /// The read side of global playtime: the stored summary row plus a freshness verdict. When the
-    /// stored row is stale (or missing), live sums over `player_playtime` stand in for it — ranks
-    /// always come from the stored row, since they are only recomputed daily.
     async fn execute(&self) -> Result<DbGlobalPlaytimeSnapshot, Self::Error> {
         let ctx = &self.context;
         let canonical_id = &ctx.data.canonical_id;
@@ -857,8 +854,6 @@ impl WorkerQuery<DbGlobalPlaytimeSnapshot> for PlayerGlobalQuery<DbGlobalPlaytim
             WHERE player_id = $1
         ", canonical_id).fetch_optional(&*ctx.pool).await?;
 
-        // Completed sessions only: an in-progress session would otherwise peg the player as
-        // permanently outdated, and player_playtime is derived from completed data anyway.
         let latest_ended_at: Option<OffsetDateTime> = sqlx::query_scalar!("
             WITH user_players AS (
                 SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
@@ -939,8 +934,6 @@ impl WorkerQuery<DbGlobalPlaytimeSnapshot> for PlayerGlobalQuery<DbGlobalPlaytim
         global_snapshot_key(&self.context.data.canonical_id)
     }
 
-    // Short: this is the freshness signal, and it also bounds how long a stale "outdated" verdict
-    // survives after the refresh job has already invalidated the key.
     fn ttl(&self) -> u64 { 60 }
     fn priority(&self) -> QueryPriority { QueryPriority::Light }
 
@@ -1208,14 +1201,11 @@ impl PlayerWorker {
     pub async fn get_global_playtime(&self, canonical_id: &str) -> WorkResult<GlobalPlaytimeSummary> {
         let snapshot: DbGlobalPlaytimeSnapshot = self.query_global(canonical_id).await?;
 
-        // Live, never cached: the lock's presence is what tells the client a refresh is running.
         let cache = &self.background_worker.cache;
         let mut is_calculating = redis_key_exists(&cache.redis_pool, &global_lock_key(canonical_id)).await;
 
         if snapshot.is_outdated && !is_calculating {
             self.enqueue_global_refresh(canonical_id).await;
-            // A refresh is queued by the time this response lands, so say so rather than
-            // leaving the client to discover it on the next poll.
             is_calculating = true;
         }
 
@@ -1290,8 +1280,6 @@ fn global_lock_key(canonical_id: &str) -> String {
     format!("lock:player_global_playtime:{canonical_id}")
 }
 
-/// Shared between `cache_key_pattern` and the eviction in `run_global_refresh`: deriving the key
-/// once is what guarantees the refresh invalidates the same key the reads are cached under.
 fn global_snapshot_key(canonical_id: &str) -> String {
     format!("player-global-playtime:{canonical_id}")
 }
@@ -1300,13 +1288,6 @@ fn community_playtime_key(canonical_id: &str) -> String {
     format!("player-community-playtime:{canonical_id}")
 }
 
-/// Re-derives every server's `player_playtime` for this player, then stores the summation. Runs in
-/// the worker process, off the back of a `PlayerGlobalPlaytime` job.
-///
-/// The redis lock still matters even though the queue already dedupes: the in-flight marker expires
-/// after 5 minutes and this loop can outlive that, so a second job could otherwise be picked up and
-/// race on the upsert. Its presence is also what `get_global_playtime` reports as `is_calculating`.
-/// No semaphore here — the heavy queue's concurrency limit is what bounds this now.
 pub(crate) async fn run_global_playtime_job(
     pool: Arc<Pool<Postgres>>,
     cache: Arc<FastCache>,
@@ -1334,8 +1315,6 @@ async fn run_global_refresh(
     cache: &Arc<FastCache>,
     canonical_id: &str,
 ) -> Result<(), sqlx::Error> {
-    // Every fork on every server, not one fork per server: renamed accounts keep their own
-    // player_playtime row and the summation below counts all of them.
     let targets = sqlx::query_as!(DbGlobalRefreshTarget, "
         WITH user_players AS (
             SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
@@ -1354,9 +1333,6 @@ async fn run_global_refresh(
         let cache_key = get_player_cache_key(pool, cache, &target.server_id, &target.player_id).await;
         let context = PlayerContext { player, server, cache_key };
 
-        // execute_get waits for the recompute rather than deferring it, and short-circuits on a
-        // cache hit, so servers that are already fresh cost nothing. The upsert into
-        // player_playtime is this query's side effect.
         let query: PlayerBasicQuery<DbPlayerDetail> =
             PlayerBasicQuery::new(&context, pool.clone(), cache.clone());
 
@@ -1370,7 +1346,6 @@ async fn run_global_refresh(
         }
     }
 
-    // Leaves the rank columns alone; those belong to the daily update-global-playtime-rank job.
     sqlx::query!("
         WITH user_players AS (
             SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
@@ -1416,9 +1391,6 @@ async fn run_global_refresh(
             synced_at = EXCLUDED.synced_at
     ", canonical_id).execute(&**pool).await?;
 
-    // The reads derived from what was just upserted are now wrong; evict them so the next request
-    // recomputes instead of serving a cached `is_outdated: true` snapshot (which would re-enqueue
-    // this whole job until the TTL ran out).
     background_worker.drop_cached(&global_snapshot_key(canonical_id)).await;
     background_worker.drop_cached(&community_playtime_key(canonical_id)).await;
 
@@ -1431,14 +1403,10 @@ mod tests {
     use super::super::test_support::{player_global_query, player_query, player_session_query, TEST_PLAYER, TEST_SERVER, TEST_SESSION};
     use super::*;
 
-    /// Every assertion here goes through the pure half of `WorkerQuery`. `execute` is never called,
-    /// which is what keeps these tests free of a database.
     fn metadata<T, Q: WorkerQuery<T>>(query: &Q) -> (String, u64, QueryPriority, JobKind) {
         (query.cache_key_pattern(), query.ttl(), query.priority(), query.job_kind())
     }
 
-    /// Session-scoped keys must carry the placeholder, or `for_session` silently produces one key
-    /// for every session and the cache never rolls over.
     macro_rules! assert_session_scoped {
         ($query:expr, $prefix:literal, $priority:pat, $kind:pat) => {{
             let (pattern, ttl, priority, kind) = metadata(&$query);
@@ -1524,8 +1492,6 @@ mod tests {
         );
     }
 
-    /// Aliases follow the player across servers, so this is the one player key deliberately not
-    /// scoped by server. Asserted explicitly so narrowing it later is a conscious change.
     #[tokio::test]
     async fn aliases_are_keyed_by_player_only() {
         let pattern = player_query::<Vec<DbPlayerAlias>>().cache_key_pattern();
@@ -1534,8 +1500,6 @@ mod tests {
         assert!(!pattern.contains(TEST_SERVER), "alias cache is intentionally server-agnostic");
     }
 
-    /// `PlayerSeen` is the exception to the placeholder rule: its session is part of the query data
-    /// rather than the cache-key pattern, so the pattern is already fully resolved.
     #[tokio::test]
     async fn player_seen_embeds_its_session_rather_than_a_placeholder() {
         let query = player_session_query::<Vec<DbPlayerSeen>>();
@@ -1548,10 +1512,6 @@ mod tests {
         assert!(matches!(kind, JobKind::PlayerSeen(_)));
     }
 
-    /// Global queries are keyed by canonical id alone: no server, no `{session}` placeholder.
-    /// Their invalidation contract is different too — `run_global_refresh` evicts these keys
-    /// explicitly — so assert the pattern against the exact helper the eviction uses; if either
-    /// side drifts, the refresh silently stops invalidating what the reads are cached under.
     #[tokio::test]
     async fn global_query_metadata_matches_its_type() {
         let (pattern, ttl, priority, kind) =

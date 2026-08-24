@@ -889,6 +889,7 @@
       "exactCount": "{count} permintaan",
       "exactSince": "sejak {date}",
       "avgResponse": "purata {ms}ms · 5 min",
+      "avgGraphTitle": "Masa respons",
       "postgres": "Postgres",
       "redis": "Redis",
       "qgis": "QGIS",

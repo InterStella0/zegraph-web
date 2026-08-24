@@ -12,7 +12,6 @@ use super::{BackgroundWorker, QueryPriority};
 const HEAVY_CONCURRENCY: usize = 5;
 const LIGHT_CONCURRENCY: usize = 15;
 
-/// Asserted against the pool size at startup; see `main.rs`.
 pub const TOTAL_JOB_CONCURRENCY: usize = HEAVY_CONCURRENCY + LIGHT_CONCURRENCY;
 
 const POP_TIMEOUT_SECS: usize = 5;
@@ -37,8 +36,6 @@ pub fn spawn_consumers(
     }
 }
 
-/// One loop per queue rather than a single `BRPOP` over both, so a backlog of heavy jobs cannot
-/// starve the light ones behind it.
 async fn consume(
     queue: &'static str,
     concurrency: usize,
@@ -57,7 +54,7 @@ async fn consume(
 
         let payload = match pop(queue, &blocking_redis).await {
             Ok(Some(payload)) => payload,
-            Ok(None) => continue, // pop timed out, nothing queued
+            Ok(None) => continue, // pop timed out
             Err(e) => {
                 tracing::warn!("{queue}: pop failed: {e}");
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -87,7 +84,6 @@ async fn pop(queue: &str, blocking_redis: &deadpool_redis::Pool) -> RedisResult<
         redis::RedisError::from((redis::ErrorKind::Io, "redis pool", e.to_string()))
     })?;
 
-    // BRPOP against LPUSH gives FIFO. Returns (queue_name, payload), or nil on timeout.
     let popped: Option<(String, String)> = redis::cmd("BRPOP")
         .arg(queue)
         .arg(POP_TIMEOUT_SECS)
@@ -113,7 +109,7 @@ async fn run_job(job: RefreshJob, pool: Arc<Pool<Postgres>>, cache: Arc<FastCach
             }
             tracing::info!("Refresh completed in {:?}: {}", started.elapsed(), job.cache_key);
         }
-        // Side-effecting job (its work landed in Postgres); there is no value to cache.
+
         Ok(None) => {
             tracing::info!("Job completed in {:?}: {}", started.elapsed(), job.cache_key);
         }
@@ -122,12 +118,9 @@ async fn run_job(job: RefreshJob, pool: Arc<Pool<Postgres>>, cache: Arc<FastCach
         }
     }
 
-    // Cleared whether the job succeeded or failed. On success the result is already cached, so the
-    // next reader gets data; on failure the next reader re-enqueues rather than waiting out the TTL.
     finish_job(&job.cache_key, job.priority, &cache).await;
 }
 
-/// Clears the in-flight marker and counts the job, in one pipeline on one pooled connection.
 async fn finish_job(cache_key: &str, priority: QueryPriority, cache: &FastCache) {
     let marker = inflight_key(cache_key);
     let field = match priority {

@@ -189,10 +189,6 @@ impl ServerApi {
     /// `page` is a 0-indexed page of 10 players, ranked by total playtime. `search` filters by
     /// player name (case-insensitive substring, minimum 2 characters); results are cached for 60
     /// seconds when unfiltered, computed live when searching.
-    ///
-    /// Only canonical players with a numeric (Steam ID) `player_id` are listed. Servers scraped by
-    /// name rather than by ID mint synthetic ids that are not real accounts, and every global
-    /// profile endpoint rejects them anyway — see `resolve_user_id`.
     #[oai(path = "/communities/all/players", method="get")]
     async fn get_global_players(
         &self, Data(data): Data<&AppData>,
@@ -350,8 +346,7 @@ impl ServerApi {
     ///
     /// Use `community_id = "all"` for the combined graph across every community. `time_type`
     /// picks the bucket width (`TenMinutes`, `OneHour`, `OneDay`) and `time` anchors the most
-    /// recent bucket; up to 31 buckets before it are returned. Cache TTL scales with bucket
-    /// width.
+    /// recent bucket; up to 31 buckets before it are returned.
     #[oai(path = "/communities/:community_id/unique_players", method="get")]
     async fn get_communities_players_graph(
         &self, Data(data): Data<&AppData>,
@@ -523,10 +518,6 @@ impl ServerApi {
     }
 
     /// Scraper health, grouped and bucketed for a status dashboard.
-    ///
-    /// Same underlying data as `/fetch-status`, but grouped by community and server and
-    /// compressed into 90 fixed-width time buckets over the last 24 hours, each recording an
-    /// ok/error count and the first error message seen in that bucket. Public, no auth required.
     #[oai(path = "/fetch-status-truncated", method="get")]
     async fn get_fetch_status_truncated(&self, Data(data): Data<&AppData>) -> Response<Vec<FetchStatusCommunityGroupTruncated>> {
         let pool = &*data.pool.clone();

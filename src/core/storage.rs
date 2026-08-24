@@ -387,8 +387,6 @@ impl CommunityStorage {
             .await
     }
 
-    /// Extension of an icon we stored ourselves, or `None` when `stored_url` points
-    /// somewhere we don't own (a community using an externally hosted icon).
     fn stored_icon_ext(&self, community_id: &str, stored_url: &str) -> Option<&'static str> {
         let prefix = self.ns.public_url(&Self::icon_path(community_id, ""));
         let ext = stored_url.trim().strip_prefix(&prefix)?;
@@ -402,8 +400,6 @@ impl CommunityStorage {
         self.ns.delete(&Self::icon_path(community_id, ext)).await
     }
 
-    /// Deletes the icon a community used to have. No-op when the previous icon lives at
-    /// the key we just wrote, which would otherwise delete the fresh upload.
     pub async fn delete_previous_icon(
         &self,
         community_id: &str,

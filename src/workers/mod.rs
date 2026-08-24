@@ -21,8 +21,6 @@ use crate::models::maps::DbMap;
 use crate::models::players::DbPlayer;
 use crate::models::servers::DbServer;
 
-/// How long a queued-or-running marker survives without the worker clearing it. Bounds how long a
-/// key stays stuck as "calculating" if the worker dies mid-job.
 const JOB_INFLIGHT_TTL: i64 = 300;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -39,7 +37,6 @@ pub trait WorkerQuery<T>: Send + Sync {
     fn cache_key_pattern(&self) -> String;
     fn ttl(&self) -> u64;
     fn priority(&self) -> QueryPriority;
-    /// The serializable descriptor a worker process needs to rebuild and re-run this query.
     fn job_kind(&self) -> JobKind;
 }
 
@@ -150,7 +147,6 @@ impl BackgroundWorker {
         Err(WorkError::Calculating)
     }
 
-    /// Hands the query to the worker process and returns immediately.
     pub async fn enqueue_refresh_job(&self, job: RefreshJob) {
         let payload = match serde_json::to_string(&job) {
             Ok(payload) => payload,
@@ -224,8 +220,6 @@ impl BackgroundWorker {
         }
     }
 
-    /// Evicts a key from both cache tiers. The mirror of `cache_raw`: memory holds the bare key,
-    /// redis the `gfl-ze-watcher:`-prefixed one.
     pub async fn drop_cached(&self, key: &str) {
         self.cache.memory.invalidate(key).await;
 
@@ -275,8 +269,6 @@ pub struct MapData{
     pub server_id: String,
 }
 
-/// Keyed by canonical player id alone: global queries span every linked account, server and
-/// community, so neither a server id nor a session id applies.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlayerGlobalData{
     pub canonical_id: String,
@@ -302,8 +294,6 @@ mod tests {
     use super::test_support::fake_cache;
     use super::*;
 
-    /// A `WorkerQuery` with no database behind it. `for_session` only ever calls the metadata
-    /// methods, so `execute` is unreachable here and stays unimplemented.
     #[derive(Clone)]
     struct StubQuery {
         pattern: String,
@@ -364,8 +354,7 @@ mod tests {
     }
 
     /// The guard that matters: when the session has not actually rolled over, the previous key and
-    /// the current key are the same string. Evicting it would delete the result the refresh just
-    /// wrote, leaving the key permanently cold.
+    /// the current key are the same string.
     #[test]
     fn an_unchanged_session_is_never_evicted() {
         let (job, current_key, fallback_key) = for_session("now", Some("now"));
@@ -394,12 +383,6 @@ mod tests {
         assert_eq!(job.ttl, 1234);
         assert_eq!(job.queue(), job::QUEUE_HEAVY);
     }
-
-    // --- BackgroundWorker cache behaviour -------------------------------------------------
-    //
-    // These run against `fake_cache()`: a real in-process moka tier and an unreachable redis. Every
-    // path below checks memory first and swallows redis failures, so the observable behaviour is
-    // the same as it would be with redis simply missing the key.
 
     fn worker() -> BackgroundWorker {
         BackgroundWorker::new(fake_cache())
@@ -465,9 +448,7 @@ mod tests {
         assert_eq!(query.calls(), 1);
     }
 
-    /// The two tiers key differently — memory on the bare key, redis on the `gfl-ze-watcher:`
-    /// prefixed one. `cache_raw`, `try_cache_lookup` and `drop_cached` each rebuild that pairing
-    /// independently, so pin it down.
+    /// The two tiers key differently, memory on the bare key, redis on the prefixed one.
     #[tokio::test]
     async fn the_memory_tier_is_keyed_on_the_bare_key() {
         let worker = worker();
@@ -565,7 +546,6 @@ mod tests {
     }
 }
 
-/// Spans both workers, so it lives here rather than in `player.rs` or `map.rs`.
 #[cfg(test)]
 mod cache_key_tests {
     use std::collections::HashSet;
@@ -577,10 +557,6 @@ mod cache_key_tests {
     use super::test_support::{map_query, player_global_query, player_query, player_session_query};
     use super::WorkerQuery;
 
-    /// The queries are distinguished only by a phantom type parameter, so two impls returning the
-    /// same key pattern is an easy mistake to make and an invisible one to hit: the second type to
-    /// be written would deserialize the first one's JSON, or silently fail to and recompute
-    /// forever. Nothing else in the system checks this.
     #[tokio::test]
     async fn no_two_queries_share_a_cache_key_pattern() {
         let patterns = vec![

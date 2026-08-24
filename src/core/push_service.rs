@@ -109,10 +109,6 @@ impl PushNotificationService {
         })
     }
 
-    /// A service that can be held but not used, for tests that need to build an [`crate::AppData`]
-    /// without VAPID keys on disk. The keys are placeholders — they are only validated when a
-    /// notification is actually sent, which no offline test does. `IsahcWebPushClient::new` builds
-    /// an HTTP client and dials nothing.
     #[cfg(test)]
     pub(crate) fn stub(pool: Arc<PgPool>) -> Self {
         Self {

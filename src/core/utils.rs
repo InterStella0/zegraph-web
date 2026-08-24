@@ -255,14 +255,10 @@ impl BriefAnonymizer {
         Self { reveal_all, viewer_id: Some(viewer_id.to_string()) }
     }
 
-    /// Whether the requester may see this player's real identity: superuser, this community's
-    /// admin, or the player themselves.
     fn reveal(&self, player_id: &str) -> bool {
         self.reveal_all || self.viewer_id.as_deref() == Some(player_id)
     }
 
-    /// Mask, in place, every anonymized row the requester isn't allowed to see. Rows that stay
-    /// visible get `is_anonymous` cleared so the frontend renders them normally.
     pub fn apply<T: AnonRow>(&self, rows: &mut [T]) {
         for row in rows.iter_mut() {
             if row.is_anonymous() && !self.reveal(row.row_id()) {
@@ -273,7 +269,6 @@ impl BriefAnonymizer {
         }
     }
 
-    /// Drop anonymized rows the requester isn't allowed to see
     pub fn retain_visible<T: AnonRow>(&self, rows: &mut Vec<T>) {
         rows.retain(|row| !(row.is_anonymous() && !self.reveal(row.row_id())));
     }
@@ -293,12 +288,10 @@ async fn is_community_admin_of_server(app: &AppData, user_id: i64, server_id: &s
     .unwrap_or(false)
 }
 
-/// A player-list row whose identity can be masked when the owner has opted out.
 pub trait AnonRow {
     fn row_id(&self) -> &str;
     fn is_anonymous(&self) -> bool;
     fn set_anonymous(&mut self, value: bool);
-    /// Replace identity with an anonymous placeholder and a throwaway id.
     fn mask(&mut self);
 }
 
@@ -814,9 +807,6 @@ pub fn handle_worker_result<T>(result: WorkResult<T>, error_not_found: &str) -> 
 mod cached_result_tests {
     use super::CachedResult;
 
-    /// Callers branch on these two flags — `MapWorker::get_statistics` reads `is_new` to decide
-    /// whether it is looking at a freshly computed value — so the three constructors must keep
-    /// setting them apart from one another.
     #[test]
     fn the_constructors_set_distinct_flag_pairs() {
         let current = CachedResult::current_data(1);
