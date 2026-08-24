@@ -58,7 +58,6 @@ impl AdminAuditApi {
             return response!(err "Unauthorized", ErrorCode::Forbidden);
         }
 
-        // Non-superusers are hard-scoped to map metadata regardless of query params
         let category_filter = (!is_superuser).then(|| CATEGORY_MAP_METADATA.to_string());
 
         let page = page.unwrap_or(1).max(1);

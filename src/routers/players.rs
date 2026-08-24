@@ -675,11 +675,7 @@ impl PlayerApi{
         let Ok(result) = cached_response(&key, redis_pool, 2 * 60, func).await else {
             return response!(internal_server_error)
         };
-        // let value: PlayerSession = result.result.into();
-        // // Lazy lol, who cares, they ain't gonna know about this one
-        // if value.is_anonymous && value.name == "Anonymous"{
-        //     (*value).id = uuid::Uuid::new_v4().to_string()
-        // }
+
         response!(ok result.result.into())
     }
     /// Chart data for a player's session history on a server. Backed by `PlayerWorker`'s cache.

@@ -117,7 +117,6 @@ async fn get_counts_hour_chunked(
 	Ok(result)
 }
 
-/// Ranking window for the top-players leaderboard.
 #[derive(Enum)]
 #[oai(rename_all = "lowercase")]
 enum TopPlayersTimeFrame{

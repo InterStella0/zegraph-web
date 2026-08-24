@@ -299,9 +299,6 @@ async fn fetch_steam_info(steam_id: &i64) -> Result<SteamProfile, ErrorCode> {
 #[OpenApi(tag = "ApiTags::Accounts")]
 impl AccountsApi {
     /// Create this user's Steam profile record on first login.
-    ///
-    /// Fetches the caller's public profile from the Steam API and stores it. 409s if a record
-    /// already exists for this user.
     #[oai(path="/accounts/create", method="post")]
     async fn create_user_info(&self, Data(data): Data<&AppData>, TokenBearer(user_token): TokenBearer) -> Response<SteamProfile>{
         let user_id = user_token.id;
@@ -508,10 +505,7 @@ impl AccountsApi {
     }
     /// A player's public profile: aggregate stats, global rank, and per-community/server detail.
     ///
-    /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID. Communities where the
-    /// target anonymized themselves are omitted for non-owners, and — if that would hide every
-    /// community — the profile name itself is replaced with "Anonymous" too, so the opt-out
-    /// can't be inferred from what's left visible.
+    /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID.
     #[oai(path="/players/:player_id/profile", method="get", tag = "ApiTags::Players")]
     async fn get_user_profile(
         &self,
@@ -564,14 +558,11 @@ impl AccountsApi {
             .filter_map(|s| s.community_id)
             .collect();
 
-        // If a non-owner would see no communities at all because the user is anonymized in every
-        // one they appear in, the top-level name must be hidden too (otherwise the opt-out leaks).
         let all_community_ids: HashSet<Uuid> = servers_played.iter().map(|e| e.community_id).collect();
         let has_visible_community = all_community_ids.iter().any(|c| !anonymized_community_ids.contains(c));
 
         let current_name = get_player(pool, &app.cache, &steam_id).await.map(|p| p.player_name);
 
-        // Only users who have signed in to the site have a steam_user row.
         let persona_name = sqlx::query_scalar!(
             "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
             target_user_id
@@ -937,8 +928,6 @@ impl AccountsApi {
         };
 
         let total_rows = result.first().and_then(|e| e.total_rows).unwrap_or_default();
-        // Ceiling division: plain integer division leaves a partial last page unreachable.
-        // (`i64::div_ceil` is still unstable, hence the manual form.)
         let total_pages = (total_rows + PAGE_SIZE - 1) / PAGE_SIZE;
 
         response!(ok GlobalPlayerSessionPage{ total_pages, rows: result.iter_into() })
@@ -1048,7 +1037,6 @@ impl AccountsApi {
             return response!(err "Target user not found", ErrorCode::NotFound);
         }
 
-        // Insert or update anonymization setting
         let result = sqlx::query_as!(DbUserAnonymization,
             "INSERT INTO website.user_anonymization (user_id, community_id, anonymized, hide_location)
              VALUES ($1, $2, $3, $4)
@@ -1247,15 +1235,13 @@ impl AccountsApi {
             }
         };
 
-        // If report is resolved and has a suggested YouTube URL, credit the reporter
         if payload.status == "resolved" {
             if let Some(ref suggested_url) = report.suggested_youtube_url {
                 if let Some(video_id) = extract_youtube_id(suggested_url) {
-                    // Update map_music with the suggested video and credit the reporter
                     let update_result = sqlx::query!(
                         "UPDATE map_music SET youtube_music = $1, yt_source = $2 WHERE id = $3",
                         video_id,
-                        report.user_id,  // Reporter gets credit!
+                        report.user_id,
                         report.music_id
                     )
                     .execute(&*data.pool)
@@ -1263,7 +1249,6 @@ impl AccountsApi {
 
                     if let Err(e) = update_result {
                         tracing::error!("Failed to update music with reporter credit: {}", e);
-                        // Don't fail the whole request, just log the error
                     }
                 }
             }
@@ -1289,7 +1274,6 @@ impl AccountsApi {
             return response!(err "Invalid music ID", ErrorCode::BadRequest);
         };
 
-        // Update youtube_music field and set yt_source to admin's Steam ID
         let result = sqlx::query!(
             r#"
             UPDATE map_music
@@ -1339,7 +1323,6 @@ impl AccountsApi {
         let limit = 20i64;
         let offset = (page - 1) * limit;
 
-        // Fetch all announcements
         let mut all_announcements = match sqlx::query_as!(
             DbAnnouncement,
             r#"
@@ -1358,13 +1341,11 @@ impl AccountsApi {
             }
         };
 
-        // Filter by type if specified
         if let Some(type_filter) = r#type {
             let type_state: AnnouncementTypeState = type_filter.into();
             all_announcements.retain(|a| a.r#type == type_state);
         }
 
-        // Filter by status if specified
         if let Some(status_filter) = status {
             let now = chrono::Utc::now();
             all_announcements.retain(|a| {
@@ -1393,7 +1374,6 @@ impl AccountsApi {
 
         let total = all_announcements.len() as i64;
 
-        // Apply pagination
         let paginated: Vec<DbAnnouncement> = all_announcements
             .into_iter()
             .skip(offset as usize)
@@ -1508,7 +1488,6 @@ impl AccountsApi {
             }
         }
 
-        // Fetch current announcement
         let current = match sqlx::query_as!(
             DbAnnouncement,
             "SELECT id, type AS \"type: AnnouncementTypeState\", title, text, created_at, published_at, expires_at, show
@@ -1526,7 +1505,6 @@ impl AccountsApi {
             }
         };
 
-        // Update only provided fields
         let new_type: AnnouncementTypeState = payload.r#type.map(|e| e.into()).unwrap_or(current.r#type);
         let new_title = payload.title.or(current.title);
         let new_text = payload.text.unwrap_or(current.text);
@@ -1596,10 +1574,6 @@ impl AccountsApi {
         response!(ok "Announcement deleted successfully".to_string())
     }
 
-    // ========================================================================
-    // PUSH NOTIFICATION ENDPOINTS
-    // ========================================================================
-
     /// Register a Web Push subscription for the signed-in user.
     ///
     /// Body is a standard Web Push subscription object (`endpoint` + `p256dh`/`auth` keys, both
@@ -1611,13 +1585,11 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         Json(subscription): Json<PushSubscriptionDto>,
     ) -> Response<PushSubscription> {
-        // Validate subscription before inserting
         if let Err(e) = validate_push_subscription(&subscription) {
             let _err = format!("Err {e}");
             return response!(err "Error validate push subscription", ErrorCode::BadRequest);
         }
 
-        // Insert or update subscription
         let result = sqlx::query_as!(
             DbPushSubscription,
             r#"
@@ -1775,7 +1747,6 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         Json(preferences): Json<NotificationPreferencesDto>,
     ) -> Response<NotificationPreferences> {
-        // Check if at least one preference is provided
         if preferences.announcements_enabled.is_none()
             && preferences.system_enabled.is_none()
             && preferences.map_specific_enabled.is_none()
@@ -1783,7 +1754,6 @@ impl AccountsApi {
             return response!(err "No preferences to update", ErrorCode::BadRequest);
         }
 
-        // Use COALESCE to only update provided fields
         let result = sqlx::query_as!(
             DbNotificationPreferences,
             r#"
@@ -1815,10 +1785,6 @@ impl AccountsApi {
         }
     }
 
-    // ========================================================================
-    // MAP CHANGE SUBSCRIPTION ENDPOINTS
-    // ========================================================================
-
     /// Subscribe an existing push subscription to one-time notifications when a server's map
     /// changes.
     ///
@@ -1831,13 +1797,11 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         Json(dto): Json<CreateMapChangeSubscriptionDto>,
     ) -> Response<MapChangeSubscription> {
-        // Validate subscription_id is a valid UUID
         let subscription_id = match Uuid::parse_str(&dto.subscription_id) {
             Ok(id) => id,
             Err(_) => return response!(err "Invalid subscription ID format", ErrorCode::BadRequest),
         };
 
-        // Verify subscription exists and belongs to user
         let subscription_check = sqlx::query_scalar!(
             "SELECT user_id FROM website.push_subscriptions WHERE id = $1",
             subscription_id
@@ -1861,7 +1825,6 @@ impl AccountsApi {
             }
         }
 
-        // Verify server exists
         let server_check = sqlx::query_scalar!(
             "SELECT server_id FROM server WHERE server_id = $1",
             dto.server_id
@@ -1882,7 +1845,6 @@ impl AccountsApi {
             }
         }
 
-        // Insert map change subscription
         let result = sqlx::query_as!(
             DbMapChangeSubscription,
             r#"
@@ -2004,7 +1966,6 @@ impl AccountsApi {
             }
         }
 
-        // If server_id is provided, verify server exists
         if let Some(ref server_id) = dto.server_id {
             let server_check = sqlx::query_scalar!(
                 "SELECT server_id FROM server WHERE server_id = $1",
@@ -2135,7 +2096,6 @@ impl AccountsApi {
         Query(map_name): Query<String>,
         Query(server_id): Query<Option<String>>,
     ) -> Response<MapNotifyStatusResponse> {
-        // Check for server-specific subscription
         let server_sub = if let Some(ref sid) = server_id {
             sqlx::query_scalar!(
                 "SELECT id FROM website.map_notify_subscriptions WHERE user_id = $1 AND map_name = $2 AND server_id = $3 AND triggered = FALSE",
@@ -2151,7 +2111,6 @@ impl AccountsApi {
             None
         };
 
-        // Check for all-servers subscription
         let all_sub = sqlx::query_scalar!(
             "SELECT id FROM website.map_notify_subscriptions WHERE user_id = $1 AND map_name = $2 AND server_id IS NULL AND triggered = FALSE",
             user_token.id,
@@ -2190,7 +2149,6 @@ impl AccountsApi {
         }
 
         let result = if let Some(target_user_id_str) = test_notif.user_id {
-            // Send to specific user
             let target_user_id = match target_user_id_str.parse::<i64>() {
                 Ok(id) => id,
                 Err(_) => return response!(err "Invalid user_id format", ErrorCode::BadRequest),
@@ -2202,7 +2160,6 @@ impl AccountsApi {
                 NotificationType::System,
             ).await
         } else {
-            // Broadcast to all users
             data.push_service.send_notification_broadcast(
                 test_notif.title,
                 test_notif.body,
@@ -2244,7 +2201,6 @@ impl AccountsApi {
         let limit = 50;
         let offset = (page - 1) * limit;
 
-        // Get total count
         let total = sqlx::query_scalar!(
             "SELECT COUNT(*) FROM website.push_subscriptions "
         )
@@ -2253,7 +2209,6 @@ impl AccountsApi {
         .unwrap_or(Some(0))
         .unwrap_or(0);
 
-        // Get subscriptions
         let subscriptions = sqlx::query_as!(
             DbPushSubscription,
             r#"
@@ -2283,8 +2238,6 @@ impl AccountsApi {
             }
         }
     }
-
-    // ============ SERVER NOMINATION ENDPOINTS ============
 
     /// Submit a community request to have a new server tracked.
     ///
@@ -2434,7 +2387,6 @@ impl AccountsApi {
             Err(_) => return response!(err "Invalid request ID", ErrorCode::BadRequest),
         };
 
-        // If approving, insert community and server_browser entries
         if dto.status == "approved" {
             let req = match sqlx::query!(
                 r#"SELECT community_name, icon_url, servers FROM website.server_requests WHERE id = $1"#,
@@ -2451,7 +2403,6 @@ impl AccountsApi {
                 }
             };
 
-            // Insert community
             let community_id = match sqlx::query_scalar!(
                 r#"INSERT INTO community (community_name, community_icon_url) VALUES ($1, $2) RETURNING community_id"#,
                 req.community_name,
@@ -2467,7 +2418,6 @@ impl AccountsApi {
                 }
             };
 
-            // Insert each server into server_browser
             let entries: Vec<ServerEntryDto> = match serde_json::from_value(req.servers) {
                 Ok(v) => v,
                 Err(e) => {

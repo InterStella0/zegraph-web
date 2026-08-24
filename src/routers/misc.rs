@@ -725,8 +725,7 @@ impl MiscApi {
         )
     }
 }
-/// The property that matters for [`LiveEventHub`]: viewer count no longer drives Postgres
-/// connection count.
+
 #[cfg(test)]
 mod live_event_tests {
     use super::*;
@@ -827,7 +826,6 @@ mod traffic_tests {
 
         assert_eq!(traffic.served, 6);
         assert_eq!(traffic.since, Some(1_700_000_000), "the period the total covers rides along");
-        // 12_000us over 6 requests.
         assert_eq!(traffic.average_ms, 2.0);
         assert_eq!(traffic.busiest[0].endpoint, "GET /health");
         assert_eq!(traffic.busiest[0].average_ms, 0.5);
@@ -838,9 +836,9 @@ mod traffic_tests {
     fn the_recent_window_wins_over_the_lifetime_figures() {
         let traffic = summarize_traffic(
             hash(&[("GET /health", 1_000_000)]),
-            hash(&[("GET /health", 500_000_000)]),   // lifetime 0.5ms
+            hash(&[("GET /health", 500_000_000)]),
             hash(&[("GET /health", 10)]),
-            hash(&[("GET /health", 400_000)]),       // last 5 minutes: 40ms
+            hash(&[("GET /health", 400_000)]),
             None,
         );
 
@@ -864,11 +862,8 @@ mod traffic_tests {
         assert_eq!(traffic.busiest[1].endpoint, "GET /servers");
         assert_eq!(traffic.busiest[1].average_ms, 10.0, "not seen in the window, so 500_000us/50");
 
-        // The overall figure is the window's own total, not a blend with the endpoints that fell
-        // back: 40_000us over 4 requests.
         assert_eq!(traffic.average_ms, 10.0);
 
-        // And with nothing at all in the window, the overall figure falls back too: 700_000/150.
         let idle = lifetime_only(
             hash(&[("GET /health", 100), ("GET /servers", 50)]),
             hash(&[("GET /health", 200_000), ("GET /servers", 500_000)]),
@@ -877,8 +872,6 @@ mod traffic_tests {
         assert!((idle.average_ms - 700_000.0 / 150.0 / 1000.0).abs() < f64::EPSILON);
     }
 
-    /// Only the averages moved to the window. Ranking and totals must not follow, or the panel's
-    /// "N requests served over the past 5 months" headline stops meaning that.
     #[test]
     fn the_window_does_not_reorder_or_retotal_the_list() {
         let traffic = summarize_traffic(
@@ -896,8 +889,6 @@ mod traffic_tests {
         assert_eq!(traffic.since, Some(1_700_000_000));
     }
 
-    /// A read landing between the `HINCRBY`s of a flush sees a field in one hash and not the
-    /// other. Neither half may produce a NaN or an infinity in the response, in either scope.
     #[test]
     fn a_half_written_field_does_not_poison_the_averages() {
         let counted_only = lifetime_only(hash(&[("GET /health", 2)]), hash(&[]), None);
@@ -909,8 +900,6 @@ mod traffic_tests {
         assert_eq!(timed_only.served, 0);
         assert_eq!(timed_only.average_ms, 0.0);
 
-        // A duration landing in the window ahead of its count is not a divide-by-zero; the endpoint
-        // falls back to its lifetime average as if the window were empty.
         let recent_timed_only = summarize_traffic(
             hash(&[("GET /health", 4)]),
             hash(&[("GET /health", 8_000)]),
@@ -921,7 +910,6 @@ mod traffic_tests {
         assert_eq!(recent_timed_only.busiest[0].average_ms, 2.0);
         assert_eq!(recent_timed_only.average_ms, 2.0);
 
-        // And a zero count in the window is treated the same as an absent one.
         let recent_zero_count = summarize_traffic(
             hash(&[("GET /health", 4)]),
             hash(&[("GET /health", 8_000)]),
@@ -955,9 +943,6 @@ mod traffic_tests {
         );
     }
 
-    /// Both sides of the window build their keys through the same helper; this pins the shape so a
-    /// drift between the flusher and the probe would fail here rather than silently read empty
-    /// buckets forever.
     #[test]
     fn bucket_keys_are_the_cumulative_keys_suffixed_with_the_minute() {
         let (counts, durations) = metrics_bucket_keys(28_333_333);
@@ -966,16 +951,14 @@ mod traffic_tests {
         assert_ne!(metrics_bucket_keys(28_333_334).0, counts);
     }
 
-    /// The graph is a fixed 3-day window: exactly [`AVG_GRAPH_MINUTES`] points, oldest first, null
-    /// for a silent minute, and a half-written minute (count without its duration) reads 0 rather
-    /// than NaN — the same guarantee [`mean_ms`] makes for the windowed averages.
+    /// The graph is a fixed 3-day window
     #[test]
     fn the_graph_is_4320_points_oldest_first_with_nulls_for_silence() {
         let mut counts = vec![None; AVG_GRAPH_MINUTES as usize];
         let mut durations = vec![None; AVG_GRAPH_MINUTES as usize];
 
         counts[0] = Some(2);
-        durations[0] = Some(3_000); // 3000us over 2 requests = 1.5ms
+        durations[0] = Some(3_000);
         // index 1 left None: a minute with no traffic.
         let last = AVG_GRAPH_MINUTES as usize - 1;
         counts[last] = Some(1); // duration missing → half-written → 0.0, not NaN
@@ -987,8 +970,6 @@ mod traffic_tests {
         assert_eq!(graph[last], Some(0.0));
     }
 
-    /// The overall keys mirror the bucket keys: same prefix shape, distinct per minute, so the
-    /// flusher and `/health` cannot drift apart.
     #[test]
     fn overall_metric_keys_are_prefixed_and_distinct_per_minute() {
         let (counts, durations) = overall_metric_keys(28_333_333);

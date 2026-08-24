@@ -18,7 +18,6 @@ pub fn inflight_key(cache_key: &str) -> String {
     format!("gfl-ze-watcher:job:inflight:{cache_key}")
 }
 
-/// A unit of work, fully described by data (no closures), so it can cross a process boundary.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RefreshJob {
     pub kind: JobKind,
@@ -69,8 +68,6 @@ impl RefreshJob {
     }
 }
 
-/// One variant per `WorkerQuery` impl. The `T` that used to be a phantom type parameter becomes a
-/// tag here, because the queue carries bytes and not types.
 #[derive(Clone, Serialize, Deserialize)]
 pub enum JobKind {
     // MapBasicQuery<T>
@@ -102,13 +99,10 @@ pub enum JobKind {
     PlayerGlobalSnapshot(PlayerGlobalData),
     PlayerCommunityPlaytime(PlayerGlobalData),
 
-    /// Not a `WorkerQuery`: it re-derives every server's playtime for one player and upserts the
-    /// summation, producing no cacheable value. It is the heaviest thing the app runs, which is
-    /// exactly why it belongs out here rather than on the API's runtime.
+    /// Not a `WorkerQuery`
     PlayerGlobalPlaytime { canonical_id: String },
 }
 
-/// Rebuilds the concrete query from its descriptor, runs it, and hands back the serialized result.
 pub async fn dispatch(
     kind: &JobKind,
     pool: Arc<Pool<Postgres>>,
@@ -239,9 +233,6 @@ mod tests {
         assert_ne!(QUEUE_HEAVY, QUEUE_LIGHT);
     }
 
-    /// The producer sets this marker and the consumer's `clear_marker` rebuilds it from the cache
-    /// key independently. If the two ever derive it differently the marker is never cleared and the
-    /// key stays stuck reporting "calculating" until its TTL runs out, so assert the literal shape.
     #[test]
     fn the_inflight_marker_has_a_stable_shape() {
         assert_eq!(inflight_key("map-info:s1:ze_map"), "gfl-ze-watcher:job:inflight:map-info:s1:ze_map");
@@ -261,8 +252,6 @@ mod tests {
         assert!(matches!(decoded.kind, JobKind::PlayerSessionTime(d) if d.player_id == player_data().player_id));
     }
 
-    /// `stale_key` was added after the queue was already in use, so a job enqueued by an older
-    /// build can still be sitting in redis across a deploy. It must not poison the consumer.
     #[test]
     fn a_payload_predating_stale_key_still_deserializes() {
         let legacy = r#"{
@@ -279,8 +268,6 @@ mod tests {
         assert_eq!(decoded.queue(), QUEUE_LIGHT);
     }
 
-    /// Every variant, so a new one cannot be added without also being round-tripped. The `match`
-    /// below is what enforces that: adding a variant to `JobKind` makes this fail to compile.
     fn all_job_kinds() -> Vec<JobKind> {
         let (p, m, s, g) = (player_data(), map_data(), player_session_data(), player_global_data());
         let kinds = vec![

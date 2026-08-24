@@ -57,11 +57,6 @@ type UpdatedResult<T> = Result<T, UpdaterError>;
 type Updated = UpdatedResult<()>;
 
 impl Updater{
-    /// These calls are pokes, not fetches: hitting an endpoint makes the API enqueue a refresh and
-    /// answer "calculating", and the result lands in the cache later. That was already true when
-    /// the work was spawned in-process, so it stays true across a container boundary — only the
-    /// host changes. When the worker runs apart from the API, `INTERNAL_API_BASE` points at it
-    /// (e.g. `http://backend:3000`); loopback is the default for a single-container deployment.
     pub fn new(port: &str) -> Self{
         let base = get_env_default("INTERNAL_API_BASE")
             .unwrap_or_else(|| format!("http://127.0.0.1:{port}"));
@@ -715,7 +710,7 @@ async fn send_map_change_notifications(
             Some(&url),
             Some(&server_id),
             true,                   // is_map_notify: true for map_notify
-            Some(new_map_name),     // map_name for building URLs
+            Some(new_map_name),
         ).await;
 
         match result {
@@ -745,7 +740,6 @@ async fn send_map_change_notifications(
     Ok(())
 }
 
-/// Cleanup stale upload sessions and temporary directories
 pub async fn cleanup_stale_uploads(store_upload: String) {
     let mut interval = tokio::time::interval(Duration::from_secs(3600)); // Run every hour
     loop {
