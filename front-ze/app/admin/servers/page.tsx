@@ -668,7 +668,6 @@ export default function ServersAdminPage() {
           <TabsTrigger value="servers">Scraped Servers ({servers.length})</TabsTrigger>
         </TabsList>
 
-        {/* ── Communities tab ── */}
         <TabsContent value="communities">
           <div className="flex justify-end mb-4">
             <Button onClick={() => { setEditingComm(null); setCommDialog(true); }}>
@@ -721,7 +720,6 @@ export default function ServersAdminPage() {
           </Table>
         </TabsContent>
 
-        {/* ── Server Browser tab ── */}
         <TabsContent value="browser">
           <div className="flex justify-end mb-4">
             <Button onClick={() => { setEditingBrowser(null); setBrowserDialog(true); }}>
@@ -778,7 +776,6 @@ export default function ServersAdminPage() {
           </Table>
         </TabsContent>
 
-        {/* ── Scraped Servers tab ── */}
         <TabsContent value="servers">
           <Table>
             <TableHeader>

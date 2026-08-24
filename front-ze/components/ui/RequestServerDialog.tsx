@@ -179,7 +179,6 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                             />
                         </div>
 
-                        {/* Game Type */}
                         <div className="grid gap-2">
                             <Label htmlFor="gameType">
                                 Game <span className="text-destructive">*</span>
@@ -195,7 +194,6 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                             </Select>
                         </div>
 
-                        {/* Servers */}
                         <div className="grid gap-2">
                             <Label>
                                 Servers <span className="text-destructive">*</span>
@@ -242,7 +240,6 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                             </Button>
                         </div>
 
-                        {/* Elaboration */}
                         <div className="grid gap-2">
                             <Label htmlFor="elaboration">
                                 Elaboration <span className="text-xs text-muted-foreground">(optional)</span>

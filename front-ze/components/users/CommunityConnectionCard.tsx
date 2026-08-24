@@ -149,7 +149,6 @@ export default function CommunityConnectionCard({
 
                     <Separator />
 
-                    {/* Server Details */}
                     <div className="space-y-3">
                         <h4 className="text-sm font-medium text-muted-foreground">
                             {t('servers')}
