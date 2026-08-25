@@ -1,17 +1,13 @@
 'use client';
 import 'leaflet/dist/leaflet.css';
-import {useEffect, useMemo} from 'react';
+import {useEffect} from 'react';
 import {LayersControl, MapContainer, TileLayer, useMap} from 'react-leaflet';
 import {useTheme} from 'next-themes';
-import dayjs from 'dayjs';
 import L from 'leaflet';
 import 'leaflet.nontiledlayer';
 import NonTiledWMSLayer from 'components/radars/NonTiledWMSLayer';
-import {darkBasemap, formGlobalWMSUrl, lightBasemap} from 'components/radars/RadarPreview';
-import {formatDateWMS} from 'components/radars/TemporalController';
+import {darkBasemap, lightBasemap, WMS_PLAYER_MAPPED_NOW_URL} from 'components/radars/RadarPreview';
 
-// The card can be resized by the parent layout (e.g. expand toggle), but Leaflet only
-// measures its container on mount, so we watch for size changes and re-measure.
 function MapResizeHandler() {
     const map = useMap();
     useEffect(() => {
@@ -23,21 +19,11 @@ function MapResizeHandler() {
     return null;
 }
 
-// Landing-page world map: renders the QGIS WMS player layer for ALL servers (no server_id
-// filter), filtered by a recent time window only. `refreshKey` lets the parent bump the
-// window periodically so it stays roughly live.
-export default function WorldRadarMap({refreshKey = 0, windowMinutes = 15}) {
+export default function WorldRadarMap({refreshKey = 0}) {
     const {resolvedTheme} = useTheme();
     const isDark = resolvedTheme === 'dark';
 
     const worldBounds = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
-
-    const time = useMemo(() => {
-        const end = dayjs();
-        const start = end.subtract(windowMinutes, 'minute');
-        return `${formatDateWMS(start)}/${formatDateWMS(end)}`;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [refreshKey, windowMinutes]);
 
     return (
         <MapContainer
@@ -63,9 +49,9 @@ export default function WorldRadarMap({refreshKey = 0, windowMinutes = 15}) {
             >
                 <LayersControl.Overlay checked name="Players">
                     <NonTiledWMSLayer
-                        key={time}
-                        url={formGlobalWMSUrl(time)}
-                        layers="player_server_timed"
+                        key={refreshKey}
+                        url={WMS_PLAYER_MAPPED_NOW_URL}
+                        layers="player_server_mapped"
                         version="1.1.1"
                         format="image/png"
                         transparent={true}

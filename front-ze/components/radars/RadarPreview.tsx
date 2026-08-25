@@ -13,6 +13,7 @@ import {useTranslations} from 'next-intl';
 export const lightBasemap = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const darkBasemap  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 export const WMS_URL = "/qgis-server";
+export const WMS_PLAYER_MAPPED_NOW_URL = "/wms/player_live/now";
 
 export function formWMSUrl(serverId, isLive, time = null){
     if (isLive){
@@ -21,14 +22,6 @@ export function formWMSUrl(serverId, isLive, time = null){
     if (time)
         return `${WMS_URL}?TIME=${time}&FILTER=player_server_timed,player_server_timed:"server_id" = '${serverId}'`
     return `${WMS_URL}?FILTER=player_server_timed,player_server_timed:"server_id" = '${serverId}'`
-}
-
-// Global (all servers) variant of formWMSUrl: no server_id filter, filtered by time only.
-// Used by the landing-page "Where players are" map to show every server at once.
-export function formGlobalWMSUrl(time = null){
-    if (time)
-        return `${WMS_URL}?TIME=${time}`
-    return WMS_URL
 }
 
 function RadarPreviewDisplay({ dateDisplay }){
