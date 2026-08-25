@@ -132,6 +132,12 @@ struct TrafficHealth {
 }
 
 #[derive(Object)]
+struct AvgGraphPoint {
+    timestamp: i64,
+    value: Option<f64>,
+}
+
+#[derive(Object)]
 struct IAmOkie{
     response: String,
     postgres: DependencyHealth,
@@ -139,7 +145,7 @@ struct IAmOkie{
     queues: QueueHealth,
     qgis: QgisHealth,
     traffic: Option<TrafficHealth>,
-    avg_graph: Option<Vec<Option<f64>>>,
+    avg_graph: Option<Vec<AvgGraphPoint>>,
 }
 
 #[derive(Object, Clone, Debug)]
@@ -305,7 +311,7 @@ static AVG_GRAPH_CACHE: std::sync::LazyLock<moka::future::Cache<String, String>>
 
 async fn read_avg_graph(
     cache: &FastCache,
-) -> Result<(Vec<Option<i64>>, Vec<Option<i64>>), String> {
+) -> Result<(Vec<i64>, Vec<Option<i64>>, Vec<Option<i64>>), String> {
     if let Some(cached) = AVG_GRAPH_CACHE.get(AVG_GRAPH_CACHE_KEY).await {
         match serde_json::from_str(&cached) {
             Ok(graph) => return Ok(graph),
@@ -322,24 +328,37 @@ async fn read_avg_graph(
     Ok(graph)
 }
 
-async fn fetch_avg_graph(
-    conn: &mut impl redis::aio::ConnectionLike,
-) -> redis::RedisResult<(Vec<Option<i64>>, Vec<Option<i64>>)> {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    let bucket = now / AVG_GRAPH_BUCKET_SECS;
+fn avg_graph_bucket_window(bucket: u64) -> Vec<u64> {
     let start = bucket.saturating_sub(AVG_GRAPH_BUCKETS - 1);
-    let count_keys: Vec<String> = (start..=bucket).map(|b| overall_metric_keys(b).0).collect();
-    let duration_keys: Vec<String> = (start..=bucket).map(|b| overall_metric_keys(b).1).collect();
-    let counts = redis::cmd("MGET").arg(count_keys).query_async(conn).await?;
-    let durations = redis::cmd("MGET").arg(duration_keys).query_async(conn).await?;
-    Ok((counts, durations))
+    (start..=bucket).collect()
 }
 
-fn build_avg_graph(counts: &[Option<i64>], durations: &[Option<i64>]) -> Vec<Option<f64>> {
-    counts.iter().zip(durations.iter()).map(|(count, duration)| {
-        match count.filter(|c| *c > 0) {
-            Some(count) => Some(duration.unwrap_or(0) as f64 / count as f64 / 1000.0),
-            None => None,
+async fn fetch_avg_graph(
+    conn: &mut impl redis::aio::ConnectionLike,
+) -> redis::RedisResult<(Vec<i64>, Vec<Option<i64>>, Vec<Option<i64>>)> {
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let bucket = now / AVG_GRAPH_BUCKET_SECS;
+    let buckets = avg_graph_bucket_window(bucket);
+    let timestamps: Vec<i64> = buckets.iter().map(|&b| (b * AVG_GRAPH_BUCKET_SECS) as i64).collect();
+    let count_keys: Vec<String> = buckets.iter().map(|&b| overall_metric_keys(b).0).collect();
+    let duration_keys: Vec<String> = buckets.iter().map(|&b| overall_metric_keys(b).1).collect();
+    let counts = redis::cmd("MGET").arg(count_keys).query_async(conn).await?;
+    let durations = redis::cmd("MGET").arg(duration_keys).query_async(conn).await?;
+    Ok((timestamps, counts, durations))
+}
+
+fn build_avg_graph(
+    timestamps: &[i64],
+    counts: &[Option<i64>],
+    durations: &[Option<i64>],
+) -> Vec<AvgGraphPoint> {
+    timestamps.iter().zip(counts.iter()).zip(durations.iter()).map(|((&timestamp, count), duration)| {
+        AvgGraphPoint {
+            timestamp,
+            value: match count.filter(|c| *c > 0) {
+                Some(count) => Some(duration.unwrap_or(0) as f64 / count as f64 / 1000.0),
+                None => None,
+            },
         }
     }).collect()
 }
@@ -486,7 +505,7 @@ impl MiscApi {
             Err(_) => DependencyHealth::down("timed out"),
         }
     }
-    async fn check_redis(&self, app: &AppData) -> (DependencyHealth, QueueHealth, Option<TrafficHealth>, Option<Vec<Option<f64>>>) {
+    async fn check_redis(&self, app: &AppData) -> (DependencyHealth, QueueHealth, Option<TrafficHealth>, Option<Vec<AvgGraphPoint>>) {
         let unknown_queues = || QueueHealth {
             heavy: None,
             light: None,
@@ -514,13 +533,13 @@ impl MiscApi {
                 .await.map_err(|e| e.to_string())?;
             let (recent_counts, recent_durations) = read_recent_window(&mut *conn)
                 .await.map_err(|e| e.to_string())?;
-            let (overall_counts, overall_durations) = read_avg_graph(&app.cache).await?;
+            let (overall_timestamps, overall_counts, overall_durations) = read_avg_graph(&app.cache).await?;
 
-            Ok::<_, String>((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs, overall_counts, overall_durations))
+            Ok::<_, String>((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs, overall_timestamps, overall_counts, overall_durations))
         };
 
         match timeout(HEALTH_CHECK_TIMEOUT, probe).await {
-            Ok(Ok((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs, overall_counts, overall_durations))) => (
+            Ok(Ok((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs, overall_timestamps, overall_counts, overall_durations))) => (
                 DependencyHealth::up(latency),
                 QueueHealth {
                     heavy: Some(heavy),
@@ -529,7 +548,7 @@ impl MiscApi {
                     completed_light: Some(jobs.get("light").copied().unwrap_or(0)),
                 },
                 Some(summarize_traffic(counts, durations, recent_counts, recent_durations, since)),
-                Some(build_avg_graph(&overall_counts, &overall_durations)),
+                Some(build_avg_graph(&overall_timestamps, &overall_counts, &overall_durations)),
             ),
             Ok(Err(e)) => (DependencyHealth::down(e), unknown_queues(), None, None),
             Err(_) => (DependencyHealth::down("timed out"), unknown_queues(), None, None),
@@ -991,11 +1010,15 @@ mod traffic_tests {
         let last = AVG_GRAPH_BUCKETS as usize - 1;
         counts[last] = Some(1); // duration missing → half-written → 0.0, not NaN
 
-        let graph = build_avg_graph(&counts, &durations);
+        let timestamps: Vec<i64> = (0..AVG_GRAPH_BUCKETS as i64)
+            .map(|i| i * AVG_GRAPH_BUCKET_SECS as i64)
+            .collect();
+        let graph = build_avg_graph(&timestamps, &counts, &durations);
         assert_eq!(graph.len(), AVG_GRAPH_BUCKETS as usize);
-        assert_eq!(graph[0], Some(1.5));
-        assert_eq!(graph[1], None);
-        assert_eq!(graph[last], Some(0.0));
+        assert_eq!(graph[0].timestamp, 0);
+        assert_eq!(graph[0].value, Some(1.5));
+        assert_eq!(graph[1].value, None);
+        assert_eq!(graph[last].value, Some(0.0));
     }
 
     #[test]
