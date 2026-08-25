@@ -176,14 +176,16 @@ pub fn metrics_bucket_keys(minute: u64) -> (String, String) {
 pub const METRICS_OVERALL_COUNT_PREFIX: &str = "gfl-ze-watcher:metrics:overall:count:";
 pub const METRICS_OVERALL_DURATION_PREFIX: &str = "gfl-ze-watcher:metrics:overall:duration_us:";
 
-pub const AVG_GRAPH_MINUTES: u64 = 3 * 24 * 60;
+pub const AVG_GRAPH_BUCKET_SECS: u64 = 5 * 60;
 
-const METRICS_OVERALL_TTL: Duration = Duration::from_secs((AVG_GRAPH_MINUTES + 5) * 60);
+pub const AVG_GRAPH_BUCKETS: u64 = 3 * 24 * 60 * 60 / AVG_GRAPH_BUCKET_SECS;
 
-pub fn overall_metric_keys(minute: u64) -> (String, String) {
+const METRICS_OVERALL_TTL: Duration = Duration::from_secs(AVG_GRAPH_BUCKETS * AVG_GRAPH_BUCKET_SECS + 5 * 60);
+
+pub fn overall_metric_keys(bucket: u64) -> (String, String) {
     (
-        format!("{METRICS_OVERALL_COUNT_PREFIX}{minute}"),
-        format!("{METRICS_OVERALL_DURATION_PREFIX}{minute}"),
+        format!("{METRICS_OVERALL_COUNT_PREFIX}{bucket}"),
+        format!("{METRICS_OVERALL_DURATION_PREFIX}{bucket}"),
     )
 }
 
@@ -263,7 +265,8 @@ impl EndpointMetrics {
         let overall_count: u64 = drained.values().map(|(count, _)| *count).sum();
         let overall_duration: u64 = drained.values().map(|(_, micros)| *micros).sum();
         if overall_count > 0 {
-            let (overall_count_key, overall_duration_key) = overall_metric_keys(minute);
+            let bucket = now / AVG_GRAPH_BUCKET_SECS;
+            let (overall_count_key, overall_duration_key) = overall_metric_keys(bucket);
             let overall_ttl = METRICS_OVERALL_TTL.as_secs();
             pipe.incr(&overall_count_key, overall_count)
                 .incr(&overall_duration_key, overall_duration)

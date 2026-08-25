@@ -221,7 +221,7 @@ function GraphTile({ points }: { points: (number | null)[] }) {
     const isDark = resolvedTheme === "dark";
 
     const data = useMemo(() => {
-        const stepMs = 60_000;
+        const stepMs = 5 * 60_000;
         const nowMs = Date.now();
         const length = points.length;
         return {

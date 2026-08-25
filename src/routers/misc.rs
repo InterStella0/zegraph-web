@@ -295,10 +295,18 @@ fn summarize_traffic(
 
 const AVG_GRAPH_CACHE_KEY: &str = "health:avg_graph";
 
+static AVG_GRAPH_CACHE: std::sync::LazyLock<moka::future::Cache<String, String>> =
+    std::sync::LazyLock::new(|| {
+        moka::future::Cache::builder()
+            .time_to_live(Duration::from_secs(5 * 60))
+            .max_capacity(1)
+            .build()
+    });
+
 async fn read_avg_graph(
     cache: &FastCache,
 ) -> Result<(Vec<Option<i64>>, Vec<Option<i64>>), String> {
-    if let Some(cached) = cache.memory.get(AVG_GRAPH_CACHE_KEY).await {
+    if let Some(cached) = AVG_GRAPH_CACHE.get(AVG_GRAPH_CACHE_KEY).await {
         match serde_json::from_str(&cached) {
             Ok(graph) => return Ok(graph),
             Err(_) => tracing::warn!("Memory deserialize failed for {AVG_GRAPH_CACHE_KEY}"),
@@ -309,7 +317,7 @@ async fn read_avg_graph(
     let graph = fetch_avg_graph(&mut *conn).await.map_err(|e| e.to_string())?;
 
     if let Ok(json) = serde_json::to_string(&graph) {
-        cache.memory.insert(AVG_GRAPH_CACHE_KEY.to_string(), json).await;
+        AVG_GRAPH_CACHE.insert(AVG_GRAPH_CACHE_KEY.to_string(), json).await;
     }
     Ok(graph)
 }
@@ -318,10 +326,10 @@ async fn fetch_avg_graph(
     conn: &mut impl redis::aio::ConnectionLike,
 ) -> redis::RedisResult<(Vec<Option<i64>>, Vec<Option<i64>>)> {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    let minute = now / 60;
-    let start = minute.saturating_sub(AVG_GRAPH_MINUTES - 1);
-    let count_keys: Vec<String> = (start..=minute).map(|m| overall_metric_keys(m).0).collect();
-    let duration_keys: Vec<String> = (start..=minute).map(|m| overall_metric_keys(m).1).collect();
+    let bucket = now / AVG_GRAPH_BUCKET_SECS;
+    let start = bucket.saturating_sub(AVG_GRAPH_BUCKETS - 1);
+    let count_keys: Vec<String> = (start..=bucket).map(|b| overall_metric_keys(b).0).collect();
+    let duration_keys: Vec<String> = (start..=bucket).map(|b| overall_metric_keys(b).1).collect();
     let counts = redis::cmd("MGET").arg(count_keys).query_async(conn).await?;
     let durations = redis::cmd("MGET").arg(duration_keys).query_async(conn).await?;
     Ok((counts, durations))
@@ -973,25 +981,25 @@ mod traffic_tests {
 
     /// The graph is a fixed 3-day window
     #[test]
-    fn the_graph_is_4320_points_oldest_first_with_nulls_for_silence() {
-        let mut counts = vec![None; AVG_GRAPH_MINUTES as usize];
-        let mut durations = vec![None; AVG_GRAPH_MINUTES as usize];
+    fn the_graph_is_864_points_oldest_first_with_nulls_for_silence() {
+        let mut counts = vec![None; AVG_GRAPH_BUCKETS as usize];
+        let mut durations = vec![None; AVG_GRAPH_BUCKETS as usize];
 
         counts[0] = Some(2);
         durations[0] = Some(3_000);
-        // index 1 left None: a minute with no traffic.
-        let last = AVG_GRAPH_MINUTES as usize - 1;
+        // index 1 left None: a bucket with no traffic.
+        let last = AVG_GRAPH_BUCKETS as usize - 1;
         counts[last] = Some(1); // duration missing → half-written → 0.0, not NaN
 
         let graph = build_avg_graph(&counts, &durations);
-        assert_eq!(graph.len(), AVG_GRAPH_MINUTES as usize);
+        assert_eq!(graph.len(), AVG_GRAPH_BUCKETS as usize);
         assert_eq!(graph[0], Some(1.5));
         assert_eq!(graph[1], None);
         assert_eq!(graph[last], Some(0.0));
     }
 
     #[test]
-    fn overall_metric_keys_are_prefixed_and_distinct_per_minute() {
+    fn overall_metric_keys_are_prefixed_and_distinct_per_bucket() {
         let (counts, durations) = overall_metric_keys(28_333_333);
         assert_eq!(counts, format!("{METRICS_OVERALL_COUNT_PREFIX}28333333"));
         assert_eq!(durations, format!("{METRICS_OVERALL_DURATION_PREFIX}28333333"));
