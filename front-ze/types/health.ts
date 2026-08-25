@@ -32,6 +32,11 @@ export interface TrafficHealth {
     busiest: EndpointStat[];
 }
 
+export interface AvgGraphPoint {
+    timestamp: number;
+    value: number | null;
+}
+
 export interface ApiHealth {
     /** "ok" | "degraded" */
     response: string;
@@ -40,5 +45,5 @@ export interface ApiHealth {
     queues: QueueHealth;
     qgis: QgisHealth;
     traffic: TrafficHealth | null;
-    avg_graph: (number | null)[] | null;
+    avg_graph: AvgGraphPoint[] | null;
 }

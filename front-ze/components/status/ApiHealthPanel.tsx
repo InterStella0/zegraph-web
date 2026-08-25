@@ -12,7 +12,7 @@ import { Separator } from "components/ui/separator";
 import { Skeleton } from "components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
 import { LazyLineChart as Line } from "components/graphs/LazyCharts";
-import { ApiHealth, DependencyHealth } from "types/health";
+import { ApiHealth, AvgGraphPoint, DependencyHealth } from "types/health";
 import { fetchUrl } from "utils/generalUtils.ts";
 import { useTranslations, useLocale } from "next-intl";
 import { useTheme } from "next-themes";
@@ -215,18 +215,15 @@ function TopEndpoints({ traffic }: { traffic: NonNullable<ApiHealth["traffic"]> 
     );
 }
 
-function GraphTile({ points }: { points: (number | null)[] }) {
+function GraphTile({ points }: { points: AvgGraphPoint[] }) {
     const t = useTranslations("status.api");
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === "dark";
 
     const data = useMemo(() => {
-        const stepMs = 5 * 60_000;
-        const nowMs = Date.now();
-        const length = points.length;
         return {
             datasets: [{
-                data: points.map((y, i) => ({ x: nowMs - (length - 1 - i) * stepMs, y })),
+                data: points.map((p) => ({ x: p.timestamp * 1000, y: p.value })),
                 borderColor: isDark ? "oklch(0.696 0.15 320)" : "oklch(0.6 0.07 310)",
                 backgroundColor: "transparent",
                 borderWidth: 1.5,
