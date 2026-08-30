@@ -112,7 +112,7 @@ export default function RadarMap({ dateDisplay, height, fullscreen = false }) {
                             <TileLayer
                                 url={DARK_BASEMAP}
                                 // @ts-ignore it does exist bitch
-                                attribution={`&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a>`}
+                                attribution={`&copy; <a href="https://basemap.queeniemella.cc/">queeniemella</a>, &copy; OpenStreetMap contributors`}
                             />
                         </LayersControl.BaseLayer>
 
