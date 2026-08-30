@@ -6,7 +6,7 @@ import {useTheme} from 'next-themes';
 import L from 'leaflet';
 import 'leaflet.nontiledlayer';
 import NonTiledWMSLayer from 'components/radars/NonTiledWMSLayer';
-import {darkBasemap, lightBasemap, WMS_PLAYER_MAPPED_NOW_URL} from 'components/radars/RadarPreview';
+import {DARK_BASEMAP, LIGHT_BASEMAP, WMS_PLAYER_MAPPED_NOW_URL} from 'components/radars/RadarPreview';
 
 function MapResizeHandler() {
     const map = useMap();
@@ -42,7 +42,7 @@ export default function WorldRadarMap({refreshKey = 0}) {
             style={{height: '100%', width: '100%', background: 'transparent'}}
         >
             <MapResizeHandler />
-            <TileLayer url={isDark ? darkBasemap : lightBasemap} />
+            <TileLayer url={isDark ? DARK_BASEMAP : LIGHT_BASEMAP} />
             <LayersControl
                 // @ts-ignore react-leaflet prop types clash with this @types/react version
                 position="bottomleft"

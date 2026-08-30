@@ -6,7 +6,7 @@ import {LayersControl, MapContainer, TileLayer} from "react-leaflet";
 import InfoMessage from "components/radars/InfoMessage.tsx";
 import ThemedZoomControl from "components/radars/ThemedZoomControl.tsx";
 import HomeButton from "components/radars/HomeButton.tsx";
-import {darkBasemap, formWMSUrl, lightBasemap} from "components/radars/RadarPreview.tsx";
+import {DARK_BASEMAP, formWMSUrl, LIGHT_BASEMAP} from "components/radars/RadarPreview.tsx";
 import NonTiledWMSLayer from "components/radars/NonTiledWMSLayer";
 import TemporalController, {TemporalContext, TemporalData} from "components/radars/TemporalController.tsx";
 import StatsComponent from "components/radars/StatComponents.tsx";
@@ -70,7 +70,7 @@ export default function Radar(): ReactElement {
                     position="bottomleft">
                     <LayersControl.BaseLayer name={t('layers.lightBasemap')} checked={!isDarkMode}>
                         <TileLayer
-                            url={lightBasemap}
+                            url={LIGHT_BASEMAP}
                             // @ts-ignore
                             attribution="&copy; OpenStreetMap contributors"
                             zIndex={20}
@@ -78,9 +78,9 @@ export default function Radar(): ReactElement {
                     </LayersControl.BaseLayer>
                     <LayersControl.BaseLayer name={t('layers.darkBasemap')} checked={isDarkMode}>
                         <TileLayer
-                            url={darkBasemap}
+                            url={DARK_BASEMAP}
                             // @ts-ignore
-                            attribution="&copy; CartoDB"
+                            attribution={`&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a>`}
                             zIndex={20}
                         />
                     </LayersControl.BaseLayer>
