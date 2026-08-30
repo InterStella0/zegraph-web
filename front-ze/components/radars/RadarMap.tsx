@@ -7,7 +7,7 @@ import { LayersControl, MapContainer, TileLayer } from "react-leaflet";
 import ThemedZoomControl from "components/radars/ThemedZoomControl.tsx";
 import HomeButton from "components/radars/HomeButton.tsx";
 import NonTiledWMSLayer from "components/radars/NonTiledWMSLayer";
-import { darkBasemap, formWMSUrl, lightBasemap } from "components/radars/RadarPreview.tsx";
+import { DARK_BASEMAP, formWMSUrl, LIGHT_BASEMAP } from "components/radars/RadarPreview.tsx";
 import { Button } from "components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "components/ui/tooltip";
 import L from 'leaflet';  // L is used by nontiledlayer
@@ -103,16 +103,16 @@ export default function RadarMap({ dateDisplay, height, fullscreen = false }) {
                         position="bottomleft">
                         <LayersControl.BaseLayer name="Light Basemap" checked={!isDarkMode}>
                             <TileLayer
-                                url={lightBasemap}
+                                url={LIGHT_BASEMAP}
                                 // @ts-ignore it does exist bitch
                                 attribution="&copy; OpenStreetMap contributors"
                             />
                         </LayersControl.BaseLayer>
                         <LayersControl.BaseLayer name="Dark Basemap" checked={isDarkMode}>
                             <TileLayer
-                                url={darkBasemap}
+                                url={DARK_BASEMAP}
                                 // @ts-ignore it does exist bitch
-                                attribution="&copy; CartoDB"
+                                attribution={`&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a>`}
                             />
                         </LayersControl.BaseLayer>
 
