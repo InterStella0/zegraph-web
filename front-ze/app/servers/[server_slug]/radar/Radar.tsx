@@ -80,7 +80,7 @@ export default function Radar(): ReactElement {
                         <TileLayer
                             url={DARK_BASEMAP}
                             // @ts-ignore
-                            attribution={`&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a>`}
+                            attribution={`&copy; <a href="https://basemap.queeniemella.cc/">queeniemella</a>, &copy; OpenStreetMap contributors`}
                             zIndex={20}
                         />
                     </LayersControl.BaseLayer>
