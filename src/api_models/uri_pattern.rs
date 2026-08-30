@@ -1,15 +1,3 @@
-//! Matching of request paths against the OpenAPI-style route patterns declared by each router.
-//!
-//! Used only by [`PatternLogger`](crate::api_models::common::PatternLogger), which needs the
-//! pattern that serves a request so the tracing span can carry a stable `transaction_name` rather
-//! than a distinct one per concrete URL.
-//!
-//! This replaces the `uri-pattern-matcher` crate, whose `is_match` indexed its parts vector with
-//! the candidate's segment index and no bounds check: a path with more segments than the pattern
-//! panicked, and one with fewer matched as a prefix. Its `Eq`/`Ord` also compared a specificity
-//! score rather than the patterns themselves, so two unrelated routes with the same wildcard layout
-//! compared equal.
-
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -23,7 +11,6 @@ enum Segment {
 }
 
 impl Segment {
-    /// Ranks a segment for specificity comparison: a literal is more specific than a wildcard.
     fn rank(&self) -> u8 {
         match self {
             Segment::Literal(_) => 1,
@@ -32,8 +19,6 @@ impl Segment {
     }
 }
 
-/// Splits a path into its meaningful segments, dropping the leading empty segment and one optional
-/// trailing empty one so `/a/b` and `/a/b/` are the same path.
 fn split_segments(path: &str) -> impl Iterator<Item = &str> {
     path.trim_start_matches('/')
         .trim_end_matches('/')
