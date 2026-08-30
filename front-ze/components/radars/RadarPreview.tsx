@@ -11,7 +11,7 @@ import { LucideFullscreen, LucideX, LucideExternalLink } from "lucide-react";
 import {useTranslations} from 'next-intl';
 
 export const LIGHT_BASEMAP = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-export const DARK_BASEMAP  = 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png';
+export const DARK_BASEMAP  = 'https://basemap.queeniemella.cc/tiles/countries/{z}/{x}/{y}.png';
 export const WMS_URL = "/qgis-server";
 export const WMS_PLAYER_MAPPED_NOW_URL = "/wms/player_live/now";
 
