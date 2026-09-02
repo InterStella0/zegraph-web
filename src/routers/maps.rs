@@ -576,11 +576,6 @@ impl MapApi{
                     WHERE server_id=p.target_server
                         AND ended_at IS NULL
                         AND (p.right_now - last_verified) < INTERVAL '20 minutes'
-                ),
-                last_player_sessions AS (
-                    SELECT DISTINCT ON (player_id) player_id, started_at, ended_at
-                    FROM player_server_session
-                    WHERE ended_at IS NOT NULL
                 )
                 SELECT
                     COUNT(p.player_id) OVER() total_players,
@@ -589,7 +584,7 @@ impl MapApi{
                     p.created_at,
                     ts.total AS total_playtime,
                     COALESCE(op.started_at, NULL) as online_since,
-                    lps.started_at AS last_played,
+                    lps.started_at AS \"last_played?\",
                     lps.ended_at AS last_played_ended,
                     (lps.ended_at - lps.started_at) AS last_played_duration,
                     0::int AS rank,
@@ -599,8 +594,14 @@ impl MapApi{
                 ON ts.player_id = p.player_id
                 LEFT JOIN online_players op
                 ON op.player_id=p.player_id
-                JOIN last_player_sessions lps
-                ON lps.player_id=p.player_id
+                LEFT JOIN LATERAL (
+                    SELECT s.started_at, s.ended_at
+                    FROM player_server_session s
+                    WHERE s.player_id = p.player_id
+                      AND s.ended_at IS NOT NULL
+                    ORDER BY s.ended_at DESC
+                    LIMIT 1
+                ) lps ON TRUE
                 ORDER BY total_playtime DESC
             ", server.server_id, time_id).fetch_all(pool).await
         };

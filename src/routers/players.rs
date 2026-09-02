@@ -604,52 +604,36 @@ impl PlayerApi{
     #[oai(path="/servers/:server_id/players/playing", method="get")]
     async fn get_players_playing(&self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, OptionalTokenBearer(user_token): OptionalTokenBearer) -> Response<Vec<PlayerDetailSession>>{
         let pool = &*app.pool.clone();
+        let cache = &app.cache;
         let server_id = server.server_id.clone();
-        let user_id = user_token.as_ref().map(|t| t.id);
 
-        let Ok(result) = sqlx::query_as!(DbPlayerDetailSession, r#"
-            WITH server_community AS (
-                SELECT community_id FROM server WHERE server_id = $1
-            ),
-            user_perms AS (
-                SELECT
-                    COALESCE(website.is_superuser($2), FALSE) AS is_superuser,
-                    COALESCE(website.is_community_admin($2, (SELECT community_id FROM server_community)), FALSE) AS is_community_admin
-                WHERE $2 IS NOT NULL
-            )
+        let func = || sqlx::query_as!(DbPlayerDetailSession, r#"
             SELECT
                 pss.session_id AS "session_id!",
                 pss.server_id AS "server_id!",
-                CASE
-                    WHEN ua.anonymized = TRUE
-                         AND $2::TEXT IS DISTINCT FROM p.player_id
-                         AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
-                         AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
-                    THEN 'Anonymous'
-                    ELSE p.player_name
-                END AS "player_name",
+                p.player_name AS "player_name",
                 pss.player_id AS "player_id!",
                 pss.started_at,
                 pss.ended_at,
-                CASE
-                    WHEN ua.anonymized = TRUE
-                         AND $2::TEXT IS DISTINCT FROM p.player_id
-                         AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
-                         AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
-                    THEN TRUE
-                    ELSE FALSE
-                END AS "is_anonymous!"
+                COALESCE(ua.anonymized, FALSE) AS "is_anonymous!"
             FROM player_server_session pss
             JOIN player p ON p.player_id = pss.player_id
-            CROSS JOIN server_community sc
-            LEFT JOIN website.user_anonymization ua ON ua.user_id::TEXT = p.player_id AND ua.community_id = sc.community_id
+            JOIN server s ON s.server_id = pss.server_id
+            LEFT JOIN website.user_anonymization ua
+                   ON ua.user_id::TEXT = p.player_id AND ua.community_id = s.community_id
             WHERE pss.server_id = $1 AND pss.ended_at IS NULL AND (CURRENT_TIMESTAMP - pss.last_verified) < INTERVAL '20 minutes'
             ORDER BY pss.started_at
-        "#, server_id, user_id).fetch_all(pool).await else {
+        "#, server_id).fetch_all(pool);
+
+        let key = format!("players-playing:{server_id}");
+        let Ok(rows) = cached_response(&key, cache, 20, func).await else {
             return response!(internal_server_error)
         };
 
-        response!(ok result.iter_into())
+        let mut players: Vec<PlayerDetailSession> = rows.result.iter_into();
+        let anonymizer = BriefAnonymizer::new(app, &server.server_id, user_token.as_ref().map(|t| t.id)).await;
+        anonymizer.apply(&mut players);
+        response!(ok players)
     }
     /// A player's most recent session on a server. Cached for 2 minutes.
     #[oai(path="/servers/:server_id/players/:player_id/playing", method="get")]

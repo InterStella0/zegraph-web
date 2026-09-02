@@ -24,7 +24,7 @@ use uuid::Uuid;
 use crate::{response, FastCache, AppData};
 use crate::api_models::common::*;
 use crate::api_models::misc::ProviderResponse;
-use crate::api_models::players::PlayerBrief;
+use crate::api_models::players::{PlayerBrief, PlayerDetailSession};
 use crate::api_models::radars::CountryPlayer;
 use crate::models::players::DbPlayerBrief;
 use crate::models::servers::DbServer;
@@ -313,6 +313,16 @@ impl AnonRow for CountryPlayer {
     fn mask(&mut self) {
         self.name = "Anonymous".to_string();
         self.id = Uuid::new_v4().to_string();
+        self.is_anonymous = true;
+    }
+}
+
+impl AnonRow for PlayerDetailSession {
+    fn row_id(&self) -> &str { &self.id }
+    fn is_anonymous(&self) -> bool { self.is_anonymous }
+    fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn mask(&mut self) {
+        self.name = "Anonymous".to_string();
         self.is_anonymous = true;
     }
 }
@@ -824,5 +834,65 @@ mod cached_result_tests {
         assert_eq!(CachedResult::new_data("payload").result, "payload");
         assert_eq!(CachedResult::backup_data("payload").result, "payload");
         assert_eq!(CachedResult::current_data("payload").result, "payload");
+    }
+}
+
+#[cfg(test)]
+mod anonymizer_tests {
+    use super::BriefAnonymizer;
+    use crate::api_models::players::PlayerDetailSession;
+    use chrono::Utc;
+
+    fn session(id: &str, name: &str, anonymized: bool) -> PlayerDetailSession {
+        PlayerDetailSession {
+            id: id.to_string(),
+            session_id: format!("session-{id}"),
+            name: name.to_string(),
+            started_at: Utc::now(),
+            ended_at: None,
+            is_anonymous: anonymized,
+        }
+    }
+
+    fn anonymizer(reveal_all: bool, viewer_id: Option<&str>) -> BriefAnonymizer {
+        BriefAnonymizer { reveal_all, viewer_id: viewer_id.map(str::to_string) }
+    }
+
+    #[test]
+    fn an_anonymous_viewer_sees_anonymized_players_masked() {
+        let mut rows = vec![session("111", "RealName", true), session("222", "Public", false)];
+        anonymizer(false, None).apply(&mut rows);
+
+        assert_eq!(rows[0].name, "Anonymous", "an opted-out player's name must not reach a stranger");
+        assert!(rows[0].is_anonymous, "the masked row still reports itself as anonymous");
+        assert_eq!(rows[1].name, "Public", "a player who never opted out is untouched");
+        assert!(!rows[1].is_anonymous);
+    }
+
+    #[test]
+    fn a_player_always_sees_their_own_name() {
+        let mut rows = vec![session("111", "RealName", true)];
+        anonymizer(false, Some("111")).apply(&mut rows);
+
+        assert_eq!(rows[0].name, "RealName", "you are never anonymised to yourself");
+        assert!(!rows[0].is_anonymous, "and the row is not flagged as masked");
+    }
+
+    #[test]
+    fn reveal_all_unmasks_every_row() {
+        // reveal_all stands in for superuser / community-admin of the server.
+        let mut rows = vec![session("111", "RealName", true)];
+        anonymizer(true, Some("999")).apply(&mut rows);
+
+        assert_eq!(rows[0].name, "RealName");
+        assert!(!rows[0].is_anonymous);
+    }
+
+    #[test]
+    fn masking_keeps_the_player_id() {
+        let mut rows = vec![session("111", "RealName", true)];
+        anonymizer(false, None).apply(&mut rows);
+
+        assert_eq!(rows[0].id, "111", "player_id is preserved, matching the query this replaced");
     }
 }
