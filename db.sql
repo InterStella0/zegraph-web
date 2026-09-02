@@ -176,9 +176,17 @@ CREATE INDEX idx_player_server_session_server_id_player_id_started_ended
 CREATE INDEX idx_player_server_session_started_at
     ON player_server_session (started_at);
 
+CREATE INDEX idx_pss_live
+    ON player_server_session (server_id, last_verified DESC)
+    INCLUDE (session_id, player_id, started_at)
+    WHERE ended_at IS NULL;
 
--- server_map and map_music live in public but the website schema below has foreign keys into
--- them, so they have to exist first.
+
+CREATE INDEX idx_pss_player_last_completed
+    ON player_server_session (player_id, ended_at DESC)
+    WHERE ended_at IS NOT NULL;
+
+
 CREATE TABLE server_map
 (
     server_id VARCHAR(100) NOT NULL REFERENCES server(server_id) ON DELETE CASCADE,
@@ -544,6 +552,9 @@ CREATE TABLE website.user_anonymization (
 
 CREATE INDEX idx_user_anonymization_user ON website.user_anonymization(user_id);
 CREATE INDEX idx_user_anonymization_community ON website.user_anonymization(community_id);
+
+CREATE INDEX idx_user_anon_user_text_community
+    ON website.user_anonymization ((user_id::text), community_id);
 
 CREATE OR REPLACE FUNCTION update_anonymization_timestamp()
 RETURNS TRIGGER AS $$
