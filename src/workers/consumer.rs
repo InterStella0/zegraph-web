@@ -9,10 +9,48 @@ use crate::FastCache;
 use super::job::{dispatch, inflight_key, RefreshJob, QUEUE_HEAVY, QUEUE_LIGHT};
 use super::{BackgroundWorker, QueryPriority};
 
-const HEAVY_CONCURRENCY: usize = 5;
-const LIGHT_CONCURRENCY: usize = 15;
+pub const DEFAULT_HEAVY_CONCURRENCY: usize = 2;
+pub const LIGHT_CONCURRENCY: usize = 15;
+pub const HEAVY_CONCURRENCY_ENV: &str = "HEAVY_JOB_CONCURRENCY";
 
-pub const TOTAL_JOB_CONCURRENCY: usize = HEAVY_CONCURRENCY + LIGHT_CONCURRENCY;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct JobConcurrency {
+    pub heavy: usize,
+    pub light: usize,
+}
+
+impl JobConcurrency {
+    pub fn from_env() -> Self {
+        let heavy = std::env::var(HEAVY_CONCURRENCY_ENV)
+            .ok()
+            .map(|raw| parse_heavy_concurrency(&raw).unwrap_or_else(|message| panic!("{message}")))
+            .unwrap_or(DEFAULT_HEAVY_CONCURRENCY);
+
+        Self { heavy, light: LIGHT_CONCURRENCY }
+    }
+
+    pub fn total(self) -> usize {
+        self.heavy + self.light
+    }
+
+    pub fn assert_fits_pool(self, pool_size: u32) {
+        assert!(
+            self.total() <= pool_size as usize,
+            "worker concurrency ({}) exceeds PostgreSQL pool size ({pool_size})",
+            self.total(),
+        );
+    }
+}
+
+fn parse_heavy_concurrency(raw: &str) -> Result<usize, String> {
+    let value = raw.trim().parse::<usize>().map_err(|_| {
+        format!("{HEAVY_CONCURRENCY_ENV} must be a positive integer, got '{raw}'")
+    })?;
+    if value == 0 {
+        return Err(format!("{HEAVY_CONCURRENCY_ENV} must be at least 1"));
+    }
+    Ok(value)
+}
 
 const POP_TIMEOUT_SECS: usize = 5;
 
@@ -22,10 +60,11 @@ pub fn spawn_consumers(
     pool: Arc<Pool<Postgres>>,
     cache: Arc<FastCache>,
     blocking_redis: deadpool_redis::Pool,
+    concurrency: JobConcurrency,
 ) {
     for (queue, concurrency) in [
-        (QUEUE_HEAVY, HEAVY_CONCURRENCY),
-        (QUEUE_LIGHT, LIGHT_CONCURRENCY),
+        (QUEUE_HEAVY, concurrency.heavy),
+        (QUEUE_LIGHT, concurrency.light),
     ] {
         let pool = pool.clone();
         let cache = cache.clone();

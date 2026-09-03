@@ -202,7 +202,16 @@ async fn run_main() {
     });
     let pg_conn = get_env("DATABASE_URL");
     const POOL_SIZE: u32 = 20;
-    const _: () = assert!(POOL_SIZE as usize >= consumer::TOTAL_JOB_CONCURRENCY);
+    let job_concurrency = role.runs_workers().then(|| {
+        let concurrency = consumer::JobConcurrency::from_env();
+        concurrency.assert_fits_pool(POOL_SIZE);
+        tracing::info!(
+            "Worker concurrency: heavy={}, light={}",
+            concurrency.heavy,
+            concurrency.light,
+        );
+        concurrency
+    });
     let pool = PgPoolOptions::new()
         .max_connections(POOL_SIZE)
         .min_connections(5)
@@ -275,6 +284,7 @@ async fn run_main() {
             worker_pool.clone(),
             worker_cache.clone(),
             make_blocking_redis_pool(),
+            job_concurrency.expect("worker role must configure its consumers"),
         );
 
         init_map_change_listener(worker_pool.clone(), worker_push_service.clone()).await;
@@ -717,4 +727,3 @@ fn main(){
             run_main().await
         });
 }
-

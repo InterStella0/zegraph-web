@@ -379,6 +379,65 @@ impl WorkerQuery<Vec<DbPlayerAlias>> for PlayerBasicQuery<Vec<DbPlayerAlias>>{
         JobKind::PlayerAliases(self.context.data.clone())
     }
 }
+#[async_trait]
+impl WorkerQuery<Option<DbPlayerWithLegacyRanks>> for PlayerBasicQuery<Option<DbPlayerWithLegacyRanks>> {
+    type Error = sqlx::Error;
+
+    async fn execute(&self) -> Result<Option<DbPlayerWithLegacyRanks>, Self::Error> {
+        sqlx::query_as!(DbPlayerWithLegacyRanks, "
+            WITH ranked AS (
+              SELECT
+                steamid64,
+                points,
+                human_time,
+                zombie_time,
+                zombie_killed,
+                headshot,
+                infected_time,
+                item_usage,
+                boss_killed,
+                leader_count,
+                td_count,
+                RANK() OVER (ORDER BY human_time + zombie_time DESC) AS rank_total_playtime,
+                RANK() OVER (ORDER BY zombie_time DESC) AS rank_zombie_time,
+                RANK() OVER (ORDER BY points DESC) AS rank_points,
+                RANK() OVER (ORDER BY human_time DESC) AS rank_human_time,
+                RANK() OVER (ORDER BY zombie_killed DESC) AS rank_zombie_killed,
+                RANK() OVER (ORDER BY headshot DESC) AS rank_headshot,
+                RANK() OVER (ORDER BY infected_time DESC) AS rank_infected_time,
+                RANK() OVER (ORDER BY item_usage DESC) AS rank_item_usage,
+                RANK() OVER (ORDER BY boss_killed DESC) AS rank_boss_killed,
+                RANK() OVER (ORDER BY leader_count DESC) AS rank_leader_count,
+                RANK() OVER (ORDER BY td_count DESC) AS rank_td_count
+              FROM external_data.gfl_csgo_players
+            )
+            SELECT *
+            FROM ranked
+            WHERE steamid64 = $1
+            LIMIT 1
+        ", self.context.data.player_id).fetch_optional(&*self.context.pool).await
+    }
+
+    fn cache_key_pattern(&self) -> String {
+        format!(
+            "player-legacy:{}:{}:legacy",
+            self.context.data.server_id,
+            self.context.data.player_id,
+        )
+    }
+
+    fn ttl(&self) -> u64 {
+        120 * DAY
+    }
+
+    fn priority(&self) -> QueryPriority {
+        QueryPriority::Heavy
+    }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerLegacyStats(self.context.data.clone())
+    }
+}
 struct DbServerMapState{
     #[allow(dead_code)]
     server_id: String,
@@ -1080,6 +1139,16 @@ impl PlayerWorker {
         let result: Vec<DbPlayerRegionTime> = self.query_player(context).await?;
         Ok(result.iter_into())
     }
+    pub async fn get_legacy_stats(&self, context: &PlayerContext) -> WorkResult<PlayerWithLegacyRanks>{
+        let query = PlayerBasicQuery::new(
+            context,
+            self.pool.clone(),
+            self.background_worker.cache.clone(),
+        );
+        let result: CachedResult<Option<DbPlayerWithLegacyRanks>> =
+            self.background_worker.execute_queued(query).await?;
+        result.result.map(Into::into).ok_or(WorkError::NotFound)
+    }
     pub async fn get_detail(&self, context: &PlayerContext) -> WorkResult<DetailedPlayer>{
         let (detail_db, is_stale): (DbPlayerDetail, bool) = match self.query_player_cached(context).await {
             Ok(cached) => (cached.result, cached.backup),
@@ -1448,6 +1517,14 @@ mod tests {
             player_query::<DbPlayerDetail>(),
             "player_detail", QueryPriority::Heavy, JobKind::PlayerDetail(_)
         );
+        let (pattern, ttl, priority, kind) = metadata(
+            &player_query::<Option<DbPlayerWithLegacyRanks>>(),
+        );
+        assert_eq!(pattern, format!("player-legacy:{TEST_SERVER}:{TEST_PLAYER}:legacy"));
+        assert!(!pattern.contains("{session}"));
+        assert_eq!(ttl, 120 * DAY);
+        assert!(matches!(priority, QueryPriority::Heavy));
+        assert!(matches!(kind, JobKind::PlayerLegacyStats(_)));
         assert_session_scoped!(
             player_query::<Vec<DbPlayerRegionTime>>(),
             "player-region", QueryPriority::Light, JobKind::PlayerRegionTime(_)

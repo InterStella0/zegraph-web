@@ -155,6 +155,7 @@ services:
         DATABASE_URL: ${BUILD_DATABASE_URL}
     environment:
       ROLE: worker
+      HEAVY_JOB_CONCURRENCY: "${HEAVY_JOB_CONCURRENCY:-2}"
       DATABASE_URL: ${DATABASE_URL}
       INTERNAL_API_BASE: http://backend:3000
     volumes:

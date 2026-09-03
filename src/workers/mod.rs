@@ -65,6 +65,16 @@ impl BackgroundWorker {
 
         self.get_with_fallback(&current_key, fallback_key.as_deref(), job).await
     }
+    pub async fn execute_queued<T, Q>(&self, query: Q) -> WorkResult<CachedResult<T>>
+    where
+        T: Serialize + for<'de> Deserialize<'de> + Send + Sync + Clone + 'static,
+        Q: WorkerQuery<T> + Send + Sync + Clone + 'static,
+        Q::Error: Send + 'static + std::fmt::Display,
+    {
+        let job = RefreshJob::for_query(&query);
+        let cache_key = job.cache_key.clone();
+        self.get_with_fallback(&cache_key, None, job).await
+    }
     pub async fn execute_get<T, Q>(
         &self,
         query: Q,
@@ -384,6 +394,17 @@ mod tests {
         assert_eq!(job.queue(), job::QUEUE_HEAVY);
     }
 
+    #[test]
+    fn standalone_jobs_have_no_session_fallbacks() {
+        let query = StubQuery::new("standalone:player-1");
+        let job = RefreshJob::for_query::<Vec<u8>, _>(&query);
+
+        assert_eq!(job.cache_key, "standalone:player-1");
+        assert!(job.stale_key.is_none());
+        assert!(job.latest_key.is_none());
+        assert_eq!(job.queue(), job::QUEUE_HEAVY);
+    }
+
     fn worker() -> BackgroundWorker {
         BackgroundWorker::new(fake_cache())
     }
@@ -499,6 +520,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn execute_queued_serves_a_hit_without_running_the_query() {
+        let worker = worker();
+        worker.cache_raw("standalone:player-1", "[1,2]", 60).await;
+
+        let result: CachedResult<Vec<u8>> = worker
+            .execute_queued(StubQuery::new("standalone:player-1"))
+            .await
+            .expect("a queued query should serve its cached value");
+
+        assert_eq!(result.result, vec![1, 2]);
+        assert!(!result.backup);
+    }
+
+    #[tokio::test]
     async fn the_latest_alias_is_served_once_both_session_keys_are_gone() {
         let worker = worker();
         worker.cache_raw("thing:server-1:player-1:latest", "\"from-latest\"", 60).await;
@@ -566,6 +601,7 @@ mod cache_key_tests {
             player_query::<Vec<DbMapRank>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerAlias>>().cache_key_pattern(),
             player_query::<DbPlayerDetail>().cache_key_pattern(),
+            player_query::<Option<DbPlayerWithLegacyRanks>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerRegionTime>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerHourCount>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerOnlineHeatmap>>().cache_key_pattern(),
@@ -588,6 +624,6 @@ mod cache_key_tests {
             unique.len(), patterns.len(),
             "two WorkerQuery impls resolve to the same cache key; patterns were {patterns:#?}",
         );
-        assert_eq!(patterns.len(), 21, "every WorkerQuery impl must be listed here");
+        assert_eq!(patterns.len(), 22, "every WorkerQuery impl must be listed here");
     }
 }

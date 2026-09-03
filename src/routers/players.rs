@@ -550,51 +550,8 @@ impl PlayerApi{
         if extract.server.server_id != "65bdad6379cefd7ebcecce5c"{
             return response!(err "Server does not have this stats", ErrorCode::NotFound)
         }
-        let pool = &*app.pool.clone();
-        let redis_pool = &app.cache;
-        let player_id = extract.player.player_id;
-        let server_id = extract.server.server_id;
-        let func = || sqlx::query_as!(DbPlayerWithLegacyRanks, "
-            WITH ranked AS (
-              SELECT
-                steamid64,
-                points,
-                human_time,
-                zombie_time,
-                zombie_killed,
-                headshot,
-                infected_time,
-                item_usage,
-                boss_killed,
-                leader_count,
-                td_count,
-                RANK() OVER (ORDER BY human_time + zombie_time DESC) AS rank_total_playtime,
-                RANK() OVER (ORDER BY zombie_time DESC) AS rank_zombie_time,
-                RANK() OVER (ORDER BY points DESC) AS rank_points,
-                RANK() OVER (ORDER BY human_time DESC) AS rank_human_time,
-                RANK() OVER (ORDER BY zombie_killed DESC) AS rank_zombie_killed,
-                RANK() OVER (ORDER BY headshot DESC) AS rank_headshot,
-                RANK() OVER (ORDER BY infected_time DESC) AS rank_infected_time,
-                RANK() OVER (ORDER BY item_usage DESC) AS rank_item_usage,
-                RANK() OVER (ORDER BY boss_killed DESC) AS rank_boss_killed,
-                RANK() OVER (ORDER BY leader_count DESC) AS rank_leader_count,
-                RANK() OVER (ORDER BY td_count DESC) AS rank_td_count
-              FROM external_data.gfl_csgo_players
-            )
-            SELECT *
-            FROM ranked
-            WHERE steamid64 = $1
-            LIMIT 1
-        ", player_id).fetch_optional(pool);
-
-        let key = format!("player-legacy:{server_id}:{player_id}:legacy");
-        let Ok(result) = cached_response(&key, redis_pool, 120 * DAY, func).await else {
-            return response!(err "Player has no cstats.", ErrorCode::NotFound)
-        };
-        let Some(data) = result.result else {
-            return response!(err "Player has no cstats.", ErrorCode::NotFound)
-        };
-        response!(ok data.into())
+        let context = PlayerContext::from(extract);
+        handle_worker_player_result(app.player_worker.get_legacy_stats(&context).await)
     }
     /// Players currently connected to a server.
     ///

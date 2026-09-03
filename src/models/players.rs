@@ -66,7 +66,7 @@ pub struct DbGlobalPlayerSession{
     #[skip]
     pub total_rows: Option<i64>
 }
-#[derive(Serialize, Deserialize, DbInto)]
+#[derive(Clone, Serialize, Deserialize, DbInto)]
 #[db_into(PlayerWithLegacyRanks)]
 pub struct DbPlayerWithLegacyRanks {
     #[default("Invalid SteamID64".into())]

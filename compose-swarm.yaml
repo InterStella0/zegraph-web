@@ -111,6 +111,7 @@ services:
       - .env
     environment:
       ROLE: worker
+      HEAVY_JOB_CONCURRENCY: "${HEAVY_JOB_CONCURRENCY:-2}"
       DATABASE_URL: ${DATABASE_URL}
       INTERNAL_API_BASE: http://backend:3000
       STORAGE_BACKEND: ${STORAGE_BACKEND}
