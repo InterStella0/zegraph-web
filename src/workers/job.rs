@@ -66,6 +66,20 @@ impl RefreshJob {
 
         (job, current_key, fallback_key)
     }
+
+    pub(crate) fn for_query<T, Q>(query: &Q) -> Self
+    where
+        Q: WorkerQuery<T> + ?Sized,
+    {
+        Self {
+            kind: query.job_kind(),
+            cache_key: query.cache_key_pattern(),
+            ttl: query.ttl(),
+            priority: query.priority(),
+            stale_key: None,
+            latest_key: None,
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -88,6 +102,7 @@ pub enum JobKind {
     PlayerMapRanks(PlayerData),
     PlayerAliases(PlayerData),
     PlayerDetail(PlayerData),
+    PlayerLegacyStats(PlayerData),
     PlayerRegionTime(PlayerData),
     PlayerHourCount(PlayerData),
     PlayerOnlineHeatmap(PlayerData),
@@ -138,6 +153,9 @@ pub async fn dispatch(
         JobKind::PlayerMapRanks(d) => run!(player_query::<Vec<DbMapRank>>(d, pool, cache)),
         JobKind::PlayerAliases(d) => run!(player_query::<Vec<DbPlayerAlias>>(d, pool, cache)),
         JobKind::PlayerDetail(d) => run!(player_query::<DbPlayerDetail>(d, pool, cache)),
+        JobKind::PlayerLegacyStats(d) => {
+            run!(player_query::<Option<DbPlayerWithLegacyRanks>>(d, pool, cache))
+        }
         JobKind::PlayerRegionTime(d) => run!(player_query::<Vec<DbPlayerRegionTime>>(d, pool, cache)),
         JobKind::PlayerHourCount(d) => run!(player_query::<Vec<DbPlayerHourCount>>(d, pool, cache)),
         JobKind::PlayerOnlineHeatmap(d) => {
@@ -286,6 +304,7 @@ mod tests {
             JobKind::PlayerMapRanks(p.clone()),
             JobKind::PlayerAliases(p.clone()),
             JobKind::PlayerDetail(p.clone()),
+            JobKind::PlayerLegacyStats(p.clone()),
             JobKind::PlayerRegionTime(p.clone()),
             JobKind::PlayerHourCount(p.clone()),
             JobKind::PlayerOnlineHeatmap(p),
@@ -303,7 +322,7 @@ mod tests {
                 | JobKind::MapAnalyze(_) | JobKind::PlayerSessionTime(_)
                 | JobKind::PlayerMapPlayed(_) | JobKind::PlayerPlaytimeRanks(_)
                 | JobKind::PlayerMapRanks(_) | JobKind::PlayerAliases(_) | JobKind::PlayerDetail(_)
-                | JobKind::PlayerRegionTime(_) | JobKind::PlayerHourCount(_)
+                | JobKind::PlayerLegacyStats(_) | JobKind::PlayerRegionTime(_) | JobKind::PlayerHourCount(_)
                 | JobKind::PlayerOnlineHeatmap(_) | JobKind::PlayerSeen(_)
                 | JobKind::PlayerGlobalSnapshot(_) | JobKind::PlayerCommunityPlaytime(_)
                 | JobKind::PlayerGlobalPlaytime { .. } => {}
@@ -324,6 +343,6 @@ mod tests {
             assert!(tags.insert(tag.clone()), "two JobKind variants share the tag {tag}");
         }
 
-        assert_eq!(tags.len(), 22, "all variants must be covered by all_job_kinds()");
+        assert_eq!(tags.len(), 23, "all variants must be covered by all_job_kinds()");
     }
 }

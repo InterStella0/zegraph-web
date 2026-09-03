@@ -119,6 +119,7 @@ services:
         DATABASE_URL: ${DATABASE_URL}
     environment:
       ROLE: worker
+      HEAVY_JOB_CONCURRENCY: "${HEAVY_JOB_CONCURRENCY:-2}"
       DATABASE_URL: ${DATABASE_URL}
       # The precalculate loops warm caches by poking API endpoints, which are no longer in this
       # process, so they have to reach the API over the network.
