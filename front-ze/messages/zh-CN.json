@@ -22,7 +22,8 @@
       "last": "末页",
       "goToLast": "转到末页",
       "morePages": "更多页面"
-    }
+    },
+    "anonymous": "匿名玩家"
   },
   "auth": {
     "login": "登录",

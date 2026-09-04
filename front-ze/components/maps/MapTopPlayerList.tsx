@@ -17,6 +17,7 @@ import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider"
 import {BriefPlayers, ExtendedPlayerBrief, SearchPlayer} from "types/players.ts";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {useTranslations} from 'next-intl';
+import {PlayerName} from "components/players/PlayerName";
 
 const PAGE_SIZE = 10
 const SUGGESTION_MIN_CHARS = 3
@@ -216,7 +217,12 @@ function MapTopPlayerListDisplay(): ReactElement{
                                                 data-selected={index === selectedIndex}
                                                 onSelect={() => handleSelectSuggestion(option.name)}
                                             >
-                                                <span className="font-medium">{option.name}</span>
+                                                <PlayerName
+                                                    name={option.name}
+                                                    isAnonymous={option.is_anonymous}
+                                                    hiddenFromOthers={option.hidden_from_others}
+                                                    className="font-medium"
+                                                />
                                             </CommandItem>
                                         ))}
                                     </CommandGroup>

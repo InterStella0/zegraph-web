@@ -46,6 +46,11 @@ pub struct CountryPlayer{
     pub total_player_count: i64,
     pub session_count: i64,
     pub is_anonymous: bool,
+    /// `true` when this player opted into anonymization for this community, regardless of whether
+    /// the requester is allowed to see the real name. `is_anonymous` says "this row is masked for
+    /// you"; this says "the public sees Anonymous here". The frontend renders a `(Hidden)` marker
+    /// off it so a privileged viewer isn't fooled into thinking their toggle did nothing.
+    pub hidden_from_others: bool,
 }
 
 /// A country's boundary and the players found within it, for the map radar view.

@@ -10,7 +10,7 @@ import {PlayerAvatar} from "./PlayerAvatar.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {GAME_META} from "components/ui/ServerIndicator";
 import {GlobalPlayerBrief, PlayerCommunityPlaytime} from "types/players.ts";
-import {fetchUrl, secondsToHours} from "utils/generalUtils.ts";
+import {fetchApiUrl, secondsToHours} from "utils/generalUtils.ts";
 import {cn} from "components/lib/utils";
 import {useCommunityColors} from "lib/hooks/useCommunityColors";
 import {Gamepad2} from "lucide-react";
@@ -101,7 +101,7 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
         const controller = new AbortController();
         const signal = controller.signal;
         setCommunitiesLoading(true);
-        fetchUrl(`/players/${player.id}/communities_playtime`, {signal})
+        fetchApiUrl(`/players/${player.id}/communities_playtime`, {signal})
             .then((data: PlayerCommunityPlaytime[]) => setCommunities(data ?? []))
             .catch(error => {
                 if (signal.aborted) return;

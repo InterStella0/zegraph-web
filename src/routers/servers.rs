@@ -289,7 +289,7 @@ impl ServerApi {
     /// List players currently online across all tracked servers.
     ///
     /// A player's name is replaced with "Anonymous" if they opted into anonymization for that
-    /// community, unless the requester is that player or a superuser.
+    /// community, unless the requester is that player, a superuser, or an admin of that community.
     #[oai(path="/communities/all/players/playing", method="get")]
     async fn get_players_playing(&self, Data(app): Data<&AppData>, OptionalTokenBearer(user_token): OptionalTokenBearer) -> Response<Vec<PlayerDetailSessionCommunity>>{
         let pool = &*app.pool.clone();
@@ -306,8 +306,9 @@ impl ServerApi {
                 pss.server_id AS "server_id!",
                 CASE
                     WHEN ua.anonymized = TRUE
-                         AND $1::TEXT IS DISTINCT FROM p.player_id
+                         AND $1::TEXT IS DISTINCT FROM COALESCE(p.associated_player_id, p.player_id)
                          AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
+                         AND NOT COALESCE(website.is_community_admin($1, sc.community_id), FALSE)
                     THEN 'Anonymous'
                     ELSE p.player_name
                 END AS "player_name",
@@ -316,20 +317,27 @@ impl ServerApi {
                 pss.ended_at,
                 CASE
                     WHEN ua.anonymized = TRUE
-                         AND $1::TEXT IS DISTINCT FROM p.player_id
+                         AND $1::TEXT IS DISTINCT FROM COALESCE(p.associated_player_id, p.player_id)
                          AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
+                         AND NOT COALESCE(website.is_community_admin($1, sc.community_id), FALSE)
                     THEN TRUE
                     ELSE FALSE
-                END AS "is_anonymous!"
+                END AS "is_anonymous!",
+                COALESCE(ua.anonymized, FALSE) AS "hidden_from_others!"
             FROM player_server_session pss
             JOIN player p ON p.player_id = pss.player_id
             JOIN server sc ON sc.server_id = pss.server_id
-            LEFT JOIN website.user_anonymization ua ON ua.user_id::TEXT = p.player_id AND ua.community_id = sc.community_id
+            LEFT JOIN website.user_anonymization ua
+                   ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
+                  AND ua.community_id = sc.community_id
             WHERE pss.ended_at IS NULL AND CURRENT_TIMESTAMP - pss.last_verified < INTERVAL '20 minutes'
             ORDER BY pss.started_at
         "#, user_id).fetch_all(pool);
 
-        let result = match cached_response("global-players-playing", &app.cache, 10 * 60, func).await {
+        let viewer_cache_key = user_id
+            .map(|id| format!("global-players-playing:{id}"))
+            .unwrap_or_else(|| "global-players-playing:anonymous".to_string());
+        let result = match cached_response(&viewer_cache_key, &app.cache, 10 * 60, func).await {
             Ok(cached) => cached.result,
             Err(_) => return response!(internal_server_error),
         };

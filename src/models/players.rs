@@ -34,7 +34,8 @@ pub struct DbPlayerDetailSession{
     pub server_id: String,
     pub started_at: OffsetDateTime,
     pub ended_at: Option<OffsetDateTime>,
-    pub is_anonymous: bool
+    pub is_anonymous: bool,
+    pub hidden_from_others: bool
 }
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
@@ -132,6 +133,7 @@ pub struct DbPlayerSeen{
 #[auto_serde_with]
 #[db_into(SearchPlayer)]
 #[extra(is_anonymous = false)]
+#[extra(hidden_from_others = false)]
 pub struct DbPlayer{
     #[rename(id)]
     pub player_id: String,
@@ -151,7 +153,8 @@ pub struct DbPlayerAnonymized{
     pub player_id: String,
     #[rename(name)]
     pub player_name: String,
-    pub is_anonymous: bool
+    pub is_anonymous: bool,
+    pub hidden_from_others: bool
 }
 
 
@@ -198,6 +201,7 @@ impl Into<DbPlayerBrief> for DbPlayerDetail{
             last_played_ended: self.last_played_ended,
             last_played_duration: self.last_played_duration,
             is_anonymous: false,
+            hidden_from_others: false,
         }
     }
 }
@@ -220,7 +224,8 @@ pub struct DbPlayerTable{
     pub mixed_playtime: PgInterval,
     #[skip]
     pub total_players: Option<i64>,
-    pub is_anonymous: bool
+    pub is_anonymous: bool,
+    pub hidden_from_others: bool
 }
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
@@ -243,6 +248,7 @@ pub struct DbPlayerBrief{
     pub last_played_ended: Option<OffsetDateTime>,
     pub last_played_duration: Option<PgInterval>,
     pub is_anonymous: bool,
+    pub hidden_from_others: bool,
 }
 
 #[derive(Clone, DbInto)]

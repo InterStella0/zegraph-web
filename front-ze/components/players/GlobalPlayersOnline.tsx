@@ -2,7 +2,7 @@
 import {useTranslations} from 'next-intl';
 import {use, useState, useEffect, useMemo, ChangeEvent} from 'react';
 import {Gamepad2, Info, Circle, Search} from 'lucide-react';
-import {fetchUrl} from "utils/generalUtils";
+import {fetchApiUrl} from "utils/generalUtils";
 import {PlayerAvatar} from "./PlayerAvatar.tsx";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
@@ -17,6 +17,7 @@ import PaginationPage from "components/ui/PaginationPage.tsx";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {useServerMap} from "components/ui/ServerProvider.tsx";
+import {PlayerName} from "./PlayerName";
 dayjs.extend(duration);
 
 const PLAYERS_PER_PAGE = 15;
@@ -87,7 +88,7 @@ function GlobalPlayersOnlineDisplay({ initialDataPromise }: { initialDataPromise
 
         const load = (initial: boolean) => {
             if (initial) setLoading(true);
-            fetchUrl('/communities/all/players/playing', {signal})
+            fetchApiUrl('/communities/all/players/playing', {signal})
                 .then((data: PlayerDetailSessionCommunity[]) => {
                     setPlayers(data || []);
                     setError(null);
@@ -199,10 +200,19 @@ function GlobalPlayersOnlineDisplay({ initialDataPromise }: { initialDataPromise
                                                     href={`/servers/${server.gotoLink}/players/${player.id}`}
                                                     className="text-sm font-medium hover:underline block truncate"
                                                 >
-                                                    {player.name}
+                                                    <PlayerName
+                                                        name={player.name}
+                                                        isAnonymous={player.is_anonymous}
+                                                        hiddenFromOthers={player.hidden_from_others}
+                                                    />
                                                 </HoverPrefetchLink>
                                             ) : (
-                                                <p className="text-sm font-medium truncate">{player.name}</p>
+                                                <PlayerName
+                                                    name={player.name}
+                                                    isAnonymous={player.is_anonymous}
+                                                    hiddenFromOthers={player.hidden_from_others}
+                                                    className="text-sm font-medium truncate block"
+                                                />
                                             )}
                                             <p className="text-xs text-muted-foreground">
                                                 {t('playingFor', {duration: getSessionDuration(player.started_at)})}

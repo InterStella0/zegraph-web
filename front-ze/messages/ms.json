@@ -22,7 +22,8 @@
       "last": "Terakhir",
       "goToLast": "Pergi ke halaman terakhir",
       "morePages": "Lebih banyak halaman"
-    }
+    },
+    "anonymous": "Tanpa nama"
   },
   "auth": {
     "login": "Log masuk",

@@ -91,6 +91,25 @@ async fn resolve_canonical_player_id(
     ).fetch_optional(pool).await.ok().flatten()
 }
 
+async fn hidden_community_ids(
+    app: &AppData,
+    player_id: &str,
+    settings: &[DbUserAnonymization],
+    viewer_id: Option<i64>,
+) -> Result<HashSet<Uuid>, sqlx::Error> {
+    let mut hidden = HashSet::new();
+    for community_id in settings
+        .iter()
+        .filter(|setting| setting.anonymized)
+        .filter_map(|setting| setting.community_id)
+    {
+        if !can_view_player_in_community(app, player_id, community_id, viewer_id).await? {
+            hidden.insert(community_id);
+        }
+    }
+    Ok(hidden)
+}
+
 fn resolve_user_id<T: poem_openapi::types::ParseFromJSON + poem_openapi::types::ToJSON + Send + Sync>(
     user_id_param: &str,
     requester: &Option<UserToken>,
@@ -519,7 +538,12 @@ impl AccountsApi {
             Err(e) => return e,
         };
         let steam_id = target_user_id.to_string();
-        let is_owner = requester.map(|t| t.id) == Some(target_user_id);
+        let canonical_id = resolve_canonical_player_id(pool, &steam_id)
+            .await
+            .unwrap_or_else(|| steam_id.clone());
+        let canonical_user_id = canonical_id.parse::<i64>().unwrap_or(target_user_id);
+        let requester_id = requester.as_ref().map(|token| token.id);
+        let is_owner = requester_id == Some(canonical_user_id);
 
         let servers_played = sqlx::query_as!(
             DbCommunityServerEntry,
@@ -540,7 +564,7 @@ impl AccountsApi {
             JOIN server s ON s.server_id = pss.server_id
             JOIN community c ON c.community_id = s.community_id
             ORDER BY s.server_id",
-            steam_id
+            canonical_id
         ).fetch_all(pool).await;
 
         let Ok(servers_played) = servers_played else {
@@ -550,22 +574,30 @@ impl AccountsApi {
         let anonymization_settings = sqlx::query_as!(
             DbUserAnonymization,
             "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
-            target_user_id
-        ).fetch_all(pool).await.unwrap_or_default();
+            canonical_user_id
+        ).fetch_all(pool).await;
+        let Ok(anonymization_settings) = anonymization_settings else {
+            return response!(internal_server_error);
+        };
 
-        let anonymized_community_ids: HashSet<Uuid> = anonymization_settings.iter()
-            .filter(|s| s.anonymized)
-            .filter_map(|s| s.community_id)
-            .collect();
+        let anonymized_community_ids = match hidden_community_ids(
+            app,
+            &canonical_id,
+            &anonymization_settings,
+            requester_id,
+        ).await {
+            Ok(ids) => ids,
+            Err(_) => return response!(internal_server_error),
+        };
 
         let all_community_ids: HashSet<Uuid> = servers_played.iter().map(|e| e.community_id).collect();
         let has_visible_community = all_community_ids.iter().any(|c| !anonymized_community_ids.contains(c));
 
-        let current_name = get_player(pool, &app.cache, &steam_id).await.map(|p| p.player_name);
+        let current_name = get_player(pool, &app.cache, &canonical_id).await.map(|p| p.player_name);
 
         let persona_name = sqlx::query_scalar!(
             "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
-            target_user_id
+            canonical_user_id
         ).fetch_optional(pool).await.ok().flatten();
 
         let mut results: IndexMap<String, ProfileCommunityDetail> = IndexMap::new();
@@ -576,7 +608,7 @@ impl AccountsApi {
         let mut latest_started_at: Option<OffsetDateTime> = None;
 
         for entry in servers_played {
-            if !is_owner && anonymized_community_ids.contains(&entry.community_id) {
+            if anonymized_community_ids.contains(&entry.community_id) {
                 continue;
             }
 
@@ -606,7 +638,7 @@ impl AccountsApi {
                 ORDER BY started_at DESC
                 LIMIT 7",
                 server_id,
-                steam_id
+                canonical_id
             ).fetch_all(pool).await.unwrap_or_default();
 
             let by_id = server.source_by_id.unwrap_or(false);
@@ -621,7 +653,7 @@ impl AccountsApi {
                         AND pp.total_playtime > interval '0'
                      ORDER BY pp.total_playtime DESC",
                     server_id,
-                    steam_id
+                    canonical_id
                 ).fetch_all(pool).await.unwrap_or_default();
 
                 linked_names = names.into_iter().map(|n| LinkedName {
@@ -695,14 +727,12 @@ impl AccountsApi {
         let community_count = communities.len() as i64;
         let server_count = communities.iter().map(|c| c.servers.len() as i64).sum();
 
-        let best_rank = get_global_best_rank(pool, &app.cache, &steam_id).await;
+        let best_rank = get_global_best_rank(pool, &app.cache, &canonical_id).await;
 
-        let global = match resolve_canonical_player_id(pool, &steam_id).await {
-            Some(canonical_id) => app.player_worker
-                .get_global_playtime(&canonical_id).await
-                .unwrap_or_default(),
-            None => GlobalPlaytimeSummary::default(),
-        };
+        let global = app.player_worker
+            .get_global_playtime(&canonical_id)
+            .await
+            .unwrap_or_default();
 
         let anonymization = if is_owner {
             Some(anonymization_settings.iter_into())
@@ -775,14 +805,41 @@ impl AccountsApi {
             return response!(ok vec![]);
         };
 
-        let result = app.player_worker.get_community_playtime(&canonical_id).await;
-        handle_worker_result(result, "Player not found")
+        let anonymization_settings = sqlx::query_as!(
+            DbUserAnonymization,
+            "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
+            canonical_id.parse::<i64>().unwrap_or(target_user_id)
+        ).fetch_all(pool).await;
+        let Ok(anonymization_settings) = anonymization_settings else {
+            return response!(internal_server_error);
+        };
+        let excluded = match hidden_community_ids(
+            app,
+            &canonical_id,
+            &anonymization_settings,
+            requester.as_ref().map(|token| token.id),
+        ).await {
+            Ok(ids) => ids,
+            Err(_) => return response!(internal_server_error),
+        };
+
+        match app.player_worker.get_community_playtime(&canonical_id).await {
+            Ok(mut rows) => {
+                rows.retain(|row| {
+                    Uuid::parse_str(&row.community_id)
+                        .map(|id| !excluded.contains(&id))
+                        .unwrap_or(true)
+                });
+                response!(ok rows)
+            }
+            Err(error) => handle_worker_result(Err(error), "Player not found"),
+        }
     }
 
     /// A player's playtime by day, summed across every server they've played on.
     ///
     /// `player_id` may be `"me"` or a numeric Steam ID. Communities where the target anonymized
-    /// themselves are excluded for non-owners.
+    /// themselves are excluded for viewers without permission for those communities.
     #[oai(path="/players/:player_id/playtime-heatmap", method="get", tag = "ApiTags::Players")]
     async fn get_user_playtime_heatmap(
         &self,
@@ -796,21 +853,29 @@ impl AccountsApi {
             Err(e) => return e,
         };
         let steam_id = target_user_id.to_string();
-        let is_owner = requester.map(|t| t.id) == Some(target_user_id);
+        let canonical_id = resolve_canonical_player_id(pool, &steam_id)
+            .await
+            .unwrap_or_else(|| steam_id.clone());
+        let canonical_user_id = canonical_id.parse::<i64>().unwrap_or(target_user_id);
+        let requester_id = requester.as_ref().map(|token| token.id);
 
         let anonymization_settings = sqlx::query_as!(
             DbUserAnonymization,
             "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
-            target_user_id
-        ).fetch_all(pool).await.unwrap_or_default();
+            canonical_user_id
+        ).fetch_all(pool).await;
+        let Ok(anonymization_settings) = anonymization_settings else {
+            return response!(internal_server_error);
+        };
 
-        let excluded_community_ids: Vec<Uuid> = if is_owner {
-            vec![]
-        } else {
-            anonymization_settings.iter()
-                .filter(|s| s.anonymized)
-                .filter_map(|s| s.community_id)
-                .collect()
+        let excluded_community_ids: Vec<Uuid> = match hidden_community_ids(
+            app,
+            &canonical_id,
+            &anonymization_settings,
+            requester_id,
+        ).await {
+            Ok(ids) => ids.into_iter().collect(),
+            Err(_) => return response!(internal_server_error),
         };
 
         let result = sqlx::query_as!(
@@ -829,7 +894,7 @@ impl AccountsApi {
             WHERE NOT (s.community_id = ANY($2))
             GROUP BY bucket_time
             ORDER BY bucket_time",
-            steam_id,
+            canonical_id,
             &excluded_community_ids
         ).fetch_all(pool).await;
 
@@ -844,7 +909,7 @@ impl AccountsApi {
     /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID. `datetime` narrows the list
     /// to the single UTC day it falls in; omitted, every session is listed. `page` is zero-based and
     /// pages are 10 rows. Communities where the target anonymized themselves are omitted for
-    /// non-owners, matching `/players/{player_id}/profile`.
+    /// viewers without permission, matching `/players/{player_id}/profile`.
     #[oai(path="/players/:player_id/sessions", method="get", tag = "ApiTags::Players")]
     async fn get_user_global_sessions(
         &self,
@@ -862,21 +927,29 @@ impl AccountsApi {
             Err(e) => return e,
         };
         let steam_id = target_user_id.to_string();
-        let is_owner = requester.map(|t| t.id) == Some(target_user_id);
+        let canonical_id = resolve_canonical_player_id(pool, &steam_id)
+            .await
+            .unwrap_or_else(|| steam_id.clone());
+        let canonical_user_id = canonical_id.parse::<i64>().unwrap_or(target_user_id);
+        let requester_id = requester.as_ref().map(|token| token.id);
 
         let anonymization_settings = sqlx::query_as!(
             DbUserAnonymization,
             "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
-            target_user_id
-        ).fetch_all(pool).await.unwrap_or_default();
+            canonical_user_id
+        ).fetch_all(pool).await;
+        let Ok(anonymization_settings) = anonymization_settings else {
+            return response!(internal_server_error);
+        };
 
-        let excluded_community_ids: Vec<Uuid> = if is_owner {
-            vec![]
-        } else {
-            anonymization_settings.iter()
-                .filter(|s| s.anonymized)
-                .filter_map(|s| s.community_id)
-                .collect()
+        let excluded_community_ids: Vec<Uuid> = match hidden_community_ids(
+            app,
+            &canonical_id,
+            &anonymization_settings,
+            requester_id,
+        ).await {
+            Ok(ids) => ids.into_iter().collect(),
+            Err(_) => return response!(internal_server_error),
         };
 
         let offset = PAGE_SIZE * page.unwrap_or(0) as i64;
@@ -915,7 +988,7 @@ impl AccountsApi {
             ORDER BY pss.started_at DESC
             LIMIT $5
             OFFSET $6",
-            steam_id,
+            canonical_id,
             &excluded_community_ids,
             start,
             end,

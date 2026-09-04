@@ -22,7 +22,8 @@
       "last": "마지막",
       "goToLast": "마지막 페이지로 이동",
       "morePages": "더 많은 페이지"
-    }
+    },
+    "anonymous": "익명"
   },
   "auth": {
     "login": "로그인",

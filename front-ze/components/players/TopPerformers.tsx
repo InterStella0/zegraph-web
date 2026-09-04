@@ -134,6 +134,8 @@ const TopPerformersDisplay = ({ serverPromise, initialDataPromise }: TopPerforme
                                     rank: player.rank,
                                     id: player.id,
                                     name: player.name,
+                                    is_anonymous: player.is_anonymous,
+                                    hidden_from_others: player.hidden_from_others,
                                     time: secondsToHours(player.total_playtime),
                                     status: getPlayerStatus(player)
                                 }}

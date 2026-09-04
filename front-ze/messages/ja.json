@@ -22,7 +22,8 @@
       "last": "最後",
       "goToLast": "最後のページに移動",
       "morePages": "その他のページ"
-    }
+    },
+    "anonymous": "匿名"
   },
   "auth": {
     "login": "ログイン",

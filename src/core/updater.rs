@@ -262,7 +262,8 @@ async fn recent_players(pool: Arc<Pool<Postgres>>, server_id: &str, port: &str, 
                     lp.ended_at AS last_played_ended,
                     (lp.ended_at - lp.started_at) AS last_played_duration,
                     sp.total_players,
-                    FALSE AS \"is_anonymous!\"
+                    FALSE AS \"is_anonymous!\",
+                    FALSE AS \"hidden_from_others!\"
                 FROM top_players sp
                 JOIN player p
                     ON p.player_id = sp.player_id
@@ -343,7 +344,8 @@ async fn recent_players(pool: Arc<Pool<Postgres>>, server_id: &str, port: &str, 
 				lp.ended_at AS last_played_ended,
 				(lp.ended_at - lp.started_at) AS last_played_duration,
 				sp.total_players,
-				FALSE AS \"is_anonymous!\"
+				FALSE AS \"is_anonymous!\",
+				FALSE AS \"hidden_from_others!\"
 			FROM top_players sp
 			JOIN player p
 				ON p.player_id = sp.player_id

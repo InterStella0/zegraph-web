@@ -51,6 +51,7 @@ pub struct DbCountryPlayer{
     #[default(0)]
     pub total_player_count: Option<i64>,
     pub is_anonymous: bool,
+    pub hidden_from_others: bool,
 }
 
 #[derive(Serialize, Deserialize)]

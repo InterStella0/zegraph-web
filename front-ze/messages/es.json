@@ -22,7 +22,8 @@
       "last": "Última",
       "goToLast": "Ir a la última página",
       "morePages": "Más páginas"
-    }
+    },
+    "anonymous": "Anónimo"
   },
   "auth": {
     "login": "Iniciar sesión",

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fmt::Display;
 use std::future::Future;
@@ -104,88 +104,91 @@ async fn check_player_anonymization_internal(
     server_id: &str,
     user_token: &UserToken,
 ) -> Result<bool, StatusCode> {
-    if user_token.id.to_string() == player_id{
-        return Ok(true)
-    }
-    struct ServerCommunity {
-        community_id: Option<Uuid>,
-    }
+    let community_id = server_community_id(data, server_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let Some(community_id) = community_id else {
+        return Ok(true);
+    };
 
-    let server_community = sqlx::query_as!(
-        ServerCommunity,
+    if can_view_player_in_community(data, player_id, community_id, Some(user_token.id))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    {
+        Ok(true)
+    } else {
+        Err(StatusCode::FORBIDDEN)
+    }
+}
+
+async fn server_community_id(app: &AppData, server_id: &str) -> Result<Option<Uuid>, sqlx::Error> {
+    sqlx::query_scalar::<_, Option<Uuid>>(
         "SELECT community_id FROM server WHERE server_id = $1",
-        server_id
     )
-    .fetch_optional(&*data.pool)
+    .bind(server_id)
+    .fetch_optional(&*app.pool)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .map(Option::flatten)
+}
 
-    let Some(server_comm) = server_community else {
-        return Ok(false);
-    };
-
-    let Some(community_id) = server_comm.community_id else {
-        return Ok(false);
-    };
-
-    struct AnonymizationCheck {
+/// Returns whether a viewer may see a player's activity in one community.
+/// Anonymization belongs to the canonical account, not an individual linked player row.
+pub async fn can_view_player_in_community(
+    app: &AppData,
+    player_id: &str,
+    community_id: Uuid,
+    viewer_id: Option<i64>,
+) -> Result<bool, sqlx::Error> {
+    struct PlayerVisibilityCheck {
+        owner_id: String,
         anonymized: bool,
+        is_superuser: bool,
+        is_community_admin: bool,
     }
 
-    let player_id_i64 = match player_id.parse::<i64>() {
-        Ok(id) => id,
-        Err(_) => {
-            // If player_id is not a valid i64 (Steam ID), no anonymization applies
-            return Ok(false);
-        }
+    let check = sqlx::query_as!(
+        PlayerVisibilityCheck,
+        r#"SELECT
+            COALESCE(p.associated_player_id, p.player_id) AS "owner_id!",
+            COALESCE(ua.anonymized, FALSE) AS "anonymized!",
+            COALESCE(website.is_superuser($3::BIGINT), FALSE) AS "is_superuser!",
+            COALESCE(website.is_community_admin($3::BIGINT, $2), FALSE) AS "is_community_admin!"
+         FROM player p
+         LEFT JOIN website.user_anonymization ua
+           ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
+          AND ua.community_id = $2
+         WHERE p.player_id = $1"#,
+        player_id,
+        community_id,
+        viewer_id,
+    )
+    .fetch_optional(&*app.pool)
+    .await?;
+
+    let Some(check) = check else {
+        return Ok(true);
     };
 
-    let anonymization = sqlx::query_as!(
-        AnonymizationCheck,
-        "SELECT anonymized FROM website.user_anonymization
-         WHERE user_id = $1 AND community_id = $2",
-        player_id_i64,
-        community_id
-    )
-    .fetch_optional(&*data.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(visibility_allows(
+        check.anonymized,
+        &check.owner_id,
+        viewer_id,
+        check.is_superuser,
+        check.is_community_admin,
+    ))
+}
 
-    let Some(anon) = anonymization else {
-        return Ok(false);
-    };
-
-    if !anon.anonymized {
-        return Ok(false);
-    }
-
-    let is_superuser = sqlx::query_scalar!(
-        "SELECT website.is_superuser($1)",
-        user_token.id
-    )
-    .fetch_optional(&*data.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    if is_superuser == Some(Some(true)) {
-        return Ok(true);
-    }
-
-    let is_admin = sqlx::query_scalar!(
-        "SELECT website.is_community_admin($1, $2)",
-        user_token.id,
-        community_id
-    )
-    .fetch_optional(&*data.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    if is_admin == Some(Some(true)) {
-        return Ok(true);
-    }
-    // Player is anonymized and the requester is not the player, a superuser, or a community
-    // admin -> deny. The guard turns this into a hard 403 (frontend renders its AccessDenied page).
-    Err(StatusCode::FORBIDDEN)
+fn visibility_allows(
+    anonymized: bool,
+    owner_id: &str,
+    viewer_id: Option<i64>,
+    is_superuser: bool,
+    is_community_admin: bool,
+) -> bool {
+    !anonymized
+        || viewer_id.is_some_and(|id| owner_id == id.to_string())
+        || is_superuser
+        || is_community_admin
 }
 
 pub async fn check_superuser(app: &AppData, user_id: i64) -> bool{
@@ -219,58 +222,74 @@ pub async fn check_superuser_or_map_manager(app: &AppData, user_id: i64) -> bool
 }
 
 pub async fn is_player_activity_anonymized(app: &AppData, server_id: &str, player_id: &str) -> bool {
-    let Ok(player_id_i64) = player_id.parse::<i64>() else {
+    let Ok(Some(community_id)) = server_community_id(app, server_id).await else {
         return false;
     };
 
-    let func = || sqlx::query_scalar!(
-        r#"SELECT COALESCE(ua.anonymized, FALSE) AS "anonymized!"
-           FROM server s
-           LEFT JOIN website.user_anonymization ua
-               ON ua.community_id = s.community_id AND ua.user_id = $2
-           WHERE s.server_id = $1"#,
-        server_id,
-        player_id_i64
-    ).fetch_one(&*app.pool);
-
-    let key = format!("anon-check:{server_id}:{player_id_i64}");
-    cached_response(&key, &app.cache, 60, func).await
-        .map(|r| r.result)
+    let func = || async {
+        can_view_player_in_community(app, player_id, community_id, None)
+            .await
+            .map(|visible| !visible)
+    };
+    let key = format!("anon-check-v2:{server_id}:{player_id}");
+    cached_response(&key, &app.cache, 60, func)
+        .await
+        .map(|result| result.result)
         .unwrap_or(false)
 }
 
 
 pub struct BriefAnonymizer {
     reveal_all: bool,
-    viewer_id: Option<String>,
+    viewer_player_ids: HashSet<String>,
 }
 
 impl BriefAnonymizer {
     pub async fn new(app: &AppData, server_id: &str, viewer_id: Option<i64>) -> Self {
         let Some(viewer_id) = viewer_id else {
-            return Self { reveal_all: false, viewer_id: None };
+            return Self { reveal_all: false, viewer_player_ids: HashSet::new() };
         };
         let reveal_all = check_superuser(app, viewer_id).await
             || is_community_admin_of_server(app, viewer_id, server_id).await;
-        Self { reveal_all, viewer_id: Some(viewer_id.to_string()) }
+        let viewer_id = viewer_id.to_string();
+        let viewer_player_ids = sqlx::query_scalar::<_, String>(
+            "SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1",
+        )
+        .bind(&viewer_id)
+        .fetch_all(&*app.pool)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .chain(std::iter::once(viewer_id))
+        .collect();
+        Self { reveal_all, viewer_player_ids }
     }
 
     fn reveal(&self, player_id: &str) -> bool {
-        self.reveal_all || self.viewer_id.as_deref() == Some(player_id)
+        self.reveal_all || self.viewer_player_ids.contains(player_id)
     }
 
     pub fn apply<T: AnonRow>(&self, rows: &mut [T]) {
         for row in rows.iter_mut() {
-            if row.is_anonymous() && !self.reveal(row.row_id()) {
+            // The raw opt-in bit, before the privilege check overwrites it. A revealed row keeps
+            // its real name but must still report that the public sees "Anonymous" here, otherwise
+            // a player who just anonymized themselves sees their own name and assumes the toggle
+            // did nothing.
+            let hidden = row.is_anonymous();
+            if hidden && !self.reveal(row.row_id()) {
                 row.mask();
             } else {
                 row.set_anonymous(false);
             }
+            row.set_hidden_from_others(hidden);
         }
     }
 
     pub fn retain_visible<T: AnonRow>(&self, rows: &mut Vec<T>) {
         rows.retain(|row| !(row.is_anonymous() && !self.reveal(row.row_id())));
+        // The retained rows still carry the raw flag; let apply settle both flags so the two entry
+        // points cannot drift.
+        self.apply(rows);
     }
 }
 
@@ -292,6 +311,7 @@ pub trait AnonRow {
     fn row_id(&self) -> &str;
     fn is_anonymous(&self) -> bool;
     fn set_anonymous(&mut self, value: bool);
+    fn set_hidden_from_others(&mut self, value: bool);
     fn mask(&mut self);
 }
 
@@ -299,10 +319,12 @@ impl AnonRow for PlayerBrief {
     fn row_id(&self) -> &str { &self.id }
     fn is_anonymous(&self) -> bool { self.is_anonymous }
     fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn set_hidden_from_others(&mut self, value: bool) { self.hidden_from_others = value; }
     fn mask(&mut self) {
         self.name = "Anonymous".to_string();
         self.id = Uuid::new_v4().to_string();
         self.is_anonymous = true;
+        self.hidden_from_others = true;
     }
 }
 
@@ -310,10 +332,12 @@ impl AnonRow for CountryPlayer {
     fn row_id(&self) -> &str { &self.id }
     fn is_anonymous(&self) -> bool { self.is_anonymous }
     fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn set_hidden_from_others(&mut self, value: bool) { self.hidden_from_others = value; }
     fn mask(&mut self) {
         self.name = "Anonymous".to_string();
         self.id = Uuid::new_v4().to_string();
         self.is_anonymous = true;
+        self.hidden_from_others = true;
     }
 }
 
@@ -321,9 +345,11 @@ impl AnonRow for PlayerDetailSession {
     fn row_id(&self) -> &str { &self.id }
     fn is_anonymous(&self) -> bool { self.is_anonymous }
     fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn set_hidden_from_others(&mut self, value: bool) { self.hidden_from_others = value; }
     fn mask(&mut self) {
         self.name = "Anonymous".to_string();
         self.is_anonymous = true;
+        self.hidden_from_others = true;
     }
 }
 
@@ -591,7 +617,8 @@ pub async fn update_online_brief(
               lp.started_at AS \"last_played?\",
               lp.ended_at AS last_played_ended,
               lp.ended_at - lp.started_at AS last_played_duration,
-              FALSE AS \"is_anonymous!\"
+              FALSE AS \"is_anonymous!\",
+              FALSE AS \"hidden_from_others!\"
             FROM player p
             JOIN online
               ON online.player_id = p.player_id
@@ -839,7 +866,7 @@ mod cached_result_tests {
 
 #[cfg(test)]
 mod anonymizer_tests {
-    use super::BriefAnonymizer;
+    use super::{visibility_allows, BriefAnonymizer};
     use crate::api_models::players::PlayerDetailSession;
     use chrono::Utc;
 
@@ -851,48 +878,98 @@ mod anonymizer_tests {
             started_at: Utc::now(),
             ended_at: None,
             is_anonymous: anonymized,
+            hidden_from_others: false,
         }
     }
 
-    fn anonymizer(reveal_all: bool, viewer_id: Option<&str>) -> BriefAnonymizer {
-        BriefAnonymizer { reveal_all, viewer_id: viewer_id.map(str::to_string) }
+    fn anonymizer(reveal_all: bool, viewer_ids: &[&str]) -> BriefAnonymizer {
+        BriefAnonymizer {
+            reveal_all,
+            viewer_player_ids: viewer_ids.iter().map(|id| (*id).to_string()).collect(),
+        }
     }
 
     #[test]
     fn an_anonymous_viewer_sees_anonymized_players_masked() {
         let mut rows = vec![session("111", "RealName", true), session("222", "Public", false)];
-        anonymizer(false, None).apply(&mut rows);
+        anonymizer(false, &[]).apply(&mut rows);
 
         assert_eq!(rows[0].name, "Anonymous", "an opted-out player's name must not reach a stranger");
         assert!(rows[0].is_anonymous, "the masked row still reports itself as anonymous");
+        assert!(rows[0].hidden_from_others, "and as hidden from the public");
         assert_eq!(rows[1].name, "Public", "a player who never opted out is untouched");
         assert!(!rows[1].is_anonymous);
+        assert!(!rows[1].hidden_from_others, "a public player is not hidden from anyone");
     }
 
     #[test]
     fn a_player_always_sees_their_own_name() {
         let mut rows = vec![session("111", "RealName", true)];
-        anonymizer(false, Some("111")).apply(&mut rows);
+        anonymizer(false, &["111"]).apply(&mut rows);
 
         assert_eq!(rows[0].name, "RealName", "you are never anonymised to yourself");
         assert!(!rows[0].is_anonymous, "and the row is not flagged as masked");
+        assert!(
+            rows[0].hidden_from_others,
+            "but you must still be told the name is hidden, or the anonymize toggle looks broken"
+        );
     }
 
     #[test]
     fn reveal_all_unmasks_every_row() {
         // reveal_all stands in for superuser / community-admin of the server.
         let mut rows = vec![session("111", "RealName", true)];
-        anonymizer(true, Some("999")).apply(&mut rows);
+        anonymizer(true, &["999"]).apply(&mut rows);
 
         assert_eq!(rows[0].name, "RealName");
         assert!(!rows[0].is_anonymous);
+        assert!(rows[0].hidden_from_others, "an admin is told the public cannot see this name");
     }
 
     #[test]
     fn masking_keeps_the_player_id() {
         let mut rows = vec![session("111", "RealName", true)];
-        anonymizer(false, None).apply(&mut rows);
+        anonymizer(false, &[]).apply(&mut rows);
 
         assert_eq!(rows[0].id, "111", "player_id is preserved, matching the query this replaced");
+    }
+
+    #[test]
+    fn a_player_sees_an_anonymized_linked_player_row() {
+        let mut rows = vec![session("linked-id", "RealName", true)];
+        anonymizer(false, &["canonical-id", "linked-id"]).apply(&mut rows);
+
+        assert_eq!(rows[0].name, "RealName");
+        assert!(!rows[0].is_anonymous);
+        assert!(rows[0].hidden_from_others);
+    }
+
+    #[test]
+    fn retain_visible_settles_both_flags_on_the_rows_it_keeps() {
+        // The map top-players search path filters instead of masking; the rows that survive must
+        // come out with the same flag pairing apply() produces, not the raw opt-in bit.
+        let mut rows = vec![
+            session("111", "RealName", true),
+            session("222", "Public", false),
+            session("333", "Stranger", true),
+        ];
+        anonymizer(false, &["111"]).retain_visible(&mut rows);
+
+        assert_eq!(rows.len(), 2, "the row the viewer may not see is dropped entirely");
+        assert_eq!(rows[0].name, "RealName");
+        assert!(!rows[0].is_anonymous, "a kept row is never reported as masked");
+        assert!(rows[0].hidden_from_others, "but it is still hidden from the public");
+        assert!(!rows[1].is_anonymous);
+        assert!(!rows[1].hidden_from_others);
+    }
+
+    #[test]
+    fn community_visibility_has_the_expected_privilege_order() {
+        assert!(visibility_allows(false, "111", None, false, false));
+        assert!(visibility_allows(true, "111", Some(111), false, false));
+        assert!(visibility_allows(true, "111", Some(999), true, false));
+        assert!(visibility_allows(true, "111", Some(999), false, true));
+        assert!(!visibility_allows(true, "111", Some(999), false, false));
+        assert!(!visibility_allows(true, "111", None, false, false));
     }
 }

@@ -588,7 +588,8 @@ impl MapApi{
                     lps.ended_at AS last_played_ended,
                     (lps.ended_at - lps.started_at) AS last_played_duration,
                     0::int AS rank,
-                    COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
+                    COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\",
+                    COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"hidden_from_others!\"
                 FROM player p
                 JOIN timespent ts
                 ON ts.player_id = p.player_id
@@ -889,7 +890,8 @@ impl MapApi{
                         lp.started_at AS \"last_played?\",
                         lp.ended_at AS \"last_played_ended?\",
                         (lp.ended_at - lp.started_at) AS \"last_played_duration?\",
-                        COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
+                        COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\",
+                        COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"hidden_from_others!\"
                     FROM pages pg
                     JOIN player p ON p.player_id = pg.player_id
                     LEFT JOIN LATERAL (
@@ -944,7 +946,8 @@ impl MapApi{
                         lp.started_at AS \"last_played?\",
                         lp.ended_at AS \"last_played_ended?\",
                         (lp.ended_at - lp.started_at) AS \"last_played_duration?\",
-                        COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
+                        COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\",
+                        COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"hidden_from_others!\"
                     FROM pages pg
                     JOIN player p ON p.player_id = pg.player_id
                     LEFT JOIN LATERAL (

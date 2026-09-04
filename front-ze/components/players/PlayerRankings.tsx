@@ -14,6 +14,7 @@ import PaginationPage from "components/ui/PaginationPage.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "components/ui/command";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
+import {PlayerName} from "./PlayerName";
 
 const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => {
     const [isClient, setIsClient] = useState(false)
@@ -234,7 +235,12 @@ const PlayerRankingsDisplay = ({ serverPromise, initialDataPromise }: PlayerRank
                                             data-selected={index === selectedIndex}
                                             onSelect={() => handleSelectSuggestion(option.name)}
                                         >
-                                            <span className="font-medium">{option.name}</span>
+                                            <PlayerName
+                                                name={option.name}
+                                                isAnonymous={option.is_anonymous}
+                                                hiddenFromOthers={option.hidden_from_others}
+                                                className="font-medium"
+                                            />
                                         </CommandItem>
                                     ))}
                                 </CommandGroup>

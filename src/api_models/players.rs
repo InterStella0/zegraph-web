@@ -58,7 +58,12 @@ pub struct PlayerTableRank{
     pub casual_playtime: f64,
     pub mixed_playtime: f64,
     pub total_playtime: f64,
-    pub is_anonymous: bool
+    pub is_anonymous: bool,
+    /// `true` when this player opted into anonymization for this community, regardless of whether
+    /// the requester is allowed to see the real name. `is_anonymous` says "this row is masked for
+    /// you"; this says "the public sees Anonymous here". The frontend renders a `(Hidden)` marker
+    /// off it so a privileged viewer isn't fooled into thinking their toggle did nothing.
+    pub hidden_from_others: bool,
 }
 /// A page of the ranked players table.
 #[derive(Object)]
@@ -81,6 +86,11 @@ pub struct PlayerBrief{
     pub last_played_ended: Option<DateTime<Utc>>,
     pub last_played_duration: f64,
     pub is_anonymous: bool,
+    /// `true` when this player opted into anonymization for this community, regardless of whether
+    /// the requester is allowed to see the real name. `is_anonymous` says "this row is masked for
+    /// you"; this says "the public sees Anonymous here". The frontend renders a `(Hidden)` marker
+    /// off it so a privileged viewer isn't fooled into thinking their toggle did nothing.
+    pub hidden_from_others: bool,
 }
 
 /// A single match (round) result within a map session, embedded on a player's session history.
@@ -128,7 +138,12 @@ pub struct PlayerDetailSession{
     pub started_at: DateTime<Utc>,
     /// `None` while the session is still active.
     pub ended_at: Option<DateTime<Utc>>,
-    pub is_anonymous: bool
+    pub is_anonymous: bool,
+    /// `true` when this player opted into anonymization for this community, regardless of whether
+    /// the requester is allowed to see the real name. `is_anonymous` says "this row is masked for
+    /// you"; this says "the public sees Anonymous here". The frontend renders a `(Hidden)` marker
+    /// off it so a privileged viewer isn't fooled into thinking their toggle did nothing.
+    pub hidden_from_others: bool,
 }
 
 /// A player session paired with which server it's on (used for global "currently playing" lists).
@@ -293,7 +308,12 @@ pub struct PlayerProfilePicture{
 pub struct SearchPlayer{
     pub(crate) name: String,
     pub(crate) id: String,
-    pub(crate) is_anonymous: bool
+    pub(crate) is_anonymous: bool,
+    /// `true` when this player opted into anonymization for this community, regardless of whether
+    /// the requester is allowed to see the real name. `is_anonymous` says "this row is masked for
+    /// you"; this says "the public sees Anonymous here". The frontend renders a `(Hidden)` marker
+    /// off it so a privileged viewer isn't fooled into thinking their toggle did nothing.
+    pub(crate) hidden_from_others: bool,
 }
 
 /// A player's detail on one server, paired with which server it's on.
@@ -425,7 +445,7 @@ pub struct ProfileResponse {
     /// String rather than a numeric type to avoid precision loss on large Steam IDs in JS.
     pub steamid: String,
     /// `"Anonymous"` if every community this user appears in has them anonymized and the
-    /// requester isn't the owner.
+    /// requester isn't the owner, a superuser, or an admin of a visible community.
     pub name: Option<String>,
     pub summary: ProfileSummary,
     pub communities: Vec<ProfileCommunityDetail>,

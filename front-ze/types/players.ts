@@ -15,6 +15,10 @@ export interface PlayerTableRank{
     mixed_playtime: number,
     total_playtime: number
     is_anonymous: boolean,
+    /** True when this player is anonymized for this community, even if you are allowed to see
+     *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
+     *  marker off this, not off `is_anonymous`. */
+    hidden_from_others: boolean,
 }
 export type PlayersTableRanked = {
     total_players: number,
@@ -60,6 +64,11 @@ export interface PlayerBrief extends PlayerBase{
     last_played: string,
     last_played_ended: string | null,
     last_played_duration: number,
+    is_anonymous: boolean,
+    /** True when this player is anonymized for this community, even if you are allowed to see
+     *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
+     *  marker off this, not off `is_anonymous`. */
+    hidden_from_others: boolean,
 }
 
 export interface ExtendedPlayerBrief extends PlayerBrief{
@@ -170,6 +179,11 @@ export type PlayerDetailSession = {
     name: string,
     started_at: string,
     ended_at: string | null,
+    is_anonymous: boolean,
+    /** True when this player is anonymized for this community, even if you are allowed to see
+     *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
+     *  marker off this, not off `is_anonymous`. */
+    hidden_from_others: boolean,
 }
 
 export type PlayerDetailSessionCommunity = {
@@ -235,7 +249,12 @@ export type Region = {
 
 export type SearchPlayer = {
     name: string,
-    id: string
+    id: string,
+    is_anonymous: boolean,
+    /** True when this player is anonymized for this community, even if you are allowed to see
+     *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
+     *  marker off this, not off `is_anonymous`. */
+    hidden_from_others: boolean,
 }
 
 export type PlayerCommunityPlaytime = {
