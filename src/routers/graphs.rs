@@ -501,8 +501,7 @@ impl GraphApi {
 							lp.ended_at AS last_played_ended,
 							(lp.ended_at - lp.started_at) AS last_played_duration,
 							sp.total_players,
-							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\",
-							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"hidden_from_others!\"
+							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
 						FROM top_players sp
 						JOIN player p
 							ON p.player_id = sp.player_id
@@ -601,8 +600,7 @@ impl GraphApi {
 							lp.ended_at AS last_played_ended,
 							(lp.ended_at - lp.started_at) AS last_played_duration,
 							sp.total_players,
-							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\",
-							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"hidden_from_others!\"
+							COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
 						FROM top_players sp
 						JOIN player p
 							ON p.player_id = sp.player_id
@@ -736,8 +734,7 @@ impl GraphApi {
                 lp.ended_at as last_played_ended,
                 (lp.ended_at - lp.started_at) as last_played_duration,
                 durr.total_players,
-                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $3 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\",
-                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $3 AND spn.player_id = p.player_id), FALSE) AS \"hidden_from_others!\"
+                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $3 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
             FROM player p
             JOIN session_duration durr
             	ON p.player_id=durr.player_id

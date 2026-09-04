@@ -617,8 +617,7 @@ pub async fn update_online_brief(
               lp.started_at AS \"last_played?\",
               lp.ended_at AS last_played_ended,
               lp.ended_at - lp.started_at AS last_played_duration,
-              FALSE AS \"is_anonymous!\",
-              FALSE AS \"hidden_from_others!\"
+              FALSE AS \"is_anonymous!\"
             FROM player p
             JOIN online
               ON online.player_id = p.player_id

@@ -352,8 +352,7 @@ impl RadarApi {
                 SUM(CURRENT_TIMESTAMP - pst.started_at) total_playtime,
                 1::bigint session_count,
                 COUNT(*) OVER () total_player_count,
-                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = pst.player_id), FALSE) AS \"is_anonymous!\",
-                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = pst.player_id), FALSE) AS \"hidden_from_others!\"
+                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = pst.player_id), FALSE) AS \"is_anonymous!\"
             FROM public.player_server_mapped pst
             RIGHT JOIN filtered_country fc
                 ON fc.country_code = pst.location_country
@@ -446,8 +445,7 @@ impl RadarApi {
                 SUM(COALESCE(pst.ended_at, CURRENT_TIMESTAMP) - pst.started_at) total_playtime,
                 COUNT(pst.fid) session_count,
                 COUNT(*) OVER () total_player_count,
-                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = pst.player_id), FALSE) AS \"is_anonymous!\",
-                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = pst.player_id), FALSE) AS \"hidden_from_others!\"
+                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = pst.player_id), FALSE) AS \"is_anonymous!\"
             FROM public.player_server_timed pst
             RIGHT JOIN filtered_country fc
                 ON fc.country_code = pst.location_country
