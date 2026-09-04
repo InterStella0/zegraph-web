@@ -378,7 +378,7 @@ impl WorkerQuery<Vec<DbMapSessionDistribution>> for MapBasicQuery<Vec<DbMapSessi
     }
 
     fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
+        QueryPriority::Heavy
     }
 
     fn job_kind(&self) -> JobKind {
@@ -788,7 +788,7 @@ mod tests {
         );
         assert_map_metadata!(
             map_query::<Vec<DbMapSessionDistribution>>(),
-            "sessions_distribution", QueryPriority::Light, JobKind::MapSessionDistribution(_)
+            "sessions_distribution", QueryPriority::Heavy, JobKind::MapSessionDistribution(_)
         );
         assert_map_metadata!(
             map_query::<DbServerMapPartial>(), "map-partial", QueryPriority::Light, JobKind::MapPartial(_)
