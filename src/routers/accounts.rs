@@ -18,6 +18,9 @@ use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::api_models::misc::*;
 use crate::api_models::players::*;
+use crate::core::audit::{
+    insert_audit_log, ACTION_UPDATE_ANONYMIZATION, CATEGORY_USER_PRIVACY,
+};
 use crate::core::push_service::NotificationType;
 use crate::routers::players::{get_player, get_player_cache_key};
 use crate::FastCache;
@@ -734,7 +737,14 @@ impl AccountsApi {
             .await
             .unwrap_or_default();
 
-        let anonymization = if is_owner {
+        // A superuser can act on the owner's behalf, so they get the same settings payload and the
+        // same toggles. `is_owner` stays strictly "this is my own profile" - it also gates the name
+        // reveal below, which has different rules.
+        let can_manage_anonymization = match requester_id {
+            Some(id) => is_owner || check_superuser(app, id).await,
+            None => false,
+        };
+        let anonymization = if can_manage_anonymization {
             Some(anonymization_settings.iter_into())
         } else {
             None
@@ -761,6 +771,7 @@ impl AccountsApi {
             },
             communities,
             is_owner,
+            can_manage_anonymization,
             anonymization,
         })
     }
@@ -1087,6 +1098,14 @@ impl AccountsApi {
             return response!(err "Invalid community ID", ErrorCode::BadRequest);
         };
 
+        // Anonymization belongs to the canonical account, which is also the id the profile reads
+        // settings back under - writing the linked player's own id would create an orphan row that
+        // never takes effect.
+        let user_id = resolve_canonical_player_id(&data.pool, &user_id.to_string())
+            .await
+            .and_then(|id| id.parse::<i64>().ok())
+            .unwrap_or(user_id);
+
         let has_permission = match check_permission(data, requester_id, user_id, uuid).await {
             Ok(p) => p,
             Err(_) => return response!(internal_server_error)
@@ -1110,6 +1129,19 @@ impl AccountsApi {
             return response!(err "Target user not found", ErrorCode::NotFound);
         }
 
+        // Read the row first so the audit entry can show what actually changed.
+        let acting_for_other = requester_id != user_id;
+        let previous = if acting_for_other {
+            sqlx::query_as!(DbUserAnonymization,
+                "SELECT user_id, community_id, anonymized, hide_location
+                 FROM website.user_anonymization WHERE user_id = $1 AND community_id = $2",
+                user_id,
+                uuid
+            ).fetch_optional(&*data.pool).await.ok().flatten()
+        } else {
+            None
+        };
+
         let result = sqlx::query_as!(DbUserAnonymization,
             "INSERT INTO website.user_anonymization (user_id, community_id, anonymized, hide_location)
              VALUES ($1, $2, $3, $4)
@@ -1126,6 +1158,32 @@ impl AccountsApi {
 
         match result {
             Ok(setting) => {
+                // A privacy flag changed by somebody other than its owner must be attributable.
+                if acting_for_other {
+                    let changes = serde_json::json!({
+                        "target_user_id": user_id.to_string(),
+                        "community_id": request.community_id,
+                        "anonymized": {
+                            "old": previous.as_ref().map(|p| p.anonymized),
+                            "new": setting.anonymized,
+                        },
+                        "hide_location": {
+                            "old": previous.as_ref().map(|p| p.hide_location),
+                            "new": setting.hide_location,
+                        },
+                    });
+                    if let Err(e) = insert_audit_log(
+                        &*data.pool,
+                        CATEGORY_USER_PRIVACY,
+                        ACTION_UPDATE_ANONYMIZATION,
+                        None,
+                        None,
+                        requester_id,
+                        &changes,
+                    ).await {
+                        tracing::error!("Failed to audit anonymization change for {user_id}: {e}");
+                    }
+                }
                 response!(ok  setting.into())
             }
             Err(e) => {

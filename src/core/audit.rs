@@ -5,6 +5,11 @@ pub const ACTION_UPDATE_GLOBAL: &str = "update_global";
 pub const ACTION_UPDATE_SERVER: &str = "update_server";
 pub const ACTION_DELETE_MAP: &str = "delete_map";
 
+/// Privacy settings changed by somebody other than their owner. Only a superuser can reach this,
+/// and the row records who acted and on whom, so an anonymization flip is always attributable.
+pub const CATEGORY_USER_PRIVACY: &str = "user_privacy";
+pub const ACTION_UPDATE_ANONYMIZATION: &str = "update_anonymization";
+
 /// Build `{"field": {"old": ..., "new": ...}}` keeping only changed fields.
 pub fn diff_changes(pairs: Vec<(&str, Value, Value)>) -> Value {
     let mut map = serde_json::Map::new();

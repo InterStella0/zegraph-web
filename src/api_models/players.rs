@@ -451,7 +451,10 @@ pub struct ProfileResponse {
     pub communities: Vec<ProfileCommunityDetail>,
     /// Whether the requester is viewing their own profile.
     pub is_owner: bool,
-    /// Only populated when `is_owner` is true.
+    /// Whether the requester may read and change this user's anonymization settings: the owner, or
+    /// a superuser acting on their behalf. Drives whether the profile page shows the toggles.
+    pub can_manage_anonymization: bool,
+    /// Only populated when `can_manage_anonymization` is true.
     pub anonymization: Option<Vec<UserAnonymization>>,
 }
 

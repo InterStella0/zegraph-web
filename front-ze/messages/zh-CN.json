@@ -23,7 +23,9 @@
       "goToLast": "转到末页",
       "morePages": "更多页面"
     },
-    "anonymous": "匿名玩家"
+    "anonymous": "匿名玩家",
+    "hidden": "（已隐藏）",
+    "hiddenHint": "只有你和社区管理员可以看到此名称，其他人看到的是“匿名玩家”。"
   },
   "auth": {
     "login": "登录",

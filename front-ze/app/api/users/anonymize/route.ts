@@ -48,9 +48,12 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { community_id, anonymize, hide_location } = body;
+        const { community_id, anonymize, hide_location, user_id } = body;
 
-        const backendUrl = new URL(BACKEND_DOMAIN + '/accounts/me/anonymize');
+        // "me" keeps the self-service path; a numeric id targets another user and the backend
+        // enforces superuser there (and writes an audit row).
+        const target = user_id ? encodeURIComponent(String(user_id)) : 'me';
+        const backendUrl = new URL(`${BACKEND_DOMAIN}/accounts/${target}/anonymize`);
         const headers = {
             "Content-Type": "application/json",
             // @ts-ignore

@@ -16,7 +16,10 @@ export default function UserCommunityConnections({
 }: UserCommunityConnectionsProps)  {
     const t = useTranslations('players.profile.communities');
     const profile = use(profilePromise);
-    const { communities, is_owner: isOwner, anonymization } = profile;
+    const { communities, can_manage_anonymization: canManageAnonymization, anonymization } = profile;
+    // A superuser managing somebody else's profile must target that user explicitly; omitting it
+    // would write the superuser's own settings.
+    const targetUserId = profile.is_owner ? undefined : profile.steamid;
 
     const initialSettings = new Map<string, UserAnonymization>();
     (anonymization ?? []).forEach(setting => {
@@ -35,8 +38,9 @@ export default function UserCommunityConnections({
 
     const handleToggleAnonymize = useCallback(async (communityId: string | number, type: "location" | "anonymous", value: boolean, settings: UserAnonymization | null) => {
         try {
-            let body: {community_id: string, anonymize?: boolean, hide_location?: boolean} = {
+            let body: {community_id: string, anonymize?: boolean, hide_location?: boolean, user_id?: string} = {
                 community_id: communityId.toString(),
+                ...(targetUserId ? {user_id: targetUserId} : {}),
             }
             if (type === "location"){
                 body["hide_location"] = value
@@ -74,7 +78,7 @@ export default function UserCommunityConnections({
         } catch (error) {
             console.error('Failed to update anonymization setting:', error);
         }
-    }, [addOptimisticAnonymizedCommunities]);
+    }, [addOptimisticAnonymizedCommunities, targetUserId]);
 
     const scaleMax = Math.max(
         7200,
@@ -115,7 +119,7 @@ export default function UserCommunityConnections({
                         community={community}
                         settings={settings ?? null}
                         onToggleAnonymize={handleToggleAnonymize}
-                        showAnonymizeToggle={isOwner}
+                        showAnonymizeToggle={canManageAnonymization}
                         scaleMax={scaleMax}
                     />
                 })}
