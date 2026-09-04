@@ -4,6 +4,7 @@ import {useTranslations, useLocale} from "next-intl";
 import {PlayerTableRank, RankMode} from "types/players";
 import {Server} from "types/community";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
+import {PlayerName} from "./PlayerName";
 
 const PlayerListItem = ({ player, mode = 'Total', server }: { player: PlayerTableRank, mode: RankMode, server: Server}) => {
     const t = useTranslations('players.listItem');
@@ -19,7 +20,7 @@ const PlayerListItem = ({ player, mode = 'Total', server }: { player: PlayerTabl
         </div>
         {player.is_anonymous ? (
             <div className="flex-1 min-w-0">
-                <div className="font-medium">{t('anonymous')}</div>
+                <div className="font-medium"><PlayerName name={player.name} isAnonymous /></div>
                 <div className="text-sm text-muted-foreground">{rankLabel}</div>
             </div>
         ) : (
@@ -28,7 +29,11 @@ const PlayerListItem = ({ player, mode = 'Total', server }: { player: PlayerTabl
                     href={`/servers/${server.gotoLink}/players/${player.id}`}
                     className="hover:underline"
                 >
-                    <div className="font-medium max-w-[25rem] max-sm:max-w-[9rem] truncate">{player.name}</div>
+                    <PlayerName
+                        name={player.name}
+                        hiddenFromOthers={player.hidden_from_others}
+                        className="font-medium max-w-[25rem] max-sm:max-w-[9rem] truncate block"
+                    />
                 </HoverPrefetchLink>
                 <div className="text-sm max-sm:text-xs text-muted-foreground">{rankLabel} </div>
             </div>

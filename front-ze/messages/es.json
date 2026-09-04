@@ -22,7 +22,10 @@
       "last": "Última",
       "goToLast": "Ir a la última página",
       "morePages": "Más páginas"
-    }
+    },
+    "anonymous": "Anónimo",
+    "hidden": "(Oculto)",
+    "hiddenHint": "Solo tú y los administradores de la comunidad pueden ver este nombre. Los demás ven «Anónimo»."
   },
   "auth": {
     "login": "Iniciar sesión",

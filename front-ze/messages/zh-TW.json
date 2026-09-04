@@ -22,7 +22,10 @@
       "last": "末頁",
       "goToLast": "轉到末頁",
       "morePages": "更多頁面"
-    }
+    },
+    "anonymous": "匿名玩家",
+    "hidden": "（已隱藏）",
+    "hiddenHint": "只有你和社群管理員可以看到此名稱，其他人看到的是「匿名玩家」。"
   },
   "auth": {
     "login": "登入",

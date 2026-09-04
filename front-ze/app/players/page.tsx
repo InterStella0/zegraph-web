@@ -6,7 +6,7 @@ import Footer from "components/ui/Footer";
 import getServerUser from "../getServerUser";
 import GlobalPlayerList, {GlobalPlayerListLoading} from "components/players/GlobalPlayerList";
 import GlobalPlayersOnline, {GlobalPlayersOnlineLoading} from "components/players/GlobalPlayersOnline";
-import {fetchUrl, socialMeta} from "utils/generalUtils.ts";
+import {fetchApiUrl, fetchUrl, socialMeta} from "utils/generalUtils.ts";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Page() {
     const user = getServerUser();
     const globalPlayersPromise = fetchUrl('/communities/all/players', {params: {page: 0}});
-    const globalOnlinePromise = fetchUrl('/communities/all/players/playing');
+    const globalOnlinePromise = fetchApiUrl('/communities/all/players/playing');
 
     return <>
         <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />

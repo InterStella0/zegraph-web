@@ -22,7 +22,10 @@
       "last": "Last",
       "goToLast": "Go to last page",
       "morePages": "More pages"
-    }
+    },
+    "anonymous": "Anonymous",
+    "hidden": "(Hidden)",
+    "hiddenHint": "Only you and community admins can see this name. Everyone else sees “Anonymous”."
   },
   "auth": {
     "login": "Login",

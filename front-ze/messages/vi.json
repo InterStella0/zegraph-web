@@ -22,7 +22,10 @@
       "last": "Cuối cùng",
       "goToLast": "Đi tới trang cuối cùng",
       "morePages": "Nhiều trang hơn"
-    }
+    },
+    "anonymous": "Ẩn danh",
+    "hidden": "(Đã ẩn)",
+    "hiddenHint": "Chỉ bạn và quản trị viên cộng đồng mới thấy được tên này. Những người khác thấy “Ẩn danh”."
   },
   "auth": {
     "login": "Đăng nhập",

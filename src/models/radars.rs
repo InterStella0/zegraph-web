@@ -33,9 +33,13 @@ pub struct DbContinentStatistic{
     pub total_players: Option<i64>,
 }
 
+/// `hidden_from_others` is not selected: every query building this struct hands its rows straight
+/// to `BriefAnonymizer::apply`, which derives the flag from `is_anonymous` and overwrites whatever
+/// was there. Selecting it would be a second correlated subquery per row whose result is discarded.
 #[derive(DbInto)]
 #[auto_serde_with]
 #[db_into(CountryPlayer)]
+#[extra(hidden_from_others = false)]
 pub struct DbCountryPlayer{
     #[rename(id)]
     #[default("Unknown".into())]

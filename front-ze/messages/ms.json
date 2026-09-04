@@ -22,7 +22,10 @@
       "last": "Terakhir",
       "goToLast": "Pergi ke halaman terakhir",
       "morePages": "Lebih banyak halaman"
-    }
+    },
+    "anonymous": "Tanpa nama",
+    "hidden": "(Tersembunyi)",
+    "hiddenHint": "Hanya anda dan pentadbir komuniti boleh melihat nama ini. Orang lain melihat “Tanpa nama”."
   },
   "auth": {
     "login": "Log masuk",

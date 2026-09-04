@@ -22,7 +22,10 @@
       "last": "Terakhir",
       "goToLast": "Buka halaman terakhir",
       "morePages": "Halaman lainnya"
-    }
+    },
+    "anonymous": "Anonim",
+    "hidden": "(Tersembunyi)",
+    "hiddenHint": "Hanya kamu dan admin komunitas yang dapat melihat nama ini. Orang lain melihat “Anonim”."
   },
   "auth": {
     "login": "Masuk",

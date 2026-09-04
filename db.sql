@@ -961,7 +961,8 @@ FROM player_server_session pss
 JOIN player p ON p.player_id = pss.player_id
 JOIN server s ON s.server_id = pss.server_id
 LEFT JOIN website.user_anonymization ua
-    ON ua.user_id::TEXT = p.player_id AND ua.community_id = s.community_id;
+    ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
+   AND ua.community_id = s.community_id;
 
 CREATE UNIQUE INDEX idx_spn_server_player ON server_player_names(server_id, player_id);
 CREATE INDEX idx_spn_name_trgm ON server_player_names USING gin (lower(player_name) gin_trgm_ops);

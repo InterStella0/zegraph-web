@@ -13,6 +13,7 @@ import { useTheme } from "next-themes";
 import { TableRow, TableCell } from "components/ui/table";
 import { Skeleton } from "components/ui/skeleton";
 import { cn } from "components/lib/utils";
+import {PlayerName} from "./PlayerName";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 
 dayjs.extend(relativeTime)
@@ -79,7 +80,11 @@ function PlayerInformation(
                                 isDarkMode ? "text-white" : "text-gray-900"
                             )}
                         >
-                            {player.name}
+                            <PlayerName
+                                name={player.name}
+                                isAnonymous={player.is_anonymous}
+                                hiddenFromOthers={player.hidden_from_others}
+                            />
                         </HoverPrefetchLink>
                         <div
                             className={cn(

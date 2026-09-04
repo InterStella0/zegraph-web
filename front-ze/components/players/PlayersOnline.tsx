@@ -16,6 +16,7 @@ import { Button } from "components/ui/button";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
+import {PlayerName} from "./PlayerName";
 dayjs.extend(duration);
 
 const PlayerListSkeleton = ({ count = 20 }) => (
@@ -163,7 +164,11 @@ const PlayersOnlineDisplay = ({ initialDataPromise }: PlayersOnlineProps) => {
                                                 href={`/servers/${server.gotoLink}/players/${player.id}`}
                                                 className="text-sm font-medium hover:underline block truncate"
                                             >
-                                                {player.name}
+                                                <PlayerName
+                                                    name={player.name}
+                                                    isAnonymous={player.is_anonymous}
+                                                    hiddenFromOthers={player.hidden_from_others}
+                                                />
                                             </HoverPrefetchLink>
                                             <p className="text-xs text-muted-foreground">
                                                 {t('playingFor', {duration: getSessionDuration(player.started_at)})}

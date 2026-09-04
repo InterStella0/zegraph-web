@@ -105,12 +105,15 @@ impl From<PlayerExtractor> for PlayerContext {
 }
 pub async fn get_player_cache_key(pool: &Pool<Postgres>, cache: &FastCache, server_id: &str, player_id: &str) -> CacheKey {
     let func = || sqlx::query_as!(DbPlayerSession,
-            "SELECT player_id, p.server_id, session_id, started_at, ended_at, last_verified, COALESCE(ua.anonymized, NULL) AS is_anonymous
+            "SELECT p.player_id, p.server_id, session_id, started_at, ended_at, last_verified, COALESCE(ua.anonymized, NULL) AS is_anonymous
              FROM player_server_session p
+             JOIN player target ON target.player_id=p.player_id
              JOIN server s ON s.server_id=p.server_id
-             LEFT JOIN website.user_anonymization ua ON ua.community_id=s.community_id
+             LEFT JOIN website.user_anonymization ua
+                    ON ua.user_id::TEXT=COALESCE(target.associated_player_id, target.player_id)
+                   AND ua.community_id=s.community_id
              WHERE p.server_id=$1
-             AND player_id=$2
+             AND p.player_id=$2
              AND ended_at IS NOT NULL
              ORDER BY started_at DESC
              LIMIT 2
@@ -329,10 +332,13 @@ impl PlayerApi{
                 WHERE $4 IS NOT NULL
             ),
             matched_players AS (
-                SELECT spn.player_id, spn.player_name, spn.is_anonymous,
+                SELECT spn.player_id, spn.player_name,
+                       COALESCE(p.associated_player_id, p.player_id) AS canonical_player_id,
+                       spn.is_anonymous,
                        CASE WHEN spn.player_id = $2 THEN 0 ELSE 1 END AS id_rank,
                        NULLIF(STRPOS(LOWER(spn.player_name), LOWER($2)), 0) AS name_rank
                 FROM server_player_names spn
+                JOIN player p ON p.player_id = spn.player_id
                 WHERE spn.server_id = $3
                   AND (spn.player_id = $2 OR LOWER(spn.player_name) LIKE $1)
             )
@@ -340,7 +346,7 @@ impl PlayerApi{
                 a.player_id AS "player_id!",
                 CASE
                     WHEN a.is_anonymous = TRUE
-                         AND $4::TEXT IS DISTINCT FROM a.player_id
+                         AND $4::TEXT IS DISTINCT FROM a.canonical_player_id
                          AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                          AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                     THEN 'Anonymous'
@@ -348,12 +354,13 @@ impl PlayerApi{
                 END AS "player_name!",
                 CASE
                     WHEN a.is_anonymous = TRUE
-                         AND $4::TEXT IS DISTINCT FROM a.player_id
+                         AND $4::TEXT IS DISTINCT FROM a.canonical_player_id
                          AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                          AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                     THEN TRUE
                     ELSE FALSE
-                END AS "is_anonymous!"
+                END AS "is_anonymous!",
+                COALESCE(a.is_anonymous, FALSE) AS "hidden_from_others!"
             FROM matched_players a
             ORDER BY a.id_rank ASC, a.name_rank ASC NULLS LAST
             LIMIT 20;
@@ -419,7 +426,7 @@ impl PlayerApi{
                         spn.player_id AS "player_id!",
                         CASE
                             WHEN spn.is_anonymous = TRUE
-                                 AND $7::TEXT IS DISTINCT FROM spn.player_id
+                                 AND $7::TEXT IS DISTINCT FROM COALESCE(target.associated_player_id, target.player_id)
                                  AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                                  AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                             THEN 'Anonymous'
@@ -431,13 +438,15 @@ impl PlayerApi{
                         COALESCE(pp.mixed_playtime, INTERVAL '0') AS "mixed_playtime!",
                         CASE
                             WHEN spn.is_anonymous = TRUE
-                                 AND $7::TEXT IS DISTINCT FROM spn.player_id
+                                 AND $7::TEXT IS DISTINCT FROM COALESCE(target.associated_player_id, target.player_id)
                                  AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                                  AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                             THEN TRUE
                             ELSE FALSE
-                        END AS "is_anonymous!"
+                        END AS "is_anonymous!",
+                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!"
                     FROM server_player_names spn
+                    JOIN player target ON target.player_id = spn.player_id
                     LEFT JOIN website.player_playtime pp ON pp.server_id=spn.server_id AND pp.player_id=spn.player_id
                     LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=spn.server_id AND ppr.player_id=spn.player_id
                     WHERE spn.server_id=$4 AND (spn.player_id=$6 OR LOWER(spn.player_name) LIKE $1)
@@ -477,7 +486,7 @@ impl PlayerApi{
                         spn.player_id AS "player_id!",
                         CASE
                             WHEN spn.is_anonymous = TRUE
-                                 AND $5::TEXT IS DISTINCT FROM spn.player_id
+                                 AND $5::TEXT IS DISTINCT FROM COALESCE(target.associated_player_id, target.player_id)
                                  AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                                  AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                             THEN 'Anonymous'
@@ -489,13 +498,15 @@ impl PlayerApi{
                         COALESCE(pp.mixed_playtime, INTERVAL '0') AS "mixed_playtime!",
                         CASE
                             WHEN spn.is_anonymous = TRUE
-                                 AND $5::TEXT IS DISTINCT FROM spn.player_id
+                                 AND $5::TEXT IS DISTINCT FROM COALESCE(target.associated_player_id, target.player_id)
                                  AND NOT COALESCE((SELECT is_superuser FROM user_perms), FALSE)
                                  AND NOT COALESCE((SELECT is_community_admin FROM user_perms), FALSE)
                             THEN TRUE
                             ELSE FALSE
-                        END AS "is_anonymous!"
+                        END AS "is_anonymous!",
+                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!"
                     FROM server_player_names spn
+                    JOIN player target ON target.player_id = spn.player_id
                     LEFT JOIN website.player_playtime pp ON pp.server_id=spn.server_id AND pp.player_id=spn.player_id
                     LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=spn.server_id AND ppr.player_id=spn.player_id
                     WHERE spn.server_id=$3
@@ -572,12 +583,14 @@ impl PlayerApi{
                 pss.player_id AS "player_id!",
                 pss.started_at,
                 pss.ended_at,
-                COALESCE(ua.anonymized, FALSE) AS "is_anonymous!"
+                COALESCE(ua.anonymized, FALSE) AS "is_anonymous!",
+                COALESCE(ua.anonymized, FALSE) AS "hidden_from_others!"
             FROM player_server_session pss
             JOIN player p ON p.player_id = pss.player_id
             JOIN server s ON s.server_id = pss.server_id
             LEFT JOIN website.user_anonymization ua
-                   ON ua.user_id::TEXT = p.player_id AND ua.community_id = s.community_id
+                   ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
+                  AND ua.community_id = s.community_id
             WHERE pss.server_id = $1 AND pss.ended_at IS NULL AND (CURRENT_TIMESTAMP - pss.last_verified) < INTERVAL '20 minutes'
             ORDER BY pss.started_at
         "#, server_id).fetch_all(pool);
@@ -603,11 +616,14 @@ impl PlayerApi{
             WITH server_community AS (
                 SELECT community_id FROM server WHERE server_id = $1
             )
-            SELECT session_id, server_id, player_id, started_at, ended_at, last_verified, COALESCE(ua.anonymized, NULL) AS is_anonymous
+            SELECT session_id, server_id, p.player_id, started_at, ended_at, last_verified, COALESCE(ua.anonymized, NULL) AS is_anonymous
             FROM player_server_session p
+            JOIN player target ON target.player_id = p.player_id
             CROSS JOIN server_community sc
-            LEFT JOIN website.user_anonymization ua ON ua.user_id::TEXT = p.player_id AND ua.community_id = sc.community_id
-            WHERE server_id=$1 AND player_id=$2
+            LEFT JOIN website.user_anonymization ua
+                   ON ua.user_id::TEXT = COALESCE(target.associated_player_id, target.player_id)
+                  AND ua.community_id = sc.community_id
+            WHERE server_id=$1 AND p.player_id=$2
             ORDER BY started_at DESC
             LIMIT 1
         ", server_id, player_id).fetch_one(pool);
@@ -695,11 +711,14 @@ impl PlayerApi{
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<PlayerSession>{
         let Ok(result) = sqlx::query_as!(DbPlayerSession,
-            "SELECT player_id, p.server_id, session_id, started_at, ended_at, last_verified, COALESCE(ua.anonymized, NULL) AS is_anonymous
+            "SELECT p.player_id, p.server_id, session_id, started_at, ended_at, last_verified, COALESCE(ua.anonymized, NULL) AS is_anonymous
              FROM player_server_session p
+             JOIN player target ON target.player_id=p.player_id
              JOIN server s ON s.server_id=p.server_id
-             LEFT JOIN website.user_anonymization ua ON ua.community_id=s.community_id
-                WHERE p.server_id=$1 AND player_id=$2 AND session_id=$3::Text::uuid",
+             LEFT JOIN website.user_anonymization ua
+                    ON ua.user_id::TEXT=COALESCE(target.associated_player_id, target.player_id)
+                   AND ua.community_id=s.community_id
+                WHERE p.server_id=$1 AND p.player_id=$2 AND session_id=$3::Text::uuid",
             extract.server.server_id, extract.player.player_id, session_id
         ).fetch_one(&*app.pool).await else {
             return response!(err "This session does not exist.", ErrorCode::NotFound);

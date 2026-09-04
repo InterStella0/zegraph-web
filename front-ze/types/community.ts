@@ -123,6 +123,9 @@ export interface ProfileResponse {
     summary: ProfileSummary;
     communities: ProfileCommunityDetail[];
     is_owner: boolean;
+    /** You may read and change this user's anonymization settings: you are them, or a superuser
+     *  acting on their behalf. A superuser's change is written to the audit log. */
+    can_manage_anonymization: boolean;
     anonymization: UserAnonymization[] | null;
 }
 

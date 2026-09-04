@@ -248,11 +248,14 @@ impl GraphApi {
 			WITH server_community AS (
 			    SELECT community_id FROM server WHERE server_id=$1
 			)
-            SELECT session_id, server_id, player_id, started_at, ended_at, last_verified, COALESCE(ua.anonymized, NULL) as is_anonymous
+            SELECT session_id, server_id, p.player_id, started_at, ended_at, last_verified, COALESCE(ua.anonymized, NULL) as is_anonymous
             FROM player_server_session p
+            JOIN player target ON target.player_id = p.player_id
             CROSS JOIN server_community sc
-            LEFT JOIN website.user_anonymization ua ON ua.user_id::TEXT = p.player_id AND ua.community_id = sc.community_id
-            WHERE server_id=$1 AND player_id=$2
+            LEFT JOIN website.user_anonymization ua
+                   ON ua.user_id::TEXT = COALESCE(target.associated_player_id, target.player_id)
+                  AND ua.community_id = sc.community_id
+            WHERE server_id=$1 AND p.player_id=$2
             ORDER BY started_at DESC
             LIMIT 1
         ", server.server_id, player_id).fetch_one(pool);

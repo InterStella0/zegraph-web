@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useTranslations, useLocale } from 'next-intl';
 import type { LatLng } from 'leaflet';
 import type { CountryFeature, CountryPlayer } from 'types/radars';
+import {PlayerName} from "components/players/PlayerName";
 
 interface PlayerPopupContentProps {
     isLoading: boolean;
@@ -175,7 +176,11 @@ const PlayerList = ({ players }: PlayerListProps) => {
                                         href={`/servers/${server.gotoLink}/players/${player.id}`}
                                         className="font-medium text-xs leading-tight whitespace-nowrap overflow-hidden text-ellipsis hover:underline"
                                     >
-                                        {player.name}
+                                        <PlayerName
+                                            name={player.name}
+                                            isAnonymous={player.is_anonymous}
+                                            hiddenFromOthers={player.hidden_from_others}
+                                        />
                                     </Link>
                                     <p className="text-xs text-muted-foreground leading-tight">
                                         {t('playerStats', {hours: secondsToHours(player.total_playtime, locale), sessions: player.session_count})}
