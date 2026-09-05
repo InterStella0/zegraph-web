@@ -40,6 +40,7 @@ export default function AssociatePlayerDialog(
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [target, setTarget] = useState(associatedPlayerId ?? '');
+    const [targetLabel, setTargetLabel] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [suggestions, setSuggestions] = useState<SearchPlayer[]>([]);
     const [submitting, setSubmitting] = useState(false);
@@ -75,6 +76,7 @@ export default function AssociatePlayerDialog(
         setSearch('');
         setSuggestions([]);
         setTarget(associatedPlayerId ?? '');
+        setTargetLabel(null);
         setOpen(false);
     };
 
@@ -90,6 +92,7 @@ export default function AssociatePlayerDialog(
             setOpen(false);
             setSearch('');
             setSuggestions([]);
+            setTargetLabel(null);
             router.refresh();
         } catch (error: any) {
             toast.error('Failed to update link', {
@@ -102,8 +105,8 @@ export default function AssociatePlayerDialog(
 
     const handleLink = () => {
         const trimmed = target.trim();
-        if (!/^\d+$/.test(trimmed)) {
-            toast.error('Enter a numeric Steam ID, or pick a player from the search results');
+        if (!trimmed) {
+            toast.error('Enter a Steam ID, or pick a player from the search results');
             return;
         }
         save(trimmed);
@@ -129,13 +132,20 @@ export default function AssociatePlayerDialog(
 
                     <div className="grid gap-5 py-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="associateTarget">Steam ID</Label>
+                            <Label htmlFor="associateTarget">Link to</Label>
                             <Input
                                 id="associateTarget"
-                                placeholder="e.g. 76561198000000000"
+                                placeholder="Steam ID, e.g. 76561198000000000"
                                 value={target}
-                                onChange={e => setTarget(e.target.value)}
+                                onChange={e => { setTarget(e.target.value); setTargetLabel(null); }}
                             />
+                            {targetLabel && (
+                                <p className="text-xs text-muted-foreground">
+                                    Selected <span className="font-medium">{targetLabel}</span> —
+                                    this profile will be merged into whichever account that record
+                                    already belongs to.
+                                </p>
+                            )}
                             <p className="text-xs text-muted-foreground">
                                 The account must already exist as a player record — it has to have
                                 been seen on a Steam-tracked server.
@@ -146,7 +156,7 @@ export default function AssociatePlayerDialog(
                             <Label htmlFor="associateSearch">
                                 Or search this server{' '}
                                 <span className="text-xs text-muted-foreground">
-                                    (to merge two name records)
+                                    (to merge into an already-claimed name record)
                                 </span>
                             </Label>
                             <Input
@@ -161,7 +171,12 @@ export default function AssociatePlayerDialog(
                                         <button
                                             key={player.id}
                                             type="button"
-                                            onClick={() => { setTarget(player.id); setSearch(''); setSuggestions([]); }}
+                                            onClick={() => {
+                                                setTarget(player.id);
+                                                setTargetLabel(player.name);
+                                                setSearch('');
+                                                setSuggestions([]);
+                                            }}
                                             className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors"
                                         >
                                             <div className="text-sm">{player.name}</div>

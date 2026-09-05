@@ -158,14 +158,6 @@ async fn set_associated_player(
         return Ok(LinkChange { previous, current: None });
     };
 
-    if !is_steam_id(target) {
-        return Err(LinkError::User(
-            "The target must be a numeric Steam ID".to_string(),
-        ));
-    }
-
-    // Following the target's own link keeps chains one hop deep, so every reader's
-    // `COALESCE(associated_player_id, player_id)` still lands on the canonical row.
     let canonical = sqlx::query_scalar!(
         r#"SELECT COALESCE(associated_player_id, player_id) AS "canonical!"
            FROM player WHERE player_id = $1"#,
@@ -178,14 +170,23 @@ async fn set_associated_player(
         LinkError::Internal
     })?;
 
-    // `player.associated_player_id` is an FK into `player`, so we cannot link to a Steam ID the
-    // scraper has never seen. Say so plainly rather than surfacing a constraint violation.
     let Some(canonical) = canonical else {
-        return Err(LinkError::User(format!(
-            "No player record exists for Steam ID {target}. They need to be seen on a \
-             Steam-tracked server before their account can be linked."
-        )));
+        return Err(LinkError::User(if is_steam_id(target) {
+            format!(
+                "No player record exists for Steam ID {target}. They need to be seen on a \
+                 Steam-tracked server before their account can be linked."
+            )
+        } else {
+            format!("No player record exists for {target}.")
+        }));
     };
+
+    if !is_steam_id(&canonical) {
+        return Err(LinkError::User(format!(
+            "{target} is not linked to a Steam account yet, so there is nothing to merge into. \
+             Link that profile to a Steam ID first."
+        )));
+    }
 
     if canonical == player_id {
         return Err(LinkError::User(
