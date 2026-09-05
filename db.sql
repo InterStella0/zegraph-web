@@ -713,6 +713,43 @@ CREATE INDEX idx_map_notify_map_server ON website.map_notify_subscriptions(map_n
 CREATE INDEX idx_map_notify_user ON website.map_notify_subscriptions(user_id);
 
 
+CREATE TABLE website.server_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id BIGINT NOT NULL REFERENCES website.steam_user(user_id) ON DELETE CASCADE,
+    community_name TEXT NOT NULL,
+    icon_url TEXT,
+    servers JSONB NOT NULL,
+    game_type TEXT NOT NULL CHECK (game_type IN ('cs2', 'csgo')),
+    elaboration TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    reviewed_by BIGINT REFERENCES website.steam_user(user_id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_server_requests_user_id ON website.server_requests(user_id);
+CREATE INDEX idx_server_requests_status ON website.server_requests(status);
+
+CREATE TABLE website.player_claiming (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    player_id VARCHAR(100) NOT NULL REFERENCES player(player_id) ON DELETE CASCADE,
+    server_id VARCHAR(100) NOT NULL REFERENCES server(server_id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES website.steam_user(user_id) ON DELETE CASCADE,
+    note TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    reviewed_by BIGINT REFERENCES website.steam_user(user_id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+CREATE UNIQUE INDEX uniq_player_claiming_pending
+    ON website.player_claiming(player_id, user_id) WHERE status = 'pending';
+CREATE INDEX idx_player_claiming_status ON website.player_claiming(status);
+CREATE INDEX idx_player_claiming_player_id ON website.player_claiming(player_id);
+CREATE INDEX idx_player_claiming_user_id ON website.player_claiming(user_id);
+
+
+
 CREATE TABLE map_metadata(
     name VARCHAR(100) PRIMARY KEY,
     workshop_id BIGINT NOT NULL,
@@ -1377,39 +1414,3 @@ SELECT cron.schedule_in_database(
     'cs2_tracker_db'  -- INSERT YOUR DB NAME
 );
 
--- Server tracking nomination requests submitted by community members
-CREATE TABLE website.server_requests (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id BIGINT NOT NULL REFERENCES website.steam_user(user_id) ON DELETE CASCADE,
-    community_name TEXT NOT NULL,
-    icon_url TEXT,
-    servers JSONB NOT NULL,
-    game_type TEXT NOT NULL CHECK (game_type IN ('cs2', 'csgo')),
-    elaboration TEXT,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-    reviewed_by BIGINT REFERENCES website.steam_user(user_id) ON DELETE SET NULL,
-    reviewed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX idx_server_requests_user_id ON website.server_requests(user_id);
-CREATE INDEX idx_server_requests_status ON website.server_requests(status);
-
--- Requests from players to have a name-tracked profile linked to their Steam account
-CREATE TABLE website.player_claiming (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    player_id VARCHAR(100) NOT NULL REFERENCES player(player_id) ON DELETE CASCADE,
-    server_id VARCHAR(100) NOT NULL REFERENCES server(server_id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES website.steam_user(user_id) ON DELETE CASCADE,
-    note TEXT,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-    reviewed_by BIGINT REFERENCES website.steam_user(user_id) ON DELETE SET NULL,
-    reviewed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
--- One outstanding claim per user per profile; two different users may still contest the same
--- profile, and the moderator decides between them.
-CREATE UNIQUE INDEX uniq_player_claiming_pending
-    ON website.player_claiming(player_id, user_id) WHERE status = 'pending';
-CREATE INDEX idx_player_claiming_status ON website.player_claiming(status);
-CREATE INDEX idx_player_claiming_player_id ON website.player_claiming(player_id);
-CREATE INDEX idx_player_claiming_user_id ON website.player_claiming(user_id);
