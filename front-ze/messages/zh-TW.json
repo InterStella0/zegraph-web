@@ -176,6 +176,24 @@
     }
   },
   "players": {
+    "claim": {
+      "claim": "認領此檔案",
+      "pending": "認領待審核",
+      "pendingHint": "此檔案的認領請求正在等待管理員審核。",
+      "confirmTitle": "認領此檔案？",
+      "confirmBody": "確定嗎？此請求將傳送給管理員審核，通過後你的 Steam 帳戶將與此檔案關聯。",
+      "noteLabel": "有什麼需要告訴管理員的嗎？",
+      "optional": "（選填）",
+      "notePlaceholder": "例如：這是我 2023 年在該伺服器使用的名字。",
+      "charCount": "{count}/{max} 個字元",
+      "cancel": "取消",
+      "confirmSubmit": "確定傳送",
+      "submitting": "傳送中...",
+      "submitSuccess": "認領請求已送出",
+      "submitSuccessDesc": "管理員會盡快查看。",
+      "submitFailed": "認領請求傳送失敗",
+      "tryAgainLater": "請稍後再試"
+    },
     "global": {
       "title": "全球玩家",
       "subtitle": "跨社群的玩家清單",

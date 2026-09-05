@@ -176,6 +176,24 @@
     }
   },
   "players": {
+    "claim": {
+      "claim": "このプロフィールを申請する",
+      "pending": "申請中",
+      "pendingHint": "このプロフィールの申請はモデレーターの確認待ちです。",
+      "confirmTitle": "このプロフィールを申請しますか？",
+      "confirmBody": "よろしいですか？この申請はモデレーターに送信され、承認されるとあなたの Steam アカウントがこのプロフィールに紐付けられます。",
+      "noteLabel": "モデレーターに伝えたいことはありますか？",
+      "optional": "(任意)",
+      "notePlaceholder": "例：2023年にこのサーバーで使っていた名前です。",
+      "charCount": "{count}/{max} 文字",
+      "cancel": "キャンセル",
+      "confirmSubmit": "送信する",
+      "submitting": "送信中...",
+      "submitSuccess": "申請を送信しました",
+      "submitSuccessDesc": "モデレーターがまもなく確認します。",
+      "submitFailed": "申請を送信できませんでした",
+      "tryAgainLater": "しばらくしてからもう一度お試しください"
+    },
     "global": {
       "title": "グローバルプレイヤー",
       "subtitle": "全コミュニティのプレイヤー一覧",

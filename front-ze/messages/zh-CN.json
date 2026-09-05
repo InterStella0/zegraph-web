@@ -176,6 +176,24 @@
     }
   },
   "players": {
+    "claim": {
+      "claim": "认领此档案",
+      "pending": "认领待审核",
+      "pendingHint": "此档案的认领请求正在等待管理员审核。",
+      "confirmTitle": "认领此档案？",
+      "confirmBody": "确定吗？此请求将发送给管理员审核，通过后你的 Steam 账户将与此档案关联。",
+      "noteLabel": "有什么需要告诉管理员的吗？",
+      "optional": "（可选）",
+      "notePlaceholder": "例如：这是我 2023 年在该服务器使用的名字。",
+      "charCount": "{count}/{max} 个字符",
+      "cancel": "取消",
+      "confirmSubmit": "确定发送",
+      "submitting": "发送中...",
+      "submitSuccess": "认领请求已提交",
+      "submitSuccessDesc": "管理员会尽快查看。",
+      "submitFailed": "认领请求发送失败",
+      "tryAgainLater": "请稍后再试"
+    },
     "global": {
       "title": "全球玩家",
       "subtitle": "跨社区的玩家列表",

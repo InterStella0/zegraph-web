@@ -12,8 +12,12 @@ import StillCalculatingPlayer from "./StillCalculatingPlayer.tsx";
 import StalePlayerStats from "./StalePlayerStats.tsx";
 import {PlayerStatsPatchProvider} from "./PlayerStatsPatch.tsx";
 import AccessDenied from "./AccessDenied.tsx";
+import {SteamProfile} from "../../../../../next-auth-steam/steam.ts";
 
-export default function ResolvePlayerInformation({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailedWithError> }) {
+export default function ResolvePlayerInformation({ serverPlayerPromise, userPromise }: {
+    serverPlayerPromise: Promise<ServerPlayerDetailedWithError>,
+    userPromise: Promise<SteamProfile | null>,
+}) {
     const { player, server, error } = use(serverPlayerPromise)
 
     if (error && error.code === 403) {
@@ -36,7 +40,7 @@ export default function ResolvePlayerInformation({ serverPlayerPromise }: { serv
                 calculatedAt={player.calculated_at}
             />}
             <div className="col-span-12 xl:col-span-8">
-                <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} />
+                <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} userPromise={userPromise} />
             </div>
             <div className="col-span-12 md:col-span-6 xl:col-span-4">
                 <PlayerSessionList serverPlayerPromise={serverPlayerPromise} />

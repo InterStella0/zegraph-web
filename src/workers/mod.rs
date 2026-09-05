@@ -238,6 +238,59 @@ impl BackgroundWorker {
             let _: RedisResult<()> = conn.del(&cache_key).await;
         }
     }
+
+    /// Drops every cached entry whose key matches a redis glob, across both tiers.
+    ///
+    /// Most player views are cached per session (`…:{server}:{player}:{session}`) with TTLs in
+    /// the tens of days, so something that invalidates a player's whole history — relinking an
+    /// account, say — has no single key to target. Redis is the authority on which keys exist;
+    /// the memory tier is keyed on the bare key, so the same scan clears both.
+    ///
+    /// `SCAN` walks the whole keyspace for a non-prefix pattern, so this is for rare
+    /// administrative changes, not request handling.
+    pub async fn drop_cached_matching(&self, pattern: &str) {
+        let Ok(mut conn) = self.cache.redis_pool.get().await else {
+            tracing::warn!("Failed to reach redis to invalidate {pattern}");
+            return;
+        };
+
+        let scan_pattern = format!("gfl-ze-watcher:{pattern}");
+        let mut cursor: u64 = 0;
+        let mut dropped = 0usize;
+
+        loop {
+            let scanned: RedisResult<(u64, Vec<String>)> = redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg(&scan_pattern)
+                .arg("COUNT")
+                .arg(500)
+                .query_async(&mut conn)
+                .await;
+
+            let Ok((next, keys)) = scanned else {
+                tracing::warn!("SCAN failed while invalidating {pattern}");
+                return;
+            };
+
+            for key in &keys {
+                if let Some(bare) = key.strip_prefix("gfl-ze-watcher:") {
+                    self.cache.memory.invalidate(bare).await;
+                }
+            }
+            if !keys.is_empty() {
+                dropped += keys.len();
+                let _: RedisResult<()> = conn.del(&keys).await;
+            }
+
+            if next == 0 {
+                break;
+            }
+            cursor = next;
+        }
+
+        tracing::info!("Invalidated {dropped} cached key(s) matching {pattern}");
+    }
 }
 
 #[derive(Clone)]

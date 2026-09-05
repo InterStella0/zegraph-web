@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Sheet, SheetContent } from 'components/ui/sheet';
 import { ScrollArea } from 'components/ui/scroll-area';
 import { Button } from 'components/ui/button';
-import { FileText, MessageSquare, Music, Ban, Shield, Megaphone, Bell, Settings, Box, Heart, Server, Menu, Link2, Award, History } from 'lucide-react';
+import { FileText, MessageSquare, Music, Ban, Shield, Megaphone, Bell, Settings, Box, Heart, Server, Menu, Link2, Award, History, UserCheck } from 'lucide-react';
 
 type NavItem = {
   label: string;
@@ -40,6 +40,7 @@ const navSections: NavSection[] = [
     icon: Shield,
     items: [
       { label: 'Music Reports', href: '/admin/reports/music', icon: Music },
+      { label: 'Profile Claims', href: '/admin/player-claims', icon: UserCheck },
     ],
   },
   {

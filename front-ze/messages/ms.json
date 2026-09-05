@@ -176,6 +176,24 @@
     }
   },
   "players": {
+    "claim": {
+      "claim": "Tuntut profil ini",
+      "pending": "Tuntutan menunggu",
+      "pendingHint": "Tuntutan bagi profil ini sedang menunggu semakan moderator.",
+      "confirmTitle": "Tuntut profil ini?",
+      "confirmBody": "Anda pasti? Ini akan dihantar kepada moderator untuk semakan, dan akaun Steam anda akan dipautkan ke profil ini jika mereka meluluskannya.",
+      "noteLabel": "Ada apa-apa yang moderator patut tahu?",
+      "optional": "(pilihan)",
+      "notePlaceholder": "Contohnya: ini nama saya di pelayan ini pada 2023.",
+      "charCount": "{count}/{max} aksara",
+      "cancel": "Batal",
+      "confirmSubmit": "Ya, hantar",
+      "submitting": "Menghantar...",
+      "submitSuccess": "Tuntutan dihantar untuk semakan",
+      "submitSuccessDesc": "Moderator akan menyemaknya tidak lama lagi.",
+      "submitFailed": "Gagal menghantar tuntutan",
+      "tryAgainLater": "Sila cuba lagi nanti"
+    },
     "global": {
       "title": "Pemain Global",
       "subtitle": "Senarai pemain merentas komuniti",

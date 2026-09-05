@@ -1315,7 +1315,29 @@ impl PlayerWorker {
             .unwrap_or(0)
     }
 
-    async fn enqueue_global_refresh(&self, canonical_id: &str) {
+    /// Clears every cached view of the given players, after something changed what those views
+    /// would return for reasons the cache keys cannot see.
+    ///
+    /// Relinking is the case that needs it: `associated_player_id` decides which rows a profile
+    /// fans out to and which account owns its playtime, and it is baked into cached payloads
+    /// that live for tens of days under session-scoped keys. Dropping by player id catches all
+    /// of them — detail, aliases, ranks, the `player-data` row and the global aggregates.
+    ///
+    /// Over-matching is harmless here: an extra key just gets recomputed on next read.
+    pub async fn invalidate_players(&self, player_ids: &[String]) {
+        for player_id in player_ids {
+            self.background_worker
+                .drop_cached_matching(&format!("*{player_id}*"))
+                .await;
+        }
+    }
+
+    /// Queues a full playtime recalculation for one canonical account.
+    ///
+    /// Also called after `player.associated_player_id` changes: the merged numbers live behind
+    /// this worker's cache and in `website.player_global_playtime`, and neither notices a new
+    /// link on its own.
+    pub async fn enqueue_global_refresh(&self, canonical_id: &str) {
         self.background_worker.enqueue_refresh_job(RefreshJob {
             kind: JobKind::PlayerGlobalPlaytime { canonical_id: canonical_id.to_string() },
             // Nothing reads this key; it exists so the in-flight marker dedupes per player.

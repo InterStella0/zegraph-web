@@ -201,6 +201,36 @@ pub struct ServerRequestsPaginated {
     pub requests: Vec<ServerRequestAdmin>,
 }
 
+/// A player's request to have a name-tracked profile linked to their Steam account,
+/// with the claimed profile and reviewer resolved for the admin queue.
+#[derive(Object, Serialize)]
+pub struct PlayerClaimAdmin {
+    pub id: String,
+    /// Steam ID of the person making the claim.
+    pub user_id: String,
+    pub claimer_name: Option<String>,
+    /// The name-tracked `player.player_id` being claimed.
+    pub player_id: String,
+    pub player_name: Option<String>,
+    pub server_id: String,
+    pub server_name: Option<String>,
+    /// Optional justification written by the claimer.
+    pub note: Option<String>,
+    /// `pending`, `approved` or `rejected`.
+    pub status: String,
+    pub reviewed_by: Option<String>,
+    pub reviewer_name: Option<String>,
+    pub reviewed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// A page of profile claim requests.
+#[derive(Object, Serialize)]
+pub struct PlayerClaimsPaginated {
+    pub total: i64,
+    pub claims: Vec<PlayerClaimAdmin>,
+}
+
 /// A curated external community link.
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct CommunityLinkResponse {

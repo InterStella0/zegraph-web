@@ -18,6 +18,7 @@ import {Server} from "types/community.ts";
 import ResolvePlayerInformation from "./ResolvePlayerInformation.tsx";
 import {AdSpot} from "components/ui/AdSpot";
 import { getTranslations } from 'next-intl/server';
+import getServerUser from "../../../../getServerUser";
 
 dayjs.extend(relativeTime);
 export async function generateMetadata({ params}: {
@@ -175,7 +176,10 @@ export default async function Page({ params }: { params: Promise<{ server_slug: 
             )}
             <div className="p-4">
                 <AdSpot className="mb-4" />
-                <ResolvePlayerInformation serverPlayerPromise={serverPlayerPromise} />
+                <ResolvePlayerInformation
+                    serverPlayerPromise={serverPlayerPromise}
+                    userPromise={getServerUser()}
+                />
             </div>
         </>
     );

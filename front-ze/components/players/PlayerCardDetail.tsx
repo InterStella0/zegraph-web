@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations, useLocale} from 'next-intl';
-import {ReactElement} from "react";
+import {ReactElement, use} from "react";
 import {fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
@@ -28,6 +28,9 @@ import PlayerAliasesButton from "./PlayerAliasesButton";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import {SiSteam} from "@icons-pack/react-simple-icons";
 import {usePatchedPlayer} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
+import PlayerClaimButton from "./PlayerClaimButton";
+import AssociatePlayerDialog from "./AssociatePlayerDialog";
+import {SteamProfile} from "../../next-auth-steam/steam.ts";
 dayjs.extend(relativeTime)
 
 function AliasesDropdown({ aliases }) {
@@ -87,7 +90,7 @@ function cStatsFor(server_id: string, player_id: string): Promise<PlayerWithLega
     return promise;
 }
 
-function PlayerCardDetailDisplay({ server, player }: { server: Server, player: PlayerInfo }): ReactElement {
+function PlayerCardDetailDisplay({ server, player, user }: { server: Server, player: PlayerInfo, user: SteamProfile | null }): ReactElement {
     const t = useTranslations('players.card');
     const locale = useLocale();
     const cStats = cStatsFor(server.id, player.id)
@@ -151,6 +154,21 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
                                     </Link>
                                 </Button>
                             )}
+                            <PlayerClaimButton
+                                serverId={server.id}
+                                playerId={player.id}
+                                byId={server.byId}
+                                associatedPlayerId={player.associated_player_id}
+                                user={user}
+                            />
+                            {user?.is_superuser && !server.byId && (
+                                <AssociatePlayerDialog
+                                    serverId={server.id}
+                                    playerId={player.id}
+                                    playerName={player.name}
+                                    associatedPlayerId={player.associated_player_id}
+                                />
+                            )}
                         </div>
 
                         <p className={`mb-2 italic text-sm ${player.online_since ? 'text-green-600 dark:text-green-500' : 'text-muted-foreground'}`}>
@@ -187,16 +205,20 @@ function PlayerCardDetailDisplay({ server, player }: { server: Server, player: P
 }
 
 
-export default function PlayerCardDetail({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed> }) {
+export default function PlayerCardDetail({ serverPlayerPromise, userPromise }: {
+    serverPlayerPromise: Promise<ServerPlayerDetailed>,
+    userPromise: Promise<SteamProfile | null>,
+}) {
     const t = useTranslations('players.card');
     const {server, player } = usePatchedPlayer(serverPlayerPromise)
+    const user = use(userPromise)
     if (player instanceof StillCalculate)
         return null // Should not reach here
 
     return (
         <Card className="w-full">
             <ErrorCatch message={t('noDetail')}>
-                <PlayerCardDetailDisplay server={server} player={player} />
+                <PlayerCardDetailDisplay server={server} player={player} user={user} />
             </ErrorCatch>
         </Card>
     )

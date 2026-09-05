@@ -176,6 +176,24 @@
     }
   },
   "players": {
+    "claim": {
+      "claim": "Klaim profil ini",
+      "pending": "Klaim menunggu",
+      "pendingHint": "Klaim untuk profil ini sedang menunggu peninjauan moderator.",
+      "confirmTitle": "Klaim profil ini?",
+      "confirmBody": "Anda yakin? Permintaan ini akan dikirim ke moderator untuk ditinjau, dan akun Steam Anda akan ditautkan ke profil ini jika disetujui.",
+      "noteLabel": "Ada yang perlu diketahui moderator?",
+      "optional": "(opsional)",
+      "notePlaceholder": "Misalnya: ini nama saya di server ini pada 2023.",
+      "charCount": "{count}/{max} karakter",
+      "cancel": "Batal",
+      "confirmSubmit": "Ya, kirim",
+      "submitting": "Mengirim...",
+      "submitSuccess": "Klaim dikirim untuk ditinjau",
+      "submitSuccessDesc": "Moderator akan segera meninjaunya.",
+      "submitFailed": "Gagal mengirim klaim",
+      "tryAgainLater": "Silakan coba lagi nanti"
+    },
     "global": {
       "title": "Pemain Global",
       "subtitle": "Daftar pemain di seluruh komunitas",

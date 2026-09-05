@@ -280,3 +280,15 @@ export type GlobalBriefPlayers = {
     total_players: number,
     players: GlobalPlayerBrief[],
 }
+
+/** Whether a name-tracked profile can be claimed, and where any claim on it stands. */
+export interface PlayerClaimState {
+    /** True when the server tracks by name, the profile is a name row, and it is not yet linked. */
+    claimable: boolean,
+    /** True when a claim on this profile is awaiting review, from anyone. */
+    pending: boolean,
+    /** Status of your own most recent claim on this profile, if you have made one. */
+    own_status: 'pending' | 'approved' | 'rejected' | null,
+    /** The Steam ID this profile is already linked to, if any. */
+    associated_player_id: string | null,
+}

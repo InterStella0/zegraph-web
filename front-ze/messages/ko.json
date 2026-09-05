@@ -176,6 +176,24 @@
     }
   },
   "players": {
+    "claim": {
+      "claim": "이 프로필 소유권 주장",
+      "pending": "검토 대기 중",
+      "pendingHint": "이 프로필에 대한 소유권 주장이 운영자 검토를 기다리고 있습니다.",
+      "confirmTitle": "이 프로필의 소유권을 주장할까요?",
+      "confirmBody": "정말인가요? 이 요청은 운영자 검토로 전달되며, 승인되면 회원님의 Steam 계정이 이 프로필과 연결됩니다.",
+      "noteLabel": "운영자가 알아야 할 내용이 있나요?",
+      "optional": "(선택 사항)",
+      "notePlaceholder": "예: 2023년에 이 서버에서 쓰던 이름입니다.",
+      "charCount": "{count}/{max}자",
+      "cancel": "취소",
+      "confirmSubmit": "네, 보낼게요",
+      "submitting": "보내는 중...",
+      "submitSuccess": "검토 요청을 보냈습니다",
+      "submitSuccessDesc": "운영자가 곧 확인할 예정입니다.",
+      "submitFailed": "요청을 보내지 못했습니다",
+      "tryAgainLater": "나중에 다시 시도해 주세요"
+    },
     "global": {
       "title": "글로벌 플레이어",
       "subtitle": "모든 커뮤니티의 플레이어 목록",

@@ -176,6 +176,24 @@
     }
   },
   "players": {
+    "claim": {
+      "claim": "Reclamar este perfil",
+      "pending": "Reclamación pendiente",
+      "pendingHint": "Una reclamación sobre este perfil está esperando la revisión de un moderador.",
+      "confirmTitle": "¿Reclamar este perfil?",
+      "confirmBody": "¿Estás seguro? Esto se enviará a los moderadores para su revisión, y tu cuenta de Steam se vinculará a este perfil si lo aprueban.",
+      "noteLabel": "¿Algo que los moderadores deban saber?",
+      "optional": "(opcional)",
+      "notePlaceholder": "Por ejemplo: este era mi nombre en este servidor en 2023.",
+      "charCount": "{count}/{max} caracteres",
+      "cancel": "Cancelar",
+      "confirmSubmit": "Sí, enviar",
+      "submitting": "Enviando...",
+      "submitSuccess": "Reclamación enviada para revisión",
+      "submitSuccessDesc": "Un moderador la revisará pronto.",
+      "submitFailed": "No se pudo enviar la reclamación",
+      "tryAgainLater": "Inténtalo de nuevo más tarde"
+    },
     "global": {
       "title": "Jugadores globales",
       "subtitle": "Lista de jugadores en todas las comunidades",

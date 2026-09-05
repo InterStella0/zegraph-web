@@ -176,6 +176,24 @@
     }
   },
   "players": {
+    "claim": {
+      "claim": "Nhận hồ sơ này",
+      "pending": "Đang chờ duyệt",
+      "pendingHint": "Yêu cầu nhận hồ sơ này đang chờ quản trị viên xem xét.",
+      "confirmTitle": "Nhận hồ sơ này?",
+      "confirmBody": "Bạn chắc chứ? Yêu cầu sẽ được gửi cho quản trị viên xem xét, và tài khoản Steam của bạn sẽ được liên kết với hồ sơ này nếu được duyệt.",
+      "noteLabel": "Có điều gì quản trị viên nên biết không?",
+      "optional": "(không bắt buộc)",
+      "notePlaceholder": "Ví dụ: đây là tên của tôi trên máy chủ này hồi năm 2023.",
+      "charCount": "{count}/{max} ký tự",
+      "cancel": "Huỷ",
+      "confirmSubmit": "Có, gửi đi",
+      "submitting": "Đang gửi...",
+      "submitSuccess": "Đã gửi yêu cầu để xem xét",
+      "submitSuccessDesc": "Quản trị viên sẽ xem xét sớm.",
+      "submitFailed": "Không gửi được yêu cầu",
+      "tryAgainLater": "Vui lòng thử lại sau"
+    },
     "global": {
       "title": "Người chơi toàn cầu",
       "subtitle": "Danh sách người chơi trên tất cả cộng đồng",

@@ -466,6 +466,30 @@ pub struct DbServerRequest {
     pub total_requests: Option<i64>,
 }
 
+#[derive(DbInto)]
+#[auto_serde_with]
+#[db_into(PlayerClaimAdmin)]
+pub struct DbPlayerClaim {
+    #[method(to_string)]
+    pub id: Uuid,
+    #[method(to_string)]
+    pub user_id: i64,
+    pub player_id: String,
+    pub server_id: String,
+    pub note: Option<String>,
+    pub status: String,
+    #[expr(self.reviewed_by.map(|id| id.to_string()))]
+    pub reviewed_by: Option<i64>,
+    pub reviewed_at: Option<OffsetDateTime>,
+    pub created_at: OffsetDateTime,
+    pub claimer_name: Option<String>,
+    pub player_name: Option<String>,
+    pub server_name: Option<String>,
+    pub reviewer_name: Option<String>,
+    #[skip]
+    pub total_claims: Option<i64>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct DonorResponse {
     pub id: String,
