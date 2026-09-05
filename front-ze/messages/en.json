@@ -176,6 +176,24 @@
     }
   },
   "players": {
+    "claim": {
+      "claim": "Claim this profile",
+      "pending": "Claim pending",
+      "pendingHint": "A claim on this profile is waiting for a moderator to review it.",
+      "confirmTitle": "Claim this profile?",
+      "confirmBody": "Are you sure? This will be sent to the moderators for review, and your Steam account will be linked to this profile if they approve it.",
+      "noteLabel": "Anything the moderators should know?",
+      "optional": "(optional)",
+      "notePlaceholder": "For example: this was my name on this server back in 2023.",
+      "charCount": "{count}/{max} characters",
+      "cancel": "Cancel",
+      "confirmSubmit": "Yes, send it",
+      "submitting": "Sending...",
+      "submitSuccess": "Claim sent for review",
+      "submitSuccessDesc": "A moderator will look at it soon.",
+      "submitFailed": "Failed to send claim",
+      "tryAgainLater": "Please try again later"
+    },
     "global": {
       "title": "Global Players",
       "subtitle": "Player list across communities",

@@ -56,4 +56,6 @@ pub enum ApiTags {
     AdminAudit,
     /// Admin management of server metadata.
     AdminServers,
+    /// Player requests to claim a name-tracked profile, and their moderation queue.
+    PlayerClaims,
 }

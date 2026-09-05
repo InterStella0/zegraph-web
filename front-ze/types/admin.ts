@@ -124,3 +124,30 @@ export interface AuditLogsResponse {
   total: number;
   logs: AuditLogEntry[];
 }
+
+// ─── Profile claim admin types ────────────────────────────────────────────────
+
+export type PlayerClaimStatus = 'pending' | 'approved' | 'rejected';
+
+export interface PlayerClaimAdmin {
+  id: string;
+  /** Steam ID of the person making the claim. */
+  user_id: string;
+  claimer_name: string | null;
+  /** The name-tracked player row being claimed. */
+  player_id: string;
+  player_name: string | null;
+  server_id: string;
+  server_name: string | null;
+  note: string | null;
+  status: PlayerClaimStatus;
+  reviewed_by: string | null;
+  reviewer_name: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface PlayerClaimsPaginated {
+  total: number;
+  claims: PlayerClaimAdmin[];
+}

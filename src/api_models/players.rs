@@ -466,3 +466,18 @@ pub struct PlayersStatistic{
     pub total_players: i64,
     pub countries: i64
 }
+
+/// Whether a name-tracked profile can be claimed, and where any claim on it stands.
+///
+/// Drives the "Claim this profile" control on the player page.
+#[derive(Object)]
+pub struct PlayerClaimState {
+    /// True when the server tracks by name, the profile is a name row, and it is not yet linked.
+    pub claimable: bool,
+    /// True when a claim on this profile is awaiting review, from anyone.
+    pub pending: bool,
+    /// Status of the requester's own most recent claim on this profile, if they have made one.
+    pub own_status: Option<String>,
+    /// The Steam ID this profile is already linked to, if any.
+    pub associated_player_id: Option<String>,
+}

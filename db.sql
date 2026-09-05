@@ -955,14 +955,14 @@ CREATE INDEX player_server_session_mv_geometry_gist
     USING GIST (geometry);
 
 CREATE MATERIALIZED VIEW server_player_names AS
-SELECT DISTINCT pss.server_id, p.player_id, p.player_name,
+    SELECT DISTINCT pss.server_id, p.player_id, p.player_name,
        COALESCE(ua.anonymized, FALSE) AS is_anonymous
-FROM player_server_session pss
-JOIN player p ON p.player_id = pss.player_id
-JOIN server s ON s.server_id = pss.server_id
-LEFT JOIN website.user_anonymization ua
-    ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
-   AND ua.community_id = s.community_id;
+    FROM player_server_session pss
+    JOIN player p ON p.player_id = pss.player_id
+    JOIN server s ON s.server_id = pss.server_id
+    LEFT JOIN website.user_anonymization ua
+        ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
+       AND ua.community_id = s.community_id;
 
 CREATE UNIQUE INDEX idx_spn_server_player ON server_player_names(server_id, player_id);
 CREATE INDEX idx_spn_name_trgm ON server_player_names USING gin (lower(player_name) gin_trgm_ops);
@@ -1393,3 +1393,23 @@ CREATE TABLE website.server_requests (
 );
 CREATE INDEX idx_server_requests_user_id ON website.server_requests(user_id);
 CREATE INDEX idx_server_requests_status ON website.server_requests(status);
+
+-- Requests from players to have a name-tracked profile linked to their Steam account
+CREATE TABLE website.player_claiming (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    player_id VARCHAR(100) NOT NULL REFERENCES player(player_id) ON DELETE CASCADE,
+    server_id VARCHAR(100) NOT NULL REFERENCES server(server_id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES website.steam_user(user_id) ON DELETE CASCADE,
+    note TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    reviewed_by BIGINT REFERENCES website.steam_user(user_id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- One outstanding claim per user per profile; two different users may still contest the same
+-- profile, and the moderator decides between them.
+CREATE UNIQUE INDEX uniq_player_claiming_pending
+    ON website.player_claiming(player_id, user_id) WHERE status = 'pending';
+CREATE INDEX idx_player_claiming_status ON website.player_claiming(status);
+CREATE INDEX idx_player_claiming_player_id ON website.player_claiming(player_id);
+CREATE INDEX idx_player_claiming_user_id ON website.player_claiming(user_id);

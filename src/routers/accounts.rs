@@ -94,6 +94,193 @@ async fn resolve_canonical_player_id(
     ).fetch_optional(pool).await.ok().flatten()
 }
 
+/// Whether a `player_id` is a Steam ID rather than a name-tracked row.
+///
+/// Name-tracked servers give each name its own UUID-shaped row; Steam-tracked ones use the
+/// numeric Steam ID as the primary key. The same distinction is drawn in SQL elsewhere with
+/// `player_id ~ '^[0-9]+$'`.
+fn is_steam_id(player_id: &str) -> bool {
+    !player_id.is_empty() && player_id.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// Why a link could not be made. `User` carries wording meant for the moderator.
+enum LinkError {
+    User(String),
+    Internal,
+}
+
+/// What a link operation changed, so the caller knows whose caches and totals are now wrong.
+struct LinkChange {
+    /// The account this profile belonged to beforehand, if any. Its playtime shrinks.
+    previous: Option<String>,
+    /// The account it belongs to now, if any. Its playtime grows.
+    current: Option<String>,
+}
+
+/// Points `player_id` at `target_steam_id`, or clears the link when the target is `None`.
+///
+/// Shared by claim approval and the superuser override so both enforce the same invariants:
+/// the target must already exist as a `player` row (`associated_player_id` is a self-FK), links
+/// stay one hop deep, and a profile never points at itself.
+async fn set_associated_player(
+    conn: &mut sqlx::PgConnection,
+    player_id: &str,
+    target_steam_id: Option<&str>,
+) -> Result<LinkChange, LinkError> {
+    // Read the outgoing owner first: their aggregates have to be recomputed without this row.
+    let previous = sqlx::query_scalar!(
+        "SELECT associated_player_id FROM player WHERE player_id = $1",
+        player_id,
+    )
+    .fetch_optional(&mut *conn)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to read the current link of {player_id}: {e}");
+        LinkError::Internal
+    })?
+    .flatten();
+
+    let Some(target) = target_steam_id else {
+        let result = sqlx::query!(
+            "UPDATE player SET associated_player_id = NULL WHERE player_id = $1",
+            player_id,
+        )
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to unlink {player_id}: {e}");
+            LinkError::Internal
+        })?;
+
+        if result.rows_affected() == 0 {
+            return Err(LinkError::User("Player not found".to_string()));
+        }
+        return Ok(LinkChange { previous, current: None });
+    };
+
+    if !is_steam_id(target) {
+        return Err(LinkError::User(
+            "The target must be a numeric Steam ID".to_string(),
+        ));
+    }
+
+    // Following the target's own link keeps chains one hop deep, so every reader's
+    // `COALESCE(associated_player_id, player_id)` still lands on the canonical row.
+    let canonical = sqlx::query_scalar!(
+        r#"SELECT COALESCE(associated_player_id, player_id) AS "canonical!"
+           FROM player WHERE player_id = $1"#,
+        target,
+    )
+    .fetch_optional(&mut *conn)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to resolve link target {target}: {e}");
+        LinkError::Internal
+    })?;
+
+    // `player.associated_player_id` is an FK into `player`, so we cannot link to a Steam ID the
+    // scraper has never seen. Say so plainly rather than surfacing a constraint violation.
+    let Some(canonical) = canonical else {
+        return Err(LinkError::User(format!(
+            "No player record exists for Steam ID {target}. They need to be seen on a \
+             Steam-tracked server before their account can be linked."
+        )));
+    };
+
+    if canonical == player_id {
+        return Err(LinkError::User(
+            "A profile cannot be linked to itself".to_string(),
+        ));
+    }
+
+    let result = sqlx::query!(
+        "UPDATE player SET associated_player_id = $1 WHERE player_id = $2",
+        canonical,
+        player_id,
+    )
+    .execute(&mut *conn)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to link {player_id} -> {canonical}: {e}");
+        LinkError::Internal
+    })?;
+
+    if result.rows_affected() == 0 {
+        return Err(LinkError::User("Player not found".to_string()));
+    }
+
+    // Anything that pointed at this profile has to follow it, or it would become a second hop.
+    sqlx::query!(
+        "UPDATE player SET associated_player_id = $1 WHERE associated_player_id = $2",
+        canonical,
+        player_id,
+    )
+    .execute(&mut *conn)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to re-point aliases of {player_id}: {e}");
+        LinkError::Internal
+    })?;
+
+    Ok(LinkChange { previous, current: Some(canonical) })
+}
+
+/// Clears the caches a link change invalidated, then queues fresh playtime for both the account
+/// that gained the profile and the one that lost it.
+///
+/// Order matters: `BackgroundWorker::execute` serves a cached value rather than recomputing, so
+/// a refresh queued while the old entries are still present would simply re-read them and the
+/// profile would keep its pre-link shape until the (multi-week) TTLs expired.
+async fn apply_link_side_effects(data: &AppData, player_id: &str, change: &LinkChange) {
+    let touched = accounts_touched_by(player_id, change);
+    data.player_worker.invalidate_players(&touched).await;
+
+    for account in [change.previous.as_deref(), change.current.as_deref()].into_iter().flatten() {
+        data.player_worker.enqueue_global_refresh(account).await;
+    }
+}
+
+/// Every account whose cached views a link change invalidates: the profile itself, whoever
+/// owned it before, and whoever owns it now.
+fn accounts_touched_by(player_id: &str, change: &LinkChange) -> Vec<String> {
+    let mut ids = vec![player_id.to_string()];
+    for id in [change.previous.as_deref(), change.current.as_deref()].into_iter().flatten() {
+        if !ids.iter().any(|existing| existing == id) {
+            ids.push(id.to_string());
+        }
+    }
+    ids
+}
+
+/// Reads one claim back with the joined display names, for the admin queue's response.
+async fn fetch_player_claim(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    claim_id: Uuid,
+) -> Result<Option<DbPlayerClaim>, sqlx::Error> {
+    sqlx::query_as!(
+        DbPlayerClaim,
+        r#"
+        SELECT
+            c.id, c.user_id, c.player_id, c.server_id, c.note, c.status,
+            c.reviewed_by, c.reviewed_at, c.created_at,
+            claimer.persona_name AS "claimer_name?",
+            p.player_name AS "player_name?",
+            s.server_name AS "server_name?",
+            reviewer.persona_name AS "reviewer_name?",
+            NULL::bigint AS total_claims
+        FROM website.player_claiming c
+        LEFT JOIN website.steam_user claimer ON c.user_id = claimer.user_id
+        LEFT JOIN website.steam_user reviewer ON c.reviewed_by = reviewer.user_id
+        LEFT JOIN player p ON p.player_id = c.player_id
+        LEFT JOIN server s ON s.server_id = c.server_id
+        WHERE c.id = $1
+        "#,
+        claim_id,
+    )
+    .fetch_optional(pool)
+    .await
+}
+
 async fn hidden_community_ids(
     app: &AppData,
     player_id: &str,
@@ -203,6 +390,25 @@ pub struct ServerRequestDto {
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct ServerRequestStatusDto {
     pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Object, Clone)]
+pub struct PlayerClaimDto {
+    pub server_id: String,
+    pub player_id: String,
+    /// Optional justification shown to the moderator. Capped at 500 characters.
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Object, Clone)]
+pub struct PlayerClaimStatusDto {
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Object, Clone)]
+pub struct AssociatePlayerDto {
+    /// Steam ID to link this profile to. `null` unlinks it.
+    pub associated_player_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -2623,6 +2829,362 @@ impl AccountsApi {
 
         response!(ok updated.into())
     }
+
+    /// Whether this profile can be claimed, and where any claim on it stands.
+    ///
+    /// A profile is claimable when the server tracks players by name rather than Steam ID, the
+    /// profile is a name row rather than a Steam row, and it has not already been linked.
+    /// Usable logged out, so the page can render the button before prompting for login.
+    #[oai(path="/accounts/player-claims/:server_id/:player_id", method="get", tag = "ApiTags::PlayerClaims")]
+    async fn get_player_claim_state(
+        &self,
+        Data(data): Data<&AppData>,
+        OptionalTokenBearer(user_token): OptionalTokenBearer,
+        Path(server_id): Path<String>,
+        Path(player_id): Path<String>,
+    ) -> Response<PlayerClaimState> {
+        let viewer_id = user_token.as_ref().map(|u| u.id);
+
+        let row = match sqlx::query!(
+            r#"
+            SELECT
+                COALESCE(sm.source_by_id, FALSE) AS "by_id!",
+                p.associated_player_id,
+                EXISTS (
+                    SELECT 1 FROM website.player_claiming c
+                    WHERE c.player_id = p.player_id AND c.status = 'pending'
+                ) AS "pending!",
+                (
+                    SELECT c.status FROM website.player_claiming c
+                    WHERE c.player_id = p.player_id AND c.user_id = $3
+                    ORDER BY c.created_at DESC LIMIT 1
+                ) AS own_status
+            FROM player p
+            JOIN server s ON s.server_id = $1
+            LEFT JOIN server_metadata sm ON sm.server_id = s.server_id
+            WHERE p.player_id = $2
+            "#,
+            server_id,
+            player_id,
+            viewer_id,
+        )
+        .fetch_optional(&*data.pool)
+        .await
+        {
+            Ok(Some(r)) => r,
+            Ok(None) => return response!(err "Player not found", ErrorCode::NotFound),
+            Err(e) => {
+                tracing::error!("Failed to fetch claim state for {player_id}: {e}");
+                return response!(internal_server_error);
+            }
+        };
+
+        let claimable = !row.by_id
+            && row.associated_player_id.is_none()
+            && !is_steam_id(&player_id);
+
+        response!(ok PlayerClaimState {
+            claimable,
+            pending: row.pending,
+            own_status: row.own_status,
+            associated_player_id: row.associated_player_id,
+        })
+    }
+
+    /// Ask a moderator to link a name-tracked profile to your Steam account.
+    ///
+    /// Only valid on servers that track players by name, for a profile that is not already
+    /// linked. Goes into a review queue; nothing is linked until a superuser approves it.
+    #[oai(path="/accounts/player-claims", method="post", tag = "ApiTags::PlayerClaims")]
+    async fn submit_player_claim(
+        &self,
+        Data(data): Data<&AppData>,
+        TokenBearer(user_token): TokenBearer,
+        Json(dto): Json<PlayerClaimDto>,
+    ) -> Response<String> {
+        if let Some(note) = &dto.note {
+            if note.chars().count() > 500 {
+                return response!(err "Note must be 500 characters or fewer", ErrorCode::BadRequest);
+            }
+        }
+
+        if is_steam_id(&dto.player_id) {
+            return response!(err "This profile is already a Steam account", ErrorCode::BadRequest);
+        }
+
+        let row = match sqlx::query!(
+            r#"
+            SELECT
+                COALESCE(sm.source_by_id, FALSE) AS "by_id!",
+                p.associated_player_id,
+                EXISTS (
+                    SELECT 1 FROM player_server_session pss
+                    WHERE pss.server_id = $1 AND pss.player_id = $2
+                ) AS "on_server!"
+            FROM player p
+            JOIN server s ON s.server_id = $1
+            LEFT JOIN server_metadata sm ON sm.server_id = s.server_id
+            WHERE p.player_id = $2
+            "#,
+            dto.server_id,
+            dto.player_id,
+        )
+        .fetch_optional(&*data.pool)
+        .await
+        {
+            Ok(Some(r)) => r,
+            Ok(None) => return response!(err "Player not found on this server", ErrorCode::NotFound),
+            Err(e) => {
+                tracing::error!("Failed to validate claim for {}: {e}", dto.player_id);
+                return response!(internal_server_error);
+            }
+        };
+
+        if row.by_id {
+            return response!(err "This server tracks players by Steam ID", ErrorCode::BadRequest);
+        }
+        if !row.on_server {
+            return response!(err "Player not found on this server", ErrorCode::NotFound);
+        }
+        if row.associated_player_id.is_some() {
+            return response!(err "This profile is already linked", ErrorCode::Conflict);
+        }
+
+        let note = dto.note.as_deref().map(str::trim).filter(|n| !n.is_empty());
+
+        match sqlx::query!(
+            r#"
+            INSERT INTO website.player_claiming (player_id, server_id, user_id, note)
+            VALUES ($1, $2, $3, $4)
+            "#,
+            dto.player_id,
+            dto.server_id,
+            user_token.id,
+            note,
+        )
+        .execute(&*data.pool)
+        .await
+        {
+            Ok(_) => response!(ok "OK".to_string()),
+            Err(e) => {
+                if e.to_string().contains("uniq_player_claiming_pending") {
+                    return response!(err "You already have a pending claim for this profile", ErrorCode::Conflict);
+                }
+                tracing::error!("Failed to insert player claim: {e}");
+                response!(internal_server_error)
+            }
+        }
+    }
+
+    /// Paginated list of profile claim requests. Requires the `superuser` role.
+    ///
+    /// `status` filters to `pending`/`approved`/`rejected`; pages are 20 each.
+    #[oai(path="/admin/player-claims", method="get", tag = "ApiTags::PlayerClaims")]
+    async fn get_player_claims(
+        &self,
+        Data(data): Data<&AppData>,
+        TokenBearer(user_token): TokenBearer,
+        Query(page): Query<Option<i64>>,
+        Query(status): Query<Option<String>>,
+    ) -> Response<PlayerClaimsPaginated> {
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
+
+        let page = page.unwrap_or(1).max(1);
+        let limit = 20i64;
+        let offset = (page - 1) * limit;
+        let status_filter = status.as_deref();
+
+        let claims = match sqlx::query_as!(
+            DbPlayerClaim,
+            r#"
+            SELECT
+                c.id,
+                c.user_id,
+                c.player_id,
+                c.server_id,
+                c.note,
+                c.status,
+                c.reviewed_by,
+                c.reviewed_at,
+                c.created_at,
+                claimer.persona_name AS "claimer_name?",
+                p.player_name AS "player_name?",
+                s.server_name AS "server_name?",
+                reviewer.persona_name AS "reviewer_name?",
+                COUNT(*) OVER() AS total_claims
+            FROM website.player_claiming c
+            LEFT JOIN website.steam_user claimer ON c.user_id = claimer.user_id
+            LEFT JOIN website.steam_user reviewer ON c.reviewed_by = reviewer.user_id
+            LEFT JOIN player p ON p.player_id = c.player_id
+            LEFT JOIN server s ON s.server_id = c.server_id
+            WHERE ($1::text IS NULL OR c.status = $1)
+            ORDER BY c.created_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+            status_filter,
+            limit,
+            offset,
+        )
+        .fetch_all(&*data.pool)
+        .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("Failed to fetch player claims: {e}");
+                return response!(internal_server_error);
+            }
+        };
+
+        let total = claims.first().and_then(|c| c.total_claims).unwrap_or(0);
+
+        response!(ok PlayerClaimsPaginated {
+            total,
+            claims: claims.into_iter().map(Into::into).collect(),
+        })
+    }
+
+    /// Approve or reject a profile claim. Requires the `superuser` role.
+    ///
+    /// Approving links the claimed profile to the claimer's Steam account by setting
+    /// `player.associated_player_id`, in the same transaction that records the decision, and
+    /// queues a playtime recalculation. Rejecting only records the decision.
+    #[oai(path="/admin/player-claims/:claim_id/status", method="put", tag = "ApiTags::PlayerClaims")]
+    async fn update_player_claim_status(
+        &self,
+        Data(data): Data<&AppData>,
+        TokenBearer(user_token): TokenBearer,
+        Path(claim_id): Path<String>,
+        Json(dto): Json<PlayerClaimStatusDto>,
+    ) -> Response<PlayerClaimAdmin> {
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
+
+        if !["approved", "rejected", "pending"].contains(&dto.status.as_str()) {
+            return response!(err "status must be 'approved', 'rejected' or 'pending'", ErrorCode::BadRequest);
+        }
+
+        let claim_id = match Uuid::parse_str(&claim_id) {
+            Ok(id) => id,
+            Err(_) => return response!(err "Invalid claim ID", ErrorCode::BadRequest),
+        };
+
+        let mut tx = match data.pool.begin().await {
+            Ok(tx) => tx,
+            Err(e) => {
+                tracing::error!("Failed to open transaction for claim {claim_id}: {e}");
+                return response!(internal_server_error);
+            }
+        };
+
+        let claim = match sqlx::query!(
+            r#"SELECT player_id, user_id FROM website.player_claiming WHERE id = $1"#,
+            claim_id,
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        {
+            Ok(Some(c)) => c,
+            Ok(None) => return response!(err "Claim not found", ErrorCode::NotFound),
+            Err(e) => {
+                tracing::error!("Failed to fetch claim {claim_id}: {e}");
+                return response!(internal_server_error);
+            }
+        };
+
+        let mut link_change: Option<LinkChange> = None;
+        if dto.status == "approved" {
+            let steam_id = claim.user_id.to_string();
+            match set_associated_player(&mut tx, &claim.player_id, Some(&steam_id)).await {
+                Ok(change) => link_change = Some(change),
+                Err(LinkError::User(msg)) => return response!(err &msg, ErrorCode::BadRequest),
+                Err(LinkError::Internal) => return response!(internal_server_error),
+            }
+        }
+
+        if let Err(e) = sqlx::query!(
+            r#"UPDATE website.player_claiming
+               SET status = $1, reviewed_by = $2, reviewed_at = NOW()
+               WHERE id = $3"#,
+            dto.status,
+            user_token.id,
+            claim_id,
+        )
+        .execute(&mut *tx)
+        .await
+        {
+            tracing::error!("Failed to update claim {claim_id}: {e}");
+            return response!(internal_server_error);
+        }
+
+        if let Err(e) = tx.commit().await {
+            tracing::error!("Failed to commit claim {claim_id}: {e}");
+            return response!(internal_server_error);
+        }
+
+        // The merged numbers live behind the worker cache and in
+        // `website.player_global_playtime`; neither notices the new link on its own. Caches have
+        // to be dropped before the refresh, or it reads its own stale entries straight back.
+        if let Some(change) = &link_change {
+            tracing::info!("Claim {claim_id}: linked {} -> {:?}", claim.player_id, change.current);
+            apply_link_side_effects(data, &claim.player_id, change).await;
+        }
+
+        match fetch_player_claim(&data.pool, claim_id).await {
+            Ok(Some(updated)) => response!(ok updated.into()),
+            Ok(None) => response!(err "Claim not found", ErrorCode::NotFound),
+            Err(e) => {
+                tracing::error!("Failed to fetch updated claim {claim_id}: {e}");
+                response!(internal_server_error)
+            }
+        }
+    }
+
+    /// Link a profile to a Steam account directly, or unlink it. Requires the `superuser` role.
+    ///
+    /// This is the manual override behind the selector on the player page; approving a claim
+    /// takes the same path. Passing a `null` `associated_player_id` unlinks the profile.
+    #[oai(path="/admin/players/:player_id/associated", method="put", tag = "ApiTags::PlayerClaims")]
+    async fn set_player_associated(
+        &self,
+        Data(data): Data<&AppData>,
+        TokenBearer(user_token): TokenBearer,
+        Path(player_id): Path<String>,
+        Json(dto): Json<AssociatePlayerDto>,
+    ) -> Response<String> {
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
+
+        let target = dto.associated_player_id.as_deref().map(str::trim).filter(|t| !t.is_empty());
+
+        let mut tx = match data.pool.begin().await {
+            Ok(tx) => tx,
+            Err(e) => {
+                tracing::error!("Failed to open transaction for linking {player_id}: {e}");
+                return response!(internal_server_error);
+            }
+        };
+
+        let change = match set_associated_player(&mut tx, &player_id, target).await {
+            Ok(c) => c,
+            Err(LinkError::User(msg)) => return response!(err &msg, ErrorCode::BadRequest),
+            Err(LinkError::Internal) => return response!(internal_server_error),
+        };
+
+        if let Err(e) = tx.commit().await {
+            tracing::error!("Failed to commit link for {player_id}: {e}");
+            return response!(internal_server_error);
+        }
+
+        tracing::info!("Superuser {} set {player_id} -> {:?}", user_token.id, change.current);
+
+        apply_link_side_effects(data, &player_id, &change).await;
+
+        response!(ok "OK".to_string())
+    }
 }
 impl UriPatternExt for AccountsApi{
     fn get_all_patterns(&self) -> Vec<RoutePattern> {
@@ -2659,6 +3221,11 @@ impl UriPatternExt for AccountsApi{
             "/accounts/server-requests",
             "/admin/server-requests",
             "/admin/server-requests/{request_id}/status",
+            "/accounts/player-claims",
+            "/accounts/player-claims/{server_id}/{player_id}",
+            "/admin/player-claims",
+            "/admin/player-claims/{claim_id}/status",
+            "/admin/players/{player_id}/associated",
         ].iter_into()
     }
 }
