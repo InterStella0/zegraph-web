@@ -22,7 +22,8 @@ impl DonationsApi {
         &self,
         Data(data): Data<&AppData>,
     ) -> Response<Vec<DonorResponse>> {
-        let donors = match sqlx::query_as!(
+        let pool = &*data.pool.clone();
+        let func = || sqlx::query_as!(
             DbDonor,
             r#"
             SELECT id, display_name, amount::float8 as "amount!: f64", message, donated_at
@@ -30,17 +31,14 @@ impl DonationsApi {
             ORDER BY amount DESC, donated_at ASC
             "#
         )
-        .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(rows) => rows,
-            Err(e) => {
-                tracing::error!("Failed to fetch donors: {}", e);
-                return response!(internal_server_error);
-            }
+        .fetch_all(pool);
+
+        let Ok(value) = cached_response("donors", &data.cache, HOUR, func).await else {
+            tracing::error!("Failed to fetch donors");
+            return response!(internal_server_error);
         };
 
-        response!(ok donors.into_iter().map(Into::into).collect())
+        response!(ok value.result.into_iter().map(Into::into).collect())
     }
 
     /// Add a donor entry. Requires the `superuser` role.
