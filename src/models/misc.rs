@@ -3,6 +3,8 @@ use uuid::Uuid;
 use crate::api_models::admins::{CommunityLinkResponse, SpecialThanksResponse};
 use crate::core::utils::db_to_utc;
 use crate::models::admins::DonorResponse;
+use crate::global_serializer::*;
+use serde_macros::auto_serde_with;
 
 pub struct DbCommunityLink {
     pub id: Uuid,
@@ -42,6 +44,7 @@ impl From<DbSpecialThanks> for SpecialThanksResponse {
     }
 }
 
+#[auto_serde_with]
 pub struct DbDonor {
     pub id: Uuid,
     pub display_name: String,
