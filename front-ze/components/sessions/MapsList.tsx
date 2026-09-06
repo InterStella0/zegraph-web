@@ -69,6 +69,7 @@ export default function MapsList(
                                     <div className="flex-shrink-0">
                                         {mapImages[map.map] ? (
                                             <Image
+                                                unoptimized
                                                 src={mapImages[map.map]}
                                                 alt={map.map}
                                                 width={120}

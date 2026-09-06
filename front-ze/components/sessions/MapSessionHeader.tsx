@@ -28,6 +28,7 @@ export default function MapSessionHeader(
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                     {mapImage && (
                         <Image
+                            unoptimized
                             src={mapImage}
                             alt={sessionInfo.map}
                             height={80}
