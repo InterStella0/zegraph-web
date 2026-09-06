@@ -81,7 +81,6 @@ services:
         NEXT_PUBLIC_ADSENSE_AD_SLOT: ${NEXT_PUBLIC_ADSENSE_AD_SLOT}
         NEXT_PUBLIC_AD_SHOW: ${NEXT_PUBLIC_AD_SHOW}
         BUILD_COMMIT: ${BUILD_COMMIT:-}
-    volumes:
     logging: *default-logging
     deploy:
       resources:

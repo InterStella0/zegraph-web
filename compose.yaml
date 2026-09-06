@@ -54,7 +54,6 @@ services:
         # Exported by deployment/build-meta.sh; empty on a bare `docker compose build`, which
         # simply hides the footer's build line.
         BUILD_COMMIT: ${BUILD_COMMIT:-}
-    volumes:
     logging: *default-logging
     deploy:
       resources:
