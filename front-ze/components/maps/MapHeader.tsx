@@ -58,6 +58,7 @@ function MapHeaderDisplay() {
                 <div className="w-full h-full xl:max-h-110 max-sm:h-50 overflow-hidden relative">
                     {url !== null ? (
                         <Image
+                            unoptimized
                             src={url}
                             width={1051}
                             height={550}

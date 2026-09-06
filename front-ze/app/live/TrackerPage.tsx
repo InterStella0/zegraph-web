@@ -177,6 +177,7 @@ const MapActivity = ({event}) => {
                         {mapImage && (
                             <div className="col-span-1 sm:col-span-4 md:col-span-3">
                                 <Image
+                                    unoptimized
                                     src={mapImage}
                                     alt={payload.map}
                                     width={200}

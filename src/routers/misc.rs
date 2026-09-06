@@ -6,10 +6,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use futures::stream::BoxStream;
 use futures::{StreamExt, TryFutureExt};
 use image::imageops::{FilterType};
-use poem::{Request};
 use poem::web::{Data};
 use poem_openapi::{ApiResponse, Object, OpenApi};
-use poem_openapi::param::{Path, Query};
+use poem_openapi::param::Path;
 use poem_openapi::payload::{Binary, EventStream};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
@@ -21,11 +20,9 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::time::{interval, timeout};
 use crate::{response, AppData, FastCache};
 use crate::core::utils::*;
-use url;
 use crate::api_models::common::*;
 use crate::api_models::misc::Announcement;
 use crate::models::admins::DbAnnouncement;
-use crate::models::players::DbPlayer;
 use crate::models::admins::AnnouncementTypeState;
 use crate::models::sitemaps::*;
 use crate::workers::job::{QUEUE_HEAVY, QUEUE_LIGHT};
@@ -204,6 +201,14 @@ pub enum LiveEventResponse {
     ),
     #[oai(status = 503)]
     TooManyClients,
+}
+
+#[derive(ApiResponse)]
+pub enum JpegResponse {
+    #[oai(status = 200, content_type = "image/jpeg")]
+    Ok(Binary<Vec<u8>>),
+    #[oai(status = 404)]
+    NotFound,
 }
 
 enum ThumbnailError{
@@ -611,105 +616,13 @@ impl MiscApi {
     }
     /// Fetch (or generate and cache) a resized map thumbnail.
     #[oai(path = "/thumbnails/:thumbnail_type/:filename", method = "get")]
-    async fn get_thumbnail(&self, thumbnail_type: Path<ThumbnailType>, filename: Path<String>) -> Binary<Vec<u8>> {
+    async fn get_thumbnail(&self, thumbnail_type: Path<ThumbnailType>, filename: Path<String>) -> JpegResponse {
         match self.get_map_thumbnail(&thumbnail_type.0, &filename).await {
-            Ok(image_data) => Binary(image_data),
+            Ok(image_data) => JpegResponse::Ok(Binary(image_data)),
             Err(e) => {
                 tracing::warn!("{e}");
-                Binary(vec![])
+                JpegResponse::NotFound
             },
-        }
-    }
-    /// Resolve an internal page URL to an Open Graph preview image.
-    #[oai(path="/meta_thumbnails", method="get")]
-    async fn get_meta_thumbnails(
-        &self, req: &Request, Data(app): Data<&AppData>, Query(url): Query<String>
-    ) -> Binary<Vec<u8>> {
-        let rand = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-            .to_string();
-        let raw_host = req.header("Host").unwrap_or_else(|| &rand);
-        let host = format!("{}://{raw_host}", req.uri().scheme_str().unwrap_or("http"));
-        let Ok(parsed) = url::Url::parse(&url) else {
-            return Binary(vec![])
-        };
-
-        let domain = parsed.host_str().unwrap_or("");
-        if !host.contains(&domain) {
-            return Binary(vec![])
-        }
-
-        let path_segments = parsed.path_segments()
-            .map(|c| c.collect::<Vec<_>>())
-            .unwrap_or_default();
-
-        let default_game = String::from(GAME_TYPES[0]);
-        match path_segments.as_slice() {
-            [server_id, "maps", map_name] => {
-                let game = match get_server(&app.pool, &app.cache, &server_id).await {
-                    Some(server) => server.game.unwrap_or(default_game),
-                    None => default_game
-                };
-                let maps = get_map_images(&app.cache).await;
-                let map_names: Vec<String> = maps.iter()
-                    .filter(|e| e.game_type == game)
-                    .map(|e| e.map_name.clone())
-                    .collect();
-                let Some(map_image) = get_map_image(map_name, &map_names) else {
-                    return Binary(vec![])
-                };
-
-                match self.get_map_thumbnail(&ThumbnailType::Large, &format!("{map_image}.jpg")).await {
-                    Ok(image_data) => Binary(image_data),
-                    Err(e) => {
-                        tracing::warn!("{e}");
-                        Binary(vec![])
-                    },
-                }
-            },
-            [server_id, "players", player_id] => {
-                let _ = server_id;
-                let Some(provider) = &app.steam_provider else {
-                    tracing::warn!("No pfp provider! This feature is disabled.");
-                    return Binary(vec![])
-                };
-                let pool = &*app.pool.clone();
-                let func = || sqlx::query_as!(
-                    DbPlayer, "SELECT  player_id, player_name, created_at, associated_player_id
-                                FROM player WHERE player_id=$1 LIMIT 1", player_id
-                ).fetch_one(pool);
-                let key = format!("info:{player_id}");
-
-                let Ok(result) = cached_response(&key, &app.cache, 7 * DAY, func).await else {
-                    return Binary(vec![])
-                };
-                let player_id = match player_id.parse::<i64>() {
-                    Ok(p) => p,
-                    Err(_) => {
-                        if let Some(p_id) = result.result.associated_player_id{
-                            let Ok(converted) = p_id.parse::<i64>() else {
-                                tracing::warn!("Found invalid player_id from associated_player_id.");
-                                return Binary(vec![])
-                            };
-                            converted
-                        }else{
-                            return Binary(vec![])
-                        }
-                    }
-                };
-
-                let Ok(profile) = get_profile(&app.cache, provider, &player_id).await else {
-                    tracing::warn!("Provider is broken");
-                    return Binary(vec![])
-                };
-                let Ok(resp) = reqwest::get(profile.url).await else {
-                    return Binary(vec![])
-                };
-                Binary(resp.bytes().await.unwrap_or_default().into())
-            },
-            _ => Binary(vec![])
         }
     }
     /// Currently-published, non-expired site announcements, newest first.
@@ -1033,7 +946,6 @@ mod traffic_tests {
 impl UriPatternExt for MiscApi{
     fn get_all_patterns(&self) -> Vec<RoutePattern> {
         vec![
-            "/meta_thumbnails",
             "/thumbnails/{thumbnail_type}/{filename}",
             "/health",
             "/events/data-updates",
