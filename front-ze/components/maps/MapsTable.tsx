@@ -118,6 +118,7 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
                     <div className="rounded overflow-hidden w-20 h-11">
                         {mapImage ? (
                             <Image
+                                unoptimized
                                 height={45}
                                 width={80}
                                 src={mapImage}

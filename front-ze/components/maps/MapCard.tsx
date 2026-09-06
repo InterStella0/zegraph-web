@@ -49,6 +49,7 @@ function MapCardDisplay({ detail, onClick, server }){
                 )}
                 {image !== undefined && image !== null && (
                     <Image
+                        unoptimized
                         src={image}
                         alt={`Image of ${detail.map}`}
                         title={detail.map}

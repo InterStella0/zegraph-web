@@ -664,12 +664,17 @@ mod route_tests {
     }
 
     #[tokio::test]
-    async fn missing_required_query_param_is_bad_request() {
+    async fn invalid_path_param_value_is_bad_request() {
         let cli = client();
         assert_eq!(
-            send(&cli, "GET", "/meta_thumbnails", None).await,
+            send(&cli, "GET", "/thumbnails/not_a_real_type/x.jpg", None).await,
             poem::http::StatusCode::BAD_REQUEST,
-            "omitting the required `url` query param should fail validation"
+            "a value outside the ThumbnailType enum should fail validation"
+        );
+        assert_eq!(
+            send(&cli, "GET", "/thumbnails/small/x.jpg", None).await,
+            poem::http::StatusCode::NOT_FOUND,
+            "a well-formed request for a missing thumbnail is a 404, not an empty 200"
         );
     }
 

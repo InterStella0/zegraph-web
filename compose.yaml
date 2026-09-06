@@ -19,6 +19,8 @@ services:
       - ${STORAGE_PATH}/characters:/var/www/characters:ro
       - ${STORAGE_PATH}/communities:/var/www/communities:ro
       - ${PUBLIC_FILES_PATH:-/front-ze/public}:/var/www/public/any:ro
+      - thumbnails:/var/www/thumbnails:ro
+      - tile_cache:/var/cache/nginx/qgis_tiles
     networks:
       - default
     ports:
@@ -53,8 +55,6 @@ services:
         # simply hides the footer's build line.
         BUILD_COMMIT: ${BUILD_COMMIT:-}
     volumes:
-      - thumbnails:/var/www/thumbnails:ro
-      - tile_cache:/var/cache/nginx/qgis_tiles
     logging: *default-logging
     deploy:
       resources:

@@ -14,6 +14,8 @@ services:
     volumes:
       # Maps/characters are served from R2 in prod, so no local bind mounts here.
       - ${PUBLIC_FILES_PATH:-/front-ze/public}:/var/www/public/any:ro
+      - thumbnails:/var/www/thumbnails:ro
+      - tile_cache:/var/cache/nginx/qgis_tiles
     networks:
       - default
     logging: *default-logging
@@ -26,27 +28,16 @@ services:
 
   frontend:
     image: interstella0/ze-graph:frontend
-    volumes:
-      - thumbnails:/var/www/thumbnails:ro
-      - tile_cache:/var/cache/nginx/qgis_tiles
     logging: *default-logging
     deploy:
       # Reservations are hard scheduling guarantees, and the manager is 2 CPU / 4G. Two replicas
       # reserving 1 CPU / 2G each claimed the whole node, so the second never scheduled and the
-      # backend had nowhere left to go. One replica, modest floor -- the limits below are what
-      # actually cap it under load.
-      replicas: 1
-#      placement:
-#        # Cap 1 replica per node: when both nodes are up you get 1 each (uses
-#        # spare worker compute); when the worker is down only 1 runs on the
-#        # manager instead of both stacking onto the small VPS.
-#        max_replicas_per_node: 1
-#        preferences:
-#          - spread: node.hostname
-
+      # backend had nowhere left to go.
+      replicas: 2
       placement:
-        constraints:
-          - node.role == manager
+        max_replicas_per_node: 1
+        preferences:
+          - spread: node.hostname
       resources:
         limits:
           cpus: "2"
@@ -54,6 +45,12 @@ services:
         reservations:
           cpus: "0.5"
           memory: 1G
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     networks:
       - default
 

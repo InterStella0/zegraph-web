@@ -251,6 +251,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                             <div className="rounded-lg overflow-hidden h-40">
                                 {mapImage ? (
                                     <Image
+                                        unoptimized
                                         height={160}
                                         width={468}
                                         src={mapImage}
