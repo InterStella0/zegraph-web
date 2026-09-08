@@ -13,6 +13,7 @@ poem = { version = "3.1.12", features = ["session", "multipart"] }
 # breaks the build rather than failing silently.
 poem-openapi={version = "=5.1.8", features = ["swagger-ui", "chrono"]}
 tokio={ version = "1.52.3", features = ["rt-multi-thread", "signal", "net"] }
+libc = "0.2"
 sqlx = { version = "0.8.6", features = [ "runtime-tokio", "postgres", "time", "uuid", "json"] }
 chrono = { version = "0.4.45", features = ["serde"] }
 tracing-subscriber= { version = "0.3.23", features = ["env-filter"] }

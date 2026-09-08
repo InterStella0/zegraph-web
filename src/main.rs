@@ -717,8 +717,30 @@ mod route_tests {
     }
 }
 
+fn raise_open_file_limit() {
+    // SAFETY: `getrlimit`/`setrlimit` on a zeroed
+    unsafe {
+        let mut limits: libc::rlimit = std::mem::zeroed();
+        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
+            tracing::warn!("Couldn't read RLIMIT_NOFILE: {}", std::io::Error::last_os_error());
+            return;
+        }
+        if limits.rlim_cur >= limits.rlim_max {
+            return;
+        }
+        let previous = limits.rlim_cur;
+        limits.rlim_cur = limits.rlim_max;
+        if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) != 0 {
+            tracing::warn!("Couldn't raise RLIMIT_NOFILE: {}", std::io::Error::last_os_error());
+        } else {
+            tracing::info!("Raised open-file limit from {} to {}", previous, limits.rlim_max);
+        }
+    }
+}
+
 fn main(){
     dotenv().ok();
+    raise_open_file_limit();
     if env::var_os("RUST_LOG").is_none() {
         unsafe{
             env::set_var("RUST_LOG", "poem=debug");

@@ -14,12 +14,19 @@ CREATE TABLE player(
 );
 CREATE INDEX idx_player_name_trgm ON player USING gin (lower(player_name) gin_trgm_ops);
 
+CREATE INDEX idx_player_associated ON player (associated_player_id)
+    WHERE associated_player_id IS NOT NULL;
+
+CREATE INDEX idx_player_canonical ON player (COALESCE(associated_player_id, player_id));
+
 CREATE TABLE player_activity(
     player_id VARCHAR(100) REFERENCES player(player_id) ON DELETE CASCADE,
     event_name VARCHAR(10) NOT NULL,
     event_value TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_player_activity_player ON player_activity (player_id, event_name, created_at);
 CREATE TABLE community(
     community_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     community_name TEXT,
@@ -797,6 +804,7 @@ CREATE TABLE match_data(
     estimated_time_end TIMESTAMP WITH TIME ZONE,
     server_time_end TIMESTAMP WITH TIME ZONE
 );
+CREATE INDEX idx_match_data_time_server ON match_data (time_id, server_id, occurred_at);
 CREATE TABLE day_night (
     zone VARCHAR(10),
     geometry geometry

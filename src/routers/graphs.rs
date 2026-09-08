@@ -242,6 +242,9 @@ impl GraphApi {
 		Path(player_id): Path<String>, Path(session_id): Path<String>,
 		OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
 	) -> Response<Vec<ServerCountData>> {
+		if !is_session_id(&session_id) {
+			return response!(err "This session does not exist.", ErrorCode::NotFound);
+		}
 		let pool = &*app.pool.clone();
 		let cache = &app.cache;
 		let func = || sqlx::query_as!(DbPlayerSession, "

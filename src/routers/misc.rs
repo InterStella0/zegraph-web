@@ -482,7 +482,7 @@ impl MiscApi {
 
         let started = Instant::now();
         let probe = async {
-            let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+            let resp = http_client().get(&url).send().await.map_err(|e| e.to_string())?;
             let status = resp.status();
             if !status.is_success() {
                 return Err(format!("HTTP {status}"));
@@ -566,7 +566,11 @@ impl MiscApi {
         let image_url = format!("{BASE_URL}/{game_type}/{filename}");
 
         tracing::debug!("Fetching {image_url}");
-        let response = reqwest::get(&image_url).await
+        let response = http_client()
+            .get(&image_url)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await
             .map_err(|_| ThumbnailError::FetchUrlError(image_url))?;
         let bytes = response.bytes()
             .await

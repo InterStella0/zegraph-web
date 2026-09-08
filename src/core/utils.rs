@@ -2,9 +2,11 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fmt::Display;
 use std::future::Future;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, Utc};
 use deadpool_redis::Pool;
+use moka::future::Cache as MokaCache;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use poem::{FromRequest, Request};
 use poem::http::StatusCode;
@@ -645,19 +647,68 @@ pub async fn update_online_brief(
         tracing::warn!("Couldn't update online brief!");
     }
 }
+
+/// The one HTTP client every outbound call shares.
+pub fn http_client() -> &'static reqwest::Client {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .connect_timeout(Duration::from_secs(2))
+            .pool_max_idle_per_host(16)
+            .pool_idle_timeout(Duration::from_secs(30))
+            .build()
+            .expect("failed to build the shared HTTP client")
+    })
+}
+
 pub async fn fetch_profile(provider: &str, player_id: &i64) -> Result<ProviderResponse, ErrorCode> {
     let url = format!("{provider}/steams/pfp/{player_id}");
-    let resp = reqwest::get(&url).await.map_err(|_| ErrorCode::NotImplemented)?;
+    let resp = http_client().get(&url).send().await.map_err(|_| ErrorCode::NotImplemented)?;
     let result = resp.json::<ProviderResponse>().await.map_err(|_| ErrorCode::NotFound)?;
     Ok(result)
 }
-pub async fn get_profile(cache: &FastCache, provider: &str, player_id: &i64) -> Result<ProviderResponse, ErrorCode> {
-    let callable = || fetch_profile(provider, &player_id);
-    let redis_key = format!("pfp_cache:{}", player_id);
-    let result = cached_response(&redis_key, cache, 7 * DAY, callable).await
-        .map_err(|_| ErrorCode::InternalServerError)?;
 
-    Ok(result.result)
+pub fn is_session_id(session_id: &str) -> bool {
+    Uuid::parse_str(session_id).is_ok()
+}
+
+const PFP_BACKUP_TTL: u64 = 12 * DAY;
+
+pub async fn get_profile(cache: &FastCache, provider: &str, player_id: &i64) -> Result<ProviderResponse, ErrorCode> {
+    let backup_key = format!("gfl-ze-watcher:pfp_backup:{player_id}");
+    let callable = || async {
+        let profile = fetch_profile(provider, player_id).await?;
+        
+        if let (Ok(mut conn), Ok(json)) = (
+            cache.redis_pool.get().await,
+            serde_json::to_string(&profile),
+        ) {
+            let saved: RedisResult<()> = conn.set_ex(&backup_key, &json, PFP_BACKUP_TTL).await;
+            if let Err(e) = saved {
+                tracing::warn!("Failed to store pfp fallback {}: {}", backup_key, e);
+            }
+        }
+        Ok(profile)
+    };
+
+    let redis_key = format!("pfp_cache:{player_id}");
+    match cached_response(&redis_key, cache, 7 * DAY, callable).await {
+        Ok(result) => Ok(result.result),
+        Err(e) => {
+            if let Some(stale) = read_pfp_backup(cache, &backup_key).await {
+                tracing::warn!("Provider unreachable, serving stale avatar for {player_id}");
+                return Ok(stale);
+            }
+            Err(e)
+        }
+    }
+}
+
+async fn read_pfp_backup(cache: &FastCache, backup_key: &str) -> Option<ProviderResponse> {
+    let mut conn = cache.redis_pool.get().await.ok()?;
+    let raw = conn.get::<_, String>(backup_key).await.ok()?;
+    serde_json::from_str::<ProviderResponse>(&raw).ok()
 }
 
 #[derive(Deserialize)]
@@ -725,7 +776,13 @@ pub const BASE_URL: &str = "https://vauff.com/mapimgs";
 pub async fn fetch_map_images() -> reqwest::Result<Vec<MapImage>>{
     let list_maps = format!("{BASE_URL}/list.php");
 
-    let response: VauffResponseData = reqwest::get(&list_maps).await?.json().await?;
+    let response: VauffResponseData = http_client()
+        .get(&list_maps)
+        .timeout(Duration::from_secs(20))
+        .send()
+        .await?
+        .json()
+        .await?;
     let data: Vec<MapImage> = response.maps.iter()
         .filter(|(k, _values)| GAME_TYPES.contains(&k.as_str()))
         .map(|(e, values)|
@@ -769,6 +826,39 @@ pub struct CacheKey{
     pub current: String,
     pub previous: Option<String>,
 }
+
+fn inflight_locks() -> &'static MokaCache<String, Arc<tokio::sync::Mutex<()>>> {
+    static LOCKS: OnceLock<MokaCache<String, Arc<tokio::sync::Mutex<()>>>> = OnceLock::new();
+    LOCKS.get_or_init(|| {
+        MokaCache::builder()
+            .max_capacity(10_000)
+            .time_to_idle(Duration::from_secs(60))
+            .build()
+    })
+}
+
+async fn read_through<T>(cache: &FastCache, key: &str, cache_key: &str) -> Option<T>
+where
+    T: DeserializeOwned,
+{
+    let mut conn = match cache.redis_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::warn!("Redis connection failed: {}", e);
+            return None;
+        }
+    };
+    let result_str = conn.get::<_, String>(cache_key).await.ok()?;
+    cache.memory.insert(key.to_string(), result_str.clone()).await;
+    match serde_json::from_str::<T>(&result_str) {
+        Ok(deserialized) => Some(deserialized),
+        Err(_) => {
+            tracing::warn!("Redis deserialize failed: for {}", cache_key);
+            None
+        }
+    }
+}
+
 pub async fn cached_response<T, E, F, Fut>(
     key: &str,
     cache: &FastCache,
@@ -790,25 +880,30 @@ where
             tracing::warn!("Memory deserialize failed: for {}", cache_key);
         }
     }
-    let redis_pool = &cache.redis_pool;
-    let conn_result = redis_pool.get().await;
-    if let Err(e) = &conn_result {
-        tracing::warn!("Redis connection failed: {}", e);
-    }
 
-    if let Ok(mut conn) = conn_result {
-        if let Ok(result_str) = conn.get::<_, String>(&cache_key).await {
-            cache.memory.insert(key.to_string(), result_str.clone()).await;
-            if let Ok(deserialized) = serde_json::from_str::<T>(&result_str) {
-                tracing::debug!("Redis cache hit for {}", cache_key);
-                return Ok(CachedResult::current_data(deserialized));
-            } else {
-                tracing::warn!("Redis deserialize failed: for {}", cache_key);
-            }
+    if let Some(deserialized) = read_through::<T>(cache, key, &cache_key).await {
+        tracing::debug!("Redis cache hit for {}", cache_key);
+        return Ok(CachedResult::current_data(deserialized));
+    }
+    tracing::debug!("Cache miss for {}", cache_key);
+
+    let lock = inflight_locks().get_with(cache_key.clone(), async {
+        Arc::new(tokio::sync::Mutex::new(()))
+    }).await;
+    let _guard = lock.lock().await;
+
+    if let Some(val) = cache.memory.get(key).await {
+        if let Ok(deserialized) = serde_json::from_str::<T>(&val) {
+            tracing::debug!("Coalesced onto in-flight fill for {}", cache_key);
+            return Ok(CachedResult::current_data(deserialized));
         }
-        tracing::debug!("Cache miss for {}", cache_key);
+    }
+    if let Some(deserialized) = read_through::<T>(cache, key, &cache_key).await {
+        tracing::debug!("Coalesced onto in-flight fill for {}", cache_key);
+        return Ok(CachedResult::current_data(deserialized));
     }
 
+    let redis_pool = &cache.redis_pool;
     let result = callable().await?;
 
 

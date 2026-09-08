@@ -103,6 +103,7 @@ const nextConfig: NextConfig = {
         }
     },
     images: {
+        minimumCacheTTL: 86400,
         remotePatterns: [
             {
                 hostname: 'localhost:3000',
