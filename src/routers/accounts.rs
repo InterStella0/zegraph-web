@@ -479,7 +479,7 @@ async fn check_permission(
 
 async fn fetch_steam_info(steam_id: &i64) -> Result<SteamProfile, ErrorCode> {
     let base_url = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002";
-    let client = reqwest::Client::new();
+    let client = http_client();
     let mut attempt = 0;
     let max_backoff = 300;
 

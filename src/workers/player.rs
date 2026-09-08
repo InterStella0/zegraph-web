@@ -761,8 +761,8 @@ impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerSessionQuery<Vec<DbPlayerSeen>> {
             JOIN player_server_session s2
               ON s2.server_id = target_session.server_id
              AND s2.player_id <> target_session.player_id
-             AND s2.started_at < target_session.ended_at
-             AND COALESCE(s2.ended_at, target_session.ended_at) > target_session.started_at
+             AND tstzrange(s2.started_at, s2.ended_at)
+                 && tstzrange(target_session.started_at, target_session.ended_at)
             )
             SELECT
               o.seen_player AS player_id,

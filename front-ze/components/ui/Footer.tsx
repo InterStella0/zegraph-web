@@ -113,7 +113,7 @@ export default function Footer() {
                                     asChild
                                     className="rounded-full shadow-sm transition-all hover:shadow-md"
                                 >
-                                    <Link href="/privacy">
+                                    <Link href="/privacy" prefetch={false}>
                                         {t('privacyPolicy')}
                                     </Link>
                                 </Button>

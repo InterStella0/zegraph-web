@@ -66,6 +66,7 @@ function PlayerAvatarDisplay({ uuid, name, width = 40, height = 40, anonymous = 
         <Image
             key={avatarKey}
             loading="lazy"
+            unoptimized
             title={name}
             alt={`${name}'s profile picture`}
             ref={avatarRef}

@@ -66,7 +66,7 @@ where
 
 async fn fetch_infraction(id: &str, source: &str) -> Result<PlayerInfractionUpdateData, reqwest::Error> {
     let url = format!("{source}/api/infractions/{}/info", id);
-    let response = reqwest::get(url).await?.json().await?;
+    let response = http_client().get(url).send().await?.json().await?;
     Ok(response)
 }
 /// Which playtime figure to rank the players table by.
@@ -731,6 +731,9 @@ impl PlayerApi{
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Path(session_id): Path<String>,
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<Vec<PlayerSessionMapPlayed>>{
+        if !is_session_id(&session_id) {
+            return response!(err "This session does not exist.", ErrorCode::NotFound);
+        }
         let map_played = match sqlx::query_as!(DbPlayerSessionMapPlayed,
             "WITH data_session AS (
                 SELECT player_id, server_id, started_at, COALESCE(ended_at,current_timestamp) ended_at
