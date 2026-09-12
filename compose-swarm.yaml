@@ -33,7 +33,7 @@ services:
       # Reservations are hard scheduling guarantees, and the manager is 2 CPU / 4G. Two replicas
       # reserving 1 CPU / 2G each claimed the whole node, so the second never scheduled and the
       # backend had nowhere left to go.
-      replicas: 2
+      replicas: 3
       placement:
         max_replicas_per_node: 1
         preferences:
@@ -197,10 +197,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
     logging: *default-logging
     deploy:
-      replicas: 2
+      replicas: 3
       placement:
-        # Same as frontend: 1 per node, so the manager never has to run both
-        # qgis replicas when the worker is offline.
         max_replicas_per_node: 1
         preferences:
           - spread: node.hostname
