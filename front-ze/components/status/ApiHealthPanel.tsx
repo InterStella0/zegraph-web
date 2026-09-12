@@ -4,7 +4,7 @@ import { use, useState, useEffect, useCallback, useMemo } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import localizedFormat from "dayjs/plugin/localizedFormat";
-import { Chart as ChartJS, Filler, LinearScale, LineController, LineElement, PointElement, TimeScale, Tooltip } from "chart.js";
+import { Chart as ChartJS, Filler, Legend, LinearScale, LineController, LineElement, PointElement, TimeScale, Tooltip } from "chart.js";
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import { ChevronDown } from "lucide-react";
 import { Card } from "components/ui/card";
@@ -21,7 +21,7 @@ import ErrorCatch from "components/ui/ErrorMessage.tsx";
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
 
-ChartJS.register(LinearScale, PointElement, LineElement, LineController, TimeScale, Tooltip, Filler);
+ChartJS.register(LinearScale, PointElement, LineElement, LineController, TimeScale, Tooltip, Filler, Legend);
 
 // Deliberately slower than the fetch-status table's 10s.
 const POLL_INTERVAL = 30_000;
@@ -215,64 +215,118 @@ function TopEndpoints({ traffic }: { traffic: NonNullable<ApiHealth["traffic"]> 
     );
 }
 
+/**
+ * The two series sit on separate scales, so the pair has to survive being told apart by color
+ * alone. The theme's own chart ramp is all one hue family and fails that; these steps are the
+ * nearest pair that passes CVD separation against the card surface in both modes.
+ */
+const SERIES_COLORS = {
+    light: { responseTime: "oklch(0.50 0.18 335)", requestVolume: "oklch(0.72 0.12 305)" },
+    dark: { responseTime: "oklch(0.66 0.19 340)", requestVolume: "oklch(0.52 0.16 300)" },
+};
+
 function GraphTile({ points }: { points: AvgGraphPoint[] }) {
     const t = useTranslations("status.api");
+    const locale = useLocale();
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === "dark";
 
     const data = useMemo(() => {
-        return {
-            datasets: [{
-                data: points.map((p) => ({ x: p.timestamp * 1000, y: p.value })),
-                borderColor: isDark ? "oklch(0.696 0.15 320)" : "oklch(0.6 0.07 310)",
-                backgroundColor: "transparent",
-                borderWidth: 1.5,
-                pointRadius: 0,
-                tension: 0.2,
-                fill: false,
-            }],
+        const colors = isDark ? SERIES_COLORS.dark : SERIES_COLORS.light;
+        const mark = {
+            backgroundColor: "transparent",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.2,
+            fill: false,
         };
-    }, [points, isDark]);
+        return {
+            datasets: [
+                {
+                    ...mark,
+                    label: t("seriesResponseTime"),
+                    yAxisID: "y",
+                    data: points.map((p) => ({ x: p.timestamp * 1000, y: p.value })),
+                    borderColor: colors.responseTime,
+                },
+                {
+                    ...mark,
+                    label: t("seriesRequestVolume"),
+                    yAxisID: "y1",
+                    data: points.map((p) => ({ x: p.timestamp * 1000, y: p.count })),
+                    borderColor: colors.requestVolume,
+                },
+            ],
+        };
+    }, [points, isDark, t]);
 
-    const options = useMemo(() => ({
-        animation: false,
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "nearest", intersect: false },
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                callbacks: {
-                    title: (items: { parsed: { x: number } }[]) => {
-                        const first = items[0];
-                        return first ? dayjs(first.parsed.x).format("MMM D, HH:mm") : "";
+    const options = useMemo(() => {
+        const ink = isDark ? "oklch(0.708 0 0)" : "oklch(0.556 0.08 340)";
+        return {
+            animation: false,
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "nearest", intersect: false },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: "bottom" as const,
+                    labels: {
+                        color: ink,
+                        usePointStyle: true,
+                        pointStyle: "line" as const,
+                        boxWidth: 16,
+                        boxHeight: 2,
+                        font: { size: 10 },
                     },
-                    label: (ctx: { parsed: { y: number | null } }) => {
-                        const y = ctx.parsed.y;
-                        return y === null ? "" : `${y.toFixed(1)} ms`;
+                },
+                tooltip: {
+                    callbacks: {
+                        title: (items: { parsed: { x: number } }[]) => {
+                            const first = items[0];
+                            return first ? dayjs(first.parsed.x).format("MMM D, HH:mm") : "";
+                        },
+                        // Each series carries its own unit; the axis it belongs to says which.
+                        label: (ctx: { parsed: { y: number | null }; dataset: { label?: string; yAxisID?: string } }) => {
+                            const y = ctx.parsed.y;
+                            if (y === null) return "";
+                            const value = ctx.dataset.yAxisID === "y1"
+                                ? y.toLocaleString(locale)
+                                : `${y.toFixed(1)} ms`;
+                            return `${ctx.dataset.label}: ${value}`;
+                        },
                     },
                 },
             },
-        },
-        scales: {
-            x: {
-                type: "time" as const,
-                time: {
-                    displayFormats: { hour: "MMM D", day: "MMM D" },
+            scales: {
+                x: {
+                    type: "time" as const,
+                    time: {
+                        displayFormats: { hour: "MMM D", day: "MMM D" },
+                    },
+                    ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 }, color: ink },
+                    grid: { display: false },
+                    border: { display: false },
                 },
-                ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } },
-                grid: { display: false },
-                border: { display: false },
+                y: {
+                    title: { display: true, text: `${t("seriesResponseTime")} (ms)`, color: ink },
+                    beginAtZero: true,
+                    ticks: { maxTicksLimit: 6, color: ink },
+                    grid: { color: isDark ? "oklch(1 0 0 / 0.08)" : "oklch(0 0 0 / 0.06)" },
+                    border: { display: false },
+                },
+                y1: {
+                    position: "right" as const,
+                    title: { display: true, text: t("seriesRequestVolume"), color: ink },
+                    beginAtZero: true,
+                    ticks: { maxTicksLimit: 6, color: ink },
+                    // Only the left scale draws gridlines; two interleaved grids read as noise.
+                    grid: { drawOnChartArea: false },
+                    border: { display: false },
+                },
             },
-            y: {
-                title: { display: true, text: "ms" },
-                beginAtZero: true,
-                ticks: { maxTicksLimit: 6 },
-                grid: { color: isDark ? "oklch(1 0 0 / 0.08)" : "oklch(0 0 0 / 0.06)" },
-                border: { display: false },
-            },
-        },
-    }), [isDark]);
+        };
+    }, [isDark, locale, t]);
 
     if (points.length === 0) return null;
 
@@ -280,7 +334,7 @@ function GraphTile({ points }: { points: AvgGraphPoint[] }) {
         <Card className="gap-0 p-0 overflow-hidden">
             <div className="px-5 py-4 flex flex-col gap-3">
                 <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("avgGraphTitle")}</span>
-                <div className="h-32 w-full">
+                <div className="h-44 w-full">
                     <Line
                         data={data}
                         // @ts-ignore dynamic() collapses the chart generics; option literals widen to string
@@ -339,7 +393,7 @@ function ApiHealthPanelDisplay({ initialDataPromise }: { initialDataPromise: Pro
             )}
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <DependencyTile name={t("postgres")} health={health.postgres} />
+                <DependencyTile name={t("database")} health={health.postgres} />
                 <DependencyTile name={t("redis")} health={health.redis} />
                 <QgisTile health={health.qgis} />
                 <JobsTile queues={health.queues} />

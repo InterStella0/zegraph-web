@@ -35,6 +35,7 @@ export interface TrafficHealth {
 export interface AvgGraphPoint {
     timestamp: number;
     value: number | null;
+    count: number | null;
 }
 
 export interface ApiHealth {
