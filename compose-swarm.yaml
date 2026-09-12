@@ -33,7 +33,12 @@ services:
       # Reservations are hard scheduling guarantees, and the manager is 2 CPU / 4G. Two replicas
       # reserving 1 CPU / 2G each claimed the whole node, so the second never scheduled and the
       # backend had nowhere left to go.
-      replicas: 2
+      #
+      # One replica per node across all three nodes (VPS, stella-pc, LAPTOP-STELLA). The laptop is
+      # not always awake; when it is down its replica stays pending rather than doubling up
+      # elsewhere, because max_replicas_per_node pins it to one per host. That is deliberate --
+      # capacity falls back to the previous two-replica level instead of overloading the manager.
+      replicas: 3
       placement:
         max_replicas_per_node: 1
         preferences:
@@ -197,10 +202,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
     logging: *default-logging
     deploy:
-      replicas: 2
+      replicas: 3
       placement:
         # Same as frontend: 1 per node, so the manager never has to run both
-        # qgis replicas when the worker is offline.
+        # qgis replicas when the worker is offline, and the third lands on the laptop.
         max_replicas_per_node: 1
         preferences:
           - spread: node.hostname
