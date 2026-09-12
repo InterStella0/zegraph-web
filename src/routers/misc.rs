@@ -132,6 +132,7 @@ struct TrafficHealth {
 struct AvgGraphPoint {
     timestamp: i64,
     value: Option<f64>,
+    count: Option<i64>,
 }
 
 #[derive(Object)]
@@ -358,12 +359,13 @@ fn build_avg_graph(
     durations: &[Option<i64>],
 ) -> Vec<AvgGraphPoint> {
     timestamps.iter().zip(counts.iter()).zip(durations.iter()).map(|((&timestamp, count), duration)| {
+        // One guard for both series, so a silent bucket breaks the volume line at the same
+        // point it breaks the response-time line instead of reading as zero traffic.
+        let served = count.filter(|c| *c > 0);
         AvgGraphPoint {
             timestamp,
-            value: match count.filter(|c| *c > 0) {
-                Some(count) => Some(duration.unwrap_or(0) as f64 / count as f64 / 1000.0),
-                None => None,
-            },
+            value: served.map(|count| duration.unwrap_or(0) as f64 / count as f64 / 1000.0),
+            count: served,
         }
     }).collect()
 }
@@ -936,6 +938,11 @@ mod traffic_tests {
         assert_eq!(graph[0].value, Some(1.5));
         assert_eq!(graph[1].value, None);
         assert_eq!(graph[last].value, Some(0.0));
+
+        // The volume series rides along on the same guard, so its gaps line up with the average's.
+        assert_eq!(graph[0].count, Some(2));
+        assert_eq!(graph[1].count, None, "a silent bucket is unknown traffic, not zero traffic");
+        assert_eq!(graph[last].count, Some(1));
     }
 
     #[test]
