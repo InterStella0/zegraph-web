@@ -266,7 +266,8 @@ function GraphTile({ points }: { points: AvgGraphPoint[] }) {
             animation: false,
             responsive: true,
             maintainAspectRatio: false,
-            interaction: { mode: "nearest", intersect: false },
+            // Index mode, so one hover reports both series at the same bucket.
+            interaction: { mode: "index" as const, intersect: false, axis: "x" as const },
             plugins: {
                 legend: {
                     display: true,
@@ -281,6 +282,8 @@ function GraphTile({ points }: { points: AvgGraphPoint[] }) {
                     },
                 },
                 tooltip: {
+                    // A silent bucket has no row to report; without this it renders as a blank line.
+                    filter: (ctx: { parsed: { y: number | null } }) => ctx.parsed.y !== null,
                     callbacks: {
                         title: (items: { parsed: { x: number } }[]) => {
                             const first = items[0];
