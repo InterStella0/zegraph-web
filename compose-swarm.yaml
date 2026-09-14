@@ -40,8 +40,8 @@ services:
           - spread: node.hostname
       resources:
         limits:
-          cpus: "2"
-          memory: 3G
+          cpus: "4"
+          memory: 5G
         reservations:
           cpus: "0.5"
           memory: 1G
@@ -89,8 +89,8 @@ services:
           - node.role == manager
       resources:
         limits:
-          cpus: '2'
-          memory: 2G
+          cpus: '3'
+          memory: 4G
         reservations:
           cpus: '0.5'
           memory: 512M
@@ -156,7 +156,7 @@ services:
       resources:
         limits:
           cpus: '1'
-          memory: 3G
+          memory: 6G
         reservations:
           cpus: '0.1'
           memory: 128M
@@ -179,7 +179,7 @@ services:
       resources:
         limits:
           cpus: '0.5'
-          memory: 512M
+          memory: 1G
         reservations:
           cpus: '0.1'
           memory: 128M
@@ -204,8 +204,8 @@ services:
           - spread: node.hostname
       resources:
         limits:
-          cpus: '1'
-          memory: 1G
+          cpus: '2'
+          memory: 2G
         reservations:
           cpus: '0.25'
           memory: 256M
