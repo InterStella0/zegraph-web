@@ -197,11 +197,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
     logging: *default-logging
     deploy:
-      replicas: 3
+      replicas: 1
       placement:
-        max_replicas_per_node: 1
-        preferences:
-          - spread: node.hostname
+        constraints:
+          - node.role == manager
       resources:
         limits:
           cpus: '2'
