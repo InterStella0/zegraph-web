@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::future::Future;
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -10,13 +11,12 @@ use poem::web::{Data};
 use poem_openapi::{ApiResponse, Object, OpenApi};
 use poem_openapi::param::Path;
 use poem_openapi::payload::{Binary, EventStream};
-use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast::{self, error::RecvError};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{OwnedSemaphorePermit, RwLock, Semaphore};
 use tokio::time::{interval, timeout};
 use crate::{response, AppData, FastCache};
 use crate::core::utils::*;
@@ -36,6 +36,8 @@ const TRAFFIC_TOP_N: usize = 10;
 
 const QGIS_FASTCGI_PORT: u16 = 9993;
 const QGIS_WMS_TIMEOUT: Duration = Duration::from_secs(3);
+const HEALTH_REFRESH_INTERVAL: Duration = Duration::from_secs(30);
+const GRAPH_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
 #[derive(Object, Serialize)]
 struct SitemapServer {
@@ -66,7 +68,7 @@ struct SitemapData {
     players: Vec<SitemapPlayer>,
 }
 
-#[derive(Object)]
+#[derive(Object, Clone)]
 struct DependencyHealth {
     /// "up" | "down"
     status: String,
@@ -86,7 +88,7 @@ impl DependencyHealth {
     }
 }
 
-#[derive(Object)]
+#[derive(Object, Clone)]
 struct QgisHealth {
     status: String,
     latency_ms: Option<u64>,
@@ -105,7 +107,7 @@ impl QgisHealth {
     }
 }
 
-#[derive(Object)]
+#[derive(Object, Clone)]
 struct QueueHealth {
     heavy: Option<i64>,
     light: Option<i64>,
@@ -113,14 +115,14 @@ struct QueueHealth {
     completed_light: Option<i64>,
 }
 
-#[derive(Object)]
+#[derive(Object, Clone)]
 struct EndpointStat {
     endpoint: String,
     served: i64,
     average_ms: f64,
 }
 
-#[derive(Object)]
+#[derive(Object, Clone)]
 struct TrafficHealth {
     served: i64,
     average_ms: f64,
@@ -128,14 +130,14 @@ struct TrafficHealth {
     busiest: Vec<EndpointStat>,
 }
 
-#[derive(Object)]
+#[derive(Object, Clone, Debug, PartialEq)]
 struct AvgGraphPoint {
     timestamp: i64,
     value: Option<f64>,
     count: Option<i64>,
 }
 
-#[derive(Object)]
+#[derive(Object, Clone)]
 struct IAmOkie{
     response: String,
     postgres: DependencyHealth,
@@ -144,6 +146,18 @@ struct IAmOkie{
     qgis: QgisHealth,
     traffic: Option<TrafficHealth>,
     avg_graph: Option<Vec<AvgGraphPoint>>,
+}
+
+struct OperationalHealth {
+    postgres: DependencyHealth,
+    redis: DependencyHealth,
+    queues: QueueHealth,
+    qgis: QgisHealth,
+    traffic: Option<TrafficHealth>,
+}
+
+pub(crate) struct HealthMonitor {
+    snapshot: RwLock<IAmOkie>,
 }
 
 #[derive(Object, Clone, Debug)]
@@ -305,52 +319,48 @@ fn summarize_traffic(
     TrafficHealth { served, average_ms, since, busiest }
 }
 
-const AVG_GRAPH_CACHE_KEY: &str = "health:avg_graph";
-
-static AVG_GRAPH_CACHE: std::sync::LazyLock<moka::future::Cache<String, String>> =
-    std::sync::LazyLock::new(|| {
-        moka::future::Cache::builder()
-            .time_to_live(Duration::from_secs(5 * 60))
-            .max_capacity(1)
-            .build()
-    });
-
-async fn read_avg_graph(
-    cache: &FastCache,
-) -> Result<(Vec<i64>, Vec<Option<i64>>, Vec<Option<i64>>), String> {
-    if let Some(cached) = AVG_GRAPH_CACHE.get(AVG_GRAPH_CACHE_KEY).await {
-        match serde_json::from_str(&cached) {
-            Ok(graph) => return Ok(graph),
-            Err(_) => tracing::warn!("Memory deserialize failed for {AVG_GRAPH_CACHE_KEY}"),
-        }
-    }
-
-    let mut conn = cache.redis_pool.get().await.map_err(|e| e.to_string())?;
-    let graph = fetch_avg_graph(&mut *conn).await.map_err(|e| e.to_string())?;
-
-    if let Ok(json) = serde_json::to_string(&graph) {
-        AVG_GRAPH_CACHE.insert(AVG_GRAPH_CACHE_KEY.to_string(), json).await;
-    }
-    Ok(graph)
-}
-
 fn avg_graph_bucket_window(bucket: u64) -> Vec<u64> {
     let start = bucket.saturating_sub(AVG_GRAPH_BUCKETS - 1);
     (start..=bucket).collect()
 }
 
-async fn fetch_avg_graph(
-    conn: &mut impl redis::aio::ConnectionLike,
-) -> redis::RedisResult<(Vec<i64>, Vec<Option<i64>>, Vec<Option<i64>>)> {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    let bucket = now / AVG_GRAPH_BUCKET_SECS;
-    let buckets = avg_graph_bucket_window(bucket);
+fn current_avg_graph_bucket() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() / AVG_GRAPH_BUCKET_SECS)
+        .unwrap_or(0)
+}
+
+async fn fetch_graph_buckets(cache: &FastCache, buckets: &[u64]) -> Result<Vec<AvgGraphPoint>, String> {
+    if buckets.is_empty() {
+        return Ok(Vec::new());
+    }
+
     let timestamps: Vec<i64> = buckets.iter().map(|&b| (b * AVG_GRAPH_BUCKET_SECS) as i64).collect();
     let count_keys: Vec<String> = buckets.iter().map(|&b| overall_metric_keys(b).0).collect();
     let duration_keys: Vec<String> = buckets.iter().map(|&b| overall_metric_keys(b).1).collect();
-    let counts = redis::cmd("MGET").arg(count_keys).query_async(conn).await?;
-    let durations = redis::cmd("MGET").arg(duration_keys).query_async(conn).await?;
-    Ok((timestamps, counts, durations))
+
+    let query = async {
+        let mut conn = cache.redis_pool.get().await.map_err(|e| e.to_string())?;
+        let (counts, durations): (Vec<Option<i64>>, Vec<Option<i64>>) = redis::pipe()
+            .cmd("MGET")
+            .arg(count_keys)
+            .cmd("MGET")
+            .arg(duration_keys)
+            .query_async(&mut *conn)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok::<_, String>((counts, durations))
+    };
+
+    let (counts, durations) = timeout(HEALTH_CHECK_TIMEOUT, query)
+        .await
+        .map_err(|_| "timed out".to_string())??;
+    Ok(build_avg_graph(&timestamps, &counts, &durations))
+}
+
+async fn load_full_graph(cache: &FastCache) -> Result<Vec<AvgGraphPoint>, String> {
+    fetch_graph_buckets(cache, &avg_graph_bucket_window(current_avg_graph_bucket())).await
 }
 
 fn build_avg_graph(
@@ -368,6 +378,295 @@ fn build_avg_graph(
             count: served,
         }
     }).collect()
+}
+
+fn merge_graph_refresh(existing: &mut Vec<AvgGraphPoint>, refreshed: Vec<AvgGraphPoint>) -> bool {
+    let (Some(last), Some(first)) = (existing.last(), refreshed.first()) else {
+        return false;
+    };
+    if last.timestamp != first.timestamp {
+        return false;
+    }
+    if refreshed.windows(2).any(|points| {
+        points[1].timestamp != points[0].timestamp + AVG_GRAPH_BUCKET_SECS as i64
+    }) {
+        return false;
+    }
+
+    *existing.last_mut().expect("the graph was checked as non-empty") = first.clone();
+    for point in refreshed.into_iter().skip(1) {
+        existing.push(point);
+    }
+
+    if existing.len() > AVG_GRAPH_BUCKETS as usize {
+        let excess = existing.len() - AVG_GRAPH_BUCKETS as usize;
+        existing.drain(..excess);
+    }
+    true
+}
+
+fn graph_refresh_buckets(last_bucket: Option<u64>, current_bucket: u64) -> Option<Vec<u64>> {
+    let last_bucket = last_bucket?;
+    if current_bucket < last_bucket
+        || current_bucket.saturating_sub(last_bucket) >= AVG_GRAPH_BUCKETS
+    {
+        return None;
+    }
+    Some((last_bucket..=current_bucket).collect())
+}
+
+async fn run_periodically<F, Fut>(cadence: Duration, mut refresh: F)
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = ()>,
+{
+    let mut ticker = interval(cadence);
+    // Tokio intervals tick immediately. The monitor is explicitly warmed before these loops are
+    // spawned, so consume that tick rather than doing the same I/O twice during startup.
+    ticker.tick().await;
+    loop {
+        ticker.tick().await;
+        refresh().await;
+    }
+}
+
+impl HealthMonitor {
+    pub(crate) async fn initialize(pool: Arc<sqlx::Pool<sqlx::Postgres>>, cache: Arc<FastCache>) -> Arc<Self> {
+        let (operational, graph) = tokio::join!(
+            Self::collect_operational(&pool, &cache),
+            load_full_graph(&cache),
+        );
+        let graph = match graph {
+            Ok(graph) => Some(graph),
+            Err(error) => {
+                tracing::warn!("Initial health graph load failed: {error}");
+                None
+            }
+        };
+        let response = if operational.postgres.is_up() && operational.redis.is_up() {
+            "ok"
+        } else {
+            "degraded"
+        };
+
+        Arc::new(Self {
+            snapshot: RwLock::new(IAmOkie {
+                response: response.to_string(),
+                postgres: operational.postgres,
+                redis: operational.redis,
+                queues: operational.queues,
+                qgis: operational.qgis,
+                traffic: operational.traffic,
+                avg_graph: graph,
+            }),
+        })
+    }
+
+    pub(crate) fn unavailable() -> Arc<Self> {
+        Arc::new(Self {
+            snapshot: RwLock::new(IAmOkie {
+                response: "degraded".to_string(),
+                postgres: DependencyHealth::down("not initialized"),
+                redis: DependencyHealth::down("not initialized"),
+                queues: Self::unknown_queues(),
+                qgis: QgisHealth::down("not initialized"),
+                traffic: None,
+                avg_graph: None,
+            }),
+        })
+    }
+
+    pub(crate) fn spawn(self: &Arc<Self>, pool: Arc<sqlx::Pool<sqlx::Postgres>>, cache: Arc<FastCache>) {
+        let operational_monitor = self.clone();
+        let operational_pool = pool.clone();
+        let operational_cache = cache.clone();
+        tokio::spawn(run_periodically(HEALTH_REFRESH_INTERVAL, move || {
+            let monitor = operational_monitor.clone();
+            let pool = operational_pool.clone();
+            let cache = operational_cache.clone();
+            async move { monitor.refresh_operational(&pool, &cache).await }
+        }));
+
+        let graph_monitor = self.clone();
+        tokio::spawn(run_periodically(GRAPH_REFRESH_INTERVAL, move || {
+            let monitor = graph_monitor.clone();
+            let cache = cache.clone();
+            async move { monitor.refresh_graph(&cache).await }
+        }));
+    }
+
+    async fn current(&self) -> IAmOkie {
+        self.snapshot.read().await.clone()
+    }
+
+    async fn refresh_operational(&self, pool: &sqlx::Pool<sqlx::Postgres>, cache: &FastCache) {
+        let operational = Self::collect_operational(pool, cache).await;
+        let response = if operational.postgres.is_up() && operational.redis.is_up() {
+            "ok"
+        } else {
+            "degraded"
+        };
+
+        let mut snapshot = self.snapshot.write().await;
+        snapshot.response = response.to_string();
+        snapshot.postgres = operational.postgres;
+        snapshot.redis = operational.redis;
+        snapshot.queues = operational.queues;
+        snapshot.qgis = operational.qgis;
+        snapshot.traffic = operational.traffic;
+    }
+
+    async fn refresh_graph(&self, cache: &FastCache) {
+        let current_bucket = current_avg_graph_bucket();
+        let last_bucket = self.snapshot.read().await.avg_graph.as_ref()
+            .and_then(|graph| graph.last())
+            .map(|point| point.timestamp as u64 / AVG_GRAPH_BUCKET_SECS);
+
+        let Some(buckets) = graph_refresh_buckets(last_bucket, current_bucket) else {
+            match load_full_graph(cache).await {
+                Ok(graph) => self.snapshot.write().await.avg_graph = Some(graph),
+                Err(error) => tracing::warn!("Health graph reload failed: {error}"),
+            }
+            return;
+        };
+
+        let refreshed = match fetch_graph_buckets(cache, &buckets).await {
+            Ok(refreshed) => refreshed,
+            Err(error) => {
+                tracing::warn!("Health graph incremental refresh failed: {error}");
+                return;
+            }
+        };
+
+        let mut snapshot = self.snapshot.write().await;
+        let merged = snapshot.avg_graph.as_mut()
+            .map(|graph| merge_graph_refresh(graph, refreshed))
+            .unwrap_or(false);
+        if !merged {
+            drop(snapshot);
+            match load_full_graph(cache).await {
+                Ok(graph) => self.snapshot.write().await.avg_graph = Some(graph),
+                Err(error) => tracing::warn!("Health graph recovery reload failed: {error}"),
+            }
+        }
+    }
+
+    async fn collect_operational(pool: &sqlx::Pool<sqlx::Postgres>, cache: &FastCache) -> OperationalHealth {
+        let (postgres, (redis, queues, traffic), qgis) = tokio::join!(
+            Self::check_postgres(pool),
+            Self::check_redis(cache),
+            Self::check_qgis(),
+        );
+        OperationalHealth { postgres, redis, queues, qgis, traffic }
+    }
+
+    fn unknown_queues() -> QueueHealth {
+        QueueHealth {
+            heavy: None,
+            light: None,
+            completed_heavy: None,
+            completed_light: None,
+        }
+    }
+
+    async fn check_qgis() -> QgisHealth {
+        let host = get_env_default("QGIS_HOST").unwrap_or_else(|| "qgis-server".to_string());
+        let addr = format!("{host}:{QGIS_FASTCGI_PORT}");
+
+        let started = Instant::now();
+        match timeout(HEALTH_CHECK_TIMEOUT, TcpStream::connect(&addr)).await {
+            Ok(Ok(_)) => {},
+            Ok(Err(e)) => return QgisHealth::down(e),
+            Err(_) => return QgisHealth::down("timed out"),
+        }
+
+        QgisHealth {
+            status: "up".to_string(),
+            latency_ms: Some(started.elapsed().as_millis() as u64),
+            error: None,
+            wms: Self::check_qgis_wms().await,
+        }
+    }
+
+    async fn check_qgis_wms() -> Option<DependencyHealth> {
+        let base = get_env_default("QGIS_WMS_URL").filter(|u| !u.trim().is_empty())?;
+        let url = format!("{base}?SERVICE=WMS&REQUEST=GetCapabilities");
+
+        let started = Instant::now();
+        let probe = async {
+            let resp = http_client().get(&url).send().await.map_err(|e| e.to_string())?;
+            let status = resp.status();
+            if !status.is_success() {
+                return Err(format!("HTTP {status}"));
+            }
+            let body = resp.text().await.map_err(|e| e.to_string())?;
+            if !body.contains("<WMS_Capabilities") {
+                return Err("response was not a WMS capabilities document".to_string());
+            }
+            Ok(())
+        };
+
+        Some(match timeout(QGIS_WMS_TIMEOUT, probe).await {
+            Ok(Ok(())) => DependencyHealth::up(started.elapsed()),
+            Ok(Err(e)) => DependencyHealth::down(e),
+            Err(_) => DependencyHealth::down("timed out"),
+        })
+    }
+
+    async fn check_postgres(pool: &sqlx::Pool<sqlx::Postgres>) -> DependencyHealth {
+        let started = Instant::now();
+        match timeout(HEALTH_CHECK_TIMEOUT, sqlx::query("SELECT 1").execute(pool)).await {
+            Ok(Ok(_)) => DependencyHealth::up(started.elapsed()),
+            Ok(Err(e)) => DependencyHealth::down(e),
+            Err(_) => DependencyHealth::down("timed out"),
+        }
+    }
+
+    async fn check_redis(cache: &FastCache) -> (DependencyHealth, QueueHealth, Option<TrafficHealth>) {
+        let started = Instant::now();
+        let probe = async {
+            let mut conn = cache.redis_pool.get().await.map_err(|e| e.to_string())?;
+            redis::cmd("PING").query_async::<String>(&mut *conn).await.map_err(|e| e.to_string())?;
+            let latency = started.elapsed();
+
+            let (heavy, light, counts, durations, since, jobs): (
+                i64,
+                i64,
+                HashMap<String, i64>,
+                HashMap<String, i64>,
+                Option<i64>,
+                HashMap<String, i64>,
+            ) = redis::pipe()
+                .llen(QUEUE_HEAVY)
+                .llen(QUEUE_LIGHT)
+                .hgetall(METRICS_COUNT_KEY)
+                .hgetall(METRICS_DURATION_KEY)
+                .get(METRICS_SINCE_KEY)
+                .hgetall(METRICS_JOBS_KEY)
+                .query_async(&mut *conn)
+                .await
+                .map_err(|e| e.to_string())?;
+            let (recent_counts, recent_durations) = read_recent_window(&mut *conn)
+                .await.map_err(|e| e.to_string())?;
+
+            Ok::<_, String>((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs))
+        };
+
+        match timeout(HEALTH_CHECK_TIMEOUT, probe).await {
+            Ok(Ok((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs))) => (
+                DependencyHealth::up(latency),
+                QueueHealth {
+                    heavy: Some(heavy),
+                    light: Some(light),
+                    completed_heavy: Some(jobs.get("heavy").copied().unwrap_or(0)),
+                    completed_light: Some(jobs.get("light").copied().unwrap_or(0)),
+                },
+                Some(summarize_traffic(counts, durations, recent_counts, recent_durations, since)),
+            ),
+            Ok(Err(e)) => (DependencyHealth::down(e), Self::unknown_queues(), None),
+            Err(_) => (DependencyHealth::down("timed out"), Self::unknown_queues(), None),
+        }
+    }
 }
 
 pub struct MiscApi;
@@ -443,123 +742,7 @@ impl MiscApi {
     /// Always answers 200, even when a dependency is down.
     #[oai(path = "/health", method = "get")]
     async fn am_i_okie(&self, Data(app): Data<&AppData>) -> Response<IAmOkie>{
-        let (postgres, (redis, queues, traffic, avg_graph), qgis) = tokio::join!(
-            self.check_postgres(app),
-            self.check_redis(app),
-            self.check_qgis(),
-        );
-
-        let healthy = postgres.is_up() && redis.is_up();
-        response!(ok IAmOkie{
-            response: if healthy { "ok" } else { "degraded" }.to_string(),
-            postgres,
-            redis,
-            queues,
-            qgis,
-            traffic,
-            avg_graph,
-        })
-    }
-    async fn check_qgis(&self) -> QgisHealth {
-        let host = get_env_default("QGIS_HOST").unwrap_or_else(|| "qgis-server".to_string());
-        let addr = format!("{host}:{QGIS_FASTCGI_PORT}");
-
-        let started = Instant::now();
-        match timeout(HEALTH_CHECK_TIMEOUT, TcpStream::connect(&addr)).await {
-            Ok(Ok(_)) => {},
-            Ok(Err(e)) => return QgisHealth::down(e),
-            Err(_) => return QgisHealth::down("timed out"),
-        }
-
-        QgisHealth {
-            status: "up".to_string(),
-            latency_ms: Some(started.elapsed().as_millis() as u64),
-            error: None,
-            wms: self.check_qgis_wms().await,
-        }
-    }
-    async fn check_qgis_wms(&self) -> Option<DependencyHealth> {
-        let base = get_env_default("QGIS_WMS_URL").filter(|u| !u.trim().is_empty())?;
-        let url = format!("{base}?SERVICE=WMS&REQUEST=GetCapabilities");
-
-        let started = Instant::now();
-        let probe = async {
-            let resp = http_client().get(&url).send().await.map_err(|e| e.to_string())?;
-            let status = resp.status();
-            if !status.is_success() {
-                return Err(format!("HTTP {status}"));
-            }
-            let body = resp.text().await.map_err(|e| e.to_string())?;
-            // QGIS answers a broken project with a 200 ServiceException, so the status alone is
-            // not enough to call this up.
-            if !body.contains("<WMS_Capabilities") {
-                return Err("response was not a WMS capabilities document".to_string());
-            }
-            Ok(())
-        };
-
-        Some(match timeout(QGIS_WMS_TIMEOUT, probe).await {
-            Ok(Ok(())) => DependencyHealth::up(started.elapsed()),
-            Ok(Err(e)) => DependencyHealth::down(e),
-            Err(_) => DependencyHealth::down("timed out"),
-        })
-    }
-    async fn check_postgres(&self, app: &AppData) -> DependencyHealth {
-        let started = Instant::now();
-        match timeout(HEALTH_CHECK_TIMEOUT, sqlx::query("SELECT 1").execute(&*app.pool)).await {
-            Ok(Ok(_)) => DependencyHealth::up(started.elapsed()),
-            Ok(Err(e)) => DependencyHealth::down(e),
-            Err(_) => DependencyHealth::down("timed out"),
-        }
-    }
-    async fn check_redis(&self, app: &AppData) -> (DependencyHealth, QueueHealth, Option<TrafficHealth>, Option<Vec<AvgGraphPoint>>) {
-        let unknown_queues = || QueueHealth {
-            heavy: None,
-            light: None,
-            completed_heavy: None,
-            completed_light: None,
-        };
-        let started = Instant::now();
-
-        let probe = async {
-            let mut conn = app.cache.redis_pool.get().await.map_err(|e| e.to_string())?;
-            redis::cmd("PING").query_async::<String>(&mut *conn).await.map_err(|e| e.to_string())?;
-            let latency = started.elapsed();
-
-            let heavy: i64 = conn.llen(QUEUE_HEAVY).await.map_err(|e| e.to_string())?;
-            let light: i64 = conn.llen(QUEUE_LIGHT).await.map_err(|e| e.to_string())?;
-            let counts: HashMap<String, i64> = conn.hgetall(METRICS_COUNT_KEY)
-                .await.map_err(|e| e.to_string())?;
-            let durations: HashMap<String, i64> = conn.hgetall(METRICS_DURATION_KEY)
-                .await.map_err(|e| e.to_string())?;
-
-            let since: Option<i64> = conn.get(METRICS_SINCE_KEY)
-                .await.map_err(|e| e.to_string())?;
-
-            let jobs: HashMap<String, i64> = conn.hgetall(METRICS_JOBS_KEY)
-                .await.map_err(|e| e.to_string())?;
-            let (recent_counts, recent_durations) = read_recent_window(&mut *conn)
-                .await.map_err(|e| e.to_string())?;
-            let (overall_timestamps, overall_counts, overall_durations) = read_avg_graph(&app.cache).await?;
-
-            Ok::<_, String>((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs, overall_timestamps, overall_counts, overall_durations))
-        };
-
-        match timeout(HEALTH_CHECK_TIMEOUT, probe).await {
-            Ok(Ok((latency, heavy, light, counts, durations, recent_counts, recent_durations, since, jobs, overall_timestamps, overall_counts, overall_durations))) => (
-                DependencyHealth::up(latency),
-                QueueHealth {
-                    heavy: Some(heavy),
-                    light: Some(light),
-                    completed_heavy: Some(jobs.get("heavy").copied().unwrap_or(0)),
-                    completed_light: Some(jobs.get("light").copied().unwrap_or(0)),
-                },
-                Some(summarize_traffic(counts, durations, recent_counts, recent_durations, since)),
-                Some(build_avg_graph(&overall_timestamps, &overall_counts, &overall_durations)),
-            ),
-            Ok(Err(e)) => (DependencyHealth::down(e), unknown_queues(), None, None),
-            Err(_) => (DependencyHealth::down("timed out"), unknown_queues(), None, None),
-        }
+        response!(ok app.health_monitor.current().await)
     }
     async fn generate_thumbnail(&self, thumbnail_type: &ThumbnailType, filename: &str) -> Result<Vec<u8>, ThumbnailError> {
         let mut filenames = filename.splitn(2, "--");
@@ -769,9 +952,18 @@ mod live_event_tests {
 #[cfg(test)]
 mod traffic_tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn hash(entries: &[(&str, i64)]) -> HashMap<String, i64> {
         entries.iter().map(|(k, v)| (k.to_string(), *v)).collect()
+    }
+
+    fn graph_point(bucket: u64, count: Option<i64>, duration: Option<i64>) -> AvgGraphPoint {
+        build_avg_graph(
+            &[(bucket * AVG_GRAPH_BUCKET_SECS) as i64],
+            &[count],
+            &[duration],
+        ).remove(0)
     }
 
     fn lifetime_only(
@@ -951,6 +1143,130 @@ mod traffic_tests {
         assert_eq!(counts, format!("{METRICS_OVERALL_COUNT_PREFIX}28333333"));
         assert_eq!(durations, format!("{METRICS_OVERALL_DURATION_PREFIX}28333333"));
         assert_ne!(overall_metric_keys(28_333_334).0, counts);
+    }
+
+    #[test]
+    fn same_bucket_refresh_replaces_only_the_current_point() {
+        let mut graph = vec![
+            graph_point(100, Some(2), Some(2_000)),
+            graph_point(101, Some(1), Some(1_000)),
+        ];
+        let first = graph[0].clone();
+
+        assert!(merge_graph_refresh(
+            &mut graph,
+            vec![graph_point(101, Some(4), Some(12_000))],
+        ));
+        assert_eq!(graph.len(), 2);
+        assert_eq!(graph[0], first);
+        assert_eq!(graph[1].count, Some(4));
+        assert_eq!(graph[1].value, Some(3.0));
+    }
+
+    #[test]
+    fn rollover_finalizes_appends_and_keeps_exactly_three_days() {
+        let first_bucket = 1_000;
+        let mut graph: Vec<_> = (first_bucket..first_bucket + AVG_GRAPH_BUCKETS)
+            .map(|bucket| graph_point(bucket, Some(1), Some(1_000)))
+            .collect();
+        let closed_bucket = first_bucket + AVG_GRAPH_BUCKETS - 1;
+
+        assert!(merge_graph_refresh(
+            &mut graph,
+            vec![
+                graph_point(closed_bucket, Some(5), Some(10_000)),
+                graph_point(closed_bucket + 1, None, None),
+            ],
+        ));
+        assert_eq!(graph.len(), AVG_GRAPH_BUCKETS as usize);
+        assert_eq!(graph[0].timestamp, ((first_bucket + 1) * AVG_GRAPH_BUCKET_SECS) as i64);
+        assert_eq!(graph[graph.len() - 2].count, Some(5));
+        assert_eq!(graph.last().unwrap().count, None);
+    }
+
+    #[test]
+    fn missed_buckets_are_appended_as_ordered_gaps() {
+        let mut graph = vec![graph_point(200, Some(1), Some(1_000))];
+        assert!(merge_graph_refresh(
+            &mut graph,
+            vec![
+                graph_point(200, Some(2), Some(4_000)),
+                graph_point(201, None, None),
+                graph_point(202, Some(3), Some(9_000)),
+            ],
+        ));
+
+        assert_eq!(graph.iter().map(|point| point.timestamp).collect::<Vec<_>>(), vec![
+            (200 * AVG_GRAPH_BUCKET_SECS) as i64,
+            (201 * AVG_GRAPH_BUCKET_SECS) as i64,
+            (202 * AVG_GRAPH_BUCKET_SECS) as i64,
+        ]);
+        assert_eq!(graph[1].value, None);
+        assert_eq!(graph[2].value, Some(3.0));
+    }
+
+    #[test]
+    fn discontinuous_refresh_is_rejected_without_mutating_the_graph() {
+        let mut graph = vec![graph_point(300, Some(1), Some(1_000))];
+        let original = graph.clone();
+        assert!(!merge_graph_refresh(
+            &mut graph,
+            vec![
+                graph_point(300, Some(2), Some(2_000)),
+                graph_point(302, Some(1), Some(1_000)),
+            ],
+        ));
+        assert_eq!(graph, original);
+    }
+
+    #[test]
+    fn graph_refresh_selection_handles_empty_backward_and_large_gaps() {
+        assert_eq!(graph_refresh_buckets(Some(50), 50), Some(vec![50]));
+        assert_eq!(graph_refresh_buckets(Some(50), 52), Some(vec![50, 51, 52]));
+        assert_eq!(graph_refresh_buckets(None, 50), None, "an empty cache needs a full load");
+        assert_eq!(graph_refresh_buckets(Some(51), 50), None, "a backward clock needs a full load");
+        assert_eq!(
+            graph_refresh_buckets(Some(50), 50 + AVG_GRAPH_BUCKETS),
+            None,
+            "a gap as large as the window is cheaper and safer to reload",
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_incremental_fetch_retains_the_last_successful_graph() {
+        let monitor = HealthMonitor::unavailable();
+        let bucket = current_avg_graph_bucket();
+        let original = vec![graph_point(bucket, Some(2), Some(4_000))];
+        monitor.snapshot.write().await.avg_graph = Some(original.clone());
+
+        let cache = crate::workers::test_support::fake_cache();
+        monitor.refresh_graph(&cache).await;
+
+        assert_eq!(monitor.snapshot.read().await.avg_graph.as_ref(), Some(&original));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn periodic_refresh_waits_for_a_full_interval_after_warmup() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let task_calls = calls.clone();
+        let task = tokio::spawn(run_periodically(HEALTH_REFRESH_INTERVAL, move || {
+            let calls = task_calls.clone();
+            async move {
+                calls.fetch_add(1, Ordering::SeqCst);
+            }
+        }));
+
+        tokio::task::yield_now().await;
+        assert_eq!(calls.load(Ordering::SeqCst), 0, "the prewarmed monitor must not refresh immediately");
+        tokio::time::advance(HEALTH_REFRESH_INTERVAL - Duration::from_secs(1)).await;
+        tokio::task::yield_now().await;
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+        tokio::time::advance(Duration::from_secs(1)).await;
+        tokio::task::yield_now().await;
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(GRAPH_REFRESH_INTERVAL, Duration::from_secs(60));
+
+        task.abort();
     }
 }
 
