@@ -393,7 +393,10 @@ fn merge_graph_refresh(existing: &mut Vec<AvgGraphPoint>, refreshed: Vec<AvgGrap
         return false;
     }
 
-    *existing.last_mut().expect("the graph was checked as non-empty") = first.clone();
+    let Some(active_point) = existing.last_mut() else {
+        return false;
+    };
+    *active_point = first.clone();
     for point in refreshed.into_iter().skip(1) {
         existing.push(point);
     }
