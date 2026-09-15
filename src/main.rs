@@ -29,7 +29,7 @@ use dotenv::dotenv;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use crate::routers::maps::MapApi;
-use crate::routers::misc::{LiveEventHub, MiscApi};
+use crate::routers::misc::{HealthMonitor, LiveEventHub, MiscApi};
 use crate::routers::radars::RadarApi;
 use core::updater::*;
 use moka::future::Cache;
@@ -62,6 +62,7 @@ struct AppData{
     community_storage: Arc<CommunityStorage>,
     count_chunk_cache: Arc<CountChunkCache>,
     live_events: Arc<LiveEventHub>,
+    health_monitor: Arc<HealthMonitor>,
 }
 #[derive(Clone)]
 struct FastCache{
@@ -260,10 +261,16 @@ async fn run_main() {
         .max_capacity(8192)
         .build());
 
+    let health_monitor = if role.serves_api() {
+        HealthMonitor::initialize(pool.clone(), cache.clone()).await
+    } else {
+        HealthMonitor::unavailable()
+    };
+
     let data = AppData {
-        pool,
+        pool: pool.clone(),
         steam_provider: Some("http://pfp-provider:3000/api".to_string()),
-        cache,
+        cache: cache.clone(),
         player_worker,
         map_worker,
         push_service,
@@ -272,6 +279,7 @@ async fn run_main() {
         community_storage,
         count_chunk_cache,
         live_events: live_events.clone(),
+        health_monitor: health_monitor.clone(),
     };
 
     let listener_data = data.clone();
@@ -301,6 +309,7 @@ async fn run_main() {
     }
 
     if role.serves_api() {
+        health_monitor.spawn(pool, cache);
         init_live_events_listener(live_events, listener_data);
     }
 
@@ -681,7 +690,12 @@ mod route_tests {
     #[tokio::test]
     async fn health_reports_degraded_without_failing_the_probe() {
         let cli = client();
+        let started = std::time::Instant::now();
         let resp = cli.get("/health").send().await.0;
+        assert!(
+            started.elapsed() < Duration::from_millis(500),
+            "/health must read its preloaded snapshot instead of waiting on the dead test dependencies"
+        );
         assert_eq!(
             resp.status(),
             poem::http::StatusCode::OK,

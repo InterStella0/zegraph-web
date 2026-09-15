@@ -10,7 +10,7 @@ use sqlx::{Pool, Postgres};
 
 use crate::core::push_service::PushNotificationService;
 use crate::core::storage::{CharacterStorage, CommunityStorage, MapStorage, StorageBackend};
-use crate::routers::misc::LiveEventHub;
+use crate::routers::misc::{HealthMonitor, LiveEventHub};
 use crate::{AppData, FastCache};
 use super::map::{MapBasicQuery, MapWorker};
 use super::player::{PlayerBasicQuery, PlayerGlobalQuery, PlayerSessionQuery, PlayerWorker};
@@ -74,6 +74,7 @@ pub fn fake_app_data() -> AppData {
                 .build(),
         ),
         live_events: Arc::new(LiveEventHub::new()),
+        health_monitor: HealthMonitor::unavailable(),
     }
 }
 
