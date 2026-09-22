@@ -42,7 +42,6 @@ use crate::core::storage::{MapStorage, CharacterStorage, CommunityStorage, Stora
 use crate::routers::accounts::AccountsApi;
 use crate::routers::characters::CharacterApi;
 use crate::routers::servers::ServerApi;
-use crate::routers::donations::DonationsApi;
 use crate::routers::special_thanks::SpecialThanksApi;
 use crate::routers::ze_community_links::ZeCommunityLinksApi;
 use crate::routers::admin_maps::AdminMapsApi;
@@ -128,7 +127,6 @@ fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
         MiscApi,
         AccountsApi,
         CharacterApi,
-        DonationsApi,
         SpecialThanksApi,
         ZeCommunityLinksApi,
         AdminMapsApi,
@@ -158,7 +156,6 @@ fn registered_patterns() -> Vec<Arc<dyn UriPatternExt + Send + Sync>> {
         Arc::new(MiscApi),
         Arc::new(AccountsApi),
         Arc::new(CharacterApi),
-        Arc::new(DonationsApi),
         Arc::new(SpecialThanksApi),
         Arc::new(ZeCommunityLinksApi),
         Arc::new(AdminMapsApi),
