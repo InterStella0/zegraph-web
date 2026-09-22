@@ -5,13 +5,7 @@ import { Clock, Trophy, Sparkles } from 'lucide-react';
 import { Skeleton } from 'components/ui/skeleton';
 import ErrorCatch from 'components/ui/ErrorMessage.tsx';
 import { ExpandableText } from './ExpandableText';
-
-export interface Donor {
-  id: string;
-  display_name: string;
-  message: string | null;
-  donated_at: string;
-}
+import type { TopSupporter, RecentSupporter } from 'utils/supporters';
 
 export interface SpecialThanks {
   id: string;
@@ -54,26 +48,22 @@ export function DonorsBoardLoading() {
 }
 
 function DonorsBoardDisplay({
-  donorsPromise,
+  topPromise,
+  recentPromise,
   specialThanksPromise,
   locale,
 }: {
-  donorsPromise: Promise<Donor[]>;
+  topPromise: Promise<TopSupporter[]>;
+  recentPromise: Promise<RecentSupporter[]>;
   specialThanksPromise: Promise<SpecialThanks[]>;
   locale: string;
 }) {
   const t = useTranslations('donors');
-  const donors = use(donorsPromise);
+  const top = use(topPromise);
+  const recent = use(recentPromise);
   const specialThanks = use(specialThanksPromise);
 
-  const recent = [...donors]
-    .sort((a, b) => new Date(b.donated_at).getTime() - new Date(a.donated_at).getTime())
-    .slice(0, 10);
-
-  // Server returns donors sorted by cumulative amount (admin-controlled)
-  const top = donors.slice(0, 10);
-
-  return donors.length > 0 || specialThanks.length > 0 ? (
+  return top.length > 0 || recent.length > 0 || specialThanks.length > 0 ? (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 
       {/* Top donors */}
@@ -84,21 +74,21 @@ function DonorsBoardDisplay({
         </div>
         {top.length > 0 ? (
         <div className="space-y-2">
-          {top.map((donor, i) => (
+          {top.map((donor) => (
             <div
-              key={donor.id}
+              key={donor.rank}
               className="flex items-center gap-3 rounded-xl border border-border/50 bg-muted/20 px-4 py-3"
             >
               <span className={`text-sm font-bold w-6 text-center shrink-0 ${
-                i === 0 ? 'text-yellow-500' :
-                i === 1 ? 'text-zinc-400' :
-                i === 2 ? 'text-amber-600' :
+                donor.rank === 1 ? 'text-yellow-500' :
+                donor.rank === 2 ? 'text-zinc-400' :
+                donor.rank === 3 ? 'text-amber-600' :
                 'text-muted-foreground'
               }`}>
-                {i + 1}
+                {donor.rank}
               </span>
               <div className="min-w-0">
-                <p className="font-medium truncate">{donor.display_name}</p>
+                <p className="font-medium truncate">{donor.name}</p>
                 {donor.message && (
                   <ExpandableText
                     text={`“${donor.message}”`}
@@ -125,11 +115,11 @@ function DonorsBoardDisplay({
         <div className="space-y-2">
           {recent.map((donor) => (
             <div
-              key={donor.id}
+              key={`${donor.name}-${donor.created_at}`}
               className="flex items-start justify-between gap-3 rounded-xl border border-border/50 bg-muted/20 px-4 py-3"
             >
               <div className="min-w-0 space-y-0.5">
-                <p className="font-medium truncate">{donor.display_name}</p>
+                <p className="font-medium truncate">{donor.name}</p>
                 {donor.message && (
                   <ExpandableText
                     text={`“${donor.message}”`}
@@ -139,7 +129,7 @@ function DonorsBoardDisplay({
                 )}
               </div>
               <span className="text-xs text-muted-foreground whitespace-nowrap pt-0.5 shrink-0">
-                {formatDate(donor.donated_at, locale)}
+                {formatDate(donor.created_at, locale)}
               </span>
             </div>
           ))}
@@ -185,7 +175,8 @@ function DonorsBoardDisplay({
 }
 
 export default function DonorsBoard(props: {
-  donorsPromise: Promise<Donor[]>;
+  topPromise: Promise<TopSupporter[]>;
+  recentPromise: Promise<RecentSupporter[]>;
   specialThanksPromise: Promise<SpecialThanks[]>;
   locale: string;
 }) {

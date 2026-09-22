@@ -6,7 +6,6 @@ use serde_macros::{auto_serde_with, DbInto};
 use sqlx::postgres::types::PgTimeTz;
 use sqlx::{postgres::types::PgInterval, types::time::OffsetDateTime};
 use std::fmt::{Display, Formatter};
-use chrono::{DateTime, Utc};
 use poem_openapi::Object;
 use serde_json::Value;
 use uuid::Uuid;
@@ -488,31 +487,6 @@ pub struct DbPlayerClaim {
     pub reviewer_name: Option<String>,
     #[skip]
     pub total_claims: Option<i64>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct DonorResponse {
-    pub id: String,
-    pub display_name: String,
-    pub amount: f64,
-    pub message: Option<String>,
-    pub donated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct CreateDonorPayload {
-    pub display_name: String,
-    pub amount: f64,
-    pub message: Option<String>,
-    pub donated_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Object, Clone)]
-pub struct UpdateDonorPayload {
-    pub display_name: Option<String>,
-    pub amount: Option<f64>,
-    pub message: Option<String>,
-    pub donated_at: Option<DateTime<Utc>>,
 }
 
 

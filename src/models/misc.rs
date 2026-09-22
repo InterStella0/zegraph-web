@@ -2,9 +2,6 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 use crate::api_models::admins::{CommunityLinkResponse, SpecialThanksResponse};
 use crate::core::utils::db_to_utc;
-use crate::models::admins::DonorResponse;
-use crate::global_serializer::*;
-use serde_macros::auto_serde_with;
 
 pub struct DbCommunityLink {
     pub id: Uuid,
@@ -44,23 +41,3 @@ impl From<DbSpecialThanks> for SpecialThanksResponse {
     }
 }
 
-#[auto_serde_with]
-pub struct DbDonor {
-    pub id: Uuid,
-    pub display_name: String,
-    pub amount: f64,
-    pub message: Option<String>,
-    pub donated_at: OffsetDateTime,
-}
-
-impl From<DbDonor> for DonorResponse {
-    fn from(d: DbDonor) -> Self {
-        DonorResponse {
-            id: d.id.to_string(),
-            display_name: d.display_name,
-            amount: d.amount,
-            message: d.message,
-            donated_at: db_to_utc(d.donated_at),
-        }
-    }
-}

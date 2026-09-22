@@ -7,7 +7,8 @@ import Footer from 'components/ui/Footer';
 import getServerUser from '../getServerUser';
 import { URI } from 'utils/generalUtils';
 import { getTranslations, getLocale } from 'next-intl/server';
-import DonorsBoard, { DonorsBoardLoading, Donor, SpecialThanks } from './DonorsBoard';
+import { getTopSupporters, getRecentSupporters } from 'utils/supporters';
+import DonorsBoard, { DonorsBoardLoading, SpecialThanks } from './DonorsBoard';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('metadata');
@@ -18,17 +19,6 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: '/donors'
     },
   };
-}
-
-async function getDonors(): Promise<Donor[]> {
-  try {
-    const res = await fetch(URI('/donations'), { next: { revalidate: 300 } });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json?.data ?? [];
-  } catch {
-    return [];
-  }
 }
 
 async function getSpecialThanks(): Promise<SpecialThanks[]> {
@@ -46,7 +36,8 @@ export default async function DonatePage() {
   const t = await getTranslations('donors');
   const locale = await getLocale();
   const user = getServerUser();
-  const donorsPromise = getDonors();
+  const topPromise = getTopSupporters();
+  const recentPromise = getRecentSupporters(10);
   const specialThanksPromise = getSpecialThanks();
 
   return (
@@ -74,7 +65,8 @@ export default async function DonatePage() {
           {/* Top + Recent + Special Thanks */}
           <Suspense fallback={<DonorsBoardLoading />}>
             <DonorsBoard
-              donorsPromise={donorsPromise}
+              topPromise={topPromise}
+              recentPromise={recentPromise}
               specialThanksPromise={specialThanksPromise}
               locale={locale}
             />
