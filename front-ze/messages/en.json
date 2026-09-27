@@ -1124,6 +1124,20 @@
       "q5": "Show me the radar map of where players are joining from right now."
     },
     "privacy": "ZE Graph only reads public stats. It can't change anything, and players who chose to be anonymous stay hidden.",
+    "tools": {
+      "title": "What your assistant can look up",
+      "intro": "Your assistant picks from these {count} read-only tools on its own, so you never need to name them. Just ask your question.",
+      "groups": {
+        "servers": "Servers and communities",
+        "players": "Players",
+        "maps": "Maps"
+      },
+      "arguments": "{count, plural, one {# input} other {# inputs}}",
+      "noArguments": "No inputs",
+      "required": "Required",
+      "unavailable": "The tool list can't be loaded right now. Please try again later.",
+      "englishOnly": "Tool descriptions are in English, exactly as your assistant sees them."
+    },
     "mock": {
       "claudeOpenConnectorsLabel": "Claude's settings on the Connectors page, with the Add menu showing Add custom connector",
       "claudeAddConnectorLabel": "Claude's Add custom connector dialog with the name ZE Graph and the server URL filled in, then Continue",

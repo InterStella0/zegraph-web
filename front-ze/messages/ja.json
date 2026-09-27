@@ -1124,6 +1124,20 @@
       "q5": "今プレイヤーがどこから参加しているか、レーダーマップで見せて。"
     },
     "privacy": "ZE Graphは公開されている統計を読むだけです。何かを変更することはできず、匿名を選んだプレイヤーは表示されません。",
+    "tools": {
+      "title": "アシスタントが調べられること",
+      "intro": "アシスタントはこれら{count}個の読み取り専用ツールから自動で選んで使うので、ツール名を指定する必要はありません。質問するだけで大丈夫です。",
+      "groups": {
+        "servers": "サーバーとコミュニティ",
+        "players": "プレイヤー",
+        "maps": "マップ"
+      },
+      "arguments": "{count, plural, other {入力 #個}}",
+      "noArguments": "入力なし",
+      "required": "必須",
+      "unavailable": "現在ツール一覧を読み込めません。しばらくしてからもう一度お試しください。",
+      "englishOnly": "ツールの説明は、アシスタントが見ているものと同じ英語で表示されます。"
+    },
     "mock": {
       "claudeOpenConnectorsLabel": "Claudeの設定のConnectorsページで、AddメニューにAdd custom connectorが表示されている画面",
       "claudeAddConnectorLabel": "ClaudeのAdd custom connectorダイアログに名前ZE GraphとサーバーURLを入力し、Continueを押す画面",

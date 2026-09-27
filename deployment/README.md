@@ -74,6 +74,10 @@ intact during later syncs. To deliberately replace all wording with fresh OpenAP
 run `SQLX_OFFLINE=true cargo run -- generate-mcp-docs --force`. Normal builds and server startup
 only read the checked-in catalog; they do not synchronize it.
 
+The same wording is public: the "What your assistant can look up" section of `/mcp-setup`
+(`front-ze/components/mcp/McpToolList.tsx`) renders the backend's live `tools/list`, cached for an
+hour, so edits to the catalog show up there without a frontend change.
+
 
 ## `deploy-scripts.sh`
 
