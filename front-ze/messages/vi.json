@@ -1075,7 +1075,17 @@
       "developers": "Nhà phát triển"
     },
     "illustration": "Màn hình là hình minh họa đơn giản và có thể hơi khác so với ứng dụng thật.",
+    "stepsLabel": "Các bước thiết lập",
+    "stepN": "Bước {n}",
+    "play": "Phát",
+    "pause": "Tạm dừng",
     "claude": {
+      "title1": "Mở Connectors",
+      "title2": "Thêm URL",
+      "title3": "Bỏ qua đăng nhập",
+      "title4": "Kết nối",
+      "title5": "Bật lên",
+      "title6": "Bắt đầu hỏi",
       "step1": "Trong Claude, mở <b>Settings → Connectors</b>, bấm <b>Add</b> rồi chọn <b>Add custom connector</b>.",
       "step2": "Đặt tên là <b>ZE Graph</b>, dán URL connector vào <b>MCP server URL</b> rồi bấm <b>Continue</b>.",
       "step3": "Giữ Authentication ở <b>No sign-in</b> rồi bấm <b>Add</b>. ZE Graph là dịch vụ công khai nên cảnh báo về truy cập mở là bình thường.",
@@ -1085,6 +1095,10 @@
       "note": "Tài khoản Claude miễn phí có thể thêm một kết nối tùy chỉnh. Sau khi thêm, nó cũng có trong ứng dụng Claude trên máy tính và điện thoại."
     },
     "chatgpt": {
+      "title1": "Chế độ nhà phát triển",
+      "title2": "Tạo plugin",
+      "title3": "Chọn ZE Graph",
+      "title4": "Bắt đầu hỏi",
       "step1": "Trong ChatGPT, mở <b>Settings → Plugins</b> và bật <b>Developer mode</b> ở cuối danh sách. Ở một số tài khoản, mục này nằm trong <b>Security and login</b>.",
       "step2": "Mở <b>Plugins</b>, bấm <b>+</b> và điền <b>New Plugin</b>: tên <b>ZE Graph</b>, Connection <b>Server URL</b>, dán URL kết nối, Authentication <b>No authentication</b>, đánh dấu thông báo rồi bấm <b>Create</b>.",
       "step3": "Trong cuộc trò chuyện, gõ <b>@</b> và chọn <b>ZE Graph</b>.",

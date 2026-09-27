@@ -1075,7 +1075,17 @@
       "developers": "Developers"
     },
     "illustration": "Screens are simplified illustrations and may look slightly different in the app.",
+    "stepsLabel": "Setup steps",
+    "stepN": "Step {n}",
+    "play": "Play",
+    "pause": "Pause",
     "claude": {
+      "title1": "Open Connectors",
+      "title2": "Add the URL",
+      "title3": "Skip sign-in",
+      "title4": "Connect",
+      "title5": "Turn it on",
+      "title6": "Start asking",
       "step1": "In Claude, open <b>Settings → Connectors</b>, click <b>Add</b> and choose <b>Add custom connector</b>.",
       "step2": "Name it <b>ZE Graph</b>, paste the connector URL into <b>MCP server URL</b> and click <b>Continue</b>.",
       "step3": "Leave Authentication on <b>No sign-in</b> and click <b>Add</b>. ZE Graph is public, so the open-access warning is expected.",
@@ -1085,6 +1095,10 @@
       "note": "Free Claude accounts can add one custom connector. Once added, it's also available in the Claude desktop and mobile apps."
     },
     "chatgpt": {
+      "title1": "Developer mode",
+      "title2": "Create the plugin",
+      "title3": "Pick ZE Graph",
+      "title4": "Start asking",
       "step1": "In ChatGPT, open <b>Settings → Plugins</b> and turn on <b>Developer mode</b> at the bottom. On some accounts it's under <b>Security and login</b> instead.",
       "step2": "Open <b>Plugins</b>, click <b>+</b> and fill in <b>New Plugin</b>: name it <b>ZE Graph</b>, set Connection to <b>Server URL</b>, paste the connector URL, set Authentication to <b>No authentication</b>, tick the notice and click <b>Create</b>.",
       "step3": "In a chat, type <b>@</b> and pick <b>ZE Graph</b>.",

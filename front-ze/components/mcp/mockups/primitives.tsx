@@ -1,6 +1,6 @@
 'use client';
 
-import {ReactNode, useEffect, useLayoutEffect, useRef, useState} from 'react';
+import {createContext, ReactNode, useContext, useEffect, useRef, useState} from 'react';
 import {cn} from 'components/lib/utils';
 import './mockups.css';
 
@@ -8,7 +8,25 @@ export type MockVariant = 'claude' | 'chatgpt';
 /** Where the fake cursor should be during a phase: a `data-mock` target inside the scene. */
 export type CursorCue = { target: string, click?: boolean } | null;
 
-function usePrefersReducedMotion() {
+// Keep this in sync with the transform transition in mockups.css. The small settling buffer makes
+// sure the cursor is visibly at rest before the target reacts.
+const CURSOR_TRAVEL_MS = 650;
+const CURSOR_SETTLE_MS = CURSOR_TRAVEL_MS + 50;
+
+/**
+ * Set by a guide that plays its scenes back to back. A scene inside it plays once instead of
+ * looping, holds its last phase and calls `onDone`; `onDuration` gets its expected running time up
+ * front so the guide can draw a progress bar. Visibility is the guide's job here: it passes `paused`.
+ */
+export type MockPlaybackControl = {
+    paused: boolean,
+    onDone: () => void,
+    onDuration: (ms: number) => void,
+};
+
+export const MockPlayback = createContext<MockPlaybackControl | null>(null);
+
+export function usePrefersReducedMotion() {
     const [reduced, setReduced] = useState(false);
     useEffect(() => {
         const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -22,8 +40,8 @@ function usePrefersReducedMotion() {
 
 /**
  * A scene is a looping sequence of phases, each held for `durations[i]` ms. It only plays while on
- * screen. With reduced motion it stays on the last phase, so that phase should be the most
- * instructive still frame.
+ * screen, and plays once under a `MockPlayback` guide. With reduced motion it stays on the last
+ * phase, so that phase should be the most instructive still frame.
  */
 export function MockScene({label, durations, cursor, className, children}: {
     label: string,
@@ -36,6 +54,24 @@ export function MockScene({label, durations, cursor, className, children}: {
     const reduced = usePrefersReducedMotion();
     const [visible, setVisible] = useState(false);
     const [phase, setPhase] = useState(0);
+    const [cursorPhase, setCursorPhase] = useState(0);
+    const [delayedClickPhase, setDelayedClickPhase] = useState<number | null>(null);
+    const playback = useContext(MockPlayback);
+    const running = !reduced && (playback ? !playback.paused : visible);
+    const onDone = playback?.onDone;
+    const onDuration = playback?.onDuration;
+
+    // An upper bound: every change of cursor target may hold the next phase until the cursor lands.
+    useEffect(() => {
+        if (!onDuration) return;
+        let total = 0;
+        durations.forEach((ms, i) => {
+            total += ms;
+            const next = cursor?.(i + 1)?.target;
+            if (i < durations.length - 1 && next && next !== cursor?.(i)?.target) total += CURSOR_SETTLE_MS;
+        });
+        onDuration(total);
+    }, [onDuration, durations, cursor]);
 
     useEffect(() => {
         const el = ref.current;
@@ -46,27 +82,82 @@ export function MockScene({label, durations, cursor, className, children}: {
     }, []);
 
     useEffect(() => {
-        if (reduced || !visible) return;
-        const id = setTimeout(() => setPhase(p => (p + 1) % durations.length), durations[phase]);
-        return () => clearTimeout(id);
-    }, [phase, visible, reduced, durations]);
+        if (!running) return;
+        let commitId: ReturnType<typeof setTimeout> | undefined;
+        const advanceId = setTimeout(() => {
+            if (onDone && phase === durations.length - 1) {
+                onDone();
+                return;
+            }
+            const next = (phase + 1) % durations.length;
+            const currentCue = cursor?.(phase) ?? null;
+            const nextCue = cursor?.(next) ?? null;
+            const targetChanged = Boolean(nextCue?.target && nextCue.target !== currentCue?.target);
+            const targetExists = Boolean(
+                nextCue?.target && ref.current?.querySelector(`[data-mock="${nextCue.target}"]`),
+            );
+
+            // Let the cursor lead interactions whenever its destination is already on screen. This
+            // prevents buttons, toggles and menus from reacting while the pointer is still en route.
+            setCursorPhase(next);
+            if (targetChanged && targetExists) {
+                setDelayedClickPhase(null);
+                commitId = setTimeout(() => setPhase(next), CURSOR_SETTLE_MS);
+                return;
+            }
+
+            // Some destinations are introduced by the next phase (for example, an item inside a
+            // menu that has just opened). Render those first, then delay only their click ripple.
+            setDelayedClickPhase(targetChanged && !targetExists ? next : null);
+            setPhase(next);
+        }, durations[phase]);
+
+        return () => {
+            clearTimeout(advanceId);
+            if (commitId) clearTimeout(commitId);
+        };
+    }, [phase, running, onDone, durations, cursor]);
 
     const shown = reduced ? durations.length - 1 : phase;
-    const cue = reduced ? null : cursor?.(shown) ?? null;
+    const cursorCue = reduced ? null : cursor?.(cursorPhase) ?? null;
+    const cue = cursorCue && {
+        ...cursorCue,
+        // A click belongs at the destination, not at the beginning of the cursor's journey.
+        click: cursorCue.click && phase === cursorPhase,
+    };
 
     return (
         <div ref={ref} role="img" aria-label={label} className={cn('relative select-none', className)}>
             <div aria-hidden>{children(shown)}</div>
-            <MockCursor sceneRef={ref} cue={cue} phase={shown} />
+            <MockCursor
+                sceneRef={ref}
+                cue={cue}
+                phase={cursorPhase}
+                clickDelay={delayedClickPhase === cursorPhase ? CURSOR_SETTLE_MS : 0}
+            />
         </div>
     );
 }
 
-function MockCursor({sceneRef, cue, phase}: { sceneRef: React.RefObject<HTMLDivElement>, cue: CursorCue, phase: number }) {
+function MockCursor({sceneRef, cue, phase, clickDelay}: {
+    sceneRef: React.RefObject<HTMLDivElement>,
+    cue: CursorCue,
+    phase: number,
+    clickDelay: number,
+}) {
     const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
+    const [transitionReady, setTransitionReady] = useState(false);
     const target = cue?.target;
 
-    useLayoutEffect(() => {
+    // Place a newly mounted cursor directly on its starting cue. Subsequent target changes animate;
+    // otherwise every scene appears to fly in from the top-left fallback position.
+    useEffect(() => {
+        if (!pos || transitionReady) return;
+        const id = requestAnimationFrame(() => setTransitionReady(true));
+        return () => cancelAnimationFrame(id);
+    }, [pos, transitionReady]);
+
+    useEffect(() => {
         const scene = sceneRef.current;
         if (!scene || !target) return;
         const measure = () => {
@@ -77,9 +168,15 @@ function MockCursor({sceneRef, cue, phase}: { sceneRef: React.RefObject<HTMLDivE
             setPos({x: r.left - s.left + Math.min(r.width * 0.6, 40), y: r.top - s.top + r.height * 0.6});
         };
         measure();
+        // A scene can be swapped in under the same guide slot. Measure again after that commit so
+        // its first cue is resolved against the new scene rather than the outgoing one.
+        const frame = requestAnimationFrame(measure);
         const observer = new ResizeObserver(measure);
         observer.observe(scene);
-        return () => observer.disconnect();
+        return () => {
+            cancelAnimationFrame(frame);
+            observer.disconnect();
+        };
     }, [sceneRef, target, phase]);
 
     return (
@@ -88,9 +185,14 @@ function MockCursor({sceneRef, cue, phase}: { sceneRef: React.RefObject<HTMLDivE
             style={{
                 transform: pos ? `translate(${pos.x}px, ${pos.y}px)` : 'translate(90%, 110%)',
                 opacity: target && pos ? 1 : 0,
+                transition: transitionReady ? undefined : 'none',
             }}
         >
-            <div key={cue?.click ? phase : 'idle'} className={cn('relative', cue?.click && 'mock-click')}>
+            <div
+                key={cue?.click ? phase : 'idle'}
+                className={cn('relative', cue?.click && 'mock-click')}
+                style={cue?.click ? {'--mock-click-delay': `${clickDelay}ms`} as React.CSSProperties : undefined}
+            >
                 <svg width="18" height="20" viewBox="0 0 18 20" className="drop-shadow-md">
                     <path d="M1 1 L1 16 L5 12 L8 19 L11 17.6 L8 11 L14 11 Z" fill="#fff" stroke="#111" strokeWidth="1.3" strokeLinejoin="round" />
                 </svg>

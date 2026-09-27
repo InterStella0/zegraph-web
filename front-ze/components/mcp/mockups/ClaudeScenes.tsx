@@ -119,7 +119,7 @@ export function ClaudeAddConnector({mcpUrl}: { mcpUrl: string }) {
     );
 }
 
-const AUTH = [1800, 1000, 2600] as const;
+const AUTH = [500, 1800, 2600] as const;
 const AUTH_OPTIONS = [
     ['claudeSignInNow', 'claudeSignInNowHint'],
     ['claudeSignInLater', 'claudeSignInLaterHint'],
@@ -134,9 +134,9 @@ export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
             label={t('claudeAuthLabel')}
             durations={AUTH}
             cursor={phase => [
+                {target: 'continue-origin'},
                 {target: 'no-sign-in'},
-                {target: 'add'},
-                {target: 'add', click: true},
+                {target: 'auth-add', click: true},
             ][phase]}
         >
             {phase => (
@@ -156,7 +156,7 @@ export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
                                     <div
                                         key={label}
                                         data-mock={selected ? 'no-sign-in' : undefined}
-                                        className={cn('-mx-1 flex gap-2 rounded-md px-1 py-0.5', selected && spot(phase === 0))}
+                                        className={cn('-mx-1 flex gap-2 rounded-md px-1 py-0.5', selected && spot(phase === 1))}
                                     >
                                         <span className={cn(
                                             'mt-0.5 size-3 shrink-0 rounded-full border',
@@ -184,8 +184,16 @@ export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
                             <ClaudeButton className="gap-1"><Plus className="size-3" /> {t('claudeAddHeader')}</ClaudeButton>
                         </div>
                         <ClaudeDialogFooter>
+                            {/* Preserve the cursor position from step 2's Continue click. */}
+                            <ClaudeButton
+                                data-mock="continue-origin"
+                                primary
+                                className="invisible absolute right-0 top-1"
+                            >
+                                {t('continue')}
+                            </ClaudeButton>
                             <ClaudeButton>{t('back')}</ClaudeButton>
-                            <ClaudeButton data-mock="add" primary className={spot(phase >= 1)}>{t('add')}</ClaudeButton>
+                            <ClaudeButton data-mock="auth-add" primary className={spot(phase === 2)}>{t('add')}</ClaudeButton>
                         </ClaudeDialogFooter>
                     </ClaudeDialog>
                 </ClaudeSettings>
@@ -518,7 +526,7 @@ function ClaudeDialog({title, children}: { title: string, children: ReactNode })
 }
 
 function ClaudeDialogFooter({children}: { children: ReactNode }) {
-    return <div className="flex justify-end gap-1.5 pt-1">{children}</div>;
+    return <div className="relative flex justify-end gap-1.5 pt-1">{children}</div>;
 }
 
 function ClaudeField({children, hint, active, ...rest}: {

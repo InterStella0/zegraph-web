@@ -96,33 +96,37 @@ export default function McpSetupClient({mcpUrl}: { mcpUrl: string }) {
     const vscodeLink = `vscode:mcp/install?${encodeURIComponent(JSON.stringify({name: 'zegraph', type: 'http', url: mcpUrl}))}`;
     const claudeSteps: SetupGuideStep[] = [
         {
+            title: t('claude.title1'),
             instruction: t.rich('claude.step1', {b}),
             action: <OpenLink href="https://claude.ai">{t('open', {app: 'Claude'})}</OpenLink>,
             mock: <ClaudeOpenConnectors />,
         },
         {
+            title: t('claude.title2'),
             instruction: t.rich('claude.step2', {b}),
             action: copyUrl,
             mock: <ClaudeAddConnector mcpUrl={mcpUrl} />,
         },
-        {instruction: t.rich('claude.step3', {b}), mock: <ClaudeAuth mcpUrl={mcpUrl} />},
-        {instruction: t.rich('claude.step4', {b}), mock: <ClaudeConnect mcpUrl={mcpUrl} />},
-        {instruction: t.rich('claude.step5', {b}), mock: <ClaudeChatTools />},
-        {instruction: t.rich('claude.step6', {b}), mock: <MockAnswer variant="claude" />},
+        {title: t('claude.title3'), instruction: t.rich('claude.step3', {b}), mock: <ClaudeAuth mcpUrl={mcpUrl} />},
+        {title: t('claude.title4'), instruction: t.rich('claude.step4', {b}), mock: <ClaudeConnect mcpUrl={mcpUrl} />},
+        {title: t('claude.title5'), instruction: t.rich('claude.step5', {b}), mock: <ClaudeChatTools />},
+        {title: t('claude.title6'), instruction: t.rich('claude.step6', {b}), mock: <MockAnswer variant="claude" />},
     ];
     const chatGptSteps: SetupGuideStep[] = [
         {
+            title: t('chatgpt.title1'),
             instruction: t.rich('chatgpt.step1', {b}),
             action: <OpenLink href="https://chatgpt.com">{t('open', {app: 'ChatGPT'})}</OpenLink>,
             mock: <ChatGptDevMode />,
         },
         {
+            title: t('chatgpt.title2'),
             instruction: t.rich('chatgpt.step2', {b}),
             action: copyUrl,
             mock: <ChatGptNewPlugin mcpUrl={mcpUrl} />,
         },
-        {instruction: t.rich('chatgpt.step3', {b}), mock: <ChatGptChatPick />},
-        {instruction: t.rich('chatgpt.step4', {b}), mock: <MockAnswer variant="chatgpt" />},
+        {title: t('chatgpt.title3'), instruction: t.rich('chatgpt.step3', {b}), mock: <ChatGptChatPick />},
+        {title: t('chatgpt.title4'), instruction: t.rich('chatgpt.step4', {b}), mock: <MockAnswer variant="chatgpt" />},
     ];
 
     return (

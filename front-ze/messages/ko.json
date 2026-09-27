@@ -1075,7 +1075,17 @@
       "developers": "개발자"
     },
     "illustration": "화면은 단순화한 그림이며 실제 앱과 조금 다르게 보일 수 있습니다.",
+    "stepsLabel": "설정 단계",
+    "stepN": "{n}단계",
+    "play": "재생",
+    "pause": "일시정지",
     "claude": {
+      "title1": "커넥터 열기",
+      "title2": "URL 추가",
+      "title3": "로그인 건너뛰기",
+      "title4": "연결하기",
+      "title5": "켜기",
+      "title6": "질문하기",
       "step1": "Claude에서 <b>Settings → Connectors</b>를 열고 <b>Add</b>를 누른 뒤 <b>Add custom connector</b>를 선택하세요.",
       "step2": "이름을 <b>ZE Graph</b>로 정하고 커넥터 URL을 <b>MCP server URL</b>에 붙여넣은 뒤 <b>Continue</b>를 누르세요.",
       "step3": "Authentication은 <b>No sign-in</b>으로 두고 <b>Add</b>를 누르세요. ZE Graph는 공개 서비스라서 공개 접근 경고가 나오는 것이 정상입니다.",
@@ -1085,6 +1095,10 @@
       "note": "Claude 무료 계정은 커스텀 커넥터를 하나 추가할 수 있습니다. 추가하면 Claude 데스크톱과 모바일 앱에서도 사용할 수 있습니다."
     },
     "chatgpt": {
+      "title1": "개발자 모드",
+      "title2": "플러그인 만들기",
+      "title3": "ZE Graph 선택",
+      "title4": "질문하기",
       "step1": "ChatGPT에서 <b>Settings → Plugins</b>를 열고 맨 아래의 <b>Developer mode</b>를 켜세요. 일부 계정에서는 <b>Security and login</b>에 있습니다.",
       "step2": "<b>Plugins</b>를 열고 <b>+</b>를 눌러 <b>New Plugin</b>을 채우세요: 이름 <b>ZE Graph</b>, Connection <b>Server URL</b>, 커넥터 URL 붙여넣기, Authentication <b>No authentication</b>. 안내에 체크하고 <b>Create</b>를 누르세요.",
       "step3": "채팅에서 <b>@</b>를 입력하고 <b>ZE Graph</b>를 선택하세요.",

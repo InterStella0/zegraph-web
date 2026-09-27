@@ -1075,7 +1075,17 @@
       "developers": "Developer"
     },
     "illustration": "Tampilan layar adalah ilustrasi sederhana dan bisa sedikit berbeda di aplikasinya.",
+    "stepsLabel": "Langkah penyiapan",
+    "stepN": "Langkah {n}",
+    "play": "Putar",
+    "pause": "Jeda",
     "claude": {
+      "title1": "Buka Konektor",
+      "title2": "Tambahkan URL",
+      "title3": "Lewati masuk",
+      "title4": "Hubungkan",
+      "title5": "Aktifkan",
+      "title6": "Mulai bertanya",
       "step1": "Di Claude, buka <b>Settings → Connectors</b>, klik <b>Add</b> lalu pilih <b>Add custom connector</b>.",
       "step2": "Beri nama <b>ZE Graph</b>, tempel URL konektor ke <b>MCP server URL</b>, lalu klik <b>Continue</b>.",
       "step3": "Biarkan Authentication pada <b>No sign-in</b> lalu klik <b>Add</b>. ZE Graph bersifat publik, jadi peringatan akses terbuka itu wajar.",
@@ -1085,6 +1095,10 @@
       "note": "Akun Claude gratis bisa menambahkan satu konektor kustom. Setelah ditambahkan, konektor juga tersedia di aplikasi desktop dan seluler Claude."
     },
     "chatgpt": {
+      "title1": "Mode developer",
+      "title2": "Buat plugin",
+      "title3": "Pilih ZE Graph",
+      "title4": "Mulai bertanya",
       "step1": "Di ChatGPT, buka <b>Settings → Plugins</b> lalu nyalakan <b>Developer mode</b> di bagian bawah. Di beberapa akun letaknya ada di <b>Security and login</b>.",
       "step2": "Buka <b>Plugins</b>, klik <b>+</b> dan isi <b>New Plugin</b>: nama <b>ZE Graph</b>, Connection <b>Server URL</b>, tempel URL konektor, Authentication <b>No authentication</b>, centang pemberitahuannya lalu klik <b>Create</b>.",
       "step3": "Di chat, ketik <b>@</b> lalu pilih <b>ZE Graph</b>.",

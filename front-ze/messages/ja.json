@@ -1075,7 +1075,17 @@
       "developers": "開発者向け"
     },
     "illustration": "画面は簡略化したイラストです。実際のアプリとは少し見た目が異なる場合があります。",
+    "stepsLabel": "セットアップ手順",
+    "stepN": "ステップ {n}",
+    "play": "再生",
+    "pause": "一時停止",
     "claude": {
+      "title1": "コネクタを開く",
+      "title2": "URLを追加",
+      "title3": "サインインなし",
+      "title4": "接続する",
+      "title5": "オンにする",
+      "title6": "質問する",
       "step1": "Claudeで<b>Settings → Connectors</b>を開き、<b>Add</b>をクリックして<b>Add custom connector</b>を選びます。",
       "step2": "名前を<b>ZE Graph</b>にし、コネクタURLを<b>MCP server URL</b>に貼り付けて<b>Continue</b>をクリックします。",
       "step3": "Authenticationは<b>No sign-in</b>のままにして<b>Add</b>をクリックします。ZE Graphは公開サービスなので、オープンアクセスに関する警告は想定どおりです。",
@@ -1085,6 +1095,10 @@
       "note": "Claudeの無料アカウントではカスタムコネクタを1つ追加できます。追加するとClaudeのデスクトップアプリやモバイルアプリでも使えます。"
     },
     "chatgpt": {
+      "title1": "開発者モード",
+      "title2": "プラグインを作成",
+      "title3": "ZE Graphを選択",
+      "title4": "質問する",
       "step1": "ChatGPTで<b>Settings → Plugins</b>を開き、一番下の<b>Developer mode</b>をオンにします。アカウントによっては<b>Security and login</b>にあります。",
       "step2": "<b>Plugins</b>を開いて<b>+</b>をクリックし、<b>New Plugin</b>に入力します：名前は<b>ZE Graph</b>、Connectionは<b>Server URL</b>、コネクタURLを貼り付け、Authenticationは<b>No authentication</b>。注意事項にチェックを入れて<b>Create</b>をクリックします。",
       "step3": "チャットで<b>@</b>を入力し、<b>ZE Graph</b>を選びます。",

@@ -1075,7 +1075,17 @@
       "developers": "開發者"
     },
     "illustration": "畫面為簡化示意圖，可能與實際應用程式略有不同。",
+    "stepsLabel": "設定步驟",
+    "stepN": "第 {n} 步",
+    "play": "播放",
+    "pause": "暫停",
     "claude": {
+      "title1": "開啟連接器",
+      "title2": "新增 URL",
+      "title3": "無需登入",
+      "title4": "連接",
+      "title5": "開啟",
+      "title6": "開始提問",
       "step1": "在 Claude 中開啟 <b>Settings → Connectors</b>，點選 <b>Add</b> 並選擇 <b>Add custom connector</b>。",
       "step2": "名稱填 <b>ZE Graph</b>，把連接器 URL 貼到 <b>MCP server URL</b>，然後點選 <b>Continue</b>。",
       "step3": "Authentication 保持 <b>No sign-in</b>，點選 <b>Add</b>。ZE Graph 是公開的，所以出現開放存取的警告是正常的。",
@@ -1085,6 +1095,10 @@
       "note": "Claude 免費帳號可以新增一個自訂連接器。新增後，在 Claude 桌面和手機應用程式中也能使用。"
     },
     "chatgpt": {
+      "title1": "開發者模式",
+      "title2": "建立外掛",
+      "title3": "選擇 ZE Graph",
+      "title4": "開始提問",
       "step1": "在 ChatGPT 中開啟 <b>Settings → Plugins</b>，在清單底部開啟 <b>Developer mode</b>。部分帳號中它位於 <b>Security and login</b>。",
       "step2": "開啟 <b>Plugins</b>，點選 <b>+</b> 並填寫 <b>New Plugin</b>：名稱 <b>ZE Graph</b>，Connection 選 <b>Server URL</b>，貼上連接器 URL，Authentication 選 <b>No authentication</b>，勾選提示後點選 <b>Create</b>。",
       "step3": "在對話中輸入 <b>@</b> 並選擇 <b>ZE Graph</b>。",

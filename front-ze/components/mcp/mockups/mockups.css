@@ -113,8 +113,8 @@
     height: 18px;
     border-radius: 9999px;
     background: var(--m-ring);
-    opacity: 0.45;
-    animation: mock-ripple 450ms ease-out forwards;
+    opacity: 0;
+    animation: mock-ripple 450ms ease-out var(--mock-click-delay, 0ms) forwards;
 }
 
 @keyframes mock-ripple {
@@ -131,7 +131,27 @@
     to { opacity: 1; transform: none; }
 }
 
+/* The step guide: each step's panel eases in, and the active tab fills up as its scene plays. */
+.mock-step-in {
+    animation: mock-step-in 320ms ease-out;
+}
+
+@keyframes mock-step-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.mock-progress {
+    transform-origin: left;
+    animation: mock-progress var(--mock-progress-ms, 0ms) linear forwards;
+}
+
+@keyframes mock-progress {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .mock-spotlight, .mock-caret, .mock-pop { animation: none; }
+    .mock-spotlight, .mock-caret, .mock-pop, .mock-step-in { animation: none; }
     .mock-cursor { transition: none; }
 }
