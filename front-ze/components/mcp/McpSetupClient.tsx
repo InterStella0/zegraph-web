@@ -8,7 +8,7 @@ import {Button} from 'components/ui/button';
 import {Card, CardContent} from 'components/ui/card';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from 'components/ui/tabs';
 import SetupStep from './SetupStep';
-import {ClaudeAddConnector, ClaudeChatTools, ClaudeOpenConnectors} from './mockups/ClaudeScenes';
+import {ClaudeAddConnector, ClaudeAuth, ClaudeChatTools, ClaudeConnect, ClaudeOpenConnectors} from './mockups/ClaudeScenes';
 import {ChatGptChatPick, ChatGptDevMode, ChatGptNewPlugin} from './mockups/ChatGptScenes';
 import {MockAnswer} from './mockups/MockAnswer';
 
@@ -129,11 +129,17 @@ export default function McpSetupClient({mcpUrl}: { mcpUrl: string }) {
                         <SetupStep n={2} mock={<ClaudeAddConnector mcpUrl={mcpUrl} />} action={copyUrl}>
                             {t.rich('claude.step2', {b})}
                         </SetupStep>
-                        <SetupStep n={3} mock={<ClaudeChatTools />}>
+                        <SetupStep n={3} mock={<ClaudeAuth mcpUrl={mcpUrl} />}>
                             {t.rich('claude.step3', {b})}
                         </SetupStep>
-                        <SetupStep n={4} mock={<MockAnswer variant="claude" />}>
+                        <SetupStep n={4} mock={<ClaudeConnect mcpUrl={mcpUrl} />}>
                             {t.rich('claude.step4', {b})}
+                        </SetupStep>
+                        <SetupStep n={5} mock={<ClaudeChatTools />}>
+                            {t.rich('claude.step5', {b})}
+                        </SetupStep>
+                        <SetupStep n={6} mock={<MockAnswer variant="claude" />}>
+                            {t.rich('claude.step6', {b})}
                         </SetupStep>
                     </ol>
                     <div className="flex flex-col gap-1">

@@ -22,37 +22,39 @@ export function MockAnswer({variant}: { variant: MockVariant }) {
         <MockScene label={t('answerLabel')} durations={ANSWER}>
             {phase => (
                 <MockFrame variant={variant} address={claude ? 'claude.ai/chat' : 'chatgpt.com/c'}>
-                    <div className="mx-auto flex max-w-md flex-col gap-2.5 p-3">
-                        <div className={cn(
-                            'max-w-[85%] rounded-2xl px-3 py-1.5',
-                            claude ? 'self-start bg-(--m-panel)' : 'self-end bg-(--m-panel)',
-                        )}>
-                            {t('answerQuestion')}
-                        </div>
-                        {phase >= 1 && (
-                            <div className="mock-pop flex w-fit items-center gap-1.5 rounded-lg border border-(--m-border) px-2 py-1 text-(--m-muted)">
-                                {phase === 1
-                                    ? <Loader2 className="size-3 animate-spin" />
-                                    : <Check className="size-3 text-(--m-accent)" />}
-                                {t('usedTool')}
+                    <div className={cn('h-full min-h-60', claude && 'bg-(--m-panel)')}>
+                        <div className="mx-auto flex w-full max-w-md flex-col gap-2.5 p-3">
+                            <div className={cn(
+                                'max-w-[85%] self-end rounded-2xl px-3 py-1.5',
+                                claude ? 'bg-(--m-hover)' : 'bg-(--m-panel)',
+                            )}>
+                                {t('answerQuestion')}
                             </div>
-                        )}
-                        {phase === 2 && (
-                            <div className="mock-pop space-y-1.5">
-                                <p>{t('answerIntro')}</p>
-                                <div className="overflow-hidden rounded-lg border border-(--m-border)">
-                                    {ROWS.map(([name, players], i) => (
-                                        <div
-                                            key={name}
-                                            className={cn('flex justify-between px-2 py-1', i > 0 && 'border-t border-(--m-border)')}
-                                        >
-                                            <span>{i + 1}. {name}</span>
-                                            <span className="tabular-nums text-(--m-muted)">{players}</span>
-                                        </div>
-                                    ))}
+                            {phase >= 1 && (
+                                <div className="mock-pop flex w-fit items-center gap-1.5 rounded-lg border border-(--m-border) px-2 py-1 text-(--m-muted)">
+                                    {phase === 1
+                                        ? <Loader2 className="size-3 animate-spin" />
+                                        : <Check className="size-3 text-(--m-accent)" />}
+                                    {t('usedTool')}
                                 </div>
-                            </div>
-                        )}
+                            )}
+                            {phase === 2 && (
+                                <div className="mock-pop space-y-1.5">
+                                    <p>{t('answerIntro')}</p>
+                                    <div className="overflow-hidden rounded-lg border border-(--m-border)">
+                                        {ROWS.map(([name, players], i) => (
+                                            <div
+                                                key={name}
+                                                className={cn('flex justify-between px-2 py-1', i > 0 && 'border-t border-(--m-border)')}
+                                            >
+                                                <span>{i + 1}. {name}</span>
+                                                <span className="tabular-nums text-(--m-muted)">{players}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </MockFrame>
             )}

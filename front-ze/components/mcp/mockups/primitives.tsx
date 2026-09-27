@@ -174,7 +174,7 @@ export function MockToggle({on, className}: { on: boolean, className?: string })
     return (
         <span className={cn(
             'relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors duration-300',
-            on ? 'bg-(--m-accent)' : 'bg-(--m-border)',
+            on ? 'bg-[var(--m-switch,var(--m-accent))]' : 'bg-(--m-border)',
             className,
         )}>
             <span className={cn(

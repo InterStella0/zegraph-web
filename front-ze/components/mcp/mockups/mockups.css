@@ -1,29 +1,46 @@
 /* Palettes for the recreated Claude / ChatGPT screens on /mcp-setup. These are simplified
-   illustrations, so the colours only need to be recognisable, not exact. */
+   illustrations, so the colours only need to be recognisable, not exact. The dark Claude values are
+   sampled from the real settings modal; the light ones follow the same roles.
+   Claude-only roles: --m-field (inputs), --m-hover (menu highlight, secondary buttons),
+   --m-soft (secondary text), --m-link, --m-switch, --m-warn-bg / --m-warn-fg. */
 .mock-claude {
     --m-bg: #faf9f5;
-    --m-panel: #f0eee6;
+    --m-panel: #f5f4ed;
     --m-surface: #ffffff;
-    --m-text: #1f1e1d;
+    --m-field: #ffffff;
+    --m-hover: #f0eee6;
+    --m-text: #141413;
+    --m-soft: #3d3d3a;
     --m-muted: #73726c;
-    --m-border: #e3dfd3;
+    --m-border: #e8e6dc;
     --m-accent: #c96442;
     --m-accent-fg: #ffffff;
-    --m-primary: #1f1e1d;
+    --m-primary: #141413;
     --m-primary-fg: #faf9f5;
+    --m-link: #2c7ad6;
+    --m-switch: #2c7ad6;
+    --m-warn-bg: #fdf1dc;
+    --m-warn-fg: #8a5300;
     --m-display: ui-serif, Georgia, Cambria, "Times New Roman", serif;
 }
 
 .dark .mock-claude {
-    --m-bg: #262624;
-    --m-panel: #1f1e1d;
-    --m-surface: #30302e;
-    --m-text: #f5f4ef;
-    --m-muted: #a6a39b;
-    --m-border: #3e3e38;
+    --m-bg: #1a1a19;
+    --m-panel: #151515;
+    --m-surface: #20201f;
+    --m-field: #2b2b2a;
+    --m-hover: #313130;
+    --m-text: #f0efec;
+    --m-soft: #c3c2b7;
+    --m-muted: #898781;
+    --m-border: #30302f;
     --m-accent: #d97757;
-    --m-primary: #f5f4ef;
-    --m-primary-fg: #1f1e1d;
+    --m-primary: #ffffff;
+    --m-primary-fg: #141413;
+    --m-link: #6da7ec;
+    --m-switch: #2a78d6;
+    --m-warn-bg: #311a00;
+    --m-warn-fg: #db9300;
 }
 
 .mock-chatgpt {
