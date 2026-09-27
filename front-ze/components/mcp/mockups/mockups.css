@@ -1,0 +1,157 @@
+/* Palettes for the recreated Claude / ChatGPT screens on /mcp-setup. These are simplified
+   illustrations, so the colours only need to be recognisable, not exact. The dark Claude values are
+   sampled from the real settings modal; the light ones follow the same roles.
+   Claude-only roles: --m-field (inputs), --m-hover (menu highlight, secondary buttons),
+   --m-soft (secondary text), --m-link, --m-switch, --m-warn-bg / --m-warn-fg. */
+.mock-claude {
+    --m-bg: #faf9f5;
+    --m-panel: #f5f4ed;
+    --m-surface: #ffffff;
+    --m-field: #ffffff;
+    --m-hover: #f0eee6;
+    --m-text: #141413;
+    --m-soft: #3d3d3a;
+    --m-muted: #73726c;
+    --m-border: #e8e6dc;
+    --m-accent: #c96442;
+    --m-accent-fg: #ffffff;
+    --m-primary: #141413;
+    --m-primary-fg: #faf9f5;
+    --m-link: #2c7ad6;
+    --m-switch: #2c7ad6;
+    --m-warn-bg: #fdf1dc;
+    --m-warn-fg: #8a5300;
+    --m-display: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+}
+
+.dark .mock-claude {
+    --m-bg: #1a1a19;
+    --m-panel: #151515;
+    --m-surface: #20201f;
+    --m-field: #2b2b2a;
+    --m-hover: #313130;
+    --m-text: #f0efec;
+    --m-soft: #c3c2b7;
+    --m-muted: #898781;
+    --m-border: #30302f;
+    --m-accent: #d97757;
+    --m-primary: #ffffff;
+    --m-primary-fg: #141413;
+    --m-link: #6da7ec;
+    --m-switch: #2a78d6;
+    --m-warn-bg: #311a00;
+    --m-warn-fg: #db9300;
+}
+
+.mock-chatgpt {
+    --m-bg: #ffffff;
+    --m-panel: #f9f9f9;
+    --m-surface: #ffffff;
+    --m-text: #0d0d0d;
+    --m-muted: #5d5d5d;
+    --m-border: #e5e5e5;
+    --m-accent: #0d0d0d;
+    --m-accent-fg: #ffffff;
+    --m-primary: #0d0d0d;
+    --m-primary-fg: #ffffff;
+    --m-display: inherit;
+}
+
+.dark .mock-chatgpt {
+    --m-bg: #212121;
+    --m-panel: #171717;
+    --m-surface: #303030;
+    --m-text: #ececec;
+    --m-muted: #afafaf;
+    --m-border: #3a3a3a;
+    --m-accent: #ececec;
+    --m-accent-fg: #0d0d0d;
+    --m-primary: #ffffff;
+    --m-primary-fg: #0d0d0d;
+    --m-knob: #0d0d0d;
+}
+
+/* The guide's own highlight: ZE Graph pink, so it never reads as part of the vendor UI. */
+.mock-frame {
+    --m-ring: oklch(0.66 0.21 345);
+}
+
+.mock-spotlight {
+    box-shadow: 0 0 0 2px var(--m-ring);
+    animation: mock-pulse 1.4s ease-out infinite;
+}
+
+@keyframes mock-pulse {
+    0% { box-shadow: 0 0 0 2px var(--m-ring), 0 0 0 2px color-mix(in oklch, var(--m-ring) 55%, transparent); }
+    100% { box-shadow: 0 0 0 2px var(--m-ring), 0 0 0 9px transparent; }
+}
+
+.mock-caret {
+    display: inline-block;
+    width: 1px;
+    height: 1.1em;
+    margin-left: 1px;
+    vertical-align: -0.2em;
+    background: currentColor;
+    animation: mock-blink 1s steps(1) infinite;
+}
+
+@keyframes mock-blink {
+    50% { opacity: 0; }
+}
+
+.mock-cursor {
+    transition: transform 650ms cubic-bezier(0.4, 0, 0.2, 1), opacity 250ms ease;
+}
+
+.mock-click::after {
+    content: "";
+    position: absolute;
+    left: -9px;
+    top: -9px;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: var(--m-ring);
+    opacity: 0;
+    animation: mock-ripple 450ms ease-out var(--mock-click-delay, 0ms) forwards;
+}
+
+@keyframes mock-ripple {
+    from { transform: scale(0.3); opacity: 0.55; }
+    to { transform: scale(1.6); opacity: 0; }
+}
+
+.mock-pop {
+    animation: mock-pop 220ms ease-out;
+}
+
+@keyframes mock-pop {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+}
+
+/* The step guide: each step's panel eases in, and the active tab fills up as its scene plays. */
+.mock-step-in {
+    animation: mock-step-in 320ms ease-out;
+}
+
+@keyframes mock-step-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.mock-progress {
+    transform-origin: left;
+    animation: mock-progress var(--mock-progress-ms, 0ms) linear forwards;
+}
+
+@keyframes mock-progress {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mock-spotlight, .mock-caret, .mock-pop, .mock-step-in { animation: none; }
+    .mock-cursor { transition: none; }
+}

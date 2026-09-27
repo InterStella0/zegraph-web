@@ -150,7 +150,7 @@ impl GraphApi {
 	///
 	/// Returns up to 10 rows from the `region_time` view. `server_id` is validated but not
 	/// otherwise used to filter the result.
-	#[oai(path = "/graph/:server_id/get_regions", method="get")]
+	#[oai(path = "/graph/:server_id/get_regions", method="get", operation_id = "list_time_regions", tag = "ApiTags::Mcp")]
 	async fn get_server_graph_region(
 		&self, Data(app): Data<&AppData>, ServerExtractor(_server): ServerExtractor
 	) -> Response<Vec<Region>>{
@@ -165,7 +165,7 @@ impl GraphApi {
 	/// Returns the player-count time series for the given map play (`session_id`) on that
 	/// server, downsampled to at most 1500 peak-preserving points. Cached briefly while the map
 	/// is still being played, for a long time once it has ended.
-	#[oai(path = "/graph/:server_id/unique_players/maps/:map_name/sessions/:session_id", method = "get")]
+	#[oai(path = "/graph/:server_id/unique_players/maps/:map_name/sessions/:session_id", method = "get", operation_id = "get_map_session_player_count_graph", tag = "ApiTags::Mcp")]
 	async fn get_server_graph_unique_map_session(
 		&self, Data(app): Data<&AppData>,
 		ServerExtractor(server): ServerExtractor,
@@ -235,7 +235,7 @@ impl GraphApi {
 	/// Returns the server's player-count time series over the span of the given player session,
 	/// downsampled to at most 1500 peak-preserving points. Cached briefly while the session is
 	/// still active, for a long time once it has ended.
-	#[oai(path = "/graph/:server_id/unique_players/players/:player_id/sessions/:session_id", method = "get")]
+	#[oai(path = "/graph/:server_id/unique_players/players/:player_id/sessions/:session_id", method = "get", operation_id = "get_player_session_player_count_graph", tag = "ApiTags::Mcp")]
 	async fn get_server_graph_unique_player_session(
 		&self, Data(app): Data<&AppData>,
 		ServerExtractor(server): ServerExtractor,
@@ -307,7 +307,7 @@ impl GraphApi {
     /// `start`/`end` must span at most 1 year. Bucket width is chosen automatically based on the
     /// range (from 5-minute buckets for half-day windows up to 2-day buckets for year-long
     /// ones); ranges of 6 hours or less are served from an in-memory hourly chunk cache instead.
-    #[oai(path = "/graph/:server_id/unique_players", method = "get")]
+    #[oai(path = "/graph/:server_id/unique_players", method = "get", operation_id = "get_server_player_count_graph", tag = "ApiTags::Mcp")]
     async fn get_server_graph_unique(
 		&self, Data(data): Data<&AppData>, ServerExtractor(server): ServerExtractor,
 		Query(start): Query<DateTime<Utc>>, Query(end): Query<DateTime<Utc>>
@@ -359,7 +359,7 @@ impl GraphApi {
     /// Maps played on a server within a date range.
     ///
     /// `start`/`end` must span at most 2 days.
-    #[oai(path = "/graph/:server_id/maps", method = "get")]
+    #[oai(path = "/graph/:server_id/maps", method = "get", operation_id = "get_server_maps_played_graph", tag = "ApiTags::Mcp")]
     async fn get_server_graph_map(
 		&self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(start): Query<DateTime<Utc>>, Query(end): Query<DateTime<Utc>>
 	) -> Response<Vec<ServerMapPlayed>> {
@@ -384,7 +384,7 @@ impl GraphApi {
 	///
 	/// Counts rows in `player_server_activity` matching `event_type`, bucketed to the minute and
 	/// then downsampled to roughly 360 points. `start`/`end` must span at most 1 day.
-	#[oai(path="/graph/:server_id/event_count", method="get")]
+	#[oai(path="/graph/:server_id/event_count", method="get", operation_id = "get_server_event_count_graph", tag = "ApiTags::Mcp")]
 	async fn get_server_event_count(
 		&self, Data(data): Data<&AppData>,
 		ServerExtractor(server): ServerExtractor,
@@ -435,7 +435,7 @@ impl GraphApi {
 	/// `time_frame` selects a fixed window (`Today`, `Week1`, `Week2`, `Month1`, `Month6`,
 	/// `Year1`); cache TTL scales with the window size. Player names are anonymized per the
 	/// requester's identity.
-	#[oai(path = "/graph/:server_id/top_players", method = "get")]
+	#[oai(path = "/graph/:server_id/top_players", method = "get", operation_id = "get_server_top_players", tag = "ApiTags::Mcp")]
 	async fn get_server_top_players(
 		&self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(time_frame): Query<TopPlayersTimeFrame>,
 		OptionalTokenBearer(user_token): OptionalTokenBearer,
@@ -659,7 +659,7 @@ impl GraphApi {
 	///
 	/// `start` (defaults to the server's earliest recorded session) and `end` bound the window;
 	/// `page` paginates in pages of 70. Player names are anonymized per the requester's identity.
-	#[oai(path = "/graph/:server_id/players", method = "get")]
+	#[oai(path = "/graph/:server_id/players", method = "get", operation_id = "get_server_players_in_range", tag = "ApiTags::Mcp")]
 	async fn get_server_players(
 		&self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor,
 		start: Query<Option<DateTime<Utc>>>, end: Query<DateTime<Utc>>, page: Query<usize>,

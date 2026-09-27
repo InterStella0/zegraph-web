@@ -190,7 +190,7 @@ impl MapApi{
         response!(ok result.iter_into())
     }
     /// Search a server's maps by name, for autocomplete. Up to 20 substring matches.
-    #[oai(path = "/servers/:server_id/maps/autocomplete", method = "get")]
+    #[oai(path = "/servers/:server_id/maps/autocomplete", method = "get", operation_id = "search_maps", tag = "ApiTags::Mcp")]
     async fn get_maps_autocomplete(
         &self, Data(data): Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(map): Query<String>
     ) -> Response<Vec<ServerMap>>{
@@ -251,7 +251,7 @@ impl MapApi{
     /// `sorted_by` picks the ranking metric (last played, total/cumulative hours, session
     /// count, or unique players); `filter` narrows to `Casual`/`TryHard`/`Available`/
     /// `Favorite`/`HasLaser`; `search_map` filters by name substring. Pages are 25 maps each.
-    #[oai(path = "/servers/:server_id/maps/last/sessions", method = "get")]
+    #[oai(path = "/servers/:server_id/maps/last/sessions", method = "get", operation_id = "list_maps", tag = "ApiTags::Mcp")]
     async fn get_maps_last_session(
         &self, Data(data): Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(page): Query<usize>,
         Query(sorted_by): Query<MapLastSessionMode>, Query(search_map): Query<Option<String>>, Query(filter): Query<Option<MapFilterMode>>,
@@ -440,7 +440,7 @@ impl MapApi{
     }
 
     /// Detailed metadata for a single map on a server. Backed by `MapWorker`'s cache.
-    #[oai(path = "/servers/:server_id/maps/:map_name/info", method = "get")]
+    #[oai(path = "/servers/:server_id/maps/:map_name/info", method = "get", operation_id = "get_map_info", tag = "ApiTags::Mcp")]
     async fn get_maps_info(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
     ) -> Response<MapInfo>{
@@ -451,7 +451,7 @@ impl MapApi{
 
     /// Time breakdown by player type (e.g. casual vs tryhard) for a map. Backed by
     /// `MapWorker`'s cache.
-    #[oai(path = "/servers/:server_id/maps/:map_name/player_types", method = "get")]
+    #[oai(path = "/servers/:server_id/maps/:map_name/player_types", method = "get", operation_id = "get_map_player_types", tag = "ApiTags::Mcp")]
     async fn get_map_player_type(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
     ) -> Response<Vec<MapPlayerTypeTime>>{
@@ -462,7 +462,7 @@ impl MapApi{
 
     /// Performance metrics for a map: dropoff rate, average session length and similar. Backed
     /// by `MapWorker`'s cache.
-    #[oai(path = "/servers/:server_id/maps/:map_name/analyze", method = "get")]
+    #[oai(path = "/servers/:server_id/maps/:map_name/analyze", method = "get", operation_id = "get_map_analysis", tag = "ApiTags::Mcp")]
     async fn get_maps_highlight(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
     ) -> Response<MapAnalyze>{
@@ -472,7 +472,7 @@ impl MapApi{
     /// Paginated list of a single map's play sessions on a server, newest first.
     ///
     /// Pages are 5 sessions each.
-    #[oai(path = "/servers/:server_id/maps/:map_name/sessions", method="get")]
+    #[oai(path = "/servers/:server_id/maps/:map_name/sessions", method = "get", operation_id = "get_map_sessions", tag = "ApiTags::Mcp")]
     async fn get_maps_sessions(
         &self, Data(app): Data<&AppData>, extract: MapExtractor, Query(page): Query<usize>
     ) -> Response<ServerMapPlayedPaginated>{
@@ -523,7 +523,7 @@ impl MapApi{
     ///
     /// Anonymized players are handled per the requester's identity. Cached briefly while the
     /// map is still being played, for a day once it has ended.
-    #[oai(path="/servers/:server_id/sessions/:session_id/players", method="get")]
+    #[oai(path = "/servers/:server_id/sessions/:session_id/players", method = "get", operation_id = "get_map_session_players", tag = "ApiTags::Mcp")]
     async fn get_map_player_session(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>,
         OptionalTokenBearer(user_token): OptionalTokenBearer,
@@ -690,7 +690,7 @@ impl MapApi{
 
     /// The server's currently active map session and its live match (round) state, if any.
     /// Cached for 60 seconds.
-    #[oai(path="/servers/:server_id/match-now", method="get")]
+    #[oai(path = "/servers/:server_id/match-now", method = "get", operation_id = "get_server_current_match", tag = "ApiTags::Mcp")]
     async fn get_map_now_match(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor
     ) -> Response<ServerMapMatch>{
@@ -819,7 +819,7 @@ impl MapApi{
     }
     /// Per-day geographic heat map data for a map's player activity. Backed by `MapWorker`'s
     /// cache.
-    #[oai(path="/servers/:server_id/maps/:map_name/heat-regions", method="get")]
+    #[oai(path="/servers/:server_id/maps/:map_name/heat-regions", method="get", operation_id = "get_map_heat_regions", tag = "ApiTags::Mcp")]
     async fn get_heat_regions(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
     ) -> Response<Vec<DailyMapRegion>> {
@@ -827,7 +827,7 @@ impl MapApi{
         handle_worker_map_result(app.map_worker.get_heat_regions(&context).await)
     }
     /// Geographic region breakdown for a map's players. Backed by `MapWorker`'s cache.
-    #[oai(path="/servers/:server_id/maps/:map_name/regions", method="get")]
+    #[oai(path="/servers/:server_id/maps/:map_name/regions", method="get", operation_id = "get_map_regions", tag = "ApiTags::Mcp")]
     async fn get_map_regions(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
     ) -> Response<Vec<MapRegion>>{
@@ -836,7 +836,7 @@ impl MapApi{
     }
     /// Distribution of session lengths for a map (how long players typically stay). Backed by
     /// `MapWorker`'s cache.
-    #[oai(path="/servers/:server_id/maps/:map_name/sessions_distribution", method="get")]
+    #[oai(path="/servers/:server_id/maps/:map_name/sessions_distribution", method="get", operation_id = "get_map_session_distribution", tag = "ApiTags::Mcp")]
     async fn get_map_sessions_distribution(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
     ) -> Response<Vec<MapSessionDistribution>>{
@@ -847,7 +847,7 @@ impl MapApi{
     ///
     /// `player_name` (minimum 2 characters) filters to matching players; pages are 10 players
     /// each.
-    #[oai(path="/servers/:server_id/maps/:map_name/top_players", method="get")]
+    #[oai(path = "/servers/:server_id/maps/:map_name/top_players", method = "get", operation_id = "get_map_top_players", tag = "ApiTags::Mcp")]
     async fn get_map_players(
         &self, Data(app): Data<&AppData>, extract: MapExtractor,
         Query(page): Query<Option<usize>>, Query(player_name): Query<Option<String>>,
