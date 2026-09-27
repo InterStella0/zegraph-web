@@ -7,11 +7,11 @@ import {MockFrame, MockScene, MockVariant} from './primitives';
 
 const ANSWER = [700, 1500, 3400] as const;
 
-// Made-up servers: this is an illustration of what an answer looks like, not live data.
+// Recognizable ZE communities; the player counts are illustrative rather than live data.
 const ROWS = [
-    ['Nightfall ZE', '62/64'],
-    ['Crimson ZE', '57/64'],
-    ['Aurora ZE', '41/64'],
+    ['GFL', '62/64'],
+    ['Mapeadores', '57/64'],
+    ['Nide', '41/64'],
 ] as const;
 
 /** What success looks like: the assistant answering a question with ZE Graph data. */

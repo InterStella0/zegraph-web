@@ -7,7 +7,7 @@ import {toast} from 'sonner';
 import {Button} from 'components/ui/button';
 import {Card, CardContent} from 'components/ui/card';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from 'components/ui/tabs';
-import SetupStep from './SetupStep';
+import SetupStep, {SetupGuideStep} from './SetupStep';
 import {ClaudeAddConnector, ClaudeAuth, ClaudeChatTools, ClaudeConnect, ClaudeOpenConnectors} from './mockups/ClaudeScenes';
 import {ChatGptChatPick, ChatGptDevMode, ChatGptNewPlugin} from './mockups/ChatGptScenes';
 import {MockAnswer} from './mockups/MockAnswer';
@@ -94,6 +94,36 @@ export default function McpSetupClient({mcpUrl}: { mcpUrl: string }) {
     const copyUrl = <CopyButton text={mcpUrl} label={t('copyUrl')} />;
     const cursorLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=zegraph&config=${btoa(JSON.stringify({url: mcpUrl}))}`;
     const vscodeLink = `vscode:mcp/install?${encodeURIComponent(JSON.stringify({name: 'zegraph', type: 'http', url: mcpUrl}))}`;
+    const claudeSteps: SetupGuideStep[] = [
+        {
+            instruction: t.rich('claude.step1', {b}),
+            action: <OpenLink href="https://claude.ai">{t('open', {app: 'Claude'})}</OpenLink>,
+            mock: <ClaudeOpenConnectors />,
+        },
+        {
+            instruction: t.rich('claude.step2', {b}),
+            action: copyUrl,
+            mock: <ClaudeAddConnector mcpUrl={mcpUrl} />,
+        },
+        {instruction: t.rich('claude.step3', {b}), mock: <ClaudeAuth mcpUrl={mcpUrl} />},
+        {instruction: t.rich('claude.step4', {b}), mock: <ClaudeConnect mcpUrl={mcpUrl} />},
+        {instruction: t.rich('claude.step5', {b}), mock: <ClaudeChatTools />},
+        {instruction: t.rich('claude.step6', {b}), mock: <MockAnswer variant="claude" />},
+    ];
+    const chatGptSteps: SetupGuideStep[] = [
+        {
+            instruction: t.rich('chatgpt.step1', {b}),
+            action: <OpenLink href="https://chatgpt.com">{t('open', {app: 'ChatGPT'})}</OpenLink>,
+            mock: <ChatGptDevMode />,
+        },
+        {
+            instruction: t.rich('chatgpt.step2', {b}),
+            action: copyUrl,
+            mock: <ChatGptNewPlugin mcpUrl={mcpUrl} />,
+        },
+        {instruction: t.rich('chatgpt.step3', {b}), mock: <ChatGptChatPick />},
+        {instruction: t.rich('chatgpt.step4', {b}), mock: <MockAnswer variant="chatgpt" />},
+    ];
 
     return (
         <div className="space-y-10">
@@ -122,26 +152,7 @@ export default function McpSetupClient({mcpUrl}: { mcpUrl: string }) {
                 </TabsList>
 
                 <TabsContent value="claude" className="flex flex-col gap-6">
-                    <ol className="space-y-10">
-                        <SetupStep n={1} mock={<ClaudeOpenConnectors />} action={<OpenLink href="https://claude.ai">{t('open', {app: 'Claude'})}</OpenLink>}>
-                            {t.rich('claude.step1', {b})}
-                        </SetupStep>
-                        <SetupStep n={2} mock={<ClaudeAddConnector mcpUrl={mcpUrl} />} action={copyUrl}>
-                            {t.rich('claude.step2', {b})}
-                        </SetupStep>
-                        <SetupStep n={3} mock={<ClaudeAuth mcpUrl={mcpUrl} />}>
-                            {t.rich('claude.step3', {b})}
-                        </SetupStep>
-                        <SetupStep n={4} mock={<ClaudeConnect mcpUrl={mcpUrl} />}>
-                            {t.rich('claude.step4', {b})}
-                        </SetupStep>
-                        <SetupStep n={5} mock={<ClaudeChatTools />}>
-                            {t.rich('claude.step5', {b})}
-                        </SetupStep>
-                        <SetupStep n={6} mock={<MockAnswer variant="claude" />}>
-                            {t.rich('claude.step6', {b})}
-                        </SetupStep>
-                    </ol>
+                    <SetupStep steps={claudeSteps} />
                     <div className="flex flex-col gap-1">
                         <p className="text-sm text-muted-foreground">{t('claude.note')}</p>
                         <p className="text-xs text-muted-foreground">{t('illustration')}</p>
@@ -149,20 +160,7 @@ export default function McpSetupClient({mcpUrl}: { mcpUrl: string }) {
                 </TabsContent>
 
                 <TabsContent value="chatgpt" className="flex flex-col gap-6">
-                    <ol className="space-y-10">
-                        <SetupStep n={1} mock={<ChatGptDevMode />} action={<OpenLink href="https://chatgpt.com">{t('open', {app: 'ChatGPT'})}</OpenLink>}>
-                            {t.rich('chatgpt.step1', {b})}
-                        </SetupStep>
-                        <SetupStep n={2} mock={<ChatGptNewPlugin mcpUrl={mcpUrl} />} action={copyUrl}>
-                            {t.rich('chatgpt.step2', {b})}
-                        </SetupStep>
-                        <SetupStep n={3} mock={<ChatGptChatPick />}>
-                            {t.rich('chatgpt.step3', {b})}
-                        </SetupStep>
-                        <SetupStep n={4} mock={<MockAnswer variant="chatgpt" />}>
-                            {t.rich('chatgpt.step4', {b})}
-                        </SetupStep>
-                    </ol>
+                    <SetupStep steps={chatGptSteps} />
                     <div className="flex flex-col gap-1">
                         <p className="text-sm text-muted-foreground">
                             {t.rich('chatgpt.note', {
