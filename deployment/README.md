@@ -57,6 +57,24 @@ flowchart TB
   style MAN fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000000
 ```
 
+
+## MCP tool documentation
+
+MCP tool routing and argument types are derived from the OpenAPI spec, while the human-facing
+titles and descriptions live in `src/mcp/tool_docs.json`. Regenerate that editable catalog after
+adding or changing an MCP-tagged endpoint:
+
+```bash
+SQLX_OFFLINE=true cargo run -- generate-mcp-docs
+```
+
+The command preserves existing titles, descriptions and argument wording, adds new tools and
+arguments from OpenAPI, and removes entries that no longer exist. This keeps AI-curated MCP text
+intact during later syncs. To deliberately replace all wording with fresh OpenAPI-derived text,
+run `SQLX_OFFLINE=true cargo run -- generate-mcp-docs --force`. Normal builds and server startup
+only read the checked-in catalog; they do not synchronize it.
+
+
 ## `deploy-scripts.sh`
 
 The production deploy, driven from the runner. It builds the `compose.yaml` images and pushes them to
