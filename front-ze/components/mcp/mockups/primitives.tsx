@@ -100,12 +100,13 @@ function MockCursor({sceneRef, cue, phase}: { sceneRef: React.RefObject<HTMLDivE
 }
 
 /** Window chrome with a fake address bar and an optional left sidebar. */
-export function MockFrame({variant, address, sidebar, children, className}: {
+export function MockFrame({variant, address, sidebar, children, className, bodyClassName}: {
     variant: MockVariant,
     address: string,
     sidebar?: ReactNode,
     children: ReactNode,
     className?: string,
+    bodyClassName?: string,
 }) {
     return (
         <div className={cn(
@@ -123,7 +124,7 @@ export function MockFrame({variant, address, sidebar, children, className}: {
                     {address}
                 </div>
             </div>
-            <div className="flex min-h-60">
+            <div className={cn('flex min-h-60', bodyClassName)}>
                 {sidebar && (
                     <div className="hidden w-32 shrink-0 border-r border-(--m-border) bg-(--m-panel) p-2 min-[480px]:block">
                         {sidebar}
@@ -177,7 +178,7 @@ export function MockToggle({on, className}: { on: boolean, className?: string })
             className,
         )}>
             <span className={cn(
-                'absolute size-3 rounded-full bg-white shadow transition-transform duration-300',
+                'absolute size-3 rounded-full bg-[var(--m-knob,#fff)] shadow transition-transform duration-300',
                 on ? 'translate-x-3.5' : 'translate-x-0.5',
             )} />
         </span>

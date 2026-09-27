@@ -51,6 +51,7 @@
     --m-accent-fg: #0d0d0d;
     --m-primary: #ffffff;
     --m-primary-fg: #0d0d0d;
+    --m-knob: #0d0d0d;
 }
 
 /* The guide's own highlight: ZE Graph pink, so it never reads as part of the vendor UI. */

@@ -188,7 +188,12 @@ fn initialize_result(params: &Value) -> Value {
     json!({
         "protocolVersion": version,
         "capabilities": { "tools": {} },
-        "serverInfo": { "name": "zegraph", "version": env!("CARGO_PKG_VERSION") },
+        "serverInfo": {
+            "name": "zegraph",
+            "title": "ZE Graph",
+            "version": env!("CARGO_PKG_VERSION"),
+            "websiteUrl": "https://zegraph.xyz",
+        },
         "instructions": INSTRUCTIONS,
     })
 }
