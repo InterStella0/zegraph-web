@@ -807,6 +807,10 @@ mod route_tests {
         for tool in tools {
             assert_eq!(tool["inputSchema"]["type"], "object", "{tool:#}");
             assert!(tool["description"].as_str().is_some_and(|d| !d.is_empty()), "{tool:#}");
+            assert!(
+                tool["annotations"]["title"].as_str().is_some_and(|title| !title.is_empty()),
+                "{tool:#}",
+            );
         }
     }
 
@@ -910,7 +914,47 @@ fn raise_open_file_limit() {
     }
 }
 
+fn generate_mcp_docs(force: bool) -> Result<(), String> {
+    let spec: serde_json::Value = serde_json::from_str(&build_api_service().spec())
+        .map_err(|error| format!("OpenAPI generated invalid JSON: {error}"))?;
+    let generated = mcp::tools::generated_docs_from_spec(&spec)
+        .map_err(|errors| errors.join("\n"))?;
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/mcp/tool_docs.json");
+    let docs = if force {
+        generated
+    } else {
+        let existing = std::fs::read_to_string(&path)
+            .map_err(|error| format!("Could not read {}: {error}", path.display()))?;
+        let existing: serde_json::Value = serde_json::from_str(&existing)
+            .map_err(|error| format!("Could not parse {}: {error}", path.display()))?;
+        mcp::tools::merge_generated_docs(generated, &existing)
+    };
+    let mut contents = serde_json::to_string_pretty(&docs)
+        .map_err(|error| format!("Could not serialize MCP docs: {error}"))?;
+    contents.push('\n');
+    std::fs::write(&path, contents)
+        .map_err(|error| format!("Could not write {}: {error}", path.display()))?;
+    println!("{} {}", if force { "Regenerated" } else { "Synchronized" }, path.display());
+    Ok(())
+}
+
 fn main(){
+    if env::args().nth(1).as_deref() == Some("generate-mcp-docs") {
+        let mut options = env::args().skip(2);
+        let force = match (options.next().as_deref(), options.next()) {
+            (None, None) => false,
+            (Some("--force"), None) => true,
+            _ => {
+                eprintln!("Usage: cargo run -- generate-mcp-docs [--force]");
+                std::process::exit(2);
+            }
+        };
+        if let Err(error) = generate_mcp_docs(force) {
+            eprintln!("Could not generate MCP docs:\n{error}");
+            std::process::exit(1);
+        }
+        return;
+    }
     dotenv().ok();
     raise_open_file_limit();
     if env::var_os("RUST_LOG").is_none() {

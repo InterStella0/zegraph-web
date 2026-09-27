@@ -1,0 +1,304 @@
+{
+  "_comment": "Synchronized from OpenAPI by `SQLX_OFFLINE=true cargo run -- generate-mcp-docs`. Existing MCP wording is preserved; use `--force` to regenerate everything.",
+  "tools": {
+    "get_community_player_count_graph": {
+      "arguments": {
+        "community_id": "Community ID (the `id` of a community in list_servers), or \"all\" for every community combined.",
+        "time": "Time.",
+        "time_type": "Time Type."
+      },
+      "description": "Unique player count over time for a community, or globally.\n\nUse `community_id = \"all\"` for the combined graph across every community. `time_type`\npicks the bucket width (`TenMinutes`, `OneHour`, `OneDay`) and `time` anchors the most\nrecent bucket; up to 31 buckets before it are returned.",
+      "title": "Get Community Player Count Graph"
+    },
+    "get_map_analysis": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Performance metrics for a map: dropoff rate, average session length and similar. Backed\nby `MapWorker`'s cache.",
+      "title": "Get Map Analysis"
+    },
+    "get_map_heat_regions": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Per-day geographic heat map data for a map's player activity. Backed by `MapWorker`'s\ncache.",
+      "title": "Get Map Heat Regions"
+    },
+    "get_map_info": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Detailed metadata for a single map on a server. Backed by `MapWorker`'s cache.",
+      "title": "Get Map Info"
+    },
+    "get_map_player_types": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Time breakdown by player type (e.g. casual vs tryhard) for a map. Backed by\n`MapWorker`'s cache.",
+      "title": "Get Map Player Types"
+    },
+    "get_map_regions": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Geographic region breakdown for a map's players. Backed by `MapWorker`'s cache.",
+      "title": "Get Map Regions"
+    },
+    "get_map_session_distribution": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Distribution of session lengths for a map (how long players typically stay). Backed by\n`MapWorker`'s cache.",
+      "title": "Get Map Session Distribution"
+    },
+    "get_map_session_player_count_graph": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers.",
+        "session_id": "Session ID: a map session's time_id (get_map_sessions) or a player session's id (get_player_sessions), matching the tool."
+      },
+      "description": "Player-count chart for a single map session.\n\nReturns the player-count time series for the given map play (`session_id`) on that\nserver, downsampled to at most 1500 peak-preserving points. Cached briefly while the map\nis still being played, for a long time once it has ended.",
+      "title": "Get Map Session Player Count Graph"
+    },
+    "get_map_session_players": {
+      "arguments": {
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers.",
+        "session_id": "Session ID: a map session's time_id (get_map_sessions) or a player session's id (get_player_sessions), matching the tool."
+      },
+      "description": "Players (and their playtime during it) for a single map-play session, ranked by time.\n\nAnonymized players are handled per the requester's identity. Cached briefly while the\nmap is still being played, for a day once it has ended.",
+      "title": "Get Map Session Players"
+    },
+    "get_map_sessions": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
+        "page": "Page.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Paginated list of a single map's play sessions on a server, newest first.\n\nPages are 5 sessions each.",
+      "title": "Get Map Sessions"
+    },
+    "get_map_top_players": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
+        "page": "Page.",
+        "player_name": "Player Name.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Top players on a map, ranked by playtime, with optional name search.\n\n`player_name` (minimum 2 characters) filters to matching players; pages are 10 players\neach.",
+      "title": "Get Map Top Players"
+    },
+    "get_player_detail": {
+      "arguments": {
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Full profile for a player on a server: playtime, rank and related stats in one call.\n\nBacked by `PlayerWorker`'s cache. When nothing current is cached this falls back to db.",
+      "title": "Get Player Detail"
+    },
+    "get_player_global_playtime_heatmap": {
+      "arguments": {
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools."
+      },
+      "description": "A player's playtime by day, summed across every server they've played on.\n\n`player_id` may be `\"me\"` or a numeric Steam ID. Communities where the target anonymized\nthemselves are excluded for viewers without permission for those communities.",
+      "title": "Get Player Global Playtime Heatmap"
+    },
+    "get_player_hours_of_day": {
+      "arguments": {
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "A player's playtime broken down by hour of day. Backed by `PlayerWorker`'s cache.",
+      "title": "Get Player Hours Of Day"
+    },
+    "get_player_infractions": {
+      "arguments": {
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "A player's infraction (ban/mute) history on a server, newest first.",
+      "title": "Get Player Infractions"
+    },
+    "get_player_leaderboard": {
+      "arguments": {
+        "mode": "Mode.",
+        "page": "Page.",
+        "player_name": "Player Name.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Paginated, ranked player leaderboard for a server.\n\n`mode` selects which playtime figure to sort/rank by (`Casual`, `TryHard`, `Mixed`,\n`Total`). `player_name` (minimum 2 characters) filters to matching players instead of\npaginating the full leaderboard; pages are 5 players each. Anonymized players show as\n\"Anonymous\" unless the requester is that player, a superuser, or a community admin.",
+      "title": "Get Player Leaderboard"
+    },
+    "get_player_most_played_maps": {
+      "arguments": {
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "A player's most-played maps on a server. Backed by `PlayerWorker`'s cache.",
+      "title": "Get Player Most Played Maps"
+    },
+    "get_player_online_heatmap": {
+      "arguments": {
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "A player's online activity heatmap (by day/hour). Backed by `PlayerWorker`'s cache.",
+      "title": "Get Player Online Heatmap"
+    },
+    "get_player_regions": {
+      "arguments": {
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "A player's playtime broken down by geographic region. Backed by `PlayerWorker`'s cache.",
+      "title": "Get Player Regions"
+    },
+    "get_player_session_player_count_graph": {
+      "arguments": {
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers.",
+        "session_id": "Session ID: a map session's time_id (get_map_sessions) or a player session's id (get_player_sessions), matching the tool."
+      },
+      "description": "Player-count chart for the duration of a single player's session.\n\nReturns the server's player-count time series over the span of the given player session,\ndownsampled to at most 1500 peak-preserving points. Cached briefly while the session is\nstill active, for a long time once it has ended.",
+      "title": "Get Player Session Player Count Graph"
+    },
+    "get_player_sessions": {
+      "arguments": {
+        "datetime": "Datetime.",
+        "page": "Page.",
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Paginated list of a player's sessions on a server within a day.\n\n`datetime` selects which day to list (defaults to everything from 2024-02-01 to now);\n`page` paginates in pages of 10.",
+      "title": "Get Player Sessions"
+    },
+    "get_player_sessions_graph": {
+      "arguments": {
+        "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Chart data for a player's session history on a server. Backed by `PlayerWorker`'s cache.",
+      "title": "Get Player Sessions Graph"
+    },
+    "get_server_current_match": {
+      "arguments": {
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "The server's currently active map session and its live match (round) state, if any.\nCached for 60 seconds.",
+      "title": "Get Server Current Match"
+    },
+    "get_server_event_count_graph": {
+      "arguments": {
+        "end": "End.",
+        "event_type": "Event Type.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers.",
+        "start": "Start."
+      },
+      "description": "Time series of how often a given event type occurred.\n\nCounts rows in `player_server_activity` matching `event_type`, bucketed to the minute and\nthen downsampled to roughly 360 points. `start`/`end` must span at most 1 day.",
+      "title": "Get Server Event Count Graph"
+    },
+    "get_server_maps_played_graph": {
+      "arguments": {
+        "end": "End.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers.",
+        "start": "Start."
+      },
+      "description": "Maps played on a server within a date range.\n\n`start`/`end` must span at most 2 days.",
+      "title": "Get Server Maps Played Graph"
+    },
+    "get_server_player_count_graph": {
+      "arguments": {
+        "end": "End.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers.",
+        "start": "Start."
+      },
+      "description": "Unique/concurrent player-count chart over an arbitrary date range.\n\n`start`/`end` must span at most 1 year. Bucket width is chosen automatically based on the\nrange (from 5-minute buckets for half-day windows up to 2-day buckets for year-long\nones); ranges of 6 hours or less are served from an in-memory hourly chunk cache instead.",
+      "title": "Get Server Player Count Graph"
+    },
+    "get_server_players_in_range": {
+      "arguments": {
+        "end": "End.",
+        "page": "Page.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers.",
+        "start": "Start."
+      },
+      "description": "Paginated player leaderboard for a server, ranked by playtime.\n\n`start` (defaults to the server's earliest recorded session) and `end` bound the window;\n`page` paginates in pages of 70. Player names are anonymized per the requester's identity.",
+      "title": "Get Server Players In Range"
+    },
+    "get_server_stats": {
+      "arguments": {
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Total playtime, player count and country count for a server, both all-time and this week.\n\nCached for 1 day.",
+      "title": "Get Server Stats"
+    },
+    "get_server_top_players": {
+      "arguments": {
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers.",
+        "time_frame": "Time Frame."
+      },
+      "description": "Top 20 players on a server, ranked by playtime within a preset time frame.\n\n`time_frame` selects a fixed window (`Today`, `Week1`, `Week2`, `Month1`, `Month6`,\n`Year1`); cache TTL scales with the window size. Player names are anonymized per the\nrequester's identity.",
+      "title": "Get Server Top Players"
+    },
+    "list_maps": {
+      "arguments": {
+        "filter": "Filter.",
+        "page": "Page.",
+        "search_map": "Search Map.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers.",
+        "sorted_by": "Sorted By."
+      },
+      "description": "Paginated, filterable, sortable list of a server's played maps.\n\n`sorted_by` picks the ranking metric (last played, total/cumulative hours, session\ncount, or unique players); `filter` narrows to `Casual`/`TryHard`/`Available`/\n`Favorite`/`HasLaser`; `search_map` filters by name substring. Pages are 25 maps each.",
+      "title": "List Maps"
+    },
+    "list_online_players": {
+      "arguments": {
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Players currently connected to a server.\n\nA session counts as \"currently connected\" if it was verified within the last 20 minutes.\nAnonymized players show as \"Anonymous\" unless the requester is that player, a superuser,\nor a community admin.",
+      "title": "List Online Players"
+    },
+    "list_servers": {
+      "arguments": {},
+      "description": "List all communities and their servers.\n\nReturns every tracked community together with its servers, each server's current\nplayer count (capped at `max_players`) and currently-played map. Cached for 60 seconds.",
+      "title": "List Servers"
+    },
+    "list_time_regions": {
+      "arguments": {
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "List map regions used for heat/region charts.\n\nReturns up to 10 rows from the `region_time` view. `server_id` is validated but not\notherwise used to filter the result.",
+      "title": "List Time Regions"
+    },
+    "search_maps": {
+      "arguments": {
+        "map": "Map.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Search a server's maps by name, for autocomplete. Up to 20 substring matches.",
+      "title": "Search Maps"
+    },
+    "search_players": {
+      "arguments": {
+        "player_name": "Player Name.",
+        "server_id": "Server ID or the server's readable_link, as returned by list_servers."
+      },
+      "description": "Search players on a server by name, for autocomplete.\n\n`player_name` must be at least 3 characters. Matches the requester's own player ID first,\nthen substring name matches (case-insensitive), up to 20 results. Anonymized players show\nas \"Anonymous\" unless the requester is that player, a superuser, or a community admin.",
+      "title": "Search Players"
+    },
+    "search_players_global": {
+      "arguments": {
+        "page": "Page.",
+        "search": "Search."
+      },
+      "description": "Search and paginate players across every community.\n\n`page` is a 0-indexed page of 10 players, ranked by total playtime. `search` filters by\nplayer name (case-insensitive substring, minimum 2 characters); results are cached for 60\nseconds when unfiltered, computed live when searching.",
+      "title": "Search Players Global"
+    }
+  }
+}

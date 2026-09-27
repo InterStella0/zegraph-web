@@ -57,7 +57,11 @@ pub fn tool_json() -> Value {
             "required": ["server_id"],
             "additionalProperties": false,
         },
-        "annotations": { "readOnlyHint": true, "openWorldHint": false },
+        "annotations": {
+            "title": "Render Player Radar Map",
+            "readOnlyHint": true,
+            "openWorldHint": false,
+        },
     })
 }
 
