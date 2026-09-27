@@ -7,6 +7,7 @@ mod core;
 mod workers;
 mod models;
 mod api_models;
+mod mcp;
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Pool, Postgres};
@@ -47,6 +48,7 @@ use crate::routers::ze_community_links::ZeCommunityLinksApi;
 use crate::routers::admin_maps::AdminMapsApi;
 use crate::routers::admin_audit::AdminAuditApi;
 use crate::routers::admin_servers::AdminServersApi;
+use crate::mcp::{McpApi, McpEndpoint};
 
 #[derive(Clone)]
 struct AppData{
@@ -161,6 +163,7 @@ fn registered_patterns() -> Vec<Arc<dyn UriPatternExt + Send + Sync>> {
         Arc::new(AdminMapsApi),
         Arc::new(AdminAuditApi),
         Arc::new(AdminServersApi),
+        Arc::new(McpApi),
     ]
 }
 
@@ -174,6 +177,13 @@ fn build_app(data: AppData, environment: &str, swagger_ui_enabled: bool) -> impl
         let ui = poem::endpoint::make_sync(move |_| poem::web::Html(html.clone()));
         route = route.nest("/ui", ui);
     }
+    // MCP tools are built from this second copy of the API's spec and dispatch to it in-process. It
+    // carries the app data but none of the outer middleware, so tool calls are logged and counted
+    // once, as `/mcp`.
+    let mcp_service = build_api_service();
+    let mcp_spec = mcp_service.spec();
+    let mcp_api = Route::new().nest("/", mcp_service).data(data.clone());
+    route = route.at("/mcp", McpEndpoint::new(mcp_api, &mcp_spec, data.clone()));
     route.nest("/", api_service)
         .with(Cors::new()) // 600MB limit for large file uploads
         .with(PatternLogger::new(registered_patterns()))
@@ -515,6 +525,10 @@ mod route_tests {
         }
     }
 
+    /// Routes mounted outside the OpenAPI service, so absent from the spec but still registered
+    /// with `PatternLogger`.
+    const NON_SPEC_PATTERNS: &[&str] = &["/mcp"];
+
     /// `registered_patterns()` is maintained by hand and feeds `PatternLogger`; a path missing from
     /// it is logged as `unknown_pattern` and loses its tracing identity, while a stale entry matches
     /// nothing. Neither shows up at runtime, so the two lists are compared here.
@@ -535,7 +549,9 @@ mod route_tests {
              them as `unknown_pattern`: {unregistered:#?}"
         );
 
-        let stale: Vec<_> = declared.difference(&spec).collect();
+        let stale: Vec<_> = declared.difference(&spec)
+            .filter(|p| !NON_SPEC_PATTERNS.contains(&p.as_str()))
+            .collect();
         assert!(
             stale.is_empty(),
             "these patterns are declared but match no route; they are leftovers from deleted or \
@@ -716,6 +732,151 @@ mod route_tests {
         assert!(data["avg_graph"].is_null(), "the response-time graph lives in redis, which is down");
         assert!(data["qgis"]["wms"].is_null(), "second layer must not have been attempted");
         assert!(data["qgis"]["status"].is_string(), "qgis is always reported, never omitted");
+    }
+
+    async fn mcp(cli: &TestClient<impl poem::Endpoint>, body: serde_json::Value) -> (poem::http::StatusCode, serde_json::Value) {
+        let resp = cli.post("/mcp")
+            .header("Content-Type", "application/json")
+            .body(body.to_string())
+            .send()
+            .await
+            .0;
+        let status = resp.status();
+        let raw = resp.into_body().into_string().await.expect("an MCP body");
+        let json = if raw.is_empty() { serde_json::Value::Null } else {
+            serde_json::from_str(&raw).expect("MCP replies are JSON")
+        };
+        (status, json)
+    }
+
+    fn rpc(id: u64, method: &str, params: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params })
+    }
+
+    #[tokio::test]
+    async fn mcp_initialize_handshake() {
+        let cli = client();
+        let (status, body) = mcp(&cli, rpc(1, "initialize", serde_json::json!({
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": { "name": "route-test", "version": "0" },
+        }))).await;
+        assert_eq!(status, poem::http::StatusCode::OK);
+        assert_eq!(body["id"], 1);
+        assert_eq!(body["result"]["protocolVersion"], "2025-06-18");
+        assert!(body["result"]["capabilities"]["tools"].is_object());
+
+        let (status, body) = mcp(&cli, serde_json::json!({
+            "jsonrpc": "2.0", "method": "notifications/initialized",
+        })).await;
+        assert_eq!(status, poem::http::StatusCode::ACCEPTED, "notifications get no reply");
+        assert!(body.is_null());
+
+        let (_, body) = mcp(&cli, rpc(2, "ping", serde_json::Value::Null)).await;
+        assert_eq!(body["result"], serde_json::json!({}));
+    }
+
+    #[tokio::test]
+    async fn mcp_rejects_malformed_messages() {
+        let cli = client();
+        assert_eq!(
+            send(&cli, "GET", "/mcp", None).await,
+            poem::http::StatusCode::METHOD_NOT_ALLOWED,
+            "stateless transport: no SSE stream to open"
+        );
+
+        let resp = cli.post("/mcp").body("{not json").send().await.0;
+        let raw = resp.into_body().into_string().await.unwrap();
+        let body: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(body["error"]["code"], -32700);
+
+        let (_, body) = mcp(&cli, serde_json::json!([rpc(1, "ping", serde_json::Value::Null)])).await;
+        assert_eq!(body["error"]["code"], -32600, "batches are not part of the 2025-06 transport");
+
+        let (_, body) = mcp(&cli, rpc(3, "resources/list", serde_json::Value::Null)).await;
+        assert_eq!(body["error"]["code"], -32601);
+        assert_eq!(body["id"], 3);
+    }
+
+    #[tokio::test]
+    async fn mcp_lists_every_tool() {
+        let cli = client();
+        let (_, body) = mcp(&cli, rpc(1, "tools/list", serde_json::Value::Null)).await;
+        let tools = body["result"]["tools"].as_array().expect("a tools array");
+        assert_eq!(tools.len(), 37);
+        for tool in tools {
+            assert_eq!(tool["inputSchema"]["type"], "object", "{tool:#}");
+            assert!(tool["description"].as_str().is_some_and(|d| !d.is_empty()), "{tool:#}");
+        }
+    }
+
+    /// A route opts into MCP with `tag = "ApiTags::Mcp"`, and the tool list is derived from the spec.
+    /// Anything that stops a tagged route becoming a tool (no `operation_id`, not a GET, a param type
+    /// the derivation cannot send) is only logged at startup, so it is caught here instead.
+    #[test]
+    fn mcp_tagged_routes_all_become_tools() {
+        let spec: serde_json::Value = serde_json::from_str(&build_api_service().spec()).unwrap();
+        let (tools, errors) = mcp::tools::tools_from_spec(&spec);
+        assert!(errors.is_empty(), "Mcp-tagged routes that could not become tools: {errors:#?}");
+
+        let tagged = spec["paths"].as_object().unwrap().values()
+            .flat_map(|item| item.as_object().unwrap().values())
+            .filter(|op| op["tags"].as_array().is_some_and(|t| t.iter().any(|t| t == "Mcp")))
+            .count();
+        assert_eq!(tools.len(), tagged);
+        assert!(tools.iter().any(|t| t.name == "list_servers"), "INSTRUCTIONS points clients at list_servers");
+    }
+
+    /// Proves tool calls reach the real route in-process: the player lookup runs, misses against
+    /// the dead pool, and the route's 404 comes back as a tool error rather than a protocol error.
+    #[tokio::test]
+    async fn mcp_tool_call_dispatches_to_route() {
+        let cli = client();
+        let (status, body) = mcp(&cli, rpc(7, "tools/call", serde_json::json!({
+            "name": "get_player_detail",
+            "arguments": { "server_id": "1", "player_id": "76561198000000001" },
+        }))).await;
+        assert_eq!(status, poem::http::StatusCode::OK);
+        assert!(body["error"].is_null(), "{body:#}");
+        assert_eq!(body["result"]["isError"], true, "{body:#}");
+        let text = body["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.to_lowercase().contains("not found"), "got {text:?}");
+    }
+
+    /// The hand-written radar tool is listed next to the derived ones and resolves its server before
+    /// touching QGIS; against the dead test pool that lookup misses.
+    #[tokio::test]
+    async fn mcp_radar_tool_is_listed_and_validates() {
+        let cli = client();
+        let (_, body) = mcp(&cli, rpc(1, "tools/list", serde_json::Value::Null)).await;
+        let radar = body["result"]["tools"].as_array().unwrap().iter()
+            .find(|t| t["name"] == "get_radar_map")
+            .expect("get_radar_map is listed");
+        assert_eq!(radar["inputSchema"]["required"], serde_json::json!(["server_id"]));
+
+        let (_, body) = mcp(&cli, rpc(2, "tools/call", serde_json::json!({
+            "name": "get_radar_map", "arguments": { "server_id": "1" },
+        }))).await;
+        assert_eq!(body["result"]["isError"], true, "{body:#}");
+        assert_eq!(body["result"]["content"][0]["text"], "Server not found");
+
+        let (_, body) = mcp(&cli, rpc(3, "tools/call", serde_json::json!({
+            "name": "get_radar_map", "arguments": { "server_id": "1", "layers": "anything" },
+        }))).await;
+        assert_eq!(body["error"]["code"], -32602, "arbitrary WMS params are refused: {body:#}");
+    }
+
+    #[tokio::test]
+    async fn mcp_tool_call_rejects_invalid_params() {
+        let cli = client();
+        for params in [
+            serde_json::json!({ "name": "drop_tables", "arguments": {} }),
+            serde_json::json!({ "name": "get_map_info", "arguments": { "map_name": "ze_x" } }),
+            serde_json::json!({ "name": "get_map_info", "arguments": "gfl" }),
+        ] {
+            let (_, body) = mcp(&cli, rpc(1, "tools/call", params.clone())).await;
+            assert_eq!(body["error"]["code"], -32602, "{params} gave {body:#}");
+        }
     }
 
     #[tokio::test]

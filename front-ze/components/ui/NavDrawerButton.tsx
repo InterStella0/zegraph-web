@@ -9,7 +9,7 @@ import {useState} from "react";
 import {Menu, Coffee} from "lucide-react";
 import {Logo} from "./CommunitySelector";
 import LoginButton from "./LoginButton";
-import {pagesSelection} from "./PagesNavigation";
+import {isPageGroup, PageLink, pagesSelection} from "./PagesNavigation";
 import {Server} from "types/community";
 import {useRouter, usePathname} from "next/navigation";
 import {SiDiscord, SiGithub} from "@icons-pack/react-simple-icons";
@@ -33,6 +33,24 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
         setDrawerOpen(false);
         router.push(link);
     };
+
+    const renderLink = (page: PageLink) => {
+        const linked = selectedMode === 'ServerSpecific'? page.href.replace(":server_id", server.gotoLink): page.href
+        const isActive = currentLocation === linked
+        return (
+            <Button
+                variant="ghost"
+                onClick={() => handleNavigate(linked)}
+                className={`w-full justify-start ${
+                    isActive
+                        ? 'bg-primary/10 border-l-4 border-primary font-semibold text-primary'
+                        : 'border-l-4 border-transparent'
+                }`}
+            >
+                {t(page.key)}
+            </Button>
+        );
+    };
     return <>
         <Button
             variant="ghost"
@@ -54,23 +72,21 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
                     <nav className="flex-1 overflow-auto">
                         <ul className="space-y-1 p-2">
                             {pages.map((page) => {
-                                const linked = selectedMode === 'ServerSpecific'? page.href.replace(":server_id", server.gotoLink): page.href
-                                const isActive = currentLocation === linked
-                                return (
-                                    <li key={page.key}>
-                                        <Button
-                                            variant="ghost"
-                                            onClick={() => handleNavigate(linked)}
-                                            className={`w-full justify-start ${
-                                                isActive
-                                                    ? 'bg-primary/10 border-l-4 border-primary font-semibold text-primary'
-                                                    : 'border-l-4 border-transparent'
-                                            }`}
-                                        >
-                                            {t(page.key)}
-                                        </Button>
-                                    </li>
-                                );
+                                if (isPageGroup(page)) {
+                                    return (
+                                        <li key={page.key}>
+                                            <p className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                                {t(page.key)}
+                                            </p>
+                                            <ul className="space-y-1">
+                                                {page.children.map((child) => (
+                                                    <li key={child.key}>{renderLink(child)}</li>
+                                                ))}
+                                            </ul>
+                                        </li>
+                                    );
+                                }
+                                return <li key={page.key}>{renderLink(page)}</li>;
                             })}
                         </ul>
                     </nav>

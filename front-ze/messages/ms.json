@@ -520,7 +520,10 @@
     "hub": "Hab",
     "status": "Status",
     "donors": "Penderma",
-    "api": "API"
+    "discover": "Terokai",
+    "developer": "Pembangun",
+    "apiDocs": "Dokumen API",
+    "mcp": "MCP"
   },
   "maps": {
     "graph": "Graf",
@@ -1053,6 +1056,19 @@
     "characterTitle": "{id} - Paparan Watak 3D",
     "characterDescription": "Lihat model 3D watak untuk {id} di {name}.",
     "map3dTitle": "{map} - Paparan 3D",
-    "map3dDescription": "Lihat {map} dalam pelayar! Ini ialah versi termampat map atas sebab prestasi."
+    "map3dDescription": "Lihat {map} dalam pelayar! Ini ialah versi termampat map atas sebab prestasi.",
+    "mcpTitle": "Pelayan MCP",
+    "mcpDescription": "Sambungkan pembantu AI kepada data pemain, peta dan pelayan Zombie Escape ZE Graph melalui MCP."
+  },
+  "mcp": {
+    "title": "Pelayan MCP",
+    "description": "Sambungkan ZE Graph kepada pembantu AI anda. Pelayan MCP memberinya akses baca sahaja kepada pemain, peta, pelayan, carta dan peta radar: data yang sama seperti di laman web.",
+    "endpoint": "Titik akhir",
+    "endpointHint": "Streamable HTTP tanpa keadaan. Tiada log masuk diperlukan, dan pemain yang dianonimkan kekal peribadi.",
+    "otherClients": "Klien lain",
+    "otherClientsHint": "Kebanyakan klien MCP menerima entri JSON seperti ini. Nama kunci berbeza antara klien, jadi semak klien anda.",
+    "inspect": "Cuba",
+    "inspectHint": "Senaraikan alat yang tersedia dengan MCP Inspector.",
+    "apiDocsHint": "Lebih suka HTTP biasa? Kebanyakan alat sepadan dengan titik akhir biasa dalam <link>dokumen API</link>."
   }
 }

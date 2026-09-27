@@ -117,7 +117,7 @@ impl ServerApi {
     ///
     /// Returns every tracked community together with its servers, each server's current
     /// player count (capped at `max_players`) and currently-played map. Cached for 60 seconds.
-    #[oai(path = "/communities", method="get")]
+    #[oai(path = "/communities", method = "get", operation_id = "list_servers", tag = "ApiTags::Mcp")]
     async fn get_communities(&self, Data(data): Data<&AppData>) -> Response<Vec<Community>> {
         let pool = &*data.pool.clone();
         let func = || sqlx::query_as!(DbServerCommunity, "
@@ -189,7 +189,7 @@ impl ServerApi {
     /// `page` is a 0-indexed page of 10 players, ranked by total playtime. `search` filters by
     /// player name (case-insensitive substring, minimum 2 characters); results are cached for 60
     /// seconds when unfiltered, computed live when searching.
-    #[oai(path = "/communities/all/players", method="get")]
+    #[oai(path = "/communities/all/players", method = "get", operation_id = "search_players_global", tag = "ApiTags::Mcp")]
     async fn get_global_players(
         &self, Data(data): Data<&AppData>,
         Query(page): Query<usize>, Query(search): Query<Option<String>>,
@@ -355,7 +355,7 @@ impl ServerApi {
     /// Use `community_id = "all"` for the combined graph across every community. `time_type`
     /// picks the bucket width (`TenMinutes`, `OneHour`, `OneDay`) and `time` anchors the most
     /// recent bucket; up to 31 buckets before it are returned.
-    #[oai(path = "/communities/:community_id/unique_players", method="get")]
+    #[oai(path = "/communities/:community_id/unique_players", method="get", operation_id = "get_community_player_count_graph", tag = "ApiTags::Mcp")]
     async fn get_communities_players_graph(
         &self, Data(data): Data<&AppData>,
         CommunityWithAllExtractor(community): CommunityWithAllExtractor,

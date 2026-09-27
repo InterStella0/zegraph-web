@@ -520,7 +520,10 @@
     "hub": "枢纽",
     "status": "状态",
     "donors": "捐赠者",
-    "api": "API"
+    "discover": "发现",
+    "developer": "开发者",
+    "apiDocs": "API 文档",
+    "mcp": "MCP"
   },
   "maps": {
     "graph": "图表",
@@ -1053,6 +1056,19 @@
     "characterTitle": "{id} - 3D 角色视图",
     "characterDescription": "查看 {name} 上 {id} 的 3D 角色模型。",
     "map3dTitle": "{map} - 3D 视图",
-    "map3dDescription": "在浏览器中查看 {map}！出于性能考虑，这是地图的压缩版本。"
+    "map3dDescription": "在浏览器中查看 {map}！出于性能考虑，这是地图的压缩版本。",
+    "mcpTitle": "MCP 服务器",
+    "mcpDescription": "通过 MCP 将 AI 助手连接到 ZE Graph 的僵尸逃跑玩家、地图和服务器数据。"
+  },
+  "mcp": {
+    "title": "MCP 服务器",
+    "description": "把 ZE Graph 接入你的 AI 助手。MCP 服务器为其提供对玩家、地图、服务器、图表和雷达地图的只读访问，与网站显示的数据相同。",
+    "endpoint": "端点",
+    "endpointHint": "无状态 Streamable HTTP。无需登录，匿名玩家的数据依然保密。",
+    "otherClients": "其他客户端",
+    "otherClientsHint": "大多数 MCP 客户端接受类似的 JSON 配置。不同客户端的键名可能不同，请查阅其文档。",
+    "inspect": "试一试",
+    "inspectHint": "使用 MCP Inspector 列出可用工具。",
+    "apiDocsHint": "更喜欢普通 HTTP？大多数工具都对应 <link>API 文档</link>中的一个常规端点。"
   }
 }

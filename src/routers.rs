@@ -55,4 +55,6 @@ pub enum ApiTags {
     AdminServers,
     /// Player requests to claim a name-tracked profile, and their moderation queue.
     PlayerClaims,
+    /// Read-only routes also served as MCP tools at `POST /mcp`, each named by its operation ID.
+    Mcp,
 }

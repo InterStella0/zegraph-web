@@ -520,7 +520,10 @@
     "hub": "Trung tâm",
     "status": "Trạng thái",
     "donors": "Nhà quyên góp",
-    "api": "API"
+    "discover": "Khám phá",
+    "developer": "Nhà phát triển",
+    "apiDocs": "Tài liệu API",
+    "mcp": "MCP"
   },
   "maps": {
     "graph": "Biểu đồ",
@@ -1053,6 +1056,19 @@
     "characterTitle": "{id} - Xem 3D nhân vật",
     "characterDescription": "Xem mô hình 3D nhân vật cho {id} trên {name}.",
     "map3dTitle": "{map} - Xem 3D",
-    "map3dDescription": "Xem {map} trong trình duyệt! Đây là phiên bản nén của bản đồ vì lý do hiệu suất."
+    "map3dDescription": "Xem {map} trong trình duyệt! Đây là phiên bản nén của bản đồ vì lý do hiệu suất.",
+    "mcpTitle": "Máy chủ MCP",
+    "mcpDescription": "Kết nối trợ lý AI với dữ liệu người chơi, bản đồ và máy chủ Zombie Escape của ZE Graph qua MCP."
+  },
+  "mcp": {
+    "title": "Máy chủ MCP",
+    "description": "Kết nối ZE Graph với trợ lý AI của bạn. Máy chủ MCP cho phép truy cập chỉ đọc vào người chơi, bản đồ, máy chủ, biểu đồ và bản đồ radar: cùng dữ liệu mà trang web hiển thị.",
+    "endpoint": "Endpoint",
+    "endpointHint": "Streamable HTTP không trạng thái. Không cần đăng nhập, và người chơi đã ẩn danh vẫn được giữ riêng tư.",
+    "otherClients": "Ứng dụng khác",
+    "otherClientsHint": "Hầu hết ứng dụng MCP chấp nhận một mục JSON như thế này. Tên khóa khác nhau giữa các ứng dụng, hãy kiểm tra ứng dụng của bạn.",
+    "inspect": "Dùng thử",
+    "inspectHint": "Liệt kê các công cụ có sẵn bằng MCP Inspector.",
+    "apiDocsHint": "Thích HTTP thông thường? Hầu hết công cụ tương ứng với một endpoint trong <link>tài liệu API</link>."
   }
 }

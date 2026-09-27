@@ -520,7 +520,10 @@
     "hub": "Hub",
     "status": "Status",
     "donors": "Donors",
-    "api": "API"
+    "discover": "Discover",
+    "developer": "Developer",
+    "apiDocs": "API Docs",
+    "mcp": "MCP"
   },
   "maps": {
     "graph": "Graph",
@@ -1053,6 +1056,19 @@
     "characterTitle": "{id} - 3D Character View",
     "characterDescription": "View character 3D model for {id} on {name}.",
     "map3dTitle": "{map} - 3D View",
-    "map3dDescription": "View {map} on the browser! This is the compressed version of the map for performance reasons."
+    "map3dDescription": "View {map} on the browser! This is the compressed version of the map for performance reasons.",
+    "mcpTitle": "MCP Server",
+    "mcpDescription": "Connect AI assistants to ZE Graph's Zombie Escape player, map and server data over MCP."
+  },
+  "mcp": {
+    "title": "MCP Server",
+    "description": "Plug ZE Graph into your AI assistant. The MCP server gives it read-only access to players, maps, servers, charts and the radar map: the same data the website shows.",
+    "endpoint": "Endpoint",
+    "endpointHint": "Stateless Streamable HTTP. No login needed, and anonymized players stay private.",
+    "otherClients": "Other clients",
+    "otherClientsHint": "Most MCP clients take a JSON entry like this. Key names vary between clients, so check yours.",
+    "inspect": "Try it out",
+    "inspectHint": "List the available tools with the MCP Inspector.",
+    "apiDocsHint": "Prefer plain HTTP? Most tools map to a regular endpoint in the <link>API docs</link>."
   }
 }

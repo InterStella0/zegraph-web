@@ -520,7 +520,10 @@
     "hub": "ハブ",
     "status": "ステータス",
     "donors": "寄付者",
-    "api": "API"
+    "discover": "発見",
+    "developer": "開発者",
+    "apiDocs": "APIドキュメント",
+    "mcp": "MCP"
   },
   "maps": {
     "graph": "グラフ",
@@ -1053,6 +1056,19 @@
     "characterTitle": "{id} - 3Dキャラクタービュー",
     "characterDescription": "{name}の{id}の3Dキャラクターモデルを表示します。",
     "map3dTitle": "{map} - 3Dビュー",
-    "map3dDescription": "ブラウザで{map}を表示してください! これはパフォーマンス上の理由からマップの圧縮バージョンです。"
+    "map3dDescription": "ブラウザで{map}を表示してください! これはパフォーマンス上の理由からマップの圧縮バージョンです。",
+    "mcpTitle": "MCPサーバー",
+    "mcpDescription": "MCP経由でAIアシスタントをZE Graphのゾンビエスケープのプレイヤー・マップ・サーバーデータに接続します。"
+  },
+  "mcp": {
+    "title": "MCPサーバー",
+    "description": "ZE GraphをAIアシスタントにつなげましょう。MCPサーバーはプレイヤー、マップ、サーバー、チャート、レーダーマップへの読み取り専用アクセスを提供します。ウェブサイトと同じデータです。",
+    "endpoint": "エンドポイント",
+    "endpointHint": "ステートレスなStreamable HTTP。ログイン不要で、匿名化されたプレイヤーは非公開のままです。",
+    "otherClients": "その他のクライアント",
+    "otherClientsHint": "ほとんどのMCPクライアントはこのようなJSONエントリを受け付けます。キー名はクライアントによって異なるので確認してください。",
+    "inspect": "試してみる",
+    "inspectHint": "MCP Inspectorで利用可能なツールを一覧表示します。",
+    "apiDocsHint": "通常のHTTPがお好みですか？ほとんどのツールは<link>APIドキュメント</link>の通常のエンドポイントに対応しています。"
   }
 }

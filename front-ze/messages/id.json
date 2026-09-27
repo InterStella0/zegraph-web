@@ -520,7 +520,10 @@
     "hub": "Pusat",
     "status": "Status",
     "donors": "Donatur",
-    "api": "API"
+    "discover": "Jelajahi",
+    "developer": "Pengembang",
+    "apiDocs": "Dokumentasi API",
+    "mcp": "MCP"
   },
   "maps": {
     "graph": "Grafik",
@@ -1053,6 +1056,19 @@
     "characterTitle": "{id} - Tampilan 3D Karakter",
     "characterDescription": "Lihat model 3D karakter untuk {id} di {name}.",
     "map3dTitle": "{map} - Tampilan 3D",
-    "map3dDescription": "Lihat {map} di browser! Ini adalah versi peta yang dikompresi untuk alasan kinerja."
+    "map3dDescription": "Lihat {map} di browser! Ini adalah versi peta yang dikompresi untuk alasan kinerja.",
+    "mcpTitle": "Server MCP",
+    "mcpDescription": "Hubungkan asisten AI ke data pemain, peta, dan server Zombie Escape ZE Graph melalui MCP."
+  },
+  "mcp": {
+    "title": "Server MCP",
+    "description": "Sambungkan ZE Graph ke asisten AI kamu. Server MCP memberinya akses baca saja ke pemain, peta, server, grafik, dan peta radar: data yang sama dengan yang ditampilkan situs.",
+    "endpoint": "Endpoint",
+    "endpointHint": "Streamable HTTP tanpa status. Tidak perlu login, dan pemain yang dianonimkan tetap privat.",
+    "otherClients": "Klien lain",
+    "otherClientsHint": "Sebagian besar klien MCP menerima entri JSON seperti ini. Nama kunci berbeda-beda antar klien, jadi periksa klien kamu.",
+    "inspect": "Coba",
+    "inspectHint": "Tampilkan daftar tool yang tersedia dengan MCP Inspector.",
+    "apiDocsHint": "Lebih suka HTTP biasa? Sebagian besar tool sesuai dengan endpoint biasa di <link>dokumentasi API</link>."
   }
 }

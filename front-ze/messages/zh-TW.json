@@ -520,7 +520,10 @@
     "hub": "樞紐",
     "status": "狀態",
     "donors": "捐款者",
-    "api": "API"
+    "discover": "探索",
+    "developer": "開發者",
+    "apiDocs": "API 文件",
+    "mcp": "MCP"
   },
   "maps": {
     "graph": "圖表",
@@ -1053,6 +1056,19 @@
     "characterTitle": "{id} - 3D 角色檢視",
     "characterDescription": "檢視 {name} 上 {id} 的 3D 角色模型。",
     "map3dTitle": "{map} - 3D 檢視",
-    "map3dDescription": "在瀏覽器中檢視 {map}！基於效能考量，這是地圖的壓縮版本。"
+    "map3dDescription": "在瀏覽器中檢視 {map}！基於效能考量，這是地圖的壓縮版本。",
+    "mcpTitle": "MCP 伺服器",
+    "mcpDescription": "透過 MCP 將 AI 助理連接到 ZE Graph 的殭屍逃脫玩家、地圖與伺服器資料。"
+  },
+  "mcp": {
+    "title": "MCP 伺服器",
+    "description": "把 ZE Graph 接入你的 AI 助理。MCP 伺服器提供對玩家、地圖、伺服器、圖表與雷達地圖的唯讀存取，與網站顯示的資料相同。",
+    "endpoint": "端點",
+    "endpointHint": "無狀態 Streamable HTTP。無需登入，匿名玩家的資料依然保密。",
+    "otherClients": "其他用戶端",
+    "otherClientsHint": "大多數 MCP 用戶端接受類似的 JSON 設定。不同用戶端的鍵名可能不同，請查閱其文件。",
+    "inspect": "試試看",
+    "inspectHint": "使用 MCP Inspector 列出可用工具。",
+    "apiDocsHint": "偏好一般 HTTP？大多數工具都對應 <link>API 文件</link>中的一個常規端點。"
   }
 }

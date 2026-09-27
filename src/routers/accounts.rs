@@ -1058,7 +1058,7 @@ impl AccountsApi {
     ///
     /// `player_id` may be `"me"` or a numeric Steam ID. Communities where the target anonymized
     /// themselves are excluded for viewers without permission for those communities.
-    #[oai(path="/players/:player_id/playtime-heatmap", method="get", tag = "ApiTags::Players")]
+    #[oai(path="/players/:player_id/playtime-heatmap", method="get", tag = "ApiTags::Players", operation_id = "get_player_global_playtime_heatmap", tag = "ApiTags::Mcp")]
     async fn get_user_playtime_heatmap(
         &self,
         Data(app): Data<&AppData>,
