@@ -1069,6 +1069,18 @@
     "otherClientsHint": "Most MCP clients take a JSON entry like this. Key names vary between clients, so check yours.",
     "inspect": "Try it out",
     "inspectHint": "List the available tools with the MCP Inspector.",
-    "apiDocsHint": "Prefer plain HTTP? Most tools map to a regular endpoint in the <link>API docs</link>."
+    "apiDocsHint": "Prefer plain HTTP? Most tools map to a regular endpoint in the <link>API docs</link>.",
+    "mock": {
+      "claudeAddConnectorLabel": "Claude's Add custom connector dialog with the name ZE Graph and the server URL filled in",
+      "claudeAddCustomConnector": "Add custom connector",
+      "name": "Name",
+      "claudeRemoteUrl": "Remote MCP server URL",
+      "advancedSettings": "Advanced settings",
+      "cancel": "Cancel",
+      "add": "Add",
+      "claudeCustomize": "Customize",
+      "skills": "Skills",
+      "connectors": "Connectors"
+    }
   }
 }
