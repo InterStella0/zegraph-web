@@ -1124,6 +1124,20 @@
       "q5": "用雷達地圖顯示現在玩家都是從哪裡加入的。"
     },
     "privacy": "ZE Graph 只讀取公開統計資料。它無法更改任何內容，選擇匿名的玩家會保持隱藏。",
+    "tools": {
+      "title": "你的助理可以查詢什麼",
+      "intro": "你的助理會自行從這 {count} 個唯讀工具中選擇，不需要指定工具名稱，直接提問即可。",
+      "groups": {
+        "servers": "伺服器與社群",
+        "players": "玩家",
+        "maps": "地圖"
+      },
+      "arguments": "{count, plural, other {# 個參數}}",
+      "noArguments": "無參數",
+      "required": "必填",
+      "unavailable": "目前無法載入工具清單，請稍後再試。",
+      "englishOnly": "工具說明為英文，與助理看到的內容完全相同。"
+    },
     "mock": {
       "claudeOpenConnectorsLabel": "Claude 設定中的 Connectors 頁面，Add 選單中顯示 Add custom connector",
       "claudeAddConnectorLabel": "Claude 的 Add custom connector 對話框，已填入名稱 ZE Graph 和伺服器 URL，然後點選 Continue",

@@ -1124,6 +1124,20 @@
       "q5": "Tunjukkan peta radar asal pemain yang sedang bergabung sekarang."
     },
     "privacy": "ZE Graph hanya membaca statistik publik. Ia tidak bisa mengubah apa pun, dan pemain yang memilih anonim tetap tersembunyi.",
+    "tools": {
+      "title": "Apa yang bisa dicari asisten Anda",
+      "intro": "Asisten Anda memilih sendiri dari {count} alat baca-saja ini, jadi Anda tidak perlu menyebut namanya. Cukup ajukan pertanyaan.",
+      "groups": {
+        "servers": "Server dan komunitas",
+        "players": "Pemain",
+        "maps": "Peta"
+      },
+      "arguments": "{count, plural, other {# input}}",
+      "noArguments": "Tanpa input",
+      "required": "Wajib",
+      "unavailable": "Daftar alat tidak dapat dimuat saat ini. Silakan coba lagi nanti.",
+      "englishOnly": "Deskripsi alat ditampilkan dalam bahasa Inggris, persis seperti yang dilihat asisten Anda."
+    },
     "mock": {
       "claudeOpenConnectorsLabel": "Pengaturan Claude di halaman Connectors, dengan menu Add yang menampilkan Add custom connector",
       "claudeAddConnectorLabel": "Dialog Add custom connector Claude dengan nama ZE Graph dan URL server sudah terisi, lalu Continue",

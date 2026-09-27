@@ -1124,6 +1124,20 @@
       "q5": "Muéstrame el mapa de radar de desde dónde se conectan los jugadores ahora mismo."
     },
     "privacy": "ZE Graph solo lee estadísticas públicas. No puede cambiar nada y los jugadores que eligieron ser anónimos siguen ocultos.",
+    "tools": {
+      "title": "Lo que tu asistente puede consultar",
+      "intro": "Tu asistente elige por sí mismo entre estas {count} herramientas de solo lectura, así que no necesitas nombrarlas. Solo haz tu pregunta.",
+      "groups": {
+        "servers": "Servidores y comunidades",
+        "players": "Jugadores",
+        "maps": "Mapas"
+      },
+      "arguments": "{count, plural, one {# parámetro} other {# parámetros}}",
+      "noArguments": "Sin parámetros",
+      "required": "Obligatorio",
+      "unavailable": "No se puede cargar la lista de herramientas ahora mismo. Inténtalo de nuevo más tarde.",
+      "englishOnly": "Las descripciones de las herramientas están en inglés, tal como las ve tu asistente."
+    },
     "mock": {
       "claudeOpenConnectorsLabel": "Ajustes de Claude en la página Connectors, con el menú Add mostrando Add custom connector",
       "claudeAddConnectorLabel": "El diálogo Add custom connector de Claude con el nombre ZE Graph y la URL del servidor rellenados, y luego Continue",

@@ -1124,6 +1124,20 @@
       "q5": "지금 플레이어들이 어디서 접속하고 있는지 레이더 맵으로 보여줘."
     },
     "privacy": "ZE Graph는 공개된 통계만 읽습니다. 아무것도 바꿀 수 없으며, 익명을 선택한 플레이어는 계속 숨겨집니다.",
+    "tools": {
+      "title": "어시스턴트가 조회할 수 있는 항목",
+      "intro": "어시스턴트가 이 {count}개의 읽기 전용 도구 중에서 알아서 골라 사용하므로 도구 이름을 말할 필요가 없습니다. 질문만 하세요.",
+      "groups": {
+        "servers": "서버 및 커뮤니티",
+        "players": "플레이어",
+        "maps": "맵"
+      },
+      "arguments": "{count, plural, other {입력값 #개}}",
+      "noArguments": "입력값 없음",
+      "required": "필수",
+      "unavailable": "지금은 도구 목록을 불러올 수 없습니다. 나중에 다시 시도해 주세요.",
+      "englishOnly": "도구 설명은 어시스턴트가 보는 그대로 영어로 표시됩니다."
+    },
     "mock": {
       "claudeOpenConnectorsLabel": "Claude 설정의 Connectors 페이지에서 Add 메뉴에 Add custom connector가 표시된 모습",
       "claudeAddConnectorLabel": "Claude의 Add custom connector 대화상자에 이름 ZE Graph와 서버 URL을 입력하고 Continue를 누르는 모습",

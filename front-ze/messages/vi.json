@@ -1124,6 +1124,20 @@
       "q5": "Cho tôi xem bản đồ radar người chơi đang vào từ đâu ngay lúc này."
     },
     "privacy": "ZE Graph chỉ đọc số liệu công khai. Nó không thể thay đổi gì, và người chơi đã chọn ẩn danh vẫn được ẩn.",
+    "tools": {
+      "title": "Trợ lý của bạn có thể tra cứu gì",
+      "intro": "Trợ lý tự chọn trong {count} công cụ chỉ đọc này, nên bạn không cần gọi tên chúng. Cứ đặt câu hỏi là được.",
+      "groups": {
+        "servers": "Máy chủ và cộng đồng",
+        "players": "Người chơi",
+        "maps": "Bản đồ"
+      },
+      "arguments": "{count, plural, other {# tham số}}",
+      "noArguments": "Không có tham số",
+      "required": "Bắt buộc",
+      "unavailable": "Hiện không tải được danh sách công cụ. Vui lòng thử lại sau.",
+      "englishOnly": "Mô tả công cụ bằng tiếng Anh, đúng như trợ lý của bạn nhìn thấy."
+    },
     "mock": {
       "claudeOpenConnectorsLabel": "Cài đặt của Claude ở trang Connectors, với menu Add đang hiện Add custom connector",
       "claudeAddConnectorLabel": "Hộp thoại Add custom connector của Claude đã điền tên ZE Graph và URL máy chủ, rồi bấm Continue",

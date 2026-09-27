@@ -3,6 +3,7 @@ import { Bot } from 'lucide-react';
 import ResponsiveAppBar from 'components/ui/ResponsiveAppBar';
 import Footer from 'components/ui/Footer';
 import McpSetupClient from 'components/mcp/McpSetupClient';
+import McpToolList from 'components/mcp/McpToolList';
 import getServerUser from '../getServerUser';
 import { DOMAIN, formatTitle } from 'utils/generalUtils';
 import { getTranslations } from 'next-intl/server';
@@ -38,6 +39,8 @@ export default async function McpSetupPage() {
             </div>
 
             <McpSetupClient mcpUrl={MCP_URL} />
+
+            <McpToolList />
 
           </div>
         </div>
