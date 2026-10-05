@@ -481,6 +481,27 @@
         "nameMatched": "Coincidencia por nombre",
         "noPlaytime": "Sin tiempo de juego"
       }
+    },
+    "playedWith": {
+      "title": "Jugó con",
+      "searchPlaceholder": "Buscar cualquier jugador",
+      "lastMet": "Vistos por última vez {time}",
+      "hoursValue": "{value} h",
+      "empty": "No hay jugadores en esta lista.",
+      "neverCalculated": "Esta lista aún no se ha calculado. Se calcula a petición porque tarda un poco. Aun así puedes buscar a cualquiera arriba.",
+      "calculate": "Calcular",
+      "recalculate": "Recalcular",
+      "calculating": "Calculando...",
+      "upToDate": "Ya está al día con la última sesión.",
+      "noSessions": "Aún no hay sesiones completadas para calcular.",
+      "failed": "No se pudo iniciar el cálculo. Inténtalo más tarde.",
+      "loadError": "No se pudo cargar esta lista.",
+      "calculatedAsOf": "Basado en sesiones hasta {when}.",
+      "outdated": "Hay sesiones más recientes desde entonces.",
+      "staleNote": "Cada cálculo guarda el top 100. Los jugadores que salieron de él conservan sus cifras anteriores.",
+      "liveSearch": "No está en la lista guardada, así que se calculó ahora mismo.",
+      "noMatchesShort": "Ningún jugador guardado coincide con \"{query}\". Escribe al menos 3 caracteres para buscar en todo el servidor.",
+      "noLiveMatches": "No ha jugado con nadie que coincida con \"{query}\"."
     }
   },
   "sessions": {

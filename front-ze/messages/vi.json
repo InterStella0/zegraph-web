@@ -481,6 +481,27 @@
         "nameMatched": "Trùng tên",
         "noPlaytime": "Không có thời gian chơi"
       }
+    },
+    "playedWith": {
+      "title": "Đã chơi cùng",
+      "searchPlaceholder": "Tìm bất kỳ người chơi nào",
+      "lastMet": "Gặp lần cuối {time}",
+      "hoursValue": "{value} giờ",
+      "empty": "Không có người chơi nào trong danh sách.",
+      "neverCalculated": "Danh sách này chưa được tính. Nó được tính khi có yêu cầu vì mất một lúc. Bạn vẫn có thể tìm bất kỳ ai ở trên.",
+      "calculate": "Tính",
+      "recalculate": "Tính lại",
+      "calculating": "Đang tính...",
+      "upToDate": "Đã cập nhật đến phiên mới nhất.",
+      "noSessions": "Chưa có phiên hoàn tất nào để tính.",
+      "failed": "Không thể bắt đầu tính. Vui lòng thử lại sau.",
+      "loadError": "Không thể tải danh sách này.",
+      "calculatedAsOf": "Dựa trên các phiên đến {when}.",
+      "outdated": "Đã có phiên mới hơn kể từ đó.",
+      "staleNote": "Mỗi lần tính lưu top 100. Người chơi rơi khỏi top giữ số liệu cũ.",
+      "liveSearch": "Không có trong danh sách đã lưu nên vừa được tính.",
+      "noMatchesShort": "Không có người chơi đã lưu nào khớp với \"{query}\". Nhập ít nhất 3 ký tự để tìm trên toàn máy chủ.",
+      "noLiveMatches": "Chưa từng chơi cùng ai khớp với \"{query}\"."
     }
   },
   "sessions": {

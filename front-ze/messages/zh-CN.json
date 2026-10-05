@@ -481,6 +481,27 @@
         "nameMatched": "名称匹配",
         "noPlaytime": "无游戏时长"
       }
+    },
+    "playedWith": {
+      "title": "一起玩过",
+      "searchPlaceholder": "搜索任意玩家",
+      "lastMet": "上次同场 {time}",
+      "hoursValue": "{value} 小时",
+      "empty": "此列表中没有玩家。",
+      "neverCalculated": "此列表尚未计算。由于耗时较长，仅在请求时计算。你仍然可以在上方搜索任何人。",
+      "calculate": "计算",
+      "recalculate": "重新计算",
+      "calculating": "计算中...",
+      "upToDate": "已是最新会话的结果。",
+      "noSessions": "还没有可用于计算的已完成会话。",
+      "failed": "无法开始计算，请稍后再试。",
+      "loadError": "无法加载此列表。",
+      "calculatedAsOf": "基于截至 {when} 的会话。",
+      "outdated": "之后已有更新的会话。",
+      "staleNote": "每次计算保存前 100 名。跌出前 100 的玩家保留之前的数据。",
+      "liveSearch": "不在已保存的列表中，因此刚刚实时计算。",
+      "noMatchesShort": "没有与“{query}”匹配的已保存玩家。输入至少 3 个字符以搜索整个服务器。",
+      "noLiveMatches": "从未与匹配“{query}”的玩家一起玩过。"
     }
   },
   "sessions": {

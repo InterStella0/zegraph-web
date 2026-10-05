@@ -106,6 +106,7 @@ pub enum JobKind {
     PlayerRegionTime(PlayerData),
     PlayerHourCount(PlayerData),
     PlayerOnlineHeatmap(PlayerData),
+    PlayerMightFriends(PlayerData),
 
     // PlayerSessionQuery<T>
     PlayerSeen(PlayerSessionData),
@@ -161,6 +162,7 @@ pub async fn dispatch(
         JobKind::PlayerOnlineHeatmap(d) => {
             run!(player_query::<Vec<DbPlayerOnlineHeatmap>>(d, pool, cache))
         }
+        JobKind::PlayerMightFriends(d) => run!(player_query::<Vec<DbPlayerSeen>>(d, pool, cache)),
 
         JobKind::PlayerSeen(d) => run!(player_session_query::<Vec<DbPlayerSeen>>(d, pool, cache)),
 
@@ -307,7 +309,8 @@ mod tests {
             JobKind::PlayerLegacyStats(p.clone()),
             JobKind::PlayerRegionTime(p.clone()),
             JobKind::PlayerHourCount(p.clone()),
-            JobKind::PlayerOnlineHeatmap(p),
+            JobKind::PlayerOnlineHeatmap(p.clone()),
+            JobKind::PlayerMightFriends(p),
             JobKind::PlayerSeen(s),
             JobKind::PlayerGlobalSnapshot(g.clone()),
             JobKind::PlayerCommunityPlaytime(g),
@@ -323,7 +326,7 @@ mod tests {
                 | JobKind::PlayerMapPlayed(_) | JobKind::PlayerPlaytimeRanks(_)
                 | JobKind::PlayerMapRanks(_) | JobKind::PlayerAliases(_) | JobKind::PlayerDetail(_)
                 | JobKind::PlayerLegacyStats(_) | JobKind::PlayerRegionTime(_) | JobKind::PlayerHourCount(_)
-                | JobKind::PlayerOnlineHeatmap(_) | JobKind::PlayerSeen(_)
+                | JobKind::PlayerOnlineHeatmap(_) | JobKind::PlayerMightFriends(_) | JobKind::PlayerSeen(_)
                 | JobKind::PlayerGlobalSnapshot(_) | JobKind::PlayerCommunityPlaytime(_)
                 | JobKind::PlayerGlobalPlaytime { .. } => {}
             }
@@ -343,6 +346,6 @@ mod tests {
             assert!(tags.insert(tag.clone()), "two JobKind variants share the tag {tag}");
         }
 
-        assert_eq!(tags.len(), 23, "all variants must be covered by all_job_kinds()");
+        assert_eq!(tags.len(), 24, "all variants must be covered by all_job_kinds()");
     }
 }

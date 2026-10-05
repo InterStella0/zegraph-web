@@ -187,6 +187,15 @@ impl BackgroundWorker {
         }
     }
 
+    /// Whether a refresh job for `cache_key` is queued or running, per its inflight marker.
+    pub async fn is_inflight(&self, cache_key: &str) -> bool {
+        let Ok(mut conn) = self.cache.redis_pool.get().await else {
+            return false;
+        };
+        let exists: RedisResult<bool> = conn.exists(job::inflight_key(cache_key)).await;
+        exists.unwrap_or(false)
+    }
+
     async fn try_cache_lookup<T>(&self, key: &str) -> Result<T, ()>
     where
         T: for<'de> Deserialize<'de>,
@@ -658,6 +667,7 @@ mod cache_key_tests {
             player_query::<Vec<DbPlayerRegionTime>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerHourCount>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerOnlineHeatmap>>().cache_key_pattern(),
+            player_query::<Vec<DbPlayerSeen>>().cache_key_pattern(),
             player_session_query::<Vec<DbPlayerSeen>>().cache_key_pattern(),
             player_global_query::<DbGlobalPlaytimeSnapshot>().cache_key_pattern(),
             player_global_query::<Vec<DbPlayerCommunityPlaytime>>().cache_key_pattern(),
@@ -677,6 +687,6 @@ mod cache_key_tests {
             unique.len(), patterns.len(),
             "two WorkerQuery impls resolve to the same cache key; patterns were {patterns:#?}",
         );
-        assert_eq!(patterns.len(), 22, "every WorkerQuery impl must be listed here");
+        assert_eq!(patterns.len(), 23, "every WorkerQuery impl must be listed here");
     }
 }

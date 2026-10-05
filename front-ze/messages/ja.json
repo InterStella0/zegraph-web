@@ -481,6 +481,27 @@
         "nameMatched": "名前が一致",
         "noPlaytime": "プレイ時間なし"
       }
+    },
+    "playedWith": {
+      "title": "一緒にプレイ",
+      "searchPlaceholder": "プレイヤーを検索",
+      "lastMet": "最後に一緒: {time}",
+      "hoursValue": "{value}時間",
+      "empty": "このリストにプレイヤーはいません。",
+      "neverCalculated": "このリストはまだ計算されていません。時間がかかるため、リクエスト時に計算します。上の検索はいつでも使えます。",
+      "calculate": "計算する",
+      "recalculate": "再計算",
+      "calculating": "計算中...",
+      "upToDate": "最新のセッションまで計算済みです。",
+      "noSessions": "計算できる完了済みセッションがまだありません。",
+      "failed": "計算を開始できませんでした。後でもう一度お試しください。",
+      "loadError": "このリストを読み込めませんでした。",
+      "calculatedAsOf": "{when}までのセッションに基づいています。",
+      "outdated": "その後に新しいセッションがあります。",
+      "staleNote": "計算のたびに上位100人を保存します。圏外になったプレイヤーは以前の数値のままです。",
+      "liveSearch": "保存済みリストにないため、今計算しました。",
+      "noMatchesShort": "「{query}」に一致する保存済みプレイヤーはいません。サーバー全体を検索するには3文字以上入力してください。",
+      "noLiveMatches": "「{query}」に一致するプレイヤーと一緒にプレイしたことはありません。"
     }
   },
   "sessions": {

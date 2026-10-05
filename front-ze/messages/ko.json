@@ -481,6 +481,27 @@
         "nameMatched": "이름 일치",
         "noPlaytime": "플레이 시간 없음"
       }
+    },
+    "playedWith": {
+      "title": "함께 플레이",
+      "searchPlaceholder": "플레이어 검색",
+      "lastMet": "마지막으로 함께: {time}",
+      "hoursValue": "{value}시간",
+      "empty": "이 목록에 플레이어가 없습니다.",
+      "neverCalculated": "이 목록은 아직 계산되지 않았습니다. 시간이 걸리므로 요청 시에 계산합니다. 위에서 누구든 검색할 수는 있습니다.",
+      "calculate": "계산",
+      "recalculate": "다시 계산",
+      "calculating": "계산 중...",
+      "upToDate": "이미 최신 세션까지 반영되어 있습니다.",
+      "noSessions": "계산할 완료된 세션이 아직 없습니다.",
+      "failed": "계산을 시작할 수 없습니다. 나중에 다시 시도하세요.",
+      "loadError": "이 목록을 불러올 수 없습니다.",
+      "calculatedAsOf": "{when}까지의 세션 기준입니다.",
+      "outdated": "그 이후 새 세션이 있습니다.",
+      "staleNote": "계산할 때마다 상위 100명을 저장합니다. 순위에서 벗어난 플레이어는 이전 수치를 유지합니다.",
+      "liveSearch": "저장된 목록에 없어 방금 계산했습니다.",
+      "noMatchesShort": "\"{query}\"와(과) 일치하는 저장된 플레이어가 없습니다. 서버 전체를 검색하려면 3자 이상 입력하세요.",
+      "noLiveMatches": "\"{query}\"와(과) 일치하는 플레이어와 함께 플레이한 적이 없습니다."
     }
   },
   "sessions": {

@@ -803,7 +803,7 @@ mod route_tests {
         let cli = client();
         let (_, body) = mcp(&cli, rpc(1, "tools/list", serde_json::Value::Null)).await;
         let tools = body["result"]["tools"].as_array().expect("a tools array");
-        assert_eq!(tools.len(), 37);
+        assert_eq!(tools.len(), 38);
         for tool in tools {
             assert_eq!(tool["inputSchema"]["type"], "object", "{tool:#}");
             assert!(tool["description"].as_str().is_some_and(|d| !d.is_empty()), "{tool:#}");

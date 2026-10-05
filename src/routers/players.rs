@@ -968,6 +968,52 @@ impl PlayerApi{
         let ctx = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_player_approximate_friend(&ctx, &session_id).await)
     }
+    /// Who a player has played with on a server: the players who spent the most time on the
+    /// server alongside them, all-time.
+    ///
+    /// Reads the stored list only and never runs the full calculation; the list is (re)built on
+    /// request by `POST .../might_friends/calculate`. Each calculation saves that moment's top 100,
+    /// and players who later fall out of the top 100 keep their old, stale entry, so the list can
+    /// hold more than 100. `calculated_at` says how current it is, `is_stale` whether newer
+    /// sessions exist, and `is_calculating` whether a recalculation is under way. Sorted by time
+    /// together, 20 per page (`page` starts at 0).
+    ///
+    /// `q` filters by player name. If no stored player matches a `q` of 3 or more characters, the
+    /// time together with every matching player on the server (up to the 100 closest names) is
+    /// calculated on the spot instead, keeping only those who ever played together, and
+    /// `live_search` is set. Anonymized players show as "Anonymous" and never match `q`.
+    #[oai(path="/servers/:server_id/players/:player_id/might_friends", method="get", operation_id = "get_player_might_friends", tag = "ApiTags::Mcp")]
+    async fn get_player_might_friends(
+        &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
+        Query(q): Query<Option<String>>, Query(page): Query<Option<i64>>,
+        OptionalAnonymousTokenBearer(user_token): OptionalAnonymousTokenBearer,
+    ) -> Response<PlayerMightFriendsPage>{
+        let server_id = extract.server.server_id.clone();
+        let ctx = PlayerContext::from(extract);
+        let mut result = match app.player_worker.get_might_friends(&ctx, q.as_deref(), page.unwrap_or(0)).await {
+            Ok(result) => result,
+            Err(e) => return handle_worker_player_result(Err(e)),
+        };
+        let anonymizer = BriefAnonymizer::new(app, &server_id, user_token.as_ref().map(|t| t.user_id())).await;
+        anonymizer.apply(&mut result.rows);
+        response!(ok result)
+    }
+    /// Asks for this player's "played with" list to be recalculated in the background.
+    ///
+    /// Only queues work when the player has a completed session newer than the stored list
+    /// (`queued`); otherwise reports `up_to_date`, `calculating` or `no_sessions`. Poll
+    /// `GET .../might_friends` until `calculated_at` changes.
+    #[oai(path="/servers/:server_id/players/:player_id/might_friends/calculate", method="post")]
+    async fn calculate_player_might_friends(
+        &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
+        OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
+    ) -> Response<MightFriendsCalculation>{
+        let ctx = PlayerContext::from(extract);
+        handle_worker_player_result(
+            app.player_worker.calculate_might_friends(&ctx).await
+                .map(|status| MightFriendsCalculation { status })
+        )
+    }
     /// A player's most-played maps on a server. Backed by `PlayerWorker`'s cache.
     #[oai(path = "/servers/:server_id/players/:player_id/most_played_maps", method = "get", operation_id = "get_player_most_played_maps", tag = "ApiTags::Mcp")]
     async fn get_player_most_played(
@@ -1001,6 +1047,8 @@ impl UriPatternExt for PlayerApi{
             "/servers/{server_id}/players/{player_id}/sessions/{session_id}/info",
             "/servers/{server_id}/players/{player_id}/sessions/{session_id}/maps",
             "/servers/{server_id}/players/{player_id}/sessions/{session_id}/might_friends",
+            "/servers/{server_id}/players/{player_id}/might_friends",
+            "/servers/{server_id}/players/{player_id}/might_friends/calculate",
             "/servers/{server_id}/players/{player_id}/infraction_update",
             "/servers/{server_id}/players/{player_id}/infractions",
             "/servers/{server_id}/players/{player_id}/detail",

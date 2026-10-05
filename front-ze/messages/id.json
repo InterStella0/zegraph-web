@@ -481,6 +481,27 @@
         "nameMatched": "Cocok berdasarkan nama",
         "noPlaytime": "Tidak ada waktu bermain"
       }
+    },
+    "playedWith": {
+      "title": "Bermain bersama",
+      "searchPlaceholder": "Cari pemain mana pun",
+      "lastMet": "Terakhir bertemu {time}",
+      "hoursValue": "{value} jam",
+      "empty": "Tidak ada pemain di daftar ini.",
+      "neverCalculated": "Daftar ini belum dihitung. Dihitung saat diminta karena butuh waktu. Kamu tetap bisa mencari siapa pun di atas.",
+      "calculate": "Hitung",
+      "recalculate": "Hitung ulang",
+      "calculating": "Menghitung...",
+      "upToDate": "Sudah terbaru sesuai sesi terakhir.",
+      "noSessions": "Belum ada sesi selesai untuk dihitung.",
+      "failed": "Tidak dapat memulai perhitungan. Coba lagi nanti.",
+      "loadError": "Daftar ini tidak dapat dimuat.",
+      "calculatedAsOf": "Berdasarkan sesi hingga {when}.",
+      "outdated": "Ada sesi yang lebih baru sejak itu.",
+      "staleNote": "Setiap perhitungan menyimpan 100 teratas. Pemain yang keluar dari daftar itu menyimpan angka lamanya.",
+      "liveSearch": "Tidak ada di daftar tersimpan, jadi dihitung barusan.",
+      "noMatchesShort": "Tidak ada pemain tersimpan yang cocok dengan \"{query}\". Ketik minimal 3 karakter untuk mencari di seluruh server.",
+      "noLiveMatches": "Belum pernah bermain dengan siapa pun yang cocok dengan \"{query}\"."
     }
   },
   "sessions": {

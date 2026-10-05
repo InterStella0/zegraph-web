@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {ReactElement, use, useEffect, useState} from "react";
+import {ReactElement, ReactNode, use, useEffect, useState} from "react";
 import {fetchApiServerUrl, simpleRandom, StillCalculate} from "utils/generalUtils";
 import { Card, CardContent } from "components/ui/card";
 import { Badge } from "components/ui/badge";
@@ -92,7 +92,10 @@ function SessionRow({ session, server, player }) {
     );
 }
 
-export default function PlayerSessionList({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}): ReactElement {
+export default function PlayerSessionList({ serverPlayerPromise, heading }: {
+    serverPlayerPromise: Promise<ServerPlayerDetailed>,
+    heading?: ReactNode,
+}): ReactElement {
     const t = useTranslations('players.sessions');
     const { server, player } = use(serverPlayerPromise)
     const server_id = server.id
@@ -157,10 +160,10 @@ export default function PlayerSessionList({ serverPlayerPromise }: { serverPlaye
 
     return (
         <div className="w-full">
-            <div className="mb-3 flex items-center gap-4 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-semibold">
+            <div className="mb-3 flex flex-row flex-wrap justify-between items-center gap-2">
+                {heading ?? <h2 className="text-lg sm:text-xl font-semibold">
                     {t('title')}
-                </h2>
+                </h2>}
                 <div className="flex gap-2 items-center">
                     {selectedDate && (
                         <Button
