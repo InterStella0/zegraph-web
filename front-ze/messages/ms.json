@@ -481,6 +481,27 @@
         "nameMatched": "Sepadan nama",
         "noPlaytime": "Tiada masa bermain"
       }
+    },
+    "playedWith": {
+      "title": "Bermain bersama",
+      "searchPlaceholder": "Cari mana-mana pemain",
+      "lastMet": "Kali terakhir bersama {time}",
+      "hoursValue": "{value} jam",
+      "empty": "Tiada pemain dalam senarai ini.",
+      "neverCalculated": "Senarai ini belum dikira. Ia dikira apabila diminta kerana mengambil masa. Anda masih boleh mencari sesiapa di atas.",
+      "calculate": "Kira",
+      "recalculate": "Kira semula",
+      "calculating": "Sedang mengira...",
+      "upToDate": "Sudah terkini dengan sesi terakhir.",
+      "noSessions": "Belum ada sesi lengkap untuk dikira.",
+      "failed": "Tidak dapat memulakan pengiraan. Cuba lagi nanti.",
+      "loadError": "Senarai ini tidak dapat dimuatkan.",
+      "calculatedAsOf": "Berdasarkan sesi sehingga {when}.",
+      "outdated": "Ada sesi lebih baharu sejak itu.",
+      "staleNote": "Setiap pengiraan menyimpan 100 teratas. Pemain yang terkeluar daripadanya mengekalkan angka lama.",
+      "liveSearch": "Tiada dalam senarai tersimpan, jadi dikira sebentar tadi.",
+      "noMatchesShort": "Tiada pemain tersimpan sepadan dengan \"{query}\". Taip sekurang-kurangnya 3 aksara untuk mencari seluruh pelayan.",
+      "noLiveMatches": "Tidak pernah bermain dengan sesiapa yang sepadan dengan \"{query}\"."
     }
   },
   "sessions": {

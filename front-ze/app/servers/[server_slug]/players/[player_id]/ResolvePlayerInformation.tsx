@@ -3,7 +3,7 @@ import {use} from "react";
 import {notFound} from "next/navigation";
 import {StillCalculate} from "utils/generalUtils.ts";
 import PlayerCardDetail from "components/players/PlayerCardDetail.tsx";
-import PlayerSessionList from "components/players/PlayerSessionList.tsx";
+import PlayerSessionTabs from "components/players/PlayerSessionTabs.tsx";
 import PlayerTopMap from "components/players/PlayerTopMap.tsx";
 import PlayerRegionPlayTime from "components/players/PlayerRegionPlayTime.tsx";
 import PlayerInfractionRecord from "components/players/PlayerInfractionRecord.tsx";
@@ -43,7 +43,7 @@ export default function ResolvePlayerInformation({ serverPlayerPromise, userProm
                 <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} userPromise={userPromise} />
             </div>
             <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                <PlayerSessionList serverPlayerPromise={serverPlayerPromise} />
+                <PlayerSessionTabs serverPlayerPromise={serverPlayerPromise} />
             </div>
             <div className="col-span-12 md:col-span-6 xl:col-span-8">
                 <PlayerTopMap serverPlayerPromise={serverPlayerPromise} />

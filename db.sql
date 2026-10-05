@@ -183,6 +183,9 @@ CREATE INDEX idx_player_server_session_server_id_player_id_started_ended
 CREATE INDEX idx_player_server_session_started_at
     ON player_server_session (started_at);
 
+CREATE INDEX idx_pss_server_time_player
+    ON player_server_session (server_id, started_at, ended_at, player_id);
+
 CREATE INDEX idx_pss_live
     ON player_server_session (server_id, last_verified DESC)
     INCLUDE (session_id, player_id, started_at)
@@ -376,13 +379,14 @@ CREATE TABLE website.player_server_worker(
     last_calculated UUID REFERENCES player_server_session(session_id) ON DELETE CASCADE NOT NULL,
     PRIMARY KEY(player_id, server_id, type)
 );
+
 CREATE TABLE website.player_server_relationship(
     player_id VARCHAR(100) REFERENCES player(player_id) ON DELETE CASCADE NOT NULL,
-    meet_player_id VARCHAR(100) REFERENCES player(player_id) ON DELETE CASCADE NOT NULL,
     server_id VARCHAR(100) REFERENCES server(server_id) ON DELETE CASCADE NOT NULL,
-    total_time_together INTERVAL DEFAULT INTERVAL '0 seconds',
-    last_seen TIMESTAMP WITH TIME ZONE,
-    PRIMARY KEY(player_id, meet_player_id, server_id)
+    meet_player_id VARCHAR(100) REFERENCES player(player_id) ON DELETE CASCADE NOT NULL,
+    total_time_together INTERVAL NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY(player_id, server_id, meet_player_id)
 );
 
 CREATE TABLE website.player_playtime(

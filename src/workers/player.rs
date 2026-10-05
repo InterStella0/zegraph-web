@@ -10,12 +10,17 @@ use sqlx::types::time::OffsetDateTime;
 use crate::api_models::players::*;
 use crate::api_models::maps::*;
 use crate::core::utils::*;
-use crate::routers::players::{get_player, get_player_cache_key};
+use crate::routers::players::{get_player, get_player_cache_key, PLAYER_DEFAULT_KEY};
 use crate::FastCache;
 use crate::models::admins::{DbGlobalRefreshTarget, DbGlobalSums, DbPlayerGlobalPlaytime};
 use crate::models::maps::*;
 use crate::models::players::*;
 use super::{BackgroundWorker, JobKind, PlayerContext, PlayerData, PlayerGlobalData, PlayerSessionData, Query, QueryPriority, RefreshJob, WorkError, WorkResult, WorkerQuery};
+
+struct DbMightFriendsCalculated{
+    last_calculated: String,
+    ended_at: Option<OffsetDateTime>,
+}
 
 #[allow(dead_code)]
 struct DbWorkerLastCalculated{
@@ -789,6 +794,113 @@ impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerSessionQuery<Vec<DbPlayerSeen>> {
     }
 }
 
+pub const MIGHT_FRIENDS_LIMIT: i64 = 100;
+pub const MIGHT_FRIENDS_WORKER: &str = "might_friends";
+const LIVE_SEARCH_MIN_CHARS: usize = 3;
+
+/// Escapes `LIKE` wildcards so user input matches literally.
+fn escape_like(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+}
+
+/// Who a player has "played with" on a server, all-time: whoever overlapped the most with their
+/// completed sessions. Only ever run on request (the `might_friends/calculate` route queues it);
+/// the list route reads `website.player_server_relationship` directly and never calculates.
+#[async_trait]
+impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerBasicQuery<Vec<DbPlayerSeen>> {
+    type Error = sqlx::Error;
+
+    async fn execute(&self) -> Result<Vec<DbPlayerSeen>, Self::Error> {
+        let ctx = &self.context;
+        if ctx.data.current_session == PLAYER_DEFAULT_KEY {
+            // No completed session yet, so nothing to overlap with.
+            return Ok(vec![]);
+        }
+
+        let mut tx = ctx.pool.begin().await?;
+        sqlx::query("SET LOCAL jit = off").execute(&mut *tx).await?;
+        sqlx::query("SET LOCAL statement_timeout = '60s'").execute(&mut *tx).await?;
+
+        let friends = sqlx::query_as!(DbPlayerSeen, "
+            WITH target AS NOT MATERIALIZED (
+                SELECT started_at, ended_at
+                FROM player_server_session
+                WHERE server_id = $1 AND player_id = $2 AND ended_at IS NOT NULL
+            ),
+            pairs AS (
+                SELECT s2.player_id, t.started_at AS ts, t.ended_at AS te, s2.started_at AS ss, s2.ended_at AS se
+                FROM target t
+                JOIN player_server_session s2
+                  ON s2.server_id = $1
+                 AND s2.started_at >= t.started_at - INTERVAL '1 day'
+                 AND s2.started_at < t.ended_at
+                 AND s2.ended_at > t.started_at
+                 AND s2.player_id <> $2
+                UNION ALL
+                SELECT s2.player_id, t.started_at, t.ended_at, s2.started_at, t.ended_at
+                FROM target t
+                JOIN player_server_session s2
+                  ON s2.server_id = $1
+                 AND s2.ended_at IS NULL
+                 AND s2.started_at >= t.started_at - INTERVAL '1 day'
+                 AND s2.started_at < t.ended_at
+                 AND s2.player_id <> $2
+            ),
+            ranked AS (
+                SELECT
+                    player_id AS meet_player_id,
+                    SUM(LEAST(te, se) - GREATEST(ts, ss)) AS total_time_together,
+                    MAX(LEAST(te, se)) AS last_seen
+                FROM pairs
+                GROUP BY player_id
+                ORDER BY total_time_together DESC, player_id
+                LIMIT $3
+            ),
+            saved AS (
+                INSERT INTO website.player_server_relationship(player_id, server_id, meet_player_id, total_time_together, last_seen)
+                SELECT $2, $1, meet_player_id, total_time_together, last_seen FROM ranked
+                ON CONFLICT (player_id, server_id, meet_player_id)
+                DO UPDATE SET
+                    total_time_together = EXCLUDED.total_time_together,
+                    last_seen = EXCLUDED.last_seen
+                RETURNING meet_player_id, total_time_together, last_seen
+            )
+            SELECT
+                s.meet_player_id AS \"player_id!\",
+                p.player_name AS \"player_name!\",
+                s.total_time_together AS \"total_time_together?\",
+                s.last_seen AS \"last_seen?\"
+            FROM saved s
+            JOIN player p ON p.player_id = s.meet_player_id
+            ORDER BY s.total_time_together DESC, s.meet_player_id
+        ", ctx.data.server_id, ctx.data.player_id, MIGHT_FRIENDS_LIMIT).fetch_all(&mut *tx).await?;
+
+        sqlx::query!("
+            INSERT INTO website.player_server_worker(player_id, server_id, type, last_calculated)
+            VALUES ($1, $2, $3, $4::text::uuid)
+            ON CONFLICT(player_id, server_id, type)
+            DO UPDATE SET last_calculated = EXCLUDED.last_calculated
+        ", ctx.data.player_id, ctx.data.server_id, MIGHT_FRIENDS_WORKER, ctx.data.current_session)
+            .execute(&mut *tx).await?;
+
+        tx.commit().await?;
+        Ok(friends)
+    }
+
+    fn cache_key_pattern(&self) -> String {
+        let ctx = &self.context;
+        format!("player-might-friends:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
+    }
+
+    // Nothing reads this cache entry back; the list route reads the table.
+    fn ttl(&self) -> u64 { DAY }
+    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::PlayerMightFriends(self.context.data.clone())
+    }
+}
+
 
 #[async_trait]
 impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerBasicQuery<Vec<DbPlayerHourCount>> {
@@ -1117,6 +1229,167 @@ impl PlayerWorker {
         let result: Vec<DbPlayerSeen> = self.query_player_execute_session(context, session_id).await?;
         Ok(result.iter_into())
     }
+    async fn might_friends_calculated(
+        &self, context: &PlayerContext,
+    ) -> Result<Option<DbMightFriendsCalculated>, sqlx::Error> {
+        sqlx::query_as!(DbMightFriendsCalculated, "
+            SELECT w.last_calculated::TEXT AS \"last_calculated!\", s.ended_at
+            FROM website.player_server_worker w
+            JOIN player_server_session s ON s.session_id = w.last_calculated
+            WHERE w.player_id = $1 AND w.server_id = $2 AND w.type = $3
+        ", context.player.player_id, context.server.server_id, MIGHT_FRIENDS_WORKER)
+            .fetch_optional(&*self.pool).await
+    }
+
+    fn might_friends_query(&self, context: &PlayerContext) -> PlayerBasicQuery<Vec<DbPlayerSeen>> {
+        PlayerBasicQuery::new(context, self.pool.clone(), self.background_worker.cache.clone())
+    }
+
+    pub async fn get_might_friends(
+        &self, context: &PlayerContext, search: Option<&str>, page: i64,
+    ) -> WorkResult<PlayerMightFriendsPage> {
+        const PAGE_SIZE: i64 = 20;
+        let search = search
+            .map(str::trim)
+            .filter(|q| !q.is_empty())
+            .map(|q| q.to_lowercase());
+        let pattern = search.as_deref().map(escape_like);
+
+        let mut rows = sqlx::query_as!(DbPlayerMightFriend, "
+            SELECT
+                r.meet_player_id AS player_id,
+                p.player_name,
+                r.total_time_together AS \"total_time_together?\",
+                r.last_seen AS \"last_seen?\",
+                COALESCE(ua.anonymized, FALSE) AS \"is_anonymous!\",
+                COUNT(*) OVER() AS total_rows
+            FROM website.player_server_relationship r
+            JOIN player p ON p.player_id = r.meet_player_id
+            JOIN server s ON s.server_id = r.server_id
+            LEFT JOIN website.user_anonymization ua
+                   ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
+                  AND ua.community_id = s.community_id
+            WHERE r.player_id = $1 AND r.server_id = $2
+              AND ($3::TEXT IS NULL OR (
+                    NOT COALESCE(ua.anonymized, FALSE)
+                    AND p.player_name ILIKE '%' || $3 || '%'
+              ))
+            ORDER BY r.total_time_together DESC, r.meet_player_id
+            LIMIT $4 OFFSET $5
+        ", context.player.player_id, context.server.server_id, pattern, PAGE_SIZE, page.max(0) * PAGE_SIZE)
+            .fetch_all(&*self.pool).await?;
+
+        let mut total_rows = rows.first().and_then(|r| r.total_rows).unwrap_or_default();
+        let mut live_search = false;
+        if let Some(search) = search.as_deref() {
+            if rows.is_empty() && page <= 0 && search.chars().count() >= LIVE_SEARCH_MIN_CHARS {
+                rows = self.search_played_with_live(context, search).await?;
+                total_rows = rows.len() as i64;
+                live_search = true;
+            }
+        }
+
+        let calculated = self.might_friends_calculated(context).await?;
+        let (job, _, _) = RefreshJob::for_session(&self.might_friends_query(context), &context.cache_key.current, None);
+        let is_calculating = self.background_worker.is_inflight(&job.cache_key).await;
+
+        Ok(PlayerMightFriendsPage {
+            total_pages: (total_rows + PAGE_SIZE - 1) / PAGE_SIZE,
+            rows: rows.iter_into(),
+            is_stale: context.cache_key.current != PLAYER_DEFAULT_KEY
+                && calculated.as_ref().map(|c| c.last_calculated.as_str()) != Some(context.cache_key.current.as_str()),
+            calculated_at: calculated.and_then(|c| c.ended_at).map(db_to_utc),
+            is_calculating,
+            live_search,
+        })
+    }
+
+    pub async fn calculate_might_friends(&self, context: &PlayerContext) -> WorkResult<MightFriendsCalculateStatus> {
+        let current = &context.cache_key.current;
+        if current == PLAYER_DEFAULT_KEY {
+            return Ok(MightFriendsCalculateStatus::NoSessions);
+        }
+        let calculated = self.might_friends_calculated(context).await?;
+        if calculated.as_ref().map(|c| &c.last_calculated) == Some(current) {
+            return Ok(MightFriendsCalculateStatus::UpToDate);
+        }
+        let (job, _, _) = RefreshJob::for_session(&self.might_friends_query(context), current, None);
+        if self.background_worker.is_inflight(&job.cache_key).await {
+            return Ok(MightFriendsCalculateStatus::Calculating);
+        }
+        self.background_worker.enqueue_refresh_job(job).await;
+        Ok(MightFriendsCalculateStatus::Queued)
+    }
+
+    /// Time spent alongside every player on the server whose name contains `search` (lowercase),
+    /// calculated live, keeping only those who were ever on together, most time first.
+    async fn search_played_with_live(
+        &self, context: &PlayerContext, search: &str,
+    ) -> Result<Vec<DbPlayerMightFriend>, sqlx::Error> {
+        let pool = &*self.pool;
+        let server_id = &context.server.server_id;
+        let player_id = &context.player.player_id;
+        let pattern = escape_like(search);
+        let func = || sqlx::query_as!(DbPlayerMightFriend, "
+            WITH candidates AS (
+                SELECT spn.player_id, spn.player_name
+                FROM server_player_names spn
+                JOIN player p ON p.player_id = spn.player_id
+                JOIN server s ON s.server_id = spn.server_id
+                LEFT JOIN website.user_anonymization ua
+                       ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
+                      AND ua.community_id = s.community_id
+                WHERE spn.server_id = $1 AND spn.player_id <> $2
+                  AND LOWER(spn.player_name) LIKE '%' || $3 || '%'
+                  AND NOT COALESCE(ua.anonymized, FALSE)
+                ORDER BY
+                    LOWER(spn.player_name) = $4 DESC,
+                    LOWER(spn.player_name) LIKE $3 || '%' DESC,
+                    LENGTH(spn.player_name),
+                    spn.player_id
+                LIMIT 100
+            ),
+            target AS NOT MATERIALIZED (
+                SELECT started_at, ended_at
+                FROM player_server_session
+                WHERE server_id = $1 AND player_id = $2 AND ended_at IS NOT NULL
+            ),
+            pairs AS (
+                SELECT c.player_id, t.started_at AS ts, t.ended_at AS te, s2.started_at AS ss, s2.ended_at AS se
+                FROM candidates c
+                CROSS JOIN target t
+                JOIN player_server_session s2
+                  ON s2.server_id = $1 AND s2.player_id = c.player_id
+                 AND s2.started_at >= t.started_at - INTERVAL '1 day'
+                 AND s2.started_at < t.ended_at
+                 AND s2.ended_at > t.started_at
+                UNION ALL
+                SELECT c.player_id, t.started_at, t.ended_at, s2.started_at, t.ended_at
+                FROM candidates c
+                CROSS JOIN target t
+                JOIN player_server_session s2
+                  ON s2.server_id = $1 AND s2.player_id = c.player_id
+                 AND s2.ended_at IS NULL
+                 AND s2.started_at >= t.started_at - INTERVAL '1 day'
+                 AND s2.started_at < t.ended_at
+            )
+            SELECT
+                c.player_id AS \"player_id!\",
+                c.player_name AS \"player_name!\",
+                SUM(LEAST(pr.te, pr.se) - GREATEST(pr.ts, pr.ss)) AS \"total_time_together?\",
+                MAX(LEAST(pr.te, pr.se)) AS \"last_seen?\",
+                FALSE AS \"is_anonymous!\",
+                NULL::BIGINT AS total_rows
+            FROM pairs pr
+            JOIN candidates c ON c.player_id = pr.player_id
+            GROUP BY c.player_id, c.player_name
+            ORDER BY 3 DESC, c.player_id
+        ", server_id, player_id, pattern, search).fetch_all(pool);
+
+        let key = format!("player-played-with-search:{server_id}:{player_id}:{}:{search}", context.cache_key.current);
+        Ok(cached_response(&key, &self.background_worker.cache, DAY, func).await?.result)
+    }
+
     pub async fn get_most_played_maps(&self, context: &PlayerContext) -> WorkResult<Vec<PlayerMostPlayedMap>>{
         let result: Vec<DbPlayerMapPlayed> = self.query_player(context).await?;
         let values: Vec<PlayerMostPlayedMap> = result.iter_into();
@@ -1558,6 +1831,10 @@ mod tests {
         assert_session_scoped!(
             player_query::<Vec<DbPlayerOnlineHeatmap>>(),
             "player-online-heatmap", QueryPriority::Light, JobKind::PlayerOnlineHeatmap(_)
+        );
+        assert_session_scoped!(
+            player_query::<Vec<DbPlayerSeen>>(),
+            "player-might-friends", QueryPriority::Heavy, JobKind::PlayerMightFriends(_)
         );
     }
 

@@ -172,7 +172,36 @@ pub struct PlayerSeen{
     pub id: String,
     pub name: String,
     pub total_time_together: f64,
-    pub last_seen: DateTime<Utc>,
+    pub last_seen: Option<DateTime<Utc>>,
+    pub is_anonymous: bool,
+    pub hidden_from_others: bool,
+}
+
+/// A page of who a player has played with on a server.
+#[derive(Object)]
+pub struct PlayerMightFriendsPage{
+    pub total_pages: i64,
+    pub rows: Vec<PlayerSeen>,
+    pub calculated_at: Option<DateTime<Utc>>,
+    pub is_stale: bool,
+    pub is_calculating: bool,
+    pub live_search: bool,
+}
+
+/// What a request to recalculate a player's "played with" list did.
+#[derive(Enum, Clone, Copy, PartialEq, Debug)]
+#[oai(rename_all = "snake_case")]
+pub enum MightFriendsCalculateStatus{
+    NoSessions,
+    UpToDate,
+    Calculating,
+    Queued,
+}
+
+/// The result of a request to recalculate a player's "played with" list.
+#[derive(Object)]
+pub struct MightFriendsCalculation{
+    pub status: MightFriendsCalculateStatus,
 }
 
 /// A page of a player's session list.

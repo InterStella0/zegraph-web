@@ -26,7 +26,7 @@ use uuid::Uuid;
 use crate::{response, FastCache, AppData};
 use crate::api_models::common::*;
 use crate::api_models::misc::ProviderResponse;
-use crate::api_models::players::{PlayerBrief, PlayerDetailSession};
+use crate::api_models::players::{PlayerBrief, PlayerDetailSession, PlayerSeen};
 use crate::api_models::radars::CountryPlayer;
 use crate::models::players::DbPlayerBrief;
 use crate::models::servers::DbServer;
@@ -330,6 +330,19 @@ impl AnonRow for PlayerBrief {
     }
 }
 
+impl AnonRow for PlayerSeen {
+    fn row_id(&self) -> &str { &self.id }
+    fn is_anonymous(&self) -> bool { self.is_anonymous }
+    fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn set_hidden_from_others(&mut self, value: bool) { self.hidden_from_others = value; }
+    fn mask(&mut self) {
+        self.name = "Anonymous".to_string();
+        self.id = Uuid::new_v4().to_string();
+        self.is_anonymous = true;
+        self.hidden_from_others = true;
+    }
+}
+
 impl AnonRow for CountryPlayer {
     fn row_id(&self) -> &str { &self.id }
     fn is_anonymous(&self) -> bool { self.is_anonymous }
@@ -359,6 +372,9 @@ impl AnonRow for PlayerDetailSession {
 pub struct UserTokenAuthorized{
     user_token: UserToken,
     authorized: bool,
+}
+impl UserTokenAuthorized {
+    pub fn user_id(&self) -> i64 { self.user_token.id }
 }
 pub struct OptionalAnonymousTokenBearer(pub Option<UserTokenAuthorized>);
 

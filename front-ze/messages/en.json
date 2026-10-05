@@ -481,6 +481,27 @@
         "nameMatched": "Name-matched",
         "noPlaytime": "No playtime"
       }
+    },
+    "playedWith": {
+      "title": "Played with",
+      "searchPlaceholder": "Search any player",
+      "lastMet": "Last met {time}",
+      "hoursValue": "{value}h",
+      "empty": "No players in this list.",
+      "neverCalculated": "This list hasn't been calculated yet. It's worked out on request because it takes a while. You can still search for anyone above.",
+      "calculate": "Calculate",
+      "recalculate": "Recalculate",
+      "calculating": "Calculating...",
+      "upToDate": "Already up to date with the latest session.",
+      "noSessions": "No completed sessions to calculate from yet.",
+      "failed": "Couldn't start the calculation. Try again later.",
+      "loadError": "Couldn't load this list.",
+      "calculatedAsOf": "Based on sessions up to {when}.",
+      "outdated": "Newer sessions since then.",
+      "staleNote": "Each calculation saves the top 100. Players who fell out of it keep their older numbers.",
+      "liveSearch": "Not in the saved list, so calculated just now.",
+      "noMatchesShort": "No saved players match \"{query}\". Type at least 3 characters to search everyone on the server.",
+      "noLiveMatches": "Hasn't played with anyone matching \"{query}\"."
     }
   },
   "sessions": {

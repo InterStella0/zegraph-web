@@ -481,6 +481,27 @@
         "nameMatched": "名稱相符",
         "noPlaytime": "無遊玩時間"
       }
+    },
+    "playedWith": {
+      "title": "一起玩過",
+      "searchPlaceholder": "搜尋任意玩家",
+      "lastMet": "上次同場 {time}",
+      "hoursValue": "{value} 小時",
+      "empty": "此清單中沒有玩家。",
+      "neverCalculated": "此清單尚未計算。由於耗時較長，僅在請求時計算。你仍然可以在上方搜尋任何人。",
+      "calculate": "計算",
+      "recalculate": "重新計算",
+      "calculating": "計算中...",
+      "upToDate": "已是最新場次的結果。",
+      "noSessions": "還沒有可用於計算的已完成場次。",
+      "failed": "無法開始計算，請稍後再試。",
+      "loadError": "無法載入此清單。",
+      "calculatedAsOf": "根據截至 {when} 的場次。",
+      "outdated": "之後已有更新的場次。",
+      "staleNote": "每次計算儲存前 100 名。跌出前 100 的玩家保留先前的數據。",
+      "liveSearch": "不在已儲存的清單中，因此剛剛即時計算。",
+      "noMatchesShort": "沒有與「{query}」相符的已儲存玩家。輸入至少 3 個字元以搜尋整個伺服器。",
+      "noLiveMatches": "從未與符合「{query}」的玩家一起玩過。"
     }
   },
   "sessions": {

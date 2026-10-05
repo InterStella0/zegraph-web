@@ -220,8 +220,22 @@ export type PlayerSeen = {
     id: string,
     name: string,
     total_time_together: number,
-    last_seen: string,
+    /** `null` when the two players were never on the server together. */
+    last_seen: string | null,
+    is_anonymous: boolean,
+    hidden_from_others: boolean,
 }
+
+export type PlayerMightFriendsPage = {
+    total_pages: number,
+    rows: PlayerSeen[],
+    calculated_at: string | null,
+    is_stale: boolean,
+    is_calculating: boolean,
+    live_search: boolean,
+}
+
+export type MightFriendsCalculateStatus = 'no_sessions' | 'up_to_date' | 'calculating' | 'queued'
 
 
 export interface ContinentStatistic {

@@ -119,14 +119,32 @@ pub struct DbPlayerWithLegacyRanks {
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
 #[db_into(PlayerSeen)]
+#[extra(is_anonymous = false, hidden_from_others = false)]
 pub struct DbPlayerSeen{
     #[rename(id)]
     pub player_id: String,
     #[rename(name)]
     pub player_name: String,
     pub total_time_together: Option<PgInterval>,
-    #[method(to_utc_time)]
+    #[method(to_utc_optional)]
     pub last_seen: Option<OffsetDateTime>,
+}
+/// A stored row of `website.player_server_relationship`, with the friend's anonymization flag.
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(PlayerSeen)]
+#[extra(hidden_from_others = false)]
+pub struct DbPlayerMightFriend{
+    #[rename(id)]
+    pub player_id: String,
+    #[rename(name)]
+    pub player_name: String,
+    pub total_time_together: Option<PgInterval>,
+    #[method(to_utc_optional)]
+    pub last_seen: Option<OffsetDateTime>,
+    pub is_anonymous: bool,
+    #[skip]
+    pub total_rows: Option<i64>,
 }
 #[allow(dead_code)]
 #[derive(Clone, DbInto)]
