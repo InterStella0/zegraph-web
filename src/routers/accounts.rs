@@ -712,7 +712,7 @@ impl AccountsApi {
             let cache_key = get_player_cache_key(pool, &app.cache, server_id, player_id).await;
             let ctx = PlayerContext { player, server: server.clone(), cache_key };
 
-            let Ok(detail) = app.player_worker.get_detail(&ctx).await else { continue };
+            let Ok(detail) = app.player_worker.get_detail(&ctx, None).await else { continue };
             let server_player = ServerPlayerDetail {
                 server_id: server_id.clone(),
                 server_name: server.server_name.clone().unwrap_or_default(),

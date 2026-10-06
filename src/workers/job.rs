@@ -8,8 +8,8 @@ use crate::models::maps::*;
 use crate::models::players::*;
 use crate::models::servers::*;
 use super::map::MapBasicQuery;
-use super::player::{run_global_playtime_job, PlayerBasicQuery, PlayerGlobalQuery, PlayerSessionQuery};
-use super::{MapData, PlayerData, PlayerGlobalData, PlayerSessionData, Query, QueryPriority, WorkerQuery};
+use super::player::{run_global_playtime_job, PlayerBasicQuery, PlayerGlobalQuery, PlayerPeriodQuery, PlayerSessionQuery};
+use super::{MapData, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query, QueryPriority, WorkerQuery};
 
 pub const QUEUE_HEAVY: &str = "gfl-ze-watcher:jobs:heavy";
 pub const QUEUE_LIGHT: &str = "gfl-ze-watcher:jobs:light";
@@ -108,6 +108,15 @@ pub enum JobKind {
     PlayerOnlineHeatmap(PlayerData),
     PlayerMightFriends(PlayerData),
 
+    // PlayerPeriodQuery<T>
+    PlayerPeriodMapPlayed(PlayerPeriodData),
+    PlayerPeriodDetail(PlayerPeriodData),
+    PlayerPeriodSessionTime(PlayerPeriodData),
+    PlayerPeriodHourCount(PlayerPeriodData),
+    PlayerPeriodOnlineHeatmap(PlayerPeriodData),
+    PlayerPeriodRegionTime(PlayerPeriodData),
+    PlayerPeriodPlayedWith(PlayerPeriodData),
+
     // PlayerSessionQuery<T>
     PlayerSeen(PlayerSessionData),
 
@@ -164,6 +173,26 @@ pub async fn dispatch(
         }
         JobKind::PlayerMightFriends(d) => run!(player_query::<Vec<DbPlayerSeen>>(d, pool, cache)),
 
+        JobKind::PlayerPeriodMapPlayed(d) => {
+            run!(player_period_query::<Vec<DbPlayerMapPlayed>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodDetail(d) => run!(player_period_query::<DbPlayerDetail>(d, pool, cache)),
+        JobKind::PlayerPeriodSessionTime(d) => {
+            run!(player_period_query::<Vec<DbPlayerSessionTime>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodHourCount(d) => {
+            run!(player_period_query::<Vec<DbPlayerHourCount>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodOnlineHeatmap(d) => {
+            run!(player_period_query::<Vec<DbPlayerOnlineHeatmap>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodRegionTime(d) => {
+            run!(player_period_query::<Vec<DbPlayerRegionTime>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodPlayedWith(d) => {
+            run!(player_period_query::<Vec<DbPlayerSeen>>(d, pool, cache))
+        }
+
         JobKind::PlayerSeen(d) => run!(player_session_query::<Vec<DbPlayerSeen>>(d, pool, cache)),
 
         JobKind::PlayerGlobalSnapshot(d) => {
@@ -189,6 +218,12 @@ fn player_query<T>(
     data: &PlayerData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
 ) -> PlayerBasicQuery<T> {
     PlayerBasicQuery::raw(Query { pool, cache, data: data.clone() })
+}
+
+fn player_period_query<T>(
+    data: &PlayerPeriodData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
+) -> PlayerPeriodQuery<T> {
+    PlayerPeriodQuery::raw(Query { pool, cache, data: data.clone() })
 }
 
 fn player_session_query<T>(
@@ -232,7 +267,7 @@ impl std::fmt::Display for JobError {
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{map_data, player_data, player_global_data, player_session_data};
+    use super::super::test_support::{map_data, player_data, player_global_data, player_period_data, player_session_data};
     use super::*;
 
     fn job(priority: QueryPriority) -> RefreshJob {
@@ -288,8 +323,21 @@ mod tests {
         assert_eq!(decoded.queue(), QUEUE_LIGHT);
     }
 
+    #[test]
+    fn a_period_job_survives_a_round_trip_through_the_queue() {
+        let encoded = serde_json::to_string(&JobKind::PlayerPeriodDetail(player_period_data(false)))
+            .expect("serializable");
+        let decoded: JobKind = serde_json::from_str(&encoded).expect("deserializable");
+
+        assert!(matches!(
+            decoded,
+            JobKind::PlayerPeriodDetail(d) if d.period == player_period_data(false).period && !d.closed
+        ));
+    }
+
     fn all_job_kinds() -> Vec<JobKind> {
         let (p, m, s, g) = (player_data(), map_data(), player_session_data(), player_global_data());
+        let r = player_period_data(true);
         let kinds = vec![
             JobKind::MapRegions(m.clone()),
             JobKind::MapHeatRegions(m.clone()),
@@ -311,6 +359,13 @@ mod tests {
             JobKind::PlayerHourCount(p.clone()),
             JobKind::PlayerOnlineHeatmap(p.clone()),
             JobKind::PlayerMightFriends(p),
+            JobKind::PlayerPeriodMapPlayed(r.clone()),
+            JobKind::PlayerPeriodDetail(r.clone()),
+            JobKind::PlayerPeriodSessionTime(r.clone()),
+            JobKind::PlayerPeriodHourCount(r.clone()),
+            JobKind::PlayerPeriodOnlineHeatmap(r.clone()),
+            JobKind::PlayerPeriodRegionTime(r.clone()),
+            JobKind::PlayerPeriodPlayedWith(r),
             JobKind::PlayerSeen(s),
             JobKind::PlayerGlobalSnapshot(g.clone()),
             JobKind::PlayerCommunityPlaytime(g),
@@ -327,6 +382,10 @@ mod tests {
                 | JobKind::PlayerMapRanks(_) | JobKind::PlayerAliases(_) | JobKind::PlayerDetail(_)
                 | JobKind::PlayerLegacyStats(_) | JobKind::PlayerRegionTime(_) | JobKind::PlayerHourCount(_)
                 | JobKind::PlayerOnlineHeatmap(_) | JobKind::PlayerMightFriends(_) | JobKind::PlayerSeen(_)
+                | JobKind::PlayerPeriodMapPlayed(_) | JobKind::PlayerPeriodDetail(_)
+                | JobKind::PlayerPeriodSessionTime(_) | JobKind::PlayerPeriodHourCount(_)
+                | JobKind::PlayerPeriodOnlineHeatmap(_) | JobKind::PlayerPeriodRegionTime(_)
+                | JobKind::PlayerPeriodPlayedWith(_)
                 | JobKind::PlayerGlobalSnapshot(_) | JobKind::PlayerCommunityPlaytime(_)
                 | JobKind::PlayerGlobalPlaytime { .. } => {}
             }
@@ -346,6 +405,6 @@ mod tests {
             assert!(tags.insert(tag.clone()), "two JobKind variants share the tag {tag}");
         }
 
-        assert_eq!(tags.len(), 24, "all variants must be covered by all_job_kinds()");
+        assert_eq!(tags.len(), 31, "all variants must be covered by all_job_kinds()");
     }
 }

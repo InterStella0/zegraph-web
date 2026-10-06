@@ -509,6 +509,34 @@ mod route_tests {
         }
     }
 
+    /// `period` is declared before the player extractor, so a bad value is rejected by request
+    /// validation before any database lookup; a valid one goes on to the lookup, which 404s
+    /// against the dead test pool.
+    #[tokio::test]
+    async fn player_routes_validate_period_before_the_database() {
+        let cli = client();
+        for route in [
+            "detail", "most_played_maps", "graph/sessions", "hours_of_day", "online_heatmap",
+            "regions", "might_friends",
+        ] {
+            let base = format!("/servers/1/players/76561198000000001/{route}");
+            for bad in ["2025-13", "2025-6x", "abcd", "2023", "2999-01"] {
+                assert_eq!(
+                    send(&cli, "GET", &format!("{base}?period={bad}"), None).await,
+                    poem::http::StatusCode::BAD_REQUEST,
+                    "GET {base}?period={bad} should fail validation",
+                );
+            }
+            for good in ["2025", "2025-06", "all"] {
+                assert_eq!(
+                    send(&cli, "GET", &format!("{base}?period={good}"), None).await,
+                    poem::http::StatusCode::NOT_FOUND,
+                    "GET {base}?period={good} should pass validation and reach the player lookup",
+                );
+            }
+        }
+    }
+
     /// Documents the shape of the public route surface. Unlike the test above this cannot detect
     /// the poem-openapi regression, but it does catch a route being renamed or dropped outright.
     #[test]
@@ -803,7 +831,7 @@ mod route_tests {
         let cli = client();
         let (_, body) = mcp(&cli, rpc(1, "tools/list", serde_json::Value::Null)).await;
         let tools = body["result"]["tools"].as_array().expect("a tools array");
-        assert_eq!(tools.len(), 38);
+        assert_eq!(tools.len(), 39);
         for tool in tools {
             assert_eq!(tool["inputSchema"]["type"], "object", "{tool:#}");
             assert!(tool["description"].as_str().is_some_and(|d| !d.is_empty()), "{tool:#}");

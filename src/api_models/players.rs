@@ -177,6 +177,13 @@ pub struct PlayerSeen{
     pub hidden_from_others: bool,
 }
 
+/// A UTC year in which a player has playtime on a server, with its months (1-12, ascending).
+#[derive(Object, Clone, Debug, PartialEq)]
+pub struct PlayerPeriodYear{
+    pub year: i32,
+    pub months: Vec<i32>,
+}
+
 /// A page of who a player has played with on a server.
 #[derive(Object)]
 pub struct PlayerMightFriendsPage{

@@ -7,6 +7,7 @@ use sqlx::{Pool, Postgres};
 use async_trait::async_trait;
 use crate::core::utils::*;
 use crate::FastCache;
+use crate::core::period::TimePeriod;
 
 pub mod consumer;
 pub mod job;
@@ -196,6 +197,14 @@ impl BackgroundWorker {
         exists.unwrap_or(false)
     }
 
+    /// Reads a cached value without ever queueing a calculation for it.
+    pub(crate) async fn peek<T>(&self, key: &str) -> Option<T>
+    where
+        T: DeserializeOwned,
+    {
+        self.try_cache_lookup(key).await.ok()
+    }
+
     async fn try_cache_lookup<T>(&self, key: &str) -> Result<T, ()>
     where
         T: for<'de> Deserialize<'de>,
@@ -308,6 +317,17 @@ pub struct PlayerContext {
     pub server: DbServer,
     pub cache_key: CacheKey,
 }
+impl PlayerContext {
+    pub fn period_data(&self, period: TimePeriod) -> PlayerPeriodData {
+        PlayerPeriodData {
+            player_id: self.player.player_id.clone(),
+            server_id: self.server.server_id.clone(),
+            current_session: self.cache_key.current.clone(),
+            period,
+            closed: period.is_closed(chrono::Utc::now()),
+        }
+    }
+}
 pub struct MapContext{
     pub server: DbServer,
     pub map: DbMap,
@@ -327,6 +347,17 @@ pub struct PlayerData{
     pub player_id: String,
     pub server_id: String,
     pub current_session: String,
+}
+
+/// A player on a server over one calendar period. `closed` is fixed when the query is built, so a
+/// job and the key it fills always agree on whether the key is session-scoped.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PlayerPeriodData{
+    pub player_id: String,
+    pub server_id: String,
+    pub current_session: String,
+    pub period: TimePeriod,
+    pub closed: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -582,6 +613,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn peek_reads_a_cached_value() {
+        let worker = worker();
+        worker.cache_raw("peeked", "[3]", 60).await;
+
+        assert_eq!(worker.peek::<Vec<u8>>("peeked").await, Some(vec![3]));
+    }
+
+    /// A miss must stay a miss: peek is what lets a search read a list without starting its
+    /// calculation, so it may not leave a queued job or an inflight marker behind.
+    #[tokio::test]
+    async fn peek_misses_without_queueing_anything() {
+        let worker = worker();
+        let key = "never-cached";
+
+        assert!(worker.peek::<Vec<u8>>(key).await.is_none());
+        assert!(worker.cache.memory.get(key).await.is_none());
+        assert!(worker.cache.memory.get(&job::inflight_key(key)).await.is_none());
+        assert!(!worker.is_inflight(key).await);
+    }
+
+    #[tokio::test]
     async fn execute_queued_serves_a_hit_without_running_the_query() {
         let worker = worker();
         worker.cache_raw("standalone:player-1", "[1,2]", 60).await;
@@ -651,7 +703,7 @@ mod cache_key_tests {
     use crate::models::maps::*;
     use crate::models::players::*;
     use crate::models::servers::DbServerMapPartial;
-    use super::test_support::{map_query, player_global_query, player_query, player_session_query};
+    use super::test_support::{map_query, player_global_query, player_period_query, player_query, player_session_query};
     use super::WorkerQuery;
 
     #[tokio::test]
@@ -680,6 +732,13 @@ mod cache_key_tests {
             map_query::<Vec<DbMapPlayerTypeTime>>().cache_key_pattern(),
             map_query::<DbMapInfo>().cache_key_pattern(),
             map_query::<DbMapAnalyze>().cache_key_pattern(),
+            player_period_query::<Vec<DbPlayerMapPlayed>>(true).cache_key_pattern(),
+            player_period_query::<DbPlayerDetail>(true).cache_key_pattern(),
+            player_period_query::<Vec<DbPlayerSessionTime>>(true).cache_key_pattern(),
+            player_period_query::<Vec<DbPlayerHourCount>>(true).cache_key_pattern(),
+            player_period_query::<Vec<DbPlayerOnlineHeatmap>>(true).cache_key_pattern(),
+            player_period_query::<Vec<DbPlayerRegionTime>>(true).cache_key_pattern(),
+            player_period_query::<Vec<DbPlayerSeen>>(true).cache_key_pattern(),
         ];
 
         let unique: HashSet<&String> = patterns.iter().collect();
@@ -687,6 +746,6 @@ mod cache_key_tests {
             unique.len(), patterns.len(),
             "two WorkerQuery impls resolve to the same cache key; patterns were {patterns:#?}",
         );
-        assert_eq!(patterns.len(), 23, "every WorkerQuery impl must be listed here");
+        assert_eq!(patterns.len(), 30, "every WorkerQuery impl must be listed here");
     }
 }
