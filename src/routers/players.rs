@@ -702,7 +702,7 @@ impl PlayerApi{
                 let end_date = date.clone();
                 (date, end_date.add(TimeDelta::days(1)))
             },
-            (None, Some(period)) => (period.start(), period.end() - TimeDelta::seconds(1)),
+            (None, Some(period)) => (period.start(), period.end()),
             (None, None) => {
                 // Date wont go past february. Im hardcoding this.
                 let start_date = Utc.with_ymd_and_hms(2024, 2, 1, 0, 0, 0).unwrap();
@@ -717,7 +717,7 @@ impl PlayerApi{
             )
             SELECT *, COUNT(session_id) OVER() AS total_rows
             FROM pss
-            WHERE  started_at BETWEEN $5 AND $6
+            WHERE started_at >= $5 AND started_at < $6
             ORDER BY started_at DESC
             LIMIT $3
             OFFSET $4",

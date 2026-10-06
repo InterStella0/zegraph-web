@@ -8,6 +8,7 @@ import {fetchApiServerUrl} from "utils/generalUtils";
 import {PlayerPeriodYear} from "types/players";
 
 const PERIOD_PATTERN = /^\d{4}(-(0[1-9]|1[0-2]))?$/;
+const FIRST_YEAR = 2024;
 
 /** `YYYY` or `YYYY-MM` in UTC; null is All time. */
 export type PlayerPeriod = string | null;
@@ -27,7 +28,9 @@ const PlayerPeriodContext = createContext<PlayerPeriodValue>({
 });
 
 export function parsePeriod(value: string | null | undefined): PlayerPeriod {
-    return value && PERIOD_PATTERN.test(value) ? value : null;
+    if (!value || !PERIOD_PATTERN.test(value)) return null;
+    if (splitPeriod(value).year < FIRST_YEAR || periodBounds(value).start.getTime() > Date.now()) return null;
+    return value;
 }
 
 export function splitPeriod(period: string): { year: number, month: number | null } {
@@ -64,7 +67,11 @@ export function PlayerPeriodProvider({ serverId, playerId, children }: {
     const searchParams = useSearchParams();
     const period = parsePeriod(searchParams.get('period'));
     const [periods, setPeriods] = useState<PlayerPeriodYear[] | null>(null);
-    const [changes, setChanges] = useState(0);
+    const [shown, setShown] = useState({ period, changes: 0 });
+    if (shown.period !== period) {
+        setShown({ period, changes: shown.changes + 1 });
+    }
+    const changes = shown.changes;
 
     useEffect(() => {
         let cancelled = false;
@@ -79,8 +86,7 @@ export function PlayerPeriodProvider({ serverId, playerId, children }: {
         if (url.searchParams.get('period') === next || (!next && !url.searchParams.has('period'))) return;
         if (next) url.searchParams.set('period', next);
         else url.searchParams.delete('period');
-        window.history.replaceState(null, '', url);
-        setChanges(c => c + 1);
+        window.history.pushState(null, '', url);
     }, []);
 
     const value = useMemo(

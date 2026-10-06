@@ -1301,7 +1301,7 @@ impl WorkerQuery<DbPlayerDetail> for PlayerPeriodQuery<DbPlayerDetail> {
             casual_playtime: interval(split.casual),
             mixed_playtime: interval(split.mixed),
             total_playtime: interval(split.total),
-            rank: Some(0),
+            rank: None,
             online_since: None,
             last_played: None,
             last_played_ended: None,
@@ -1361,7 +1361,7 @@ impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerPeriodQuery<Vec<DbPlayerHourC
                 SELECT player_id, (
                     EXTRACT(hours FROM started_at AT TIME ZONE 'UTC')
                 ) hours, COUNT(*) FROM public.player_server_session
-                WHERE player_id=$2 AND server_id=$1
+                WHERE player_id=$2 AND server_id=$1 AND ended_at IS NOT NULL
                   AND started_at >= $3 AND started_at < $4
                 GROUP BY player_id, hours
             ), leave_count AS (
@@ -1403,15 +1403,14 @@ impl WorkerQuery<Vec<DbPlayerOnlineHeatmap>> for PlayerPeriodQuery<Vec<DbPlayerO
         let (start, end) = self.bounds();
         sqlx::query_as!(DbPlayerOnlineHeatmap, "
             WITH sessions AS (
-                SELECT GREATEST(started_at, $3) AT TIME ZONE 'UTC'                  AS started_at,
-                       LEAST(COALESCE(ended_at, now()), $4) AT TIME ZONE 'UTC' AS ended_at
+                SELECT GREATEST(started_at, $3) AT TIME ZONE 'UTC' AS started_at,
+                       LEAST(ended_at, $4) AT TIME ZONE 'UTC'      AS ended_at
                 FROM public.player_server_session
                 WHERE player_id = $2
                   AND server_id = $1
-                  AND started_at IS NOT NULL
+                  AND ended_at IS NOT NULL
                   AND started_at < $4
-                  AND COALESCE(ended_at, now()) > $3
-                  AND LEAST(COALESCE(ended_at, now()), $4) > GREATEST(started_at, $3)
+                  AND ended_at > $3
             ), expanded AS (
                 SELECT
                     EXTRACT(hour FROM bucket)::int AS hour_of_day,
