@@ -21,6 +21,7 @@ import { useTheme } from "next-themes";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeRegionData } from "utils/chartSeoUtils.tsx";
 import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
+import {PeriodChip} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
 ChartJS.register(
     Title,
@@ -105,7 +106,10 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
 
     return (
         <div>
-            <h2 className="text-xl font-semibold m-4">{t('title')}</h2>
+            <div className="flex items-center gap-2 m-4">
+                <h2 className="text-xl font-semibold">{t('title')}</h2>
+                <PeriodChip />
+            </div>
             <div className="h-[350px] xl:h-[350px] lg:h-[385px] flex items-center justify-center m-4">
                 {error &&
                     <div className="flex gap-4">

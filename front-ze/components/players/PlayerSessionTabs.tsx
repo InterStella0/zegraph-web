@@ -5,6 +5,7 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from "components/ui/tabs";
 import PlayerSessionList from "./PlayerSessionList.tsx";
 import PlayerPlayedWith from "./PlayerPlayedWith.tsx";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
+import {PeriodChip} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
 type SessionTab = 'sessions' | 'playedWith';
 
@@ -21,10 +22,13 @@ export default function PlayerSessionTabs({ serverPlayerPromise }: { serverPlaye
     };
 
     // The tab list stands in for each panel's title, so it shares a row with that panel's own controls.
-    const heading = <TabsList>
-        <TabsTrigger value="sessions">{t('sessions.title')}</TabsTrigger>
-        <TabsTrigger value="playedWith">{t('playedWith.title')}</TabsTrigger>
-    </TabsList>;
+    const heading = <div className="flex items-center gap-2">
+        <TabsList>
+            <TabsTrigger value="sessions">{t('sessions.title')}</TabsTrigger>
+            <TabsTrigger value="playedWith">{t('playedWith.title')}</TabsTrigger>
+        </TabsList>
+        <PeriodChip />
+    </div>;
 
     return (
         <Tabs value={tab} onValueChange={changeTab} className="w-full gap-0">

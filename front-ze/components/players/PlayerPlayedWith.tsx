@@ -17,6 +17,7 @@ import {fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUt
 import {MightFriendsCalculateStatus, PlayerMightFriendsPage, PlayerSeen} from "types/players.ts";
 import {Server} from "types/community.ts";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
+import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
 dayjs.extend(relativeTime);
 
@@ -84,19 +85,29 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
     const [error, setError] = useState(false);
     const [polling, setPolling] = useState(false);
     const [requesting, setRequesting] = useState(false);
+    const { period } = usePlayerPeriod();
+    const [shownPeriod, setShownPeriod] = useState(period);
+    if (shownPeriod !== period) {
+        setShownPeriod(period);
+        setPage(0);
+        setData(null);
+        setPolling(false);
+    }
 
     const load = useCallback(async (): Promise<PlayerMightFriendsPage | null> => {
         if (!playerId) return null;
         const params: Record<string, string> = { page: String(page) };
         if (debouncedQuery) params.q = debouncedQuery;
+        if (period) params.period = period;
         const result: PlayerMightFriendsPage = await fetchApiServerUrl(
             server.id, `/players/${playerId}/might_friends`, { ...NO_CACHE, params },
         );
         setData(result);
         if (!debouncedQuery) setHasStoredRows(result.rows.length > 0);
+        if (period && result.is_calculating) setPolling(true);
         setError(false);
         return result;
-    }, [server.id, playerId, page, debouncedQuery]);
+    }, [server.id, playerId, page, debouncedQuery, period]);
 
     useEffect(() => {
         setPage(0);
@@ -155,7 +166,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
     if (!playerId) return null;
 
     const isCalculating = polling || requesting || !!data?.is_calculating;
-    const neverCalculated = data !== null && data.calculated_at === null;
+    const neverCalculated = !period && data !== null && data.calculated_at === null;
     // Never calculated itself, but other players' calculations already shared rows with this one.
     const partial = neverCalculated && hasStoredRows;
     const canCalculate = data !== null && data.is_stale && !isCalculating;
@@ -164,6 +175,10 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
         : null;
 
     const emptyMessage = () => {
+        if (period) {
+            if (isCalculating) return t('periodCalculating');
+            return debouncedQuery ? t('periodNoMatches', {query: debouncedQuery}) : t('periodEmpty');
+        }
         if (!debouncedQuery) return t('empty');
         if (data?.live_search) return t('noLiveMatches', {query: debouncedQuery});
         if (debouncedQuery.length < LIVE_SEARCH_MIN_CHARS) return t('noMatchesShort', {query: debouncedQuery});
@@ -174,7 +189,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
         <div className="w-full min-h-[460px] flex flex-col">
             <div className="flex flex-row flex-wrap justify-between items-center mb-3 gap-2">
                 {heading ?? <h2 className="text-lg sm:text-xl font-semibold">{t('title')}</h2>}
-                {data && (!neverCalculated || partial) && (
+                {data && !period && (!neverCalculated || partial) && (
                     <Button variant="outline" size="sm" onClick={calculate} disabled={!canCalculate}
                             title={!data.is_stale ? t('upToDate') : undefined}>
                         {calculateLabel ?? <><RefreshCw className="h-4 w-4" />{partial ? t('calculate') : t('recalculate')}</>}
@@ -190,7 +205,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                 />
-                {loading && data && (
+                {((loading && data) || (period && isCalculating)) && (
                     <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                 )}
             </div>

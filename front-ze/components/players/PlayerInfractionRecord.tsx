@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {use, useEffect, useState} from "react";
+import {use, useEffect, useMemo, useState} from "react";
 import {
     fetchApiServerUrl,
     formatFlagName,
@@ -30,6 +30,7 @@ import {PlayerInfraction, PlayerInfractionUpdate} from "types/players.ts";
 import Image from "next/image";
 import {Server} from "types/community.ts";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
+import {PeriodChip, periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
 function ModalInfraction({ infraction, onClose }){
     const t = useTranslations('players.infractions');
@@ -64,8 +65,18 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
     const t = useTranslations('players.infractions');
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const server_id = server.id;
-    const [infractions, setInfractions] = useState([]);
+    const [allInfractions, setInfractions] = useState([]);
     const [viewInfraction, setViewInfraction] = useState(null);
+    const { period } = usePlayerPeriod();
+    const infractions = useMemo(() => {
+        if (!period) return allInfractions;
+        const { start, end } = periodBounds(period);
+        return allInfractions.filter(row => {
+            if (!row.infraction_time) return false;
+            const time = new Date(row.infraction_time);
+            return time >= start && time < end;
+        });
+    }, [allInfractions, period]);
 
     useEffect(() => {
         if (!playerId) return
@@ -209,9 +220,12 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: { serverPlayerPr
     return (
         <Card className="min-h-[460px] p-4">
             <div className="flex flex-row justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">
-                    {t('title')}
-                </h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-semibold">
+                        {t('title')}
+                    </h2>
+                    <PeriodChip />
+                </div>
 
                 <TooltipProvider>
                     <Tooltip>

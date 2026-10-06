@@ -32,6 +32,7 @@ import {PlayerHourDay, PlayerOnlineHeatmap} from "types/players.ts";
 import { useTheme } from "next-themes";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
+import {PeriodChip} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -388,9 +389,12 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
 
     const header = (
         <div className="flex items-center justify-between flex-col sm:flex-row">
-            <h2 className="text-xl font-semibold p-4">
-                {metric === 'hour' ? t('onlineTitle') : t('title')}
-            </h2>
+            <div className="flex items-center gap-2 p-4">
+                <h2 className="text-xl font-semibold">
+                    {metric === 'hour' ? t('onlineTitle') : t('title')}
+                </h2>
+                <PeriodChip />
+            </div>
             <div className="m-4 flex gap-2 flex-wrap">
                 <div className="flex gap-1 rounded-md border">
                     <Button

@@ -11,6 +11,8 @@ import PlayerHourOfDay from "components/players/PlayerHourOfDay.tsx";
 import StillCalculatingPlayer from "./StillCalculatingPlayer.tsx";
 import StalePlayerStats from "./StalePlayerStats.tsx";
 import {PlayerStatsPatchProvider} from "./PlayerStatsPatch.tsx";
+import {PlayerPeriodProvider} from "./PlayerPeriod.tsx";
+import PlayerPeriodSelector from "components/players/PlayerPeriodSelector.tsx";
 import AccessDenied from "./AccessDenied.tsx";
 import {SteamProfile} from "../../../../../next-auth-steam/steam.ts";
 
@@ -33,30 +35,35 @@ export default function ResolvePlayerInformation({ serverPlayerPromise, userProm
     }
 
     return <PlayerStatsPatchProvider>
-        <div className="grid grid-cols-12 gap-4">
-            {player.is_stale && <StalePlayerStats
-                serverId={server.id}
-                playerId={player.id}
-                calculatedAt={player.calculated_at}
-            />}
-            <div className="col-span-12 xl:col-span-8">
-                <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} userPromise={userPromise} />
+        <PlayerPeriodProvider serverId={server.id} playerId={player.id}>
+            <div className="grid grid-cols-12 gap-4">
+                <div className="col-span-12">
+                    <PlayerPeriodSelector />
+                </div>
+                {player.is_stale && <StalePlayerStats
+                    serverId={server.id}
+                    playerId={player.id}
+                    calculatedAt={player.calculated_at}
+                />}
+                <div className="col-span-12 xl:col-span-8">
+                    <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} userPromise={userPromise} />
+                </div>
+                <div className="col-span-12 md:col-span-6 xl:col-span-4">
+                    <PlayerSessionTabs serverPlayerPromise={serverPlayerPromise} />
+                </div>
+                <div className="col-span-12 md:col-span-6 xl:col-span-8">
+                    <PlayerTopMap serverPlayerPromise={serverPlayerPromise} />
+                </div>
+                <div className="col-span-12 md:col-span-6 xl:col-span-4">
+                    <PlayerRegionPlayTime serverPlayerPromise={serverPlayerPromise} />
+                </div>
+                <div className="col-span-12 md:col-span-6 xl:col-span-4">
+                    <PlayerInfractionRecord serverPlayerPromise={serverPlayerPromise} />
+                </div>
+                <div className="col-span-12 xl:col-span-8">
+                    <PlayerHourOfDay serverPlayerPromise={serverPlayerPromise} />
+                </div>
             </div>
-            <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                <PlayerSessionTabs serverPlayerPromise={serverPlayerPromise} />
-            </div>
-            <div className="col-span-12 md:col-span-6 xl:col-span-8">
-                <PlayerTopMap serverPlayerPromise={serverPlayerPromise} />
-            </div>
-            <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                <PlayerRegionPlayTime serverPlayerPromise={serverPlayerPromise} />
-            </div>
-            <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                <PlayerInfractionRecord serverPlayerPromise={serverPlayerPromise} />
-            </div>
-            <div className="col-span-12 xl:col-span-8">
-                <PlayerHourOfDay serverPlayerPromise={serverPlayerPromise} />
-            </div>
-        </div>
+        </PlayerPeriodProvider>
     </PlayerStatsPatchProvider>
 }

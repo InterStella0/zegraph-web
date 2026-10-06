@@ -502,7 +502,21 @@
       "partial": "다른 플레이어의 계산에서 가져온 일부 목록입니다. 계산하면 전체 상위 100명을 볼 수 있습니다.",
       "liveSearch": "저장된 목록에 없어 방금 계산했습니다.",
       "noMatchesShort": "\"{query}\"와(과) 일치하는 저장된 플레이어가 없습니다. 서버 전체를 검색하려면 3자 이상 입력하세요.",
-      "noLiveMatches": "\"{query}\"와(과) 일치하는 플레이어와 함께 플레이한 적이 없습니다."
+      "noLiveMatches": "\"{query}\"와(과) 일치하는 플레이어와 함께 플레이한 적이 없습니다.",
+      "periodCalculating": "이 기간에 함께 플레이한 플레이어를 계산하는 중...",
+      "periodEmpty": "이 기간에는 함께 플레이한 사람이 없습니다.",
+      "periodNoMatches": "이 기간 목록에 \"{query}\"와 일치하는 플레이어가 없습니다."
+    },
+    "period": {
+      "label": "기간",
+      "allTime": "전체 기간",
+      "allTimeDescription": "기록이 시작된 이후의 모든 세션입니다.",
+      "noPeriods": "기간을 선택할 수 있는 완료된 세션이 아직 없습니다.",
+      "wholeYear": "{year}년 전체",
+      "done": "완료",
+      "hint": "아래 모든 지표는 선택한 기간으로 필터링됩니다.",
+      "previous": "이전 기간",
+      "next": "다음 기간"
     }
   },
   "sessions": {

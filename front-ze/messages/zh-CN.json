@@ -502,7 +502,21 @@
       "partial": "部分列表，来自其他玩家的计算结果。计算后可查看完整的前 100 名。",
       "liveSearch": "不在已保存的列表中，因此刚刚实时计算。",
       "noMatchesShort": "没有与“{query}”匹配的已保存玩家。输入至少 3 个字符以搜索整个服务器。",
-      "noLiveMatches": "从未与匹配“{query}”的玩家一起玩过。"
+      "noLiveMatches": "从未与匹配“{query}”的玩家一起玩过。",
+      "periodCalculating": "正在计算该时间段内一起玩过的玩家...",
+      "periodEmpty": "该时间段内没有和任何人一起玩过。",
+      "periodNoMatches": "该时间段的列表中没有匹配“{query}”的玩家。"
+    },
+    "period": {
+      "label": "时间段",
+      "allTime": "全部时间",
+      "allTimeDescription": "自开始记录以来的所有会话。",
+      "noPeriods": "还没有可用于选择时间段的已完成会话。",
+      "wholeYear": "{year} 全年",
+      "done": "完成",
+      "hint": "下方所有数据均按所选时间段筛选。",
+      "previous": "上一个时间段",
+      "next": "下一个时间段"
     }
   },
   "sessions": {

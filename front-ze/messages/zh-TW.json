@@ -502,7 +502,21 @@
       "partial": "部分列表，來自其他玩家的計算結果。計算後可查看完整的前 100 名。",
       "liveSearch": "不在已儲存的清單中，因此剛剛即時計算。",
       "noMatchesShort": "沒有與「{query}」相符的已儲存玩家。輸入至少 3 個字元以搜尋整個伺服器。",
-      "noLiveMatches": "從未與符合「{query}」的玩家一起玩過。"
+      "noLiveMatches": "從未與符合「{query}」的玩家一起玩過。",
+      "periodCalculating": "正在計算此時間範圍內一起玩過的玩家...",
+      "periodEmpty": "此時間範圍內沒有和任何人一起玩過。",
+      "periodNoMatches": "此時間範圍的列表中沒有符合「{query}」的玩家。"
+    },
+    "period": {
+      "label": "時間範圍",
+      "allTime": "全部時間",
+      "allTimeDescription": "自開始記錄以來的所有場次。",
+      "noPeriods": "尚無可用於選擇時間範圍的已完成場次。",
+      "wholeYear": "{year} 全年",
+      "done": "完成",
+      "hint": "下方所有數據皆依所選時間範圍篩選。",
+      "previous": "上一個時間範圍",
+      "next": "下一個時間範圍"
     }
   },
   "sessions": {

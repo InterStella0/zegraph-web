@@ -121,6 +121,11 @@ export interface DetailedPlayerInfo extends DetailedPlayer{
     online_since: string | null,
     last_played_duration: number | null,
 }
+/** A UTC year in which a player has completed sessions, with the months (1-12) that have them. */
+export type PlayerPeriodYear = {
+    year: number,
+    months: number[],
+}
 export type PlayerMostPlayedMap = {
     map: string,
     duration: number,
