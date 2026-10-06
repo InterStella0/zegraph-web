@@ -30,16 +30,11 @@ services:
     image: interstella0/ze-graph:frontend
     logging: *default-logging
     deploy:
-      # One replica, on the manager next to the backend. Every /api route proxies to the backend,
-      # so a replica on another node pays that node's round trip several times per request: one
-      # on stella-pc (171 ms away) turned 3 ms might_friends pages into 0.7-0.9 s.
       replicas: 1
       placement:
         constraints:
           - node.role == manager
       update_config:
-        # With a single replica, start the new task before stopping the old one so a deploy
-        # doesn't take the site down.
         order: start-first
       resources:
         limits:

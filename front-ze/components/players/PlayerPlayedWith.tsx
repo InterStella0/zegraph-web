@@ -79,8 +79,6 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
     const debouncedQuery = useDebounced(query.trim(), SEARCH_DEBOUNCE_MS);
     const [page, setPage] = useState(0);
     const [data, setData] = useState<PlayerMightFriendsPage | null>(null);
-    // Whether the stored list has rows. `data.rows` can't tell: while searching it holds the
-    // matches or a live search, so this only updates on unsearched loads.
     const [hasStoredRows, setHasStoredRows] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
