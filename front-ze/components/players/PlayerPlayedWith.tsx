@@ -79,6 +79,9 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
     const debouncedQuery = useDebounced(query.trim(), SEARCH_DEBOUNCE_MS);
     const [page, setPage] = useState(0);
     const [data, setData] = useState<PlayerMightFriendsPage | null>(null);
+    // Whether the stored list has rows. `data.rows` can't tell: while searching it holds the
+    // matches or a live search, so this only updates on unsearched loads.
+    const [hasStoredRows, setHasStoredRows] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [polling, setPolling] = useState(false);
@@ -92,6 +95,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
             server.id, `/players/${playerId}/might_friends`, { ...NO_CACHE, params },
         );
         setData(result);
+        if (!debouncedQuery) setHasStoredRows(result.rows.length > 0);
         setError(false);
         return result;
     }, [server.id, playerId, page, debouncedQuery]);
@@ -155,7 +159,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
     const isCalculating = polling || requesting || !!data?.is_calculating;
     const neverCalculated = data !== null && data.calculated_at === null;
     // Never calculated itself, but other players' calculations already shared rows with this one.
-    const partial = neverCalculated && data.rows.length > 0;
+    const partial = neverCalculated && hasStoredRows;
     const canCalculate = data !== null && data.is_stale && !isCalculating;
     const calculateLabel = isCalculating
         ? <><Loader2 className="h-4 w-4 animate-spin" />{t('calculating')}</>
