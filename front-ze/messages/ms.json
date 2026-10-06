@@ -499,6 +499,7 @@
       "calculatedAsOf": "Berdasarkan sesi sehingga {when}.",
       "outdated": "Ada sesi lebih baharu sejak itu.",
       "staleNote": "Setiap pengiraan menyimpan 100 teratas. Pemain yang terkeluar daripadanya mengekalkan angka lama.",
+      "partial": "Senarai separa daripada pengiraan pemain lain. Kira untuk mendapatkan 100 teratas penuh.",
       "liveSearch": "Tiada dalam senarai tersimpan, jadi dikira sebentar tadi.",
       "noMatchesShort": "Tiada pemain tersimpan sepadan dengan \"{query}\". Taip sekurang-kurangnya 3 aksara untuk mencari seluruh pelayan.",
       "noLiveMatches": "Tidak pernah bermain dengan sesiapa yang sepadan dengan \"{query}\"."

@@ -499,6 +499,7 @@
       "calculatedAsOf": "Berdasarkan sesi hingga {when}.",
       "outdated": "Ada sesi yang lebih baru sejak itu.",
       "staleNote": "Setiap perhitungan menyimpan 100 teratas. Pemain yang keluar dari daftar itu menyimpan angka lamanya.",
+      "partial": "Daftar sebagian dari perhitungan pemain lain. Hitung untuk mendapatkan 100 teratas lengkap.",
       "liveSearch": "Tidak ada di daftar tersimpan, jadi dihitung barusan.",
       "noMatchesShort": "Tidak ada pemain tersimpan yang cocok dengan \"{query}\". Ketik minimal 3 karakter untuk mencari di seluruh server.",
       "noLiveMatches": "Belum pernah bermain dengan siapa pun yang cocok dengan \"{query}\"."

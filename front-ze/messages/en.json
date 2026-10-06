@@ -499,6 +499,7 @@
       "calculatedAsOf": "Based on sessions up to {when}.",
       "outdated": "Newer sessions since then.",
       "staleNote": "Each calculation saves the top 100. Players who fell out of it keep their older numbers.",
+      "partial": "Partial list from other players' calculations. Calculate for the full top 100.",
       "liveSearch": "Not in the saved list, so calculated just now.",
       "noMatchesShort": "No saved players match \"{query}\". Type at least 3 characters to search everyone on the server.",
       "noLiveMatches": "Hasn't played with anyone matching \"{query}\"."

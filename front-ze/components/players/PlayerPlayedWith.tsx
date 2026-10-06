@@ -79,6 +79,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
     const debouncedQuery = useDebounced(query.trim(), SEARCH_DEBOUNCE_MS);
     const [page, setPage] = useState(0);
     const [data, setData] = useState<PlayerMightFriendsPage | null>(null);
+    const [hasStoredRows, setHasStoredRows] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [polling, setPolling] = useState(false);
@@ -92,6 +93,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
             server.id, `/players/${playerId}/might_friends`, { ...NO_CACHE, params },
         );
         setData(result);
+        if (!debouncedQuery) setHasStoredRows(result.rows.length > 0);
         setError(false);
         return result;
     }, [server.id, playerId, page, debouncedQuery]);
@@ -154,6 +156,8 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
 
     const isCalculating = polling || requesting || !!data?.is_calculating;
     const neverCalculated = data !== null && data.calculated_at === null;
+    // Never calculated itself, but other players' calculations already shared rows with this one.
+    const partial = neverCalculated && hasStoredRows;
     const canCalculate = data !== null && data.is_stale && !isCalculating;
     const calculateLabel = isCalculating
         ? <><Loader2 className="h-4 w-4 animate-spin" />{t('calculating')}</>
@@ -170,10 +174,10 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
         <div className="w-full min-h-[460px] flex flex-col">
             <div className="flex flex-row flex-wrap justify-between items-center mb-3 gap-2">
                 {heading ?? <h2 className="text-lg sm:text-xl font-semibold">{t('title')}</h2>}
-                {data && !neverCalculated && (
+                {data && (!neverCalculated || partial) && (
                     <Button variant="outline" size="sm" onClick={calculate} disabled={!canCalculate}
                             title={!data.is_stale ? t('upToDate') : undefined}>
-                        {calculateLabel ?? <><RefreshCw className="h-4 w-4" />{t('recalculate')}</>}
+                        {calculateLabel ?? <><RefreshCw className="h-4 w-4" />{partial ? t('calculate') : t('recalculate')}</>}
                     </Button>
                 )}
             </div>
@@ -191,7 +195,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
                 )}
             </div>
 
-            {neverCalculated && !debouncedQuery ? (
+            {neverCalculated && !partial && !debouncedQuery ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-muted-foreground px-4">
                     <Users className="w-8 h-8 opacity-50" />
                     <p className="text-sm">{t('neverCalculated')}</p>
@@ -230,6 +234,9 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
                             {t('calculatedAsOf', {when: dayjs(data.calculated_at).fromNow()})}
                             {data.is_stale && ` ${t('outdated')}`}
                         </p>
+                    )}
+                    {partial && !data.live_search && (
+                        <p className="text-xs text-muted-foreground mt-2">{t('partial')}</p>
                     )}
                 </>
             )}

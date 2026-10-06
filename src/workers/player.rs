@@ -806,6 +806,11 @@ fn escape_like(value: &str) -> String {
 /// Who a player has "played with" on a server, all-time: whoever overlapped the most with their
 /// completed sessions. Only ever run on request (the `might_friends/calculate` route queues it);
 /// the list route reads `website.player_server_relationship` directly and never calculates.
+///
+/// Time together is symmetric, so each pair is also stored from the other side (`mirrored`): the
+/// players in this list see this player in theirs without being calculated themselves. A mirror
+/// only overwrites a row whose `last_seen` is no newer, so an older calculation never rolls back a
+/// fresher one. It does not mark them calculated, so their own full calculation stays available.
 #[async_trait]
 impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerBasicQuery<Vec<DbPlayerSeen>> {
     type Error = sqlx::Error;
@@ -864,6 +869,15 @@ impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerBasicQuery<Vec<DbPlayerSeen>> {
                     total_time_together = EXCLUDED.total_time_together,
                     last_seen = EXCLUDED.last_seen
                 RETURNING meet_player_id, total_time_together, last_seen
+            ),
+            mirrored AS (
+                INSERT INTO website.player_server_relationship AS rel(player_id, server_id, meet_player_id, total_time_together, last_seen)
+                SELECT meet_player_id, $1, $2, total_time_together, last_seen FROM ranked
+                ON CONFLICT (player_id, server_id, meet_player_id)
+                DO UPDATE SET
+                    total_time_together = EXCLUDED.total_time_together,
+                    last_seen = EXCLUDED.last_seen
+                WHERE EXCLUDED.last_seen >= rel.last_seen
             )
             SELECT
                 s.meet_player_id AS \"player_id!\",
