@@ -978,6 +978,10 @@ impl PlayerApi{
     /// sessions exist, and `is_calculating` whether a recalculation is under way. Sorted by time
     /// together, 20 per page (`page` starts at 0).
     ///
+    /// Time together is symmetric, so every calculation also saves each pair for the other player.
+    /// A player who was never calculated can therefore already list the players whose own
+    /// calculation included them; `calculated_at` stays null until their own calculation runs.
+    ///
     /// `q` filters by player name. If no stored player matches a `q` of 3 or more characters, the
     /// time together with every matching player on the server (up to the 100 closest names) is
     /// calculated on the spot instead, keeping only those who ever played together, and

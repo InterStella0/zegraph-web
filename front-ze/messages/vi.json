@@ -499,6 +499,7 @@
       "calculatedAsOf": "Dựa trên các phiên đến {when}.",
       "outdated": "Đã có phiên mới hơn kể từ đó.",
       "staleNote": "Mỗi lần tính lưu top 100. Người chơi rơi khỏi top giữ số liệu cũ.",
+      "partial": "Danh sách một phần từ kết quả tính của người chơi khác. Hãy tính để xem đầy đủ top 100.",
       "liveSearch": "Không có trong danh sách đã lưu nên vừa được tính.",
       "noMatchesShort": "Không có người chơi đã lưu nào khớp với \"{query}\". Nhập ít nhất 3 ký tự để tìm trên toàn máy chủ.",
       "noLiveMatches": "Chưa từng chơi cùng ai khớp với \"{query}\"."

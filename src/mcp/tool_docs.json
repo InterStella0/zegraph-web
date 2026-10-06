@@ -142,7 +142,7 @@
         "q": "Optional case-insensitive player-name search. If no stored player matches and q has at least 3 characters, the time together with matching players on the server is calculated live. Anonymized players never match.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "List who a player has played with on a server: the players who spent the most time on the server alongside them, all-time, sorted by time together. Returns the stored list: calculated_at says how current it is, is_stale whether the player has newer sessions, is_calculating whether a recalculation is running. A never-calculated player has no stored rows, but a name search still works through the live fallback (live_search is then true). Results contain up to 20 players per page and respect each player's privacy setting.",
+      "description": "List who a player has played with on a server: the players who spent the most time on the server alongside them, all-time, sorted by time together. Returns the stored list: calculated_at says how current it is, is_stale whether the player has newer sessions, is_calculating whether a recalculation is running. Time together is symmetric, so a never-calculated player may already list the players whose own calculation included them (calculated_at stays null until their own calculation runs); a name search still works through the live fallback (live_search is then true). Results contain up to 20 players per page and respect each player's privacy setting.",
       "title": "Players Played With"
     },
     "get_player_most_played_maps": {

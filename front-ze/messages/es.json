@@ -499,6 +499,7 @@
       "calculatedAsOf": "Basado en sesiones hasta {when}.",
       "outdated": "Hay sesiones más recientes desde entonces.",
       "staleNote": "Cada cálculo guarda el top 100. Los jugadores que salieron de él conservan sus cifras anteriores.",
+      "partial": "Lista parcial a partir de los cálculos de otros jugadores. Calcula para obtener el top 100 completo.",
       "liveSearch": "No está en la lista guardada, así que se calculó ahora mismo.",
       "noMatchesShort": "Ningún jugador guardado coincide con \"{query}\". Escribe al menos 3 caracteres para buscar en todo el servidor.",
       "noLiveMatches": "No ha jugado con nadie que coincida con \"{query}\"."
