@@ -502,7 +502,21 @@
       "partial": "Senarai separa daripada pengiraan pemain lain. Kira untuk mendapatkan 100 teratas penuh.",
       "liveSearch": "Tiada dalam senarai tersimpan, jadi dikira sebentar tadi.",
       "noMatchesShort": "Tiada pemain tersimpan sepadan dengan \"{query}\". Taip sekurang-kurangnya 3 aksara untuk mencari seluruh pelayan.",
-      "noLiveMatches": "Tidak pernah bermain dengan sesiapa yang sepadan dengan \"{query}\"."
+      "noLiveMatches": "Tidak pernah bermain dengan sesiapa yang sepadan dengan \"{query}\".",
+      "periodCalculating": "Sedang mengira siapa yang bermain bersamanya dalam tempoh ini...",
+      "periodEmpty": "Tidak bermain dengan sesiapa dalam tempoh ini.",
+      "periodNoMatches": "Tiada sesiapa yang sepadan dengan \"{query}\" dalam senarai tempoh ini."
+    },
+    "period": {
+      "label": "Tempoh masa",
+      "allTime": "Sepanjang masa",
+      "allTimeDescription": "Setiap sesi sejak penjejakan bermula.",
+      "noPeriods": "Belum ada sesi lengkap untuk memilih tempoh.",
+      "wholeYear": "Sepanjang {year}",
+      "done": "Selesai",
+      "hint": "Semua metrik di bawah ditapis mengikut tempoh yang dipilih.",
+      "previous": "Tempoh sebelumnya",
+      "next": "Tempoh seterusnya"
     }
   },
   "sessions": {

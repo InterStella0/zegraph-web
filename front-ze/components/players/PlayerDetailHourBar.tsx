@@ -15,6 +15,7 @@ import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import { Server } from "types/community.ts";
 import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import type { PlayerSessionTime } from "./PlayTimeHeatmap";
+import { PeriodChip, splitPeriod, usePlayerPeriod } from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
 export default function PlayerDetailHourBar({ player, server }: { server: Server, player: PlayerInfo }) {
     const t = useTranslations('players.hourBar');
@@ -28,6 +29,16 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
     const [ totalPlayTime, setTotalPlayTime ] = useState<number>(0)
 
     const [ sumMethodYearly, setSumMethodYearly ] = useState<"monthly" | "yearly">("yearly")
+    const { period } = usePlayerPeriod()
+    const scope = period ? splitPeriod(period) : null
+    const [ periodGroup, setPeriodGroup ] = useState<"daily" | "monthly">("daily")
+
+    const viewGroupBy = !scope ? groupByTime
+        : scope.month !== null ? "monthly"
+        : periodGroup === "monthly" ? "yearly" : "daily"
+    const viewYear = scope?.year ?? selectedYear
+    const viewMonth = scope?.month != null ? scope.month - 1 : selectedMonth
+    const viewSumMethod = scope ? "monthly" : sumMethodYearly
     const handleGroupChange = (value: string) => {
         setGroupByTime(value as "daily" | "monthly" | "yearly")
     }
@@ -44,11 +55,31 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
     return (
         <Card className="overflow-hidden border-0">
             <div className="flex justify-between items-center flex-col sm:flex-row gap-2 p-2 border-b">
-                <h2 className="text-base font-medium">
-                    {t('title', {hours: totalPlayTime.toLocaleString()})}
-                </h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-base font-medium">
+                        {t('title', {hours: totalPlayTime.toLocaleString()})}
+                    </h2>
+                    <PeriodChip />
+                </div>
 
-                <div className="flex gap-2 flex-wrap justify-end">
+                {scope && scope.month === null && (
+                    <div className="flex gap-0 rounded-md border overflow-hidden">
+                        <div className="border-r bg-background p-1 px-3">
+                            {t('groupBy')}
+                        </div>
+                        <Select value={periodGroup} onValueChange={(v) => setPeriodGroup(v as "daily" | "monthly")}>
+                            <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="daily">{t('daily')}</SelectItem>
+                                <SelectItem value="monthly">{t('monthly')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+
+                {!scope && <div className="flex gap-2 flex-wrap justify-end">
                     {/* Group By selector */}
                     <div className="flex gap-0 rounded-md border overflow-hidden">
                         <div className="border-r bg-background p-1 px-3">
@@ -187,17 +218,17 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                             )}
                         </>
                     )}
-                </div>
+                </div>}
             </div>
 
             <div className="p-1 min-h-[180px] sm:min-h-[220px]">
                 <PlayTimeHeatmap
-                    groupBy={groupByTime}
+                    groupBy={viewGroupBy}
                     player={player}
                     server={server}
-                    selectedYear={selectedYear}
-                    selectedMonth={selectedMonth}
-                    sumMethodYearly={sumMethodYearly}
+                    selectedYear={viewYear}
+                    selectedMonth={viewMonth}
+                    sumMethodYearly={viewSumMethod}
                     onDataLoaded={handleDataLoaded}
                     onChangeTotalPlayed={setTotalPlayTime}
                 />

@@ -17,6 +17,7 @@ import {PlayerSession, PlayerSessionPage} from "types/players.ts";
 import { cn } from "components/lib/utils";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
+import {periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -106,16 +107,29 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
     const [totalPages, setTotalPages] = useState<number>(1);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
     const [datePickerOpen, setDatePickerOpen] = useState(false);
+    const { period } = usePlayerPeriod();
+    const [shownPeriod, setShownPeriod] = useState(period);
+    if (shownPeriod !== period) {
+        setShownPeriod(period);
+        setPage(0);
+        setSelectedDate(undefined);
+    }
+    const bounds = period ? periodBounds(period) : null;
+    const firstDay = bounds ? dayjs(dayjs.utc(bounds.start).format('YYYY-MM-DD')).toDate() : undefined;
+    const lastDay = bounds ? dayjs(dayjs.utc(bounds.end).subtract(1, 'day').format('YYYY-MM-DD')).toDate() : undefined;
 
     useEffect(() => {
         if (!playerId) return;
 
         setLoading(true);
         const abort = new AbortController();
-        const params: { page: number, datetime?: string } = { page };
+        const params: { page: number, datetime?: string, period?: string } = { page };
 
         if (selectedDate) {
             params.datetime = dayjs(selectedDate).utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
+        }
+        if (period) {
+            params.period = period;
         }
 
         fetchApiServerUrl(server_id, `/players/${playerId}/sessions`, {
@@ -136,7 +150,7 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
         return () => {
             abort.abort();
         };
-    }, [server_id, playerId, page, selectedDate]);
+    }, [server_id, playerId, page, selectedDate, period]);
 
     const handleDateChange = (newDate: Date | undefined) => {
         setSelectedDate(newDate);
@@ -170,6 +184,7 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
                             variant="ghost"
                             size="icon"
                             onClick={handlePreviousDay}
+                            disabled={!!firstDay && !dayjs(selectedDate).isAfter(firstDay, 'day')}
                         >
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
@@ -192,6 +207,10 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
                                 mode="single"
                                 selected={selectedDate}
                                 onSelect={handleDateChange}
+                                defaultMonth={selectedDate ?? firstDay}
+                                startMonth={firstDay}
+                                endMonth={lastDay}
+                                disabled={firstDay ? [{ before: firstDay }, { after: lastDay }] : undefined}
                             />
                         </PopoverContent>
                     </Popover>
@@ -200,6 +219,7 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
                             variant="ghost"
                             size="icon"
                             onClick={handleNextDay}
+                            disabled={!!lastDay && !dayjs(selectedDate).isBefore(lastDay, 'day')}
                         >
                             <ChevronRight className="h-4 w-4" />
                         </Button>

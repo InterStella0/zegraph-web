@@ -20,14 +20,15 @@ import Link from "next/link";
 import relativeTime from 'dayjs/plugin/relativeTime'
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import { ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page";
-import {PlayerWithLegacyRanks} from "types/players";
+import {DetailedPlayer, PlayerWithLegacyRanks} from "types/players";
 import PlayerDetailHourBar from "./PlayerDetailHourBar";
 import {Server} from "types/community";
 import PlayerStats from "./PlayerStats";
 import PlayerAliasesButton from "./PlayerAliasesButton";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import {SiSteam} from "@icons-pack/react-simple-icons";
-import {usePatchedPlayer} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
+import {usePatchedPlayer, usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
+import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod";
 import PlayerClaimButton from "./PlayerClaimButton";
 import AssociatePlayerDialog from "./AssociatePlayerDialog";
 import {SteamProfile} from "../../next-auth-steam/steam.ts";
@@ -94,7 +95,10 @@ function PlayerCardDetailDisplay({ server, player, user }: { server: Server, pla
     const t = useTranslations('players.card');
     const locale = useLocale();
     const cStats = cStatsFor(server.id, player.id)
-    const ranks = player?.ranks
+    const { period } = usePlayerPeriod()
+    const { data: periodStats } = usePlayerStat<DetailedPlayer>(server.id, player.id, 'detail', !!period)
+    const stats = period ? periodStats : player
+    const ranks = period ? null : player?.ranks
     let lastPlayedText = t('lastOnline', {ago: dayjs(player.last_played_ended).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
     if (player.online_since) {
         lastPlayedText = t('playingSince', {ago: dayjs(player.online_since).fromNow()});
@@ -181,8 +185,8 @@ function PlayerCardDetailDisplay({ server, player, user }: { server: Server, pla
                     <div className="flex mt-4 sm:mt-auto gap-2 justify-center sm:justify-start">
                         <div className="flex flex-wrap mt-4 sm:mt-auto gap-2 justify-center sm:justify-start max-w-full">
                             {ranks && <RankChip label={t('ranked')} rank={ranks?.server_playtime}/>}
-                            {player.category && player.category !== 'unknown' && (
-                                <CategoryChip category={player.category} size="medium"/>
+                            {stats?.category && stats.category !== 'unknown' && (
+                                <CategoryChip category={stats.category} size="medium"/>
                             )}
                             {ranks && <RankChip label={t('global')} rank={ranks?.global_playtime} title={t('globalTitle')}/>}
                             {ranks && <RankChip label={t('tryhard')} rank={ranks?.tryhard_playtime}/>}
@@ -197,7 +201,7 @@ function PlayerCardDetailDisplay({ server, player, user }: { server: Server, pla
                     </div>
                 </div>
 
-                <PlayerStats player={player} cStatsPromise={cStats}/>
+                <PlayerStats player={stats} cStatsPromise={cStats}/>
             </div>
             <PlayerDetailHourBar player={player} server={server} />
         </div>

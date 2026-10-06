@@ -14,6 +14,7 @@ use crate::{response, AppData, FastCache};
 use crate::api_models::common::*;
 use crate::api_models::players::*;
 use crate::api_models::radars::CountryStatistic;
+use crate::core::period::{flatten_period, PeriodParam};
 use crate::core::utils::*;
 use crate::models::players::*;
 use crate::models::radars::DbCountryStatistic;
@@ -202,6 +203,17 @@ struct ServerPlayersStatistic{
 #[derive(Object)]
 struct ServerCountriesStatistics{
     countries: Vec<CountryStatistic>
+}
+
+fn group_periods(months: Vec<DbPlayerPeriodMonth>) -> Vec<PlayerPeriodYear> {
+    let mut years: Vec<PlayerPeriodYear> = vec![];
+    for row in months {
+        match years.last_mut() {
+            Some(year) if year.year == row.year => year.months.push(row.month),
+            _ => years.push(PlayerPeriodYear { year: row.year, months: vec![row.month] }),
+        }
+    }
+    years
 }
 
 fn handle_worker_player_result<T>(result: WorkResult<T>) -> Response<T>
@@ -636,47 +648,62 @@ impl PlayerApi{
         response!(ok result.result.into())
     }
     /// Chart data for a player's session history on a server. Backed by `PlayerWorker`'s cache.
+    ///
+    /// `period` narrows the figures to one UTC calendar year (`YYYY`) or month (`YYYY-MM`); `all` or
+    /// no value is all-time. A period is calculated on request and only cached, so its first request
+    /// may report that it is still calculating.
     #[oai(path = "/servers/:server_id/players/:player_id/graph/sessions", method = "get", operation_id = "get_player_sessions_graph", tag = "ApiTags::Mcp")]
     async fn get_player_sessions(
         &self,
         Data(app): Data<&AppData>,
+        Query(period): Query<Option<PeriodParam>>,
         extract: PlayerExtractor,
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<Vec<PlayerSessionTime>> {
         let context = PlayerContext::from(extract);
-        handle_worker_player_result(app.player_worker.get_player_sessions(&context).await)
+        handle_worker_player_result(app.player_worker.get_player_sessions(&context, flatten_period(period)).await)
     }
     /// A player's playtime broken down by hour of day. Backed by `PlayerWorker`'s cache.
+    ///
+    /// With a `period` (`YYYY` or `YYYY-MM`, UTC), joins are counted for sessions starting in it and
+    /// leaves for sessions ending in it. Periods are calculated on request and only cached.
     #[oai(path="/servers/:server_id/players/:player_id/hours_of_day", method="get", operation_id = "get_player_hours_of_day", tag = "ApiTags::Mcp")]
-    async fn get_hours_of_day_player(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerHourDay>>{
+    async fn get_hours_of_day_player(&self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerHourDay>>{
         let context = PlayerContext::from(extract);
-        handle_worker_player_result(app.player_worker.get_hour_of_day(&context).await)
+        handle_worker_player_result(app.player_worker.get_hour_of_day(&context, flatten_period(period)).await)
     }
 
     /// A player's online activity heatmap (by day/hour). Backed by `PlayerWorker`'s cache.
+    ///
+    /// `period` narrows the figures to one UTC calendar year (`YYYY`) or month (`YYYY-MM`); `all` or
+    /// no value is all-time. A period is calculated on request and only cached, so its first request
+    /// may report that it is still calculating.
     #[oai(path="/servers/:server_id/players/:player_id/online_heatmap", method="get", operation_id = "get_player_online_heatmap", tag = "ApiTags::Mcp")]
-    async fn get_online_heatmap_player(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerOnlineHeatmap>>{
+    async fn get_online_heatmap_player(&self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerOnlineHeatmap>>{
         let context = PlayerContext::from(extract);
-        handle_worker_player_result(app.player_worker.get_online_heatmap(&context).await)
+        handle_worker_player_result(app.player_worker.get_online_heatmap(&context, flatten_period(period)).await)
     }
     /// Paginated list of a player's sessions on a server within a day.
     ///
-    /// `datetime` selects which day to list (defaults to everything from 2024-02-01 to now);
-    /// `page` paginates in pages of 10.
+    /// `datetime` selects which day to list. Without it, `period` (`YYYY` or `YYYY-MM`, UTC) lists
+    /// the sessions that started in that year or month; with neither, everything from 2024-02-01 to
+    /// now. `page` paginates in pages of 10.
     #[oai(path = "/servers/:server_id/players/:player_id/sessions", method = "get", operation_id = "get_player_sessions", tag = "ApiTags::Mcp")]
     async fn get_list_sessions(
-        &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Query(page): Query<usize>,
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
+        extract: PlayerExtractor, Query(page): Query<usize>,
         Query(datetime): Query<Option<DateTime<Utc>>>,
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<PlayerSessionPage>{
         let pagination = 10;
         let offset = pagination * page as i64;
-        let (start, end) = match datetime{
-            Some(date) => {
+        let (start, end) = match (datetime, flatten_period(period)){
+            (Some(date), _) => {
                 let end_date = date.clone();
                 (date, end_date.add(TimeDelta::days(1)))
             },
-            None => {
+            (None, Some(period)) => (period.start(), period.end()),
+            (None, None) => {
                 // Date wont go past february. Im hardcoding this.
                 let start_date = Utc.with_ymd_and_hms(2024, 2, 1, 0, 0, 0).unwrap();
                 (start_date, Utc::now())
@@ -690,7 +717,7 @@ impl PlayerApi{
             )
             SELECT *, COUNT(session_id) OVER() AS total_rows
             FROM pss
-            WHERE  started_at BETWEEN $5 AND $6
+            WHERE started_at >= $5 AND started_at < $6
             ORDER BY started_at DESC
             LIMIT $3
             OFFSET $4",
@@ -901,13 +928,48 @@ impl PlayerApi{
     /// Full profile for a player on a server: playtime, rank and related stats in one call.
     ///
     /// Backed by `PlayerWorker`'s cache. When nothing current is cached this falls back to db.
+    ///
+    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the playtime and category cover only that year
+    /// or month and `ranks` is null, since ranks are all-time. A period is calculated on request
+    /// and only cached, with no stored fallback, so its first request reports still calculating.
     #[oai(path = "/servers/:server_id/players/:player_id/detail", method = "get", operation_id = "get_player_detail", tag = "ApiTags::Mcp")]
     async fn get_player_detail(
-        &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
+        extract: PlayerExtractor,
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<DetailedPlayer>{
         let ctx = PlayerContext::from(extract);
-        handle_worker_player_result(app.player_worker.get_detail(&ctx).await)
+        handle_worker_player_result(app.player_worker.get_detail(&ctx, flatten_period(period)).await)
+    }
+    /// The UTC years and months in which a player has completed sessions on a server, newest year
+    /// first, for choosing a `period` on the other player routes.
+    #[oai(path = "/servers/:server_id/players/:player_id/periods", method = "get", operation_id = "get_player_periods", tag = "ApiTags::Mcp")]
+    async fn get_player_periods(
+        &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
+        OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
+    ) -> Response<Vec<PlayerPeriodYear>>{
+        let server_id = &extract.server.server_id;
+        let player_id = &extract.player.player_id;
+        let pool = &*app.pool;
+        let func = || sqlx::query_as!(DbPlayerPeriodMonth, "
+            SELECT DISTINCT
+                EXTRACT(YEAR FROM m)::int AS \"year!\",
+                EXTRACT(MONTH FROM m)::int AS \"month!\"
+            FROM player_server_session pss
+            CROSS JOIN LATERAL generate_series(
+                date_trunc('month', pss.started_at AT TIME ZONE 'UTC'),
+                date_trunc('month', pss.ended_at AT TIME ZONE 'UTC'),
+                INTERVAL '1 month'
+            ) AS m
+            WHERE pss.server_id = $1 AND pss.player_id = $2 AND pss.ended_at IS NOT NULL
+            ORDER BY 1 DESC, 2
+        ", server_id, player_id).fetch_all(pool);
+
+        let key = format!("player-periods:{server_id}:{player_id}:{}", extract.key.current);
+        let Ok(result) = cached_response(&key, &app.cache, DAY, func).await else {
+            return response!(internal_server_error)
+        };
+        response!(ok group_periods(result.result))
     }
     /// A player's Steam profile picture, in full and medium sizes.
     ///
@@ -986,15 +1048,21 @@ impl PlayerApi{
     /// time together with every matching player on the server (up to the 100 closest names) is
     /// calculated on the spot instead, keeping only those who ever played together, and
     /// `live_search` is set. Anonymized players show as "Anonymous" and never match `q`.
+    ///
+    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the list is instead the top 100 for that year or
+    /// month, calculated on request and only cached; `is_calculating` is set while it runs. In a
+    /// period, `q` only filters whatever is already cached: it never starts the calculation and
+    /// never falls back to the live search.
     #[oai(path="/servers/:server_id/players/:player_id/might_friends", method="get", operation_id = "get_player_might_friends", tag = "ApiTags::Mcp")]
     async fn get_player_might_friends(
-        &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
+        extract: PlayerExtractor,
         Query(q): Query<Option<String>>, Query(page): Query<Option<i64>>,
         OptionalAnonymousTokenBearer(user_token): OptionalAnonymousTokenBearer,
     ) -> Response<PlayerMightFriendsPage>{
         let server_id = extract.server.server_id.clone();
         let ctx = PlayerContext::from(extract);
-        let mut result = match app.player_worker.get_might_friends(&ctx, q.as_deref(), page.unwrap_or(0)).await {
+        let mut result = match app.player_worker.get_might_friends(&ctx, q.as_deref(), page.unwrap_or(0), flatten_period(period)).await {
             Ok(result) => result,
             Err(e) => return handle_worker_player_result(Err(e)),
         };
@@ -1019,22 +1087,31 @@ impl PlayerApi{
         )
     }
     /// A player's most-played maps on a server. Backed by `PlayerWorker`'s cache.
+    ///
+    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the time covers only that year or month and every
+    /// `rank` is 0, since map ranks are all-time. Periods are calculated on request and only cached.
     #[oai(path = "/servers/:server_id/players/:player_id/most_played_maps", method = "get", operation_id = "get_player_most_played_maps", tag = "ApiTags::Mcp")]
     async fn get_player_most_played(
-        &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
+        extract: PlayerExtractor,
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<Vec<PlayerMostPlayedMap>>{
         let ctx = PlayerContext::from(extract);
-        handle_worker_player_result(app.player_worker.get_most_played_maps(&ctx).await)
+        handle_worker_player_result(app.player_worker.get_most_played_maps(&ctx, flatten_period(period)).await)
     }
     /// A player's playtime broken down by geographic region. Backed by `PlayerWorker`'s cache.
+    ///
+    /// `period` narrows the figures to one UTC calendar year (`YYYY`) or month (`YYYY-MM`); `all` or
+    /// no value is all-time. A period is calculated on request and only cached, so its first request
+    /// may report that it is still calculating.
     #[oai(path = "/servers/:server_id/players/:player_id/regions", method = "get", operation_id = "get_player_regions", tag = "ApiTags::Mcp")]
     async fn get_player_region(
-        &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
+        extract: PlayerExtractor,
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<Vec<PlayerRegionTime>>{
         let ctx = PlayerContext::from(extract);
-        handle_worker_player_result(app.player_worker.get_regions(&ctx).await)
+        handle_worker_player_result(app.player_worker.get_regions(&ctx, flatten_period(period)).await)
     }
 }
 impl UriPatternExt for PlayerApi{
@@ -1056,6 +1133,7 @@ impl UriPatternExt for PlayerApi{
             "/servers/{server_id}/players/{player_id}/infraction_update",
             "/servers/{server_id}/players/{player_id}/infractions",
             "/servers/{server_id}/players/{player_id}/detail",
+            "/servers/{server_id}/players/{player_id}/periods",
             "/players/{player_id}/pfp",
             "/servers/{server_id}/players/{player_id}/most_played_maps",
             "/servers/{server_id}/players/{player_id}/regions",

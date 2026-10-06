@@ -502,7 +502,21 @@
       "partial": "Partial list from other players' calculations. Calculate for the full top 100.",
       "liveSearch": "Not in the saved list, so calculated just now.",
       "noMatchesShort": "No saved players match \"{query}\". Type at least 3 characters to search everyone on the server.",
-      "noLiveMatches": "Hasn't played with anyone matching \"{query}\"."
+      "noLiveMatches": "Hasn't played with anyone matching \"{query}\".",
+      "periodCalculating": "Working out who they played with in this period...",
+      "periodEmpty": "Didn't play with anyone in this period.",
+      "periodNoMatches": "No one matching \"{query}\" in this period's list."
+    },
+    "period": {
+      "label": "Time period",
+      "allTime": "All time",
+      "allTimeDescription": "Every session since tracking started.",
+      "noPeriods": "No completed sessions to choose a period from yet.",
+      "wholeYear": "Whole {year}",
+      "done": "Done",
+      "hint": "All metrics below are filtered to the selected period.",
+      "previous": "Previous period",
+      "next": "Next period"
     }
   },
   "sessions": {

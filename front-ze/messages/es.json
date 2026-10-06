@@ -502,7 +502,21 @@
       "partial": "Lista parcial a partir de los cálculos de otros jugadores. Calcula para obtener el top 100 completo.",
       "liveSearch": "No está en la lista guardada, así que se calculó ahora mismo.",
       "noMatchesShort": "Ningún jugador guardado coincide con \"{query}\". Escribe al menos 3 caracteres para buscar en todo el servidor.",
-      "noLiveMatches": "No ha jugado con nadie que coincida con \"{query}\"."
+      "noLiveMatches": "No ha jugado con nadie que coincida con \"{query}\".",
+      "periodCalculating": "Calculando con quién jugó en este periodo...",
+      "periodEmpty": "No jugó con nadie en este periodo.",
+      "periodNoMatches": "Nadie coincide con \"{query}\" en la lista de este periodo."
+    },
+    "period": {
+      "label": "Periodo",
+      "allTime": "Todo el tiempo",
+      "allTimeDescription": "Todas las sesiones desde que comenzó el registro.",
+      "noPeriods": "Aún no hay sesiones completadas para elegir un periodo.",
+      "wholeYear": "Todo {year}",
+      "done": "Listo",
+      "hint": "Todas las métricas de abajo se filtran por el periodo seleccionado.",
+      "previous": "Periodo anterior",
+      "next": "Periodo siguiente"
     }
   },
   "sessions": {

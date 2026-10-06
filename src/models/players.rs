@@ -472,3 +472,9 @@ pub struct DbGlobalPlayerBrief {
     #[skip]
     pub total_players: i64,
 }
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct DbPlayerPeriodMonth{
+    pub year: i32,
+    pub month: i32,
+}

@@ -24,6 +24,7 @@ import { useTheme } from "next-themes";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
+import {PeriodChip} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
 ChartJS.register(
     ArcElement,
@@ -251,9 +252,12 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
     return (
         <div className="p-4 h-full flex flex-col">
             <div className="flex justify-between items-center mb-2">
-                <h2 className={`font-bold ${isMobile ? 'text-base' : 'text-xl'}`}>
-                    {t('title')}
-                </h2>
+                <div className="flex items-center gap-2">
+                    <h2 className={`font-bold ${isMobile ? 'text-base' : 'text-xl'}`}>
+                        {t('title')}
+                    </h2>
+                    <PeriodChip />
+                </div>
 
                 <Tabs value={viewType} onValueChange={handleViewChange}>
                     <TabsList>

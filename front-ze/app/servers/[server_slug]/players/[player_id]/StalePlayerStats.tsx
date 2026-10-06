@@ -8,6 +8,7 @@ import { History, RefreshCw } from "lucide-react";
 import { fetchApiServerUrl, StillCalculate } from "utils/generalUtils";
 import { DetailedPlayer } from "types/players.ts";
 import { STALE_PATHS, usePlayerStatsPatch } from "./PlayerStatsPatch.tsx";
+import { usePlayerPeriod } from "./PlayerPeriod.tsx";
 
 dayjs.extend(relativeTime)
 
@@ -16,10 +17,15 @@ const POLL_INTERVAL_MS = 30000;
 const DEPENDENT_PATHS = STALE_PATHS.filter(path => path !== "detail");
 const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
 
-export default function StalePlayerStats(
-    { serverId, playerId, calculatedAt }:
-    { serverId: string, playerId: string, calculatedAt: string | null },
-) {
+type StalePlayerStatsProps = { serverId: string, playerId: string, calculatedAt: string | null };
+
+export default function StalePlayerStats(props: StalePlayerStatsProps) {
+    const { period } = usePlayerPeriod();
+    if (period) return null;
+    return <StalePlayerStatsBanner {...props} />;
+}
+
+function StalePlayerStatsBanner({ serverId, playerId, calculatedAt }: StalePlayerStatsProps) {
     const t = useTranslations('players.staleStats');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [stillStale, setStillStale] = useState(false);

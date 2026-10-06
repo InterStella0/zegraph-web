@@ -12,6 +12,7 @@ import {
 import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
 import {ServerPlayerDetailed} from "./page.tsx";
 import {PlayerInfo} from "./util.ts";
+import {usePlayerPeriod} from "./PlayerPeriod.tsx";
 
 export const STALE_PATHS = [
     "detail",
@@ -66,6 +67,11 @@ export type PlayerStatResult<T> = {
     error: Error | null,
 };
 
+const RETRY_FIRST_MS = 2000;
+const RETRY_MAX_MS = 15000;
+const MAX_RETRIES = 30;
+const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
+
 export function usePlayerStat<T>(
     serverId: string | null | undefined,
     playerId: string | null | undefined,
@@ -73,7 +79,8 @@ export function usePlayerStat<T>(
     enabled: boolean = true,
 ): PlayerStatResult<T> {
     const ctx = useContext(PlayerStatsPatchContext);
-    const patch = ctx?.patches[path] as T | undefined;
+    const { period } = usePlayerPeriod();
+    const patch = period ? undefined : ctx?.patches[path] as T | undefined;
 
     const active = enabled && !!serverId && !!playerId;
     const [fetched, setFetched] = useState<T | null>(null);
@@ -84,28 +91,38 @@ export function usePlayerStat<T>(
         if (!active) return;
 
         let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         setLoading(true);
         setError(null);
         setFetched(null);
 
-        fetchApiServerUrl(serverId as string, `/players/${playerId}/${path}`)
-            .then((resp: T | StillCalculate) => {
-                if (cancelled) return;
-
-                if (resp instanceof StillCalculate) throw resp;
-                setFetched(resp);
-            })
-            .catch(err => {
-                if (!cancelled) setError(err);
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
+        const params = period ? { params: { period } } : {};
+        const attempt = (retries: number, delay: number) => {
+            const options = retries > 0 ? { ...params, ...NO_CACHE } : params;
+            fetchApiServerUrl(serverId as string, `/players/${playerId}/${path}`, options, false)
+                .then((resp: T | StillCalculate) => {
+                    if (cancelled) return;
+                    if (resp instanceof StillCalculate) {
+                        if (retries >= MAX_RETRIES) throw resp;
+                        timer = setTimeout(() => attempt(retries + 1, Math.min(delay * 2, RETRY_MAX_MS)), delay);
+                        return;
+                    }
+                    setFetched(resp);
+                    setLoading(false);
+                })
+                .catch(err => {
+                    if (cancelled) return;
+                    setError(err);
+                    setLoading(false);
+                });
+        };
+        attempt(0, RETRY_FIRST_MS);
 
         return () => {
             cancelled = true;
+            clearTimeout(timer);
         };
-    }, [serverId, playerId, path, active]);
+    }, [serverId, playerId, path, active, period]);
 
     if (patch !== undefined) {
         return { data: patch, loading: false, error: null };

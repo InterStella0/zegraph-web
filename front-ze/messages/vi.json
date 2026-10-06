@@ -502,7 +502,21 @@
       "partial": "Danh sách một phần từ kết quả tính của người chơi khác. Hãy tính để xem đầy đủ top 100.",
       "liveSearch": "Không có trong danh sách đã lưu nên vừa được tính.",
       "noMatchesShort": "Không có người chơi đã lưu nào khớp với \"{query}\". Nhập ít nhất 3 ký tự để tìm trên toàn máy chủ.",
-      "noLiveMatches": "Chưa từng chơi cùng ai khớp với \"{query}\"."
+      "noLiveMatches": "Chưa từng chơi cùng ai khớp với \"{query}\".",
+      "periodCalculating": "Đang tính những người đã chơi cùng trong khoảng thời gian này...",
+      "periodEmpty": "Không chơi cùng ai trong khoảng thời gian này.",
+      "periodNoMatches": "Không có ai khớp với \"{query}\" trong danh sách của khoảng thời gian này."
+    },
+    "period": {
+      "label": "Khoảng thời gian",
+      "allTime": "Toàn bộ thời gian",
+      "allTimeDescription": "Mọi phiên kể từ khi bắt đầu theo dõi.",
+      "noPeriods": "Chưa có phiên hoàn tất nào để chọn khoảng thời gian.",
+      "wholeYear": "Cả năm {year}",
+      "done": "Xong",
+      "hint": "Mọi số liệu bên dưới đều được lọc theo khoảng thời gian đã chọn.",
+      "previous": "Khoảng trước",
+      "next": "Khoảng sau"
     }
   },
   "sessions": {

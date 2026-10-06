@@ -502,7 +502,21 @@
       "partial": "Daftar sebagian dari perhitungan pemain lain. Hitung untuk mendapatkan 100 teratas lengkap.",
       "liveSearch": "Tidak ada di daftar tersimpan, jadi dihitung barusan.",
       "noMatchesShort": "Tidak ada pemain tersimpan yang cocok dengan \"{query}\". Ketik minimal 3 karakter untuk mencari di seluruh server.",
-      "noLiveMatches": "Belum pernah bermain dengan siapa pun yang cocok dengan \"{query}\"."
+      "noLiveMatches": "Belum pernah bermain dengan siapa pun yang cocok dengan \"{query}\".",
+      "periodCalculating": "Sedang menghitung siapa saja yang bermain bersamanya di periode ini...",
+      "periodEmpty": "Tidak bermain dengan siapa pun di periode ini.",
+      "periodNoMatches": "Tidak ada yang cocok dengan \"{query}\" di daftar periode ini."
+    },
+    "period": {
+      "label": "Periode waktu",
+      "allTime": "Sepanjang waktu",
+      "allTimeDescription": "Semua sesi sejak pelacakan dimulai.",
+      "noPeriods": "Belum ada sesi selesai untuk memilih periode.",
+      "wholeYear": "Sepanjang {year}",
+      "done": "Selesai",
+      "hint": "Semua metrik di bawah difilter sesuai periode yang dipilih.",
+      "previous": "Periode sebelumnya",
+      "next": "Periode berikutnya"
     }
   },
   "sessions": {

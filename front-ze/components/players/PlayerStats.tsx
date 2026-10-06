@@ -6,10 +6,10 @@ import { Badge } from "components/ui/badge";
 import { Skeleton } from "components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "components/ui/tabs";
 import {formatHours} from "utils/generalUtils";
-import {PlayerWithLegacyRanks} from "types/players";
-import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
+import {DetailedPlayer, PlayerWithLegacyRanks} from "types/players";
+import {PeriodChip} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
-export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: Promise<PlayerWithLegacyRanks | null>, player: PlayerInfo}): ReactElement{
+export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: Promise<PlayerWithLegacyRanks | null>, player: DetailedPlayer | null}): ReactElement{
     const t = useTranslations('players.stats');
     const cStats = use(cStatsPromise)
     const [activeTab, setActiveTab] = useState<string>("playtime");
@@ -28,6 +28,9 @@ export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: 
             </TabsList>
 
             <TabsContent value="playtime" className="p-4 mt-0">
+                <div className="mb-3 flex justify-end">
+                    <PeriodChip />
+                </div>
                 {player ? (
                     <div className="space-y-2">
                         <div className="flex justify-between">

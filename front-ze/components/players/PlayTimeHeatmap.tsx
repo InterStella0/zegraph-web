@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import weekOfYear from "dayjs/plugin/weekOfYear";
 import isoWeek from "dayjs/plugin/isoWeek";
+import utc from "dayjs/plugin/utc";
 import { Skeleton } from "../ui/skeleton";
 import {formatNumber} from "utils/generalUtils";
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
@@ -20,6 +21,7 @@ import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]
 
 dayjs.extend(weekOfYear)
 dayjs.extend(isoWeek)
+dayjs.extend(utc)
 
 ChartJS.register(MatrixController, MatrixElement, BarController, BarElement, TimeScale, TooltipChart, CategoryScale, LinearScale, Title);
 
@@ -74,9 +76,9 @@ export default function PlayTimeHeatmap({
     // After rawData is loaded, notify parent of available periods
     useEffect(() => {
         if (rawData && rawData.length > 0 && onDataLoaded) {
-            const years = [...new Set(rawData.map(d => dayjs(d.bucket_time).year()))]
+            const years = [...new Set(rawData.map(d => dayjs.utc(d.bucket_time).year()))]
                 .sort((a, b) => b - a)  // Most recent first
-            const months = [...new Set(rawData.map(d => dayjs(d.bucket_time).month()))]
+            const months = [...new Set(rawData.map(d => dayjs.utc(d.bucket_time).month()))]
             onDataLoaded({ years, months, rawData })
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,15 +90,15 @@ export default function PlayTimeHeatmap({
 
         switch (groupBy) {
             case 'daily':
-                return rawData.filter(d => dayjs(d.bucket_time).year() === selectedYear)
+                return rawData.filter(d => dayjs.utc(d.bucket_time).year() === selectedYear)
             case 'monthly':
                 return rawData.filter(d => {
-                    const date = dayjs(d.bucket_time)
+                    const date = dayjs.utc(d.bucket_time)
                     return date.year() === selectedYear && date.month() === selectedMonth
                 })
             case 'yearly':
                 return rawData.filter(d => {
-                    const date = dayjs(d.bucket_time)
+                    const date = dayjs.utc(d.bucket_time)
                     return (date.year() === selectedYear && sumMethodYearly === "monthly") || sumMethodYearly === "yearly"
                 })
             default:
@@ -124,7 +126,7 @@ export default function PlayTimeHeatmap({
             // Create a map of existing data for quick lookup
             const dataMap = new Map<string, number>()
             filteredData.forEach(e => {
-                const iso = dayjs(e.bucket_time).format("YYYY-MM-DD")
+                const iso = dayjs.utc(e.bucket_time).format("YYYY-MM-DD")
                 dataMap.set(iso, e.hours)
             })
 
@@ -148,7 +150,7 @@ export default function PlayTimeHeatmap({
             // Create a map of existing data for quick lookup
             const dataMap = new Map<string, number>()
             filteredData.forEach(e => {
-                const iso = dayjs(e.bucket_time).format("YYYY-MM-DD")
+                const iso = dayjs.utc(e.bucket_time).format("YYYY-MM-DD")
                 dataMap.set(iso, e.hours)
             })
 
@@ -184,7 +186,7 @@ export default function PlayTimeHeatmap({
                     break
             }
             filteredData.forEach(e => {
-                const groupKey = dayjs(e.bucket_time).format(method)
+                const groupKey = dayjs.utc(e.bucket_time).format(method)
                 grouped.set(groupKey, (grouped.get(groupKey) || 0) + e.hours)
             })
 
