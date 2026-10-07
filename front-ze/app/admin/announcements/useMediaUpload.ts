@@ -3,7 +3,7 @@
 import { useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { toast } from 'sonner';
 import type { AnnouncementMedia } from 'types/announcements';
-import { insertBlock, replaceInTextarea } from './markdownEditing';
+import { appendBlock, insertBlock, removeBlock, removeBlockFromTextarea, replaceInTextarea } from './markdownEditing';
 
 const MB = 1024 * 1024;
 const LIMITS: Record<string, number> = {
@@ -40,10 +40,32 @@ export function useMediaUpload(
 ) {
   const [pending, setPending] = useState(0);
 
-  const replace = (search: string, replacement: string) => {
+  const locate = (value: string, token: string) =>
+    new RegExp(`!\\[[^\\]\\n]*\\]\\(${token}\\)`).exec(value)?.[0] ?? null;
+
+  const finish = (token: string, media: string) => {
     const el = textareaRef.current;
-    if (el && replaceInTextarea(el, search, replacement)) return;
-    setContent((current) => current.replace(search, replacement));
+    if (!el) {
+      setContent((current) => {
+        const placeholder = locate(current, token);
+        return placeholder ? current.replace(placeholder, media) : current;
+      });
+      return;
+    }
+    const placeholder = locate(el.value, token);
+    if (placeholder && replaceInTextarea(el, placeholder, media)) return;
+    appendBlock(el, media);
+    toast.info('Upload finished', { description: 'Its placeholder was removed, so the media was added at the end.' });
+  };
+
+  const discard = (token: string) => {
+    const el = textareaRef.current;
+    const placeholder = locate(el?.value ?? '', token);
+    if (el && placeholder && removeBlockFromTextarea(el, placeholder)) return;
+    setContent((current) => {
+      const stale = locate(current, token);
+      return stale ? removeBlock(current, stale) : current;
+    });
   };
 
   const upload = (files: File[]) => {
@@ -66,16 +88,16 @@ export function useMediaUpload(
 
     const jobs = accepted.map((file) => ({
       file,
-      placeholder: `![Uploading ${altText(file)}…](${UPLOAD_PLACEHOLDER_PREFIX}${crypto.randomUUID().slice(0, 8)})`,
+      token: `${UPLOAD_PLACEHOLDER_PREFIX}${crypto.randomUUID().slice(0, 8)}`,
     }));
-    insertBlock(el, jobs.map((job) => job.placeholder).join('\n\n'));
+    insertBlock(el, jobs.map(({ file, token }) => `![Uploading ${altText(file)}…](${token})`).join('\n\n'));
 
     setPending((count) => count + jobs.length);
-    for (const { file, placeholder } of jobs) {
+    for (const { file, token } of jobs) {
       uploadFile(file)
-        .then((media) => replace(placeholder, `![${altText(file)}](${media.url})`))
+        .then((media) => finish(token, `![${altText(file)}](${media.url})`))
         .catch((error: Error) => {
-          replace(placeholder, '');
+          discard(token);
           toast.error(`Failed to upload ${file.name}`, { description: error.message });
         })
         .finally(() => setPending((count) => count - 1));

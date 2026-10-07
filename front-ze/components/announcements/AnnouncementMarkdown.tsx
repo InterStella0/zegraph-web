@@ -20,7 +20,7 @@ const sanitizeSchema = {
   }
 };
 
-const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|m4v)$/i;
+const VIDEO_EXTENSIONS = /\.(mp4|webm)$/i;
 
 export function isVideoUrl(url: string): boolean {
   try {

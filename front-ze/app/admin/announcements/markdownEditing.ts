@@ -100,3 +100,37 @@ export function replaceInTextarea(el: HTMLTextAreaElement, search: string, repla
   el.dispatchEvent(new Event('input', { bubbles: true }));
   return true;
 }
+
+function blockRemoval(value: string, index: number, length: number) {
+  let start = index;
+  let end = index + length;
+  while (start > 0 && value[start - 1] === '\n' && index - start < 2) start--;
+  while (end < value.length && value[end] === '\n' && end - (index + length) < 2) end++;
+  const separator = Math.max(index - start, end - (index + length));
+  const replacement = start > 0 && end < value.length ? '\n'.repeat(separator) : '';
+  return { start, end, replacement };
+}
+
+export function removeBlock(value: string, search: string): string {
+  const index = value.indexOf(search);
+  if (index === -1) return value;
+  const { start, end, replacement } = blockRemoval(value, index, search.length);
+  return value.slice(0, start) + replacement + value.slice(end);
+}
+
+export function removeBlockFromTextarea(el: HTMLTextAreaElement, search: string): boolean {
+  const index = el.value.indexOf(search);
+  if (index === -1) return false;
+  const { start, end, replacement } = blockRemoval(el.value, index, search.length);
+  el.setRangeText(replacement, start, end, 'preserve');
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}
+
+export function appendBlock(el: HTMLTextAreaElement, text: string) {
+  const value = el.value;
+  const trailing = value.length - value.replace(/\n+$/, '').length;
+  const separator = value.length === 0 ? '' : '\n'.repeat(Math.max(0, 2 - trailing));
+  el.setRangeText(separator + text, value.length, value.length, 'preserve');
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}

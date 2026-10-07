@@ -30,7 +30,7 @@ use crate::models::admins::*;
 use crate::models::maps::{DbMapChangeSubscription, DbMapNotifySubscription};
 use crate::models::players::*;
 use crate::routers::ApiTags;
-use crate::core::storage::{media_ext_from_content_type, MediaKind};
+use crate::core::storage::{media_ext_from_content_type, sniff_media_ext, MediaKind};
 
 pub struct AccountsApi;
 
@@ -1962,7 +1962,8 @@ impl AccountsApi {
                 return response!(err "File must be a PNG, JPEG, WebP or GIF image, or an MP4/WebM video", ErrorCode::BadRequest);
             };
             let limit = announcement_media_limit(kind);
-            let mut reader = field.into_async_read().take(limit + 1);
+            let read_cap = announcement_media_limit(MediaKind::Video);
+            let mut reader = field.into_async_read().take(read_cap + 1);
             let mut bytes = Vec::new();
             if let Err(e) = reader.read_to_end(&mut bytes).await {
                 tracing::error!("Failed to read announcement media upload: {}", e);
@@ -1981,6 +1982,9 @@ impl AccountsApi {
         };
         if bytes.is_empty() {
             return response!(err "File is empty", ErrorCode::BadRequest);
+        }
+        if sniff_media_ext(&bytes) != Some(ext) {
+            return response!(err "File contents don't match its file type", ErrorCode::BadRequest);
         }
 
         let url = match data.announcement_storage.store_media(&Uuid::new_v4().to_string(), ext, &bytes).await {

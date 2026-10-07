@@ -32,7 +32,6 @@ use crate::models::players::DbPlayerBrief;
 use crate::models::servers::DbServer;
 use crate::workers::*;
 
-pub const MINUTE: u64 = 60;
 pub const ANNOUNCEMENTS_CACHE_KEY: &str = "announced";
 pub const HOUR: u64 = 60 * 60;
 pub const DAY: u64 = 24 * 60 * 60;

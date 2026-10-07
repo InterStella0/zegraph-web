@@ -23,6 +23,7 @@ use crate::core::utils::*;
 use crate::api_models::common::*;
 use crate::api_models::misc::Announcement;
 use crate::models::admins::DbAnnouncement;
+use sqlx::types::time::OffsetDateTime;
 use crate::models::admins::AnnouncementTypeState;
 use crate::models::sitemaps::*;
 use crate::workers::job::{QUEUE_HEAVY, QUEUE_LIGHT};
@@ -825,15 +826,19 @@ impl MiscApi {
             SELECT id, type AS \"type: AnnouncementTypeState\", title, text, created_at, published_at, expires_at, show
             FROM website.announce
             WHERE show = true
-              AND COALESCE(published_at, created_at) <= CURRENT_TIMESTAMP
               AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
             ORDER BY created_at DESC
         ").fetch_all(pool);
 
-        let Ok(value) = cached_response(ANNOUNCEMENTS_CACHE_KEY, &app.cache, MINUTE, func).await else {
+        let Ok(value) = cached_response(ANNOUNCEMENTS_CACHE_KEY, &app.cache, HOUR, func).await else {
             return response!(internal_server_error)
         } ;
-        response!(ok value.result.iter_into())
+        let now = OffsetDateTime::now_utc();
+        let live: Vec<DbAnnouncement> = value.result
+            .into_iter()
+            .filter(|a| a.published_at <= now && a.expires_at.is_none_or(|expires| expires > now))
+            .collect();
+        response!(ok live.iter_into())
     }
     /// Server-sent event stream of live database changes.
     #[oai(path = "/events/data-updates", method = "get")]

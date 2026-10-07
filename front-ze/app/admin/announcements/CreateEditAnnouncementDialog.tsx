@@ -67,8 +67,8 @@ function validate(form: FormState) {
   } else if (form.type === 'Rich' && (charCount(title) < 5 || charCount(title) > 200)) {
     errors.title = 'Title must be 5–200 characters.';
   }
-  const length = charCount(form.content);
-  if (form.content.trim().length < 10) {
+  const length = charCount(form.content.trim());
+  if (length < 10) {
     errors.content = 'Content must be at least 10 characters.';
   } else if (length > MAX_CONTENT) {
     errors.content = `Content is ${(length - MAX_CONTENT).toLocaleString()} characters over the limit.`;
@@ -129,7 +129,7 @@ export function CreateEditAnnouncementDialog({
   const deferredContent = useDeferredValue(form.content);
   const errors = validate(form);
   const hasErrors = Object.keys(errors).length > 0;
-  const length = charCount(form.content);
+  const length = charCount(form.content.trim());
   const isRich = form.type === 'Rich';
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
 
@@ -149,7 +149,7 @@ export function CreateEditAnnouncementDialog({
       const payload: CreateAnnouncementDto = {
         type: form.type,
         title: isRich ? form.title.trim() : null,
-        text: form.content,
+        text: form.content.trim(),
         published_at: form.publishedAt ? dayjs(form.publishedAt).toISOString() : dayjs().toISOString(),
         expires_at: form.expiresAt ? dayjs(form.expiresAt).toISOString() : null,
         show: form.show,
@@ -280,7 +280,6 @@ export function CreateEditAnnouncementDialog({
                     value={form.title}
                     onChange={(e) => update('title', e.target.value)}
                     placeholder="What's new?"
-                    maxLength={200}
                     aria-invalid={showErrors && !!errors.title}
                   />
                   {showErrors && errors.title && <p className="text-xs text-destructive">{errors.title}</p>}

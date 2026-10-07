@@ -14,6 +14,7 @@ use crate::{AppData, FastCache};
 use crate::routers::misc::{should_forward_live_event, NewRowEvent, LIVE_EVENT_CHANNELS};
 use crate::core::utils::*;
 use crate::core::push_service::{PushNotificationService, NotificationType};
+use crate::core::storage::AnnouncementStorage;
 use crate::models::admins::DbServerNameMaxPlayers;
 use crate::models::maps::*;
 use crate::models::players::*;
@@ -738,6 +739,30 @@ async fn send_map_change_notifications(
     }
 
     Ok(())
+}
+
+pub async fn cleanup_unreferenced_announcement_media(pool: Arc<Pool<Postgres>>, storage: Arc<AnnouncementStorage>) {
+    let mut interval = tokio::time::interval(Duration::from_secs(6 * 3600));
+    loop {
+        interval.tick().await;
+
+        let texts = match sqlx::query_scalar::<_, String>("SELECT text FROM website.announce")
+            .fetch_all(pool.as_ref())
+            .await
+        {
+            Ok(texts) => texts,
+            Err(e) => {
+                tracing::warn!("Skipping announcement media cleanup, failed to load announcements: {e}");
+                continue;
+            }
+        };
+
+        match storage.delete_unreferenced(&texts, Duration::from_secs(48 * 3600)).await {
+            Ok(0) => {}
+            Ok(deleted) => tracing::info!("Deleted {deleted} unreferenced announcement media files"),
+            Err(e) => tracing::warn!("Announcement media cleanup failed: {e}"),
+        }
+    }
 }
 
 pub async fn cleanup_stale_uploads(store_upload: String) {

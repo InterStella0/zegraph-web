@@ -262,6 +262,8 @@ async fn run_main() {
     let community_storage = Arc::new(CommunityStorage::new(storage_backend.clone()));
 
     let announcement_storage = Arc::new(AnnouncementStorage::new(storage_backend));
+    let media_cleanup_pool = pool.clone();
+    let media_cleanup_storage = announcement_storage.clone();
 
     let live_events = Arc::new(LiveEventHub::new());
 
@@ -334,6 +336,9 @@ async fn run_main() {
         .unwrap_or_else(|| "./maps".to_string());
     tokio::spawn(async move {
         cleanup_stale_uploads(store_upload_clone).await;
+    });
+    tokio::spawn(async move {
+        cleanup_unreferenced_announcement_media(media_cleanup_pool, media_cleanup_storage).await;
     });
 
     Server::new(TcpListener::bind(format!("0.0.0.0:{port}")))
