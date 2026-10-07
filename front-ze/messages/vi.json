@@ -479,7 +479,16 @@
         "servers": "Máy chủ",
         "steamId": "Steam ID",
         "nameMatched": "Trùng tên",
-        "noPlaytime": "Không có thời gian chơi"
+        "noPlaytime": "Không có thời gian chơi",
+        "merge": {
+          "button": "{count, plural, other {Gộp # tên đã liên kết}}",
+          "title": "Gộp vào tài khoản Steam của bạn",
+          "description": "Các phiên của {count, plural, other {# tên đã liên kết}} trên {server} sẽ được chuyển sang tài khoản Steam của bạn, và tên cũ sẽ hiển thị như bí danh. Vào lại bằng tên cũ sẽ được tính là người chơi mới.",
+          "confirm": "Gộp",
+          "cancel": "Hủy",
+          "success": "Đã gộp {count, plural, other {# hồ sơ}} ({sessions} phiên)",
+          "failed": "Không thể gộp tài khoản"
+        }
       }
     },
     "playedWith": {

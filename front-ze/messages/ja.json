@@ -479,7 +479,16 @@
         "servers": "サーバー",
         "steamId": "Steam ID",
         "nameMatched": "名前が一致",
-        "noPlaytime": "プレイ時間なし"
+        "noPlaytime": "プレイ時間なし",
+        "merge": {
+          "button": "{count, plural, other {リンク済みの名前を統合（#件）}}",
+          "title": "Steamアカウントに統合",
+          "description": "{server}のリンク済みの名前（{count, plural, other {#件}}）のセッションがSteamアカウントに移動し、旧名は別名として表示されます。旧名で再度参加すると新しいプレイヤーとして扱われます。",
+          "confirm": "統合",
+          "cancel": "キャンセル",
+          "success": "{count, plural, other {#件のプロフィール}}を統合しました（{sessions}セッション）",
+          "failed": "アカウントを統合できませんでした"
+        }
       }
     },
     "playedWith": {

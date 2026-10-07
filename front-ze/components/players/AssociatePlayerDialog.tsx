@@ -83,12 +83,18 @@ export default function AssociatePlayerDialog(
     const save = async (value: string | null) => {
         setSubmitting(true);
         try {
-            await fetchApiUrl(`/admin/players/${playerId}/associated`, {
+            const result = await fetchApiUrl(`/admin/players/${playerId}/associated`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ associated_player_id: value }),
             });
-            toast.success(value ? 'Profile linked' : 'Profile unlinked');
+            if (result === 'NAME_CONFLICT') {
+                toast.warning('Profile unlinked and merge reverted', {
+                    description: `Another profile is already named ${playerName}, so new sessions under that name may go to either.`,
+                });
+            } else {
+                toast.success(value ? 'Profile linked and merged' : 'Profile unlinked and merge reverted');
+            }
             setOpen(false);
             setSearch('');
             setSuggestions([]);
@@ -124,9 +130,9 @@ export default function AssociatePlayerDialog(
                     <DialogHeader>
                         <DialogTitle>Link profile to an account</DialogTitle>
                         <DialogDescription>
-                            Sets <span className="font-mono">associated_player_id</span> on{' '}
-                            <span className="font-medium">{playerName}</span>, merging this profile
-                            into the account you choose.
+                            Moves every session of <span className="font-medium">{playerName}</span>{' '}
+                            onto the account you choose and renames this profile to{' '}
+                            <span className="font-mono">[merged] {playerName}</span>.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -147,8 +153,8 @@ export default function AssociatePlayerDialog(
                                 </p>
                             )}
                             <p className="text-xs text-muted-foreground">
-                                The account must already exist as a player record — it has to have
-                                been seen on a Steam-tracked server.
+                                Any Steam ID works. If they&apos;ve never logged in here, their current
+                                Steam name is looked up on Steam.
                             </p>
                         </div>
 
@@ -191,6 +197,7 @@ export default function AssociatePlayerDialog(
                     <DialogFooter className="sm:justify-between">
                         {associatedPlayerId ? (
                             <Button
+                                title="Unlinking moves the merged sessions back to this profile"
                                 variant="ghost"
                                 onClick={() => save(null)}
                                 disabled={submitting}

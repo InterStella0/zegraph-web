@@ -472,6 +472,7 @@ mod route_tests {
         ("GET", "/accounts/me/communities"),
         ("POST", "/accounts/create"),
         ("POST", "/accounts/server-requests"),
+        ("POST", "/accounts/me/merge"),
         ("GET", "/accounts/me/push/subscriptions"),
         ("GET", "/admin/audit-logs"),
         ("POST", "/admin/announcements/media"),

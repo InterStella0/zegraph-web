@@ -10,7 +10,8 @@ CREATE TABLE player(
     location_code JSONB,
     location GEOMETRY,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    associated_player_id VARCHAR(100) REFERENCES player(player_id) ON DELETE SET NULL
+    associated_player_id VARCHAR(100) REFERENCES player(player_id) ON DELETE SET NULL,
+    merged_at TIMESTAMP WITH TIME ZONE
 );
 CREATE INDEX idx_player_name_trgm ON player USING gin (lower(player_name) gin_trgm_ops);
 
@@ -758,6 +759,26 @@ CREATE UNIQUE INDEX uniq_player_claiming_pending
 CREATE INDEX idx_player_claiming_status ON website.player_claiming(status);
 CREATE INDEX idx_player_claiming_player_id ON website.player_claiming(player_id);
 CREATE INDEX idx_player_claiming_user_id ON website.player_claiming(user_id);
+
+CREATE TABLE website.player_merges (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    from_player_id VARCHAR(100) NOT NULL REFERENCES player(player_id) ON DELETE CASCADE,
+    into_player_id VARCHAR(100) NOT NULL REFERENCES player(player_id) ON DELETE CASCADE,
+    original_name TEXT NOT NULL,
+    claim_id UUID REFERENCES website.player_claiming(id) ON DELETE SET NULL,
+    merged_by BIGINT REFERENCES website.steam_user(user_id) ON DELETE SET NULL,
+    merged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reverted_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX uniq_player_merges_active
+    ON website.player_merges(from_player_id) WHERE reverted_at IS NULL;
+CREATE INDEX idx_player_merges_into ON website.player_merges(into_player_id);
+
+CREATE TABLE website.player_merge_sessions (
+    merge_id UUID NOT NULL REFERENCES website.player_merges(id) ON DELETE CASCADE,
+    session_id UUID PRIMARY KEY REFERENCES player_server_session(session_id) ON DELETE CASCADE
+);
+CREATE INDEX idx_player_merge_sessions_merge ON website.player_merge_sessions(merge_id);
 
 
 

@@ -371,6 +371,13 @@ pub struct LinkedName {
     pub is_current: bool,
 }
 
+/// What `POST /accounts/me/merge` moved.
+#[derive(Object)]
+pub struct MergeAccountsResult {
+    pub merged_profiles: i64,
+    pub sessions_moved: i64,
+}
+
 /// One of a player's recent sessions on a server, for the profile activity strip.
 #[derive(Object)]
 pub struct ProfileRecentSession {
@@ -393,6 +400,9 @@ pub struct ProfileServerEntry {
     pub player: DetailedPlayer,
     /// Other names this player has used on this server, if not tracked by Steam ID.
     pub linked_names: Vec<LinkedName>,
+    /// Linked name-tracked profiles on this server not yet merged into the account. Only
+    /// counted for the profile's owner.
+    pub mergeable_count: i64,
     /// The player's last few sessions on this server, oldest first.
     pub recent_sessions: Vec<ProfileRecentSession>,
 }
