@@ -29,10 +29,9 @@ export default function PlayerPeriodSelector() {
     const years = useMemo(() => [...(periods ?? [])].sort((a, b) => b.year - a.year), [periods]);
     const viewMonths = years.find(y => y.year === viewYear)?.months ?? [];
 
-    const oldestFirst = [...years].reverse();
     const steps = !selected ? [] : selected.month === null
-        ? oldestFirst.map(y => String(y.year))
-        : oldestFirst.flatMap(y => [...y.months].sort((a, b) => a - b).map(m => monthPeriod(y.year, m)));
+        ? years.map(y => String(y.year))
+        : years.flatMap(y => [...y.months].sort((a, b) => b - a).map(m => monthPeriod(y.year, m)));
     const index = period ? steps.indexOf(period) : -1;
     const previous = index > 0 ? steps[index - 1] : null;
     const next = index >= 0 && index < steps.length - 1 ? steps[index + 1] : null;
