@@ -1,8 +1,6 @@
 use sqlx::PgConnection;
 use uuid::Uuid;
 
-pub(crate) const MERGED_PREFIX: &str = "[merged] ";
-
 /// Whether a `player_id` is a Steam ID rather than a name-tracked row.
 ///
 /// Name-tracked servers give each name its own UUID-shaped row; Steam-tracked ones use the
@@ -18,16 +16,8 @@ pub(crate) enum LinkError {
     Internal,
 }
 
-pub(crate) fn merged_name(name: &str) -> String {
-    if name.starts_with(MERGED_PREFIX) {
-        name.to_string()
-    } else {
-        format!("{MERGED_PREFIX}{name}")
-    }
-}
-
-pub(crate) fn original_name(name: &str) -> &str {
-    name.strip_prefix(MERGED_PREFIX).unwrap_or(name)
+pub(crate) fn merged_name(merge_id: Uuid, name: &str) -> String {
+    format!("[merged_{merge_id}] {name}")
 }
 
 pub(crate) struct MergeOutcome {
@@ -35,6 +25,7 @@ pub(crate) struct MergeOutcome {
 }
 
 pub(crate) struct RevertOutcome {
+    pub original_name: String,
     pub sessions_restored: i64,
     pub name_conflict: bool,
 }
@@ -82,11 +73,14 @@ pub(crate) async fn merge_player(
         return Err(LinkError::User("Player not found".to_string()));
     };
 
+    let mut original = fake.player_name;
     if fake.merged_at.is_some() {
         if fake.associated_player_id.as_deref() == Some(steam_id) {
             return Ok(MergeOutcome { sessions_moved: 0 });
         }
-        revert_merge(conn, fake_id).await?;
+        if let Some(reverted) = revert_merge(conn, fake_id).await? {
+            original = reverted.original_name;
+        }
     }
 
     sqlx::query!(
@@ -141,8 +135,6 @@ pub(crate) async fn merge_player(
     .execute(&mut *conn)
     .await
     .map_err(internal(format!("Failed to close open sessions of {fake_id}")))?;
-
-    let original = original_name(&fake.player_name).to_string();
 
     let merge_id = sqlx::query_scalar!(
         "INSERT INTO website.player_merges
@@ -206,7 +198,7 @@ pub(crate) async fn merge_player(
         "UPDATE player
          SET player_name = $1, merged_at = NOW(), associated_player_id = $2
          WHERE player_id = $3",
-        merged_name(&fake.player_name),
+        merged_name(merge_id, &original),
         steam_id,
         fake_id,
     )
@@ -311,6 +303,7 @@ pub(crate) async fn revert_merge(
     clear_derived(conn, &[fake_id, &merge.into_player_id], &servers).await?;
 
     Ok(Some(RevertOutcome {
+        original_name: merge.original_name,
         sessions_restored,
         name_conflict,
     }))
@@ -378,16 +371,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn merged_name_prefixes_once() {
-        assert_eq!(merged_name("Foo"), "[merged] Foo");
-        assert_eq!(merged_name(&merged_name("Foo")), "[merged] Foo");
+    fn merged_name_carries_the_merge_id() {
+        let id = Uuid::parse_str("3f0c2a4e-1b2c-4d5e-8f90-123456789abc").unwrap();
+        assert_eq!(merged_name(id, "Foo"), "[merged_3f0c2a4e-1b2c-4d5e-8f90-123456789abc] Foo");
     }
 
     #[test]
-    fn original_name_strips_prefix() {
-        assert_eq!(original_name("[merged] Foo"), "Foo");
-        assert_eq!(original_name("Foo"), "Foo");
-        assert_eq!(original_name(&merged_name("[x] Foo")), "[x] Foo");
+    fn merged_names_never_collide() {
+        assert_ne!(merged_name(Uuid::new_v4(), "Foo"), merged_name(Uuid::new_v4(), "Foo"));
     }
 
     #[test]

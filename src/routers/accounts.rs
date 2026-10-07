@@ -3367,7 +3367,7 @@ impl AccountsApi {
     /// Merge the name-tracked profiles already linked to your Steam account into it.
     ///
     /// Their sessions move onto the Steam account and each profile is renamed
-    /// `[merged] <name>`. `server_id` limits this to profiles seen on that server.
+    /// `[merged_<uuid>] <name>`. `server_id` limits this to profiles seen on that server.
     #[oai(path="/accounts/me/merge", method="post", tag = "ApiTags::PlayerClaims")]
     async fn merge_my_accounts(
         &self,

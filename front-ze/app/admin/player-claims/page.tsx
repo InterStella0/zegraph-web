@@ -79,7 +79,7 @@ export default function PlayerClaimsPage() {
                 <p className="text-muted-foreground">
                     Players asking to have a name-tracked profile linked to their Steam account.
                     Approving moves the profile&apos;s sessions onto the Steam account and renames it
-                    to <span className="font-mono">[merged] &lt;name&gt;</span>.
+                    to <span className="font-mono">[merged_&lt;uuid&gt;] &lt;name&gt;</span>.
                 </p>
             </div>
 

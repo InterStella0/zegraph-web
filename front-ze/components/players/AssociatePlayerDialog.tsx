@@ -132,7 +132,7 @@ export default function AssociatePlayerDialog(
                         <DialogDescription>
                             Moves every session of <span className="font-medium">{playerName}</span>{' '}
                             onto the account you choose and renames this profile to{' '}
-                            <span className="font-mono">[merged] {playerName}</span>.
+                            <span className="font-mono">[merged_&lt;uuid&gt;] {playerName}</span>.
                         </DialogDescription>
                     </DialogHeader>
 
