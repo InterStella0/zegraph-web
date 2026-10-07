@@ -1262,5 +1262,12 @@
       "chatgptComposer": "Ask anything"
     },
     "apiDocsHint": "일반 HTTP가 더 좋으신가요? 대부분의 도구는 <link>API 문서</link>의 일반 엔드포인트에 대응합니다."
+  },
+  "announcements": {
+    "fallbackTitle": "공지사항",
+    "previous": "이전",
+    "next": "다음",
+    "dismiss": "확인",
+    "counter": "{current} / {total}"
   }
 }

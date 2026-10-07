@@ -194,6 +194,38 @@ fn image_content_type(ext: &str) -> &'static str {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MediaKind {
+    Image,
+    Video,
+}
+
+/// Media accepted in announcements: the extension to store under, and whether it renders as an
+/// image or a video.
+pub(crate) fn media_ext_from_content_type(content_type: &str) -> Option<(&'static str, MediaKind)> {
+    let content_type = content_type
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    match content_type.as_str() {
+        "image/gif" => Some(("gif", MediaKind::Image)),
+        "video/mp4" => Some(("mp4", MediaKind::Video)),
+        "video/webm" => Some(("webm", MediaKind::Video)),
+        other => image_ext_from_content_type(other).map(|ext| (ext, MediaKind::Image)),
+    }
+}
+
+fn media_content_type(ext: &str) -> &'static str {
+    match ext {
+        "gif" => "image/gif",
+        "mp4" => "video/mp4",
+        "webm" => "video/webm",
+        other => image_content_type(other),
+    }
+}
+
 #[derive(Clone)]
 struct StorageNamespace {
     backend: Arc<StorageBackend>,
@@ -417,6 +449,25 @@ impl CommunityStorage {
     }
 }
 
+#[derive(Clone)]
+pub struct AnnouncementStorage {
+    ns: StorageNamespace,
+}
+
+impl AnnouncementStorage {
+    pub fn new(backend: Arc<StorageBackend>) -> Self {
+        Self {
+            ns: StorageNamespace { backend, object_prefix: "announcements" },
+        }
+    }
+
+    pub async fn store_media(&self, id: &str, ext: &str, bytes: &[u8]) -> Result<String, String> {
+        self.ns
+            .store_bytes(&format!("{id}.{ext}"), bytes, media_content_type(ext))
+            .await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -484,5 +535,31 @@ mod tests {
         assert_eq!(image_ext_from_content_type("image/webp"), Some("webp"));
         assert_eq!(image_ext_from_content_type("application/octet-stream"), None);
         assert_eq!(image_ext_from_content_type(""), None);
+    }
+
+    #[test]
+    fn announcement_media_accepts_gifs_and_videos() {
+        assert_eq!(media_ext_from_content_type("image/gif"), Some(("gif", MediaKind::Image)));
+        assert_eq!(media_ext_from_content_type("image/png"), Some(("png", MediaKind::Image)));
+        assert_eq!(media_ext_from_content_type("Video/MP4"), Some(("mp4", MediaKind::Video)));
+        assert_eq!(media_ext_from_content_type("video/webm; codecs=vp9"), Some(("webm", MediaKind::Video)));
+        assert_eq!(media_ext_from_content_type("video/quicktime"), None);
+        assert_eq!(media_ext_from_content_type("image/svg+xml"), None);
+        assert_eq!(media_content_type("gif"), "image/gif");
+        assert_eq!(media_content_type("webm"), "video/webm");
+        assert_eq!(media_content_type("jpg"), "image/jpeg");
+    }
+
+    #[tokio::test]
+    async fn announcement_media_is_stored_under_its_own_prefix() {
+        let root = temp_root("announcement-media");
+        let storage = AnnouncementStorage::new(Arc::new(StorageBackend::Local {
+            root: root.to_string_lossy().into_owned(),
+        }));
+
+        let url = storage.store_media("abc", "gif", b"GIF89a").await.unwrap();
+
+        assert_eq!(url, "/models/announcements/abc.gif");
+        assert!(root.join("announcements").join("abc.gif").exists());
     }
 }

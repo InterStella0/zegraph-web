@@ -9,7 +9,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
 
 use crate::core::push_service::PushNotificationService;
-use crate::core::storage::{CharacterStorage, CommunityStorage, MapStorage, StorageBackend};
+use crate::core::storage::{AnnouncementStorage, CharacterStorage, CommunityStorage, MapStorage, StorageBackend};
 use crate::routers::misc::{HealthMonitor, LiveEventHub};
 use crate::{AppData, FastCache};
 use super::map::{MapBasicQuery, MapWorker};
@@ -67,7 +67,8 @@ pub fn fake_app_data() -> AppData {
         push_service: Arc::new(PushNotificationService::stub(pool)),
         map_storage: Arc::new(MapStorage::new(storage.clone())),
         character_storage: Arc::new(CharacterStorage::new(storage.clone())),
-        community_storage: Arc::new(CommunityStorage::new(storage)),
+        community_storage: Arc::new(CommunityStorage::new(storage.clone())),
+        announcement_storage: Arc::new(AnnouncementStorage::new(storage)),
         count_chunk_cache: Arc::new(
             Cache::builder()
                 .time_to_live(Duration::from_secs(2 * 24 * 60 * 60))

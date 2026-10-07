@@ -18,6 +18,7 @@ services:
       - ${STORAGE_PATH}/maps:/var/www/frontend/public:ro
       - ${STORAGE_PATH}/characters:/var/www/characters:ro
       - ${STORAGE_PATH}/communities:/var/www/communities:ro
+      - ${STORAGE_PATH}/announcements:/var/www/announcements:ro
       - ${PUBLIC_FILES_PATH:-/front-ze/public}:/var/www/public/any:ro
       - thumbnails:/var/www/thumbnails:ro
       - tile_cache:/var/cache/nginx/qgis_tiles

@@ -1,33 +1,31 @@
-'use client';
-
-import { X } from 'lucide-react';
-import { useState } from 'react';
+import { Info, X } from 'lucide-react';
 import { Alert, AlertDescription } from 'components/ui/alert';
 import { Button } from 'components/ui/button';
+import { AnnouncementMarkdown } from './AnnouncementMarkdown';
 
 interface AnnouncementBannerProps {
-  id: string;
   text: string;
+  onDismiss?: () => void;
+  counter?: string;
 }
 
-export function AnnouncementBanner({ id: _id, text }: AnnouncementBannerProps) {
-  const [dismissed, setDismissed] = useState(false);
-
-  if (dismissed) return null;
-
+export function AnnouncementBanner({ text, onDismiss, counter }: AnnouncementBannerProps) {
   return (
-    <Alert className="rounded-none border-x-0 border-t-0 bg-primary/10 border-primary/20">
-      <AlertDescription className="flex items-center justify-between gap-4">
-        <span className="flex-1 text-sm">{text}</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 flex-shrink-0"
-          onClick={() => setDismissed(true)}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+    <Alert variant="default" className="pr-12">
+      <Info />
+      <AlertDescription className="flex flex-wrap items-baseline gap-x-2">
+        <AnnouncementMarkdown content={text} inline className="break-words" />
+        {counter && <span className="text-xs tabular-nums text-muted-foreground">{counter}</span>}
       </AlertDescription>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onDismiss}
+        className="absolute right-2 top-2 h-6 w-6"
+        aria-label="Dismiss"
+      >
+        <X className="h-4 w-4" />
+      </Button>
     </Alert>
   );
 }

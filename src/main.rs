@@ -39,7 +39,7 @@ use crate::core::utils::*;
 use crate::workers::*;
 use crate::workers::consumer;
 use crate::core::push_service::*;
-use crate::core::storage::{MapStorage, CharacterStorage, CommunityStorage, StorageBackend};
+use crate::core::storage::{MapStorage, CharacterStorage, CommunityStorage, AnnouncementStorage, StorageBackend};
 use crate::routers::accounts::AccountsApi;
 use crate::routers::characters::CharacterApi;
 use crate::routers::servers::ServerApi;
@@ -61,6 +61,7 @@ struct AppData{
     map_storage: Arc<MapStorage>,
     character_storage: Arc<CharacterStorage>,
     community_storage: Arc<CommunityStorage>,
+    announcement_storage: Arc<AnnouncementStorage>,
     count_chunk_cache: Arc<CountChunkCache>,
     live_events: Arc<LiveEventHub>,
     health_monitor: Arc<HealthMonitor>,
@@ -258,7 +259,9 @@ async fn run_main() {
 
     let character_storage = Arc::new(CharacterStorage::new(storage_backend.clone()));
 
-    let community_storage = Arc::new(CommunityStorage::new(storage_backend));
+    let community_storage = Arc::new(CommunityStorage::new(storage_backend.clone()));
+
+    let announcement_storage = Arc::new(AnnouncementStorage::new(storage_backend));
 
     let live_events = Arc::new(LiveEventHub::new());
 
@@ -284,6 +287,7 @@ async fn run_main() {
         map_storage,
         character_storage,
         community_storage,
+        announcement_storage,
         count_chunk_cache,
         live_events: live_events.clone(),
         health_monitor: health_monitor.clone(),
@@ -465,6 +469,8 @@ mod route_tests {
         ("POST", "/accounts/server-requests"),
         ("GET", "/accounts/me/push/subscriptions"),
         ("GET", "/admin/audit-logs"),
+        ("POST", "/admin/announcements/media"),
+        ("PUT", "/admin/announcements/00000000-0000-0000-0000-000000000000"),
     ];
 
     async fn send(cli: &TestClient<impl poem::Endpoint>, method: &str, path: &str, token: Option<&str>) -> poem::http::StatusCode {

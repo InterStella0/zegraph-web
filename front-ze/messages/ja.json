@@ -1262,5 +1262,12 @@
       "chatgptComposer": "Ask anything"
     },
     "apiDocsHint": "通常のHTTPがお好みですか？ほとんどのツールは<link>APIドキュメント</link>の通常のエンドポイントに対応しています。"
+  },
+  "announcements": {
+    "fallbackTitle": "お知らせ",
+    "previous": "前へ",
+    "next": "次へ",
+    "dismiss": "了解",
+    "counter": "{current} / {total}"
   }
 }

@@ -1262,5 +1262,12 @@
       "chatgptComposer": "Ask anything"
     },
     "apiDocsHint": "更喜欢普通 HTTP？大多数工具都对应 <link>API 文档</link>中的一个常规端点。"
+  },
+  "announcements": {
+    "fallbackTitle": "公告",
+    "previous": "上一条",
+    "next": "下一条",
+    "dismiss": "知道了",
+    "counter": "{current} / {total}"
   }
 }

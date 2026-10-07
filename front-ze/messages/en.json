@@ -1262,5 +1262,12 @@
       "chatgptComposer": "Ask anything"
     },
     "apiDocsHint": "Prefer plain HTTP? Most tools map to a regular endpoint in the <link>API docs</link>."
+  },
+  "announcements": {
+    "fallbackTitle": "Announcement",
+    "previous": "Previous",
+    "next": "Next",
+    "dismiss": "Got it",
+    "counter": "{current} of {total}"
   }
 }
