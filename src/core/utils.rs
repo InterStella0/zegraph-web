@@ -32,6 +32,7 @@ use crate::models::players::DbPlayerBrief;
 use crate::models::servers::DbServer;
 use crate::workers::*;
 
+pub const ANNOUNCEMENTS_CACHE_KEY: &str = "announced";
 pub const HOUR: u64 = 60 * 60;
 pub const DAY: u64 = 24 * 60 * 60;
 pub fn get_env(name: &str) -> String{
@@ -938,6 +939,18 @@ where
     }
 
     Ok(CachedResult::new_data(result))
+}
+
+/// Evicts a `cached_response` entry from both tiers, so the next request recomputes it.
+pub async fn drop_cached_response(cache: &FastCache, key: &str) {
+    cache.memory.invalidate(key).await;
+    if let Ok(mut conn) = cache.redis_pool.get().await {
+        let cache_key = format!("gfl-ze-watcher:{key}");
+        let removed: RedisResult<()> = conn.del(&cache_key).await;
+        if let Err(e) = removed {
+            tracing::warn!("Failed to drop cached {}: {}", cache_key, e);
+        }
+    }
 }
 pub fn handle_worker_result<T>(result: WorkResult<T>, error_not_found: &str) -> Response<T>
     where T: ParseFromJSON + ToJSON + Send + Sync{

@@ -1262,5 +1262,12 @@
       "chatgptComposer": "Ask anything"
     },
     "apiDocsHint": "¿Prefieres HTTP normal? La mayoría de herramientas corresponden a un endpoint en la <link>documentación de la API</link>."
+  },
+  "announcements": {
+    "fallbackTitle": "Anuncio",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "dismiss": "Entendido",
+    "counter": "{current} de {total}"
   }
 }

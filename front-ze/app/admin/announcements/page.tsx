@@ -5,9 +5,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'c
 import { Button } from 'components/ui/button';
 import { Badge } from 'components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from 'components/ui/dropdown-menu';
-import { MoreVertical, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Eye, MoreVertical, Plus, Pencil, Trash2 } from 'lucide-react';
 import { fetchApiUrl } from 'utils/generalUtils';
 import { CreateEditAnnouncementDialog } from './CreateEditAnnouncementDialog';
+import { AnnouncementsDialog } from 'components/announcements/AnnouncementDialog';
+import { isVideoUrl } from 'components/announcements/AnnouncementMarkdown';
 import type { Announcement, AnnouncementsPaginated, AnnouncementStatusFilter } from 'types/announcements';
 import {
   Select,
@@ -18,12 +20,36 @@ import {
 } from 'components/ui/select';
 import dayjs from 'dayjs';
 
+function plainSnippet(markdown: string) {
+  return markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, '')
+    .replace(/[*_~`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function firstMedia(markdown: string) {
+  return /!\[[^\]]*\]\(\s*([^)\s]+)/.exec(markdown)?.[1] ?? null;
+}
+
+function MediaThumbnail({ url }: { url: string }) {
+  const className = 'h-12 w-16 shrink-0 rounded border bg-muted object-cover';
+  if (isVideoUrl(url)) {
+    return <video src={url} className={className} muted preload="metadata" />;
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt="" className={className} loading="lazy" />;
+}
+
 export default function AnnouncementsAdminPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<AnnouncementStatusFilter>('Active');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [previewing, setPreviewing] = useState<Announcement | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -58,15 +84,14 @@ export default function AnnouncementsAdminPage() {
     const publishedAt = dayjs(announcement.published_at);
     const expiresAt = announcement.expires_at ? dayjs(announcement.expires_at) : null;
 
-    // Note: We don't have show field in the response, so we determine status by dates only
+    if (announcement.hidden){
+      return <Badge variant="secondary">Hidden</Badge>
+    }
     if (publishedAt.isAfter(now)) {
       return <Badge variant="outline">Scheduled</Badge>
     }
     if (expiresAt && expiresAt.isBefore(now)) {
       return <Badge variant="destructive">Expired</Badge>
-    }
-    if (announcement.hidden){
-      return <Badge variant="destructive">Hidden</Badge>
     }
     return <Badge variant="default">Active</Badge>
   };
@@ -136,19 +161,25 @@ export default function AnnouncementsAdminPage() {
               <TableRow key={announcement.id}>
                 <TableCell>
                   <Badge variant={announcement.type === 'Rich' ? 'default' : 'outline'}>
-                    {announcement.type}
+                    {announcement.type === 'Rich' ? 'Popup' : 'Banner'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <div>
-                    {announcement.type === 'Rich' && announcement.title && (
-                      <div className="font-medium">{announcement.title}</div>
-                    )}
-                    <div className="text-sm text-muted-foreground truncate max-w-md">
-                      {announcement.text.substring(0, 100)}
-                      {announcement.text.length > 100 && '...'}
+                  <button
+                    type="button"
+                    className="flex max-w-xl items-center gap-3 text-left"
+                    onClick={() => { setEditingAnnouncement(announcement); setDialogOpen(true); }}
+                  >
+                    {firstMedia(announcement.text) && <MediaThumbnail url={firstMedia(announcement.text)} />}
+                    <div className="min-w-0">
+                      {announcement.type === 'Rich' && announcement.title && (
+                        <div className="font-medium truncate">{announcement.title}</div>
+                      )}
+                      <div className="text-sm text-muted-foreground line-clamp-2">
+                        {plainSnippet(announcement.text)}
+                      </div>
                     </div>
-                  </div>
+                  </button>
                 </TableCell>
                 <TableCell>{formatDate(announcement.published_at)}</TableCell>
                 <TableCell>
@@ -163,6 +194,12 @@ export default function AnnouncementsAdminPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {announcement.type === 'Rich' && (
+                        <DropdownMenuItem onClick={() => setPreviewing(announcement)}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Preview
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => { setEditingAnnouncement(announcement); setDialogOpen(true); }}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit
@@ -183,12 +220,23 @@ export default function AnnouncementsAdminPage() {
         </TableBody>
       </Table>
 
-      <CreateEditAnnouncementDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        announcement={editingAnnouncement}
-        onSuccess={fetchData}
-      />
+      {dialogOpen && (
+        <CreateEditAnnouncementDialog
+          key={editingAnnouncement?.id ?? 'new'}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          announcement={editingAnnouncement}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {previewing && (
+        <AnnouncementsDialog
+          announcements={[previewing]}
+          open
+          onOpenChange={(open) => !open && setPreviewing(null)}
+        />
+      )}
     </div>
   );
 }

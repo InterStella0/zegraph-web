@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use poem_openapi::{Enum, Object};
+use poem_openapi::types::MaybeUndefined;
 use serde::{Deserialize, Serialize};
 
 /// A Steam profile, mirroring the Steam Web API's `GetPlayerSummaries` response shape.
@@ -245,14 +246,28 @@ pub struct CreateAnnouncementDto{
     pub show: bool,
 }
 
-#[derive(Object, Deserialize)]
+/// Omitted fields keep their current value; an explicit `null` clears `title` or `expires_at`.
+#[derive(Object)]
 pub struct UpdateAnnouncementDto{
     pub r#type: Option<AnnouncementType>,
-    pub title: Option<String>,
+    pub title: MaybeUndefined<String>,
     pub text: Option<String>,
     pub published_at: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
+    pub expires_at: MaybeUndefined<DateTime<Utc>>,
     pub show: Option<bool>,
+}
+
+#[derive(Enum, Clone, Copy, Serialize)]
+pub enum AnnouncementMediaKind {
+    Image,
+    Video,
+}
+
+/// An uploaded announcement attachment, ready to reference from markdown.
+#[derive(Object, Serialize)]
+pub struct AnnouncementMedia{
+    pub url: String,
+    pub kind: AnnouncementMediaKind,
 }
 
 /// A page of announcements.

@@ -11,6 +11,7 @@ services:
       - ${STORAGE_PATH}/maps:/var/www/frontend/public:ro
       - ${STORAGE_PATH}/characters:/var/www/characters:ro
       - ${STORAGE_PATH}/communities:/var/www/communities:ro
+      - ${STORAGE_PATH}/announcements:/var/www/announcements:ro
     depends_on:
       backend:
         condition: service_healthy

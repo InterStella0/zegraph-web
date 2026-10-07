@@ -1262,5 +1262,12 @@
       "chatgptComposer": "Ask anything"
     },
     "apiDocsHint": "Lebih suka HTTP biasa? Kebanyakan alat sepadan dengan titik akhir biasa dalam <link>dokumen API</link>."
+  },
+  "announcements": {
+    "fallbackTitle": "Pengumuman",
+    "previous": "Sebelumnya",
+    "next": "Seterusnya",
+    "dismiss": "Faham",
+    "counter": "{current} daripada {total}"
   }
 }

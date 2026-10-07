@@ -1,43 +1,36 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AnnouncementDialog } from './AnnouncementDialog';
+import { AnnouncementsDialog } from './AnnouncementDialog';
 import { fetchUrl } from 'utils/generalUtils';
 import type { Announcement } from 'types/announcements';
 
+const seenKey = (id: string) => `announcement_seen_${id}`;
+
 export function AnnouncementsContainer() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [unseen, setUnseen] = useState<Announcement[]>([]);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        const data = await fetchUrl('/announcements');
-        setAnnouncements(data as Announcement[]);
-      } catch (error) {
-        console.error('Failed to fetch announcements:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAnnouncements();
+    fetchUrl('/announcements')
+      .then((data: Announcement[]) => {
+        const pending = data
+          .filter((a) => a.type === 'Rich' && !localStorage.getItem(seenKey(a.id)))
+          .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+        setUnseen(pending);
+        setOpen(pending.length > 0);
+      })
+      .catch((error) => console.error('Failed to fetch announcements:', error));
   }, []);
 
-  if (loading || announcements.length === 0) return null;
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      unseen.forEach((a) => localStorage.setItem(seenKey(a.id), 'true'));
+    }
+    setOpen(isOpen);
+  };
 
-  const richAnnouncements = announcements.filter(a => a.type === 'Rich')
+  if (unseen.length === 0) return null;
 
-  return (
-    <>
-      {richAnnouncements.map((announcement) => (
-        <AnnouncementDialog
-          key={announcement.id}
-          id={announcement.id}
-          title={announcement.title || 'Announcement'}
-          content={announcement.text}
-        />
-      ))}
-    </>
-  );
+  return <AnnouncementsDialog announcements={unseen} open={open} onOpenChange={handleOpenChange} />;
 }

@@ -4,6 +4,8 @@ use poem::web::Data;
 use poem_openapi::payload::Json;
 use poem_openapi::{Object, OpenApi};
 use poem_openapi::param::{Path, Query};
+use poem_openapi::types::MaybeUndefined;
+use tokio::io::AsyncReadExt;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -28,6 +30,7 @@ use crate::models::admins::*;
 use crate::models::maps::{DbMapChangeSubscription, DbMapNotifySubscription};
 use crate::models::players::*;
 use crate::routers::ApiTags;
+use crate::core::storage::{media_ext_from_content_type, sniff_media_ext, MediaKind};
 
 pub struct AccountsApi;
 
@@ -36,6 +39,13 @@ pub struct AnonymizationRequest {
     pub community_id: String,
     pub anonymize: Option<bool>,
     pub hide_location: Option<bool>,
+}
+
+fn announcement_media_limit(kind: MediaKind) -> u64 {
+    match kind {
+        MediaKind::Image => 15 * 1024 * 1024,
+        MediaKind::Video => 50 * 1024 * 1024,
+    }
 }
 
 fn extract_youtube_id(url: &str) -> Option<String> {
@@ -1750,11 +1760,11 @@ impl AccountsApi {
             _ => {}
         }
         if let Some(title) = &payload.title {
-            if title.len() < 5 || title.len() > 200 {
+            if !(5..=200).contains(&title.chars().count()) {
                 return response!(err "Title must be 5-200 characters", ErrorCode::BadRequest);
             }
         }
-        if payload.text.len() < 10 || payload.text.len() > 10000 {
+        if !(10..=10_000).contains(&payload.text.chars().count()) {
             return response!(err "Content must be 10-10000 characters", ErrorCode::BadRequest);
         }
         if let (Some(pub_at), Some(exp_at)) = (&payload.published_at, &payload.expires_at) {
@@ -1791,6 +1801,7 @@ impl AccountsApi {
                 return response!(internal_server_error);
             }
         };
+        drop_cached_response(&data.cache, ANNOUNCEMENTS_CACHE_KEY).await;
 
         response!(ok announcement.into())
     }
@@ -1810,22 +1821,16 @@ impl AccountsApi {
         }
 
         // Validation
-        if let Some(ref title) = payload.title {
-            if title.len() < 5 || title.len() > 200 {
+        if let MaybeUndefined::Value(ref title) = payload.title {
+            if !(5..=200).contains(&title.chars().count()) {
                 return response!(err "Title must be 5-200 characters", ErrorCode::BadRequest);
             }
         }
         if let Some(ref text) = payload.text {
-            if text.len() < 10 || text.len() > 10_000 {
+            if !(10..=10_000).contains(&text.chars().count()) {
                 return response!(err "Content must be 10-10000 characters", ErrorCode::BadRequest);
             }
         }
-        if let (Some(pub_at), Some(exp_at)) = (&payload.published_at, &payload.expires_at) {
-            if pub_at > exp_at {
-                return response!(err "published_at must be before expires_at", ErrorCode::BadRequest);
-            }
-        }
-
         let current = match sqlx::query_as!(
             DbAnnouncement,
             "SELECT id, type AS \"type: AnnouncementTypeState\", title, text, created_at, published_at, expires_at, show
@@ -1844,11 +1849,26 @@ impl AccountsApi {
         };
 
         let new_type: AnnouncementTypeState = payload.r#type.map(|e| e.into()).unwrap_or(current.r#type);
-        let new_title = payload.title.or(current.title);
+        let new_title = match payload.title {
+            MaybeUndefined::Value(title) => Some(title),
+            MaybeUndefined::Null => None,
+            MaybeUndefined::Undefined => current.title,
+        };
         let new_text = payload.text.unwrap_or(current.text);
         let new_published_at = payload.published_at.map(|e| e.to_db_time()).unwrap_or(current.published_at);
-        let new_expires_at = payload.expires_at.map(|e| e.to_db_time()).or(current.expires_at);
+        let new_expires_at = match payload.expires_at {
+            MaybeUndefined::Value(expires_at) => Some(expires_at.to_db_time()),
+            MaybeUndefined::Null => None,
+            MaybeUndefined::Undefined => current.expires_at,
+        };
         let new_show = payload.show.unwrap_or(current.show);
+
+        if new_type == AnnouncementTypeState::Rich && new_title.as_deref().map_or(true, |t| t.trim().is_empty()) {
+            return response!(err "Rich announcements require a title", ErrorCode::BadRequest);
+        }
+        if new_expires_at.is_some_and(|exp_at| new_published_at > exp_at) {
+            return response!(err "published_at must be before expires_at", ErrorCode::BadRequest);
+        }
 
         let updated = match sqlx::query_as!(
             DbAnnouncement,
@@ -1875,6 +1895,7 @@ impl AccountsApi {
                 return response!(internal_server_error);
             }
         };
+        drop_cached_response(&data.cache, ANNOUNCEMENTS_CACHE_KEY).await;
 
         response!(ok updated.into())
     }
@@ -1908,8 +1929,77 @@ impl AccountsApi {
         if result.rows_affected() == 0 {
             return response!(err "Announcement not found", ErrorCode::NotFound);
         }
+        drop_cached_response(&data.cache, ANNOUNCEMENTS_CACHE_KEY).await;
 
         response!(ok "Announcement deleted successfully".to_string())
+    }
+
+    /// Upload an image, GIF or video for use inside an announcement. Requires the `superuser`
+    /// role.
+    ///
+    /// Multipart form with a `file` field: PNG, JPEG, WebP or GIF up to 15 MB, or MP4/WebM up to
+    /// 50 MB. Returns the public URL to reference from the announcement's markdown.
+    #[oai(path="/admin/announcements/media", method="post", tag = "ApiTags::Announcements")]
+    async fn upload_announcement_media(
+        &self,
+        Data(data): Data<&AppData>,
+        TokenBearer(user_token): TokenBearer,
+        multipart: poem::web::Multipart,
+    ) -> Response<AnnouncementMedia> {
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
+
+        let mut multipart = multipart;
+        let mut upload: Option<(Vec<u8>, &'static str, MediaKind)> = None;
+
+        while let Ok(Some(field)) = multipart.next_field().await {
+            if field.name() != Some("file") {
+                continue;
+            }
+            let content_type = field.content_type().unwrap_or_default().to_string();
+            let Some((ext, kind)) = media_ext_from_content_type(&content_type) else {
+                return response!(err "File must be a PNG, JPEG, WebP or GIF image, or an MP4/WebM video", ErrorCode::BadRequest);
+            };
+            let limit = announcement_media_limit(kind);
+            let read_cap = announcement_media_limit(MediaKind::Video);
+            let mut reader = field.into_async_read().take(read_cap + 1);
+            let mut bytes = Vec::new();
+            if let Err(e) = reader.read_to_end(&mut bytes).await {
+                tracing::error!("Failed to read announcement media upload: {}", e);
+                return response!(err "Failed to read upload", ErrorCode::BadRequest);
+            }
+            if bytes.len() as u64 > limit {
+                let message = format!("File is larger than {} MB", limit / (1024 * 1024));
+                return response!(err &message, ErrorCode::BadRequest);
+            }
+            upload = Some((bytes, ext, kind));
+            break;
+        }
+
+        let Some((bytes, ext, kind)) = upload else {
+            return response!(err "Missing file field", ErrorCode::BadRequest);
+        };
+        if bytes.is_empty() {
+            return response!(err "File is empty", ErrorCode::BadRequest);
+        }
+        if sniff_media_ext(&bytes) != Some(ext) {
+            return response!(err "File contents don't match its file type", ErrorCode::BadRequest);
+        }
+
+        let url = match data.announcement_storage.store_media(&Uuid::new_v4().to_string(), ext, &bytes).await {
+            Ok(url) => url,
+            Err(e) => {
+                tracing::error!("Failed to store announcement media: {}", e);
+                return response!(internal_server_error);
+            }
+        };
+
+        let kind = match kind {
+            MediaKind::Image => AnnouncementMediaKind::Image,
+            MediaKind::Video => AnnouncementMediaKind::Video,
+        };
+        response!(ok AnnouncementMedia { url, kind })
     }
 
     /// Register a Web Push subscription for the signed-in user.
@@ -3204,6 +3294,7 @@ impl UriPatternExt for AccountsApi{
             "/admin/reports/music/{report_id}/status",
             "/admin/music/{music_id}/youtube",
             "/admin/announcements",
+            "/admin/announcements/media",
             "/admin/announcements/{id}",
             "/accounts/me/push/subscriptions",
             "/accounts/me/push/subscribe",

@@ -1262,5 +1262,12 @@
       "chatgptComposer": "Ask anything"
     },
     "apiDocsHint": "Thích HTTP thông thường? Hầu hết công cụ tương ứng với một endpoint trong <link>tài liệu API</link>."
+  },
+  "announcements": {
+    "fallbackTitle": "Thông báo",
+    "previous": "Trước",
+    "next": "Tiếp",
+    "dismiss": "Đã hiểu",
+    "counter": "{current} / {total}"
   }
 }

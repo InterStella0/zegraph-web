@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 use aws_credential_types::Credentials;
 use aws_sdk_s3::config::BehaviorVersion;
@@ -141,6 +142,57 @@ impl StorageBackend {
         }
     }
 
+    async fn list(&self, prefix: &str) -> Result<Vec<(String, SystemTime)>, String> {
+        match self {
+            StorageBackend::Local { root } => {
+                let dir = Path::new(root).join(prefix);
+                let mut entries = match tokio::fs::read_dir(&dir).await {
+                    Ok(entries) => entries,
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+                    Err(e) => return Err(format!("Failed to read {dir:?}: {e}")),
+                };
+                let mut objects = Vec::new();
+                while let Some(entry) = entries
+                    .next_entry()
+                    .await
+                    .map_err(|e| format!("Failed to read {dir:?}: {e}"))?
+                {
+                    let Ok(metadata) = entry.metadata().await else { continue };
+                    if !metadata.is_file() {
+                        continue;
+                    }
+                    let Ok(modified) = metadata.modified() else { continue };
+                    objects.push((entry.file_name().to_string_lossy().into_owned(), modified));
+                }
+                Ok(objects)
+            }
+            StorageBackend::R2 { client, bucket, .. } => {
+                let key_prefix = format!("{prefix}/");
+                let mut objects = Vec::new();
+                let mut pages = client
+                    .list_objects_v2()
+                    .bucket(bucket)
+                    .prefix(&key_prefix)
+                    .into_paginator()
+                    .send();
+                while let Some(page) = pages.next().await {
+                    let page = page.map_err(|e| format!("R2 list failed: {e}"))?;
+                    for object in page.contents() {
+                        let (Some(key), Some(modified)) = (object.key(), object.last_modified()) else {
+                            continue;
+                        };
+                        let Some(name) = key.strip_prefix(&key_prefix).filter(|n| !n.contains('/')) else {
+                            continue;
+                        };
+                        let Ok(modified) = SystemTime::try_from(*modified) else { continue };
+                        objects.push((name.to_string(), modified));
+                    }
+                }
+                Ok(objects)
+            }
+        }
+    }
+
     async fn delete(&self, key: &str) -> Result<(), String> {
         match self {
             StorageBackend::Local { root } => {
@@ -194,6 +246,58 @@ fn image_content_type(ext: &str) -> &'static str {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MediaKind {
+    Image,
+    Video,
+}
+
+/// Media accepted in announcements: the extension to store under, and whether it renders as an
+/// image or a video.
+pub(crate) fn media_ext_from_content_type(content_type: &str) -> Option<(&'static str, MediaKind)> {
+    let content_type = content_type
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    match content_type.as_str() {
+        "image/gif" => Some(("gif", MediaKind::Image)),
+        "video/mp4" => Some(("mp4", MediaKind::Video)),
+        "video/webm" => Some(("webm", MediaKind::Video)),
+        other => image_ext_from_content_type(other).map(|ext| (ext, MediaKind::Image)),
+    }
+}
+
+/// Extension implied by the file's leading bytes, so a mislabelled upload can't be stored under
+/// a media extension it isn't.
+pub(crate) fn sniff_media_ext(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("png")
+    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("jpg")
+    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        Some("gif")
+    } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        Some("webp")
+    } else if bytes.len() >= 8 && &bytes[4..8] == b"ftyp" {
+        Some("mp4")
+    } else if bytes.starts_with(&[0x1A, 0x45, 0xDF, 0xA3]) {
+        Some("webm")
+    } else {
+        None
+    }
+}
+
+fn media_content_type(ext: &str) -> &'static str {
+    match ext {
+        "gif" => "image/gif",
+        "mp4" => "video/mp4",
+        "webm" => "video/webm",
+        other => image_content_type(other),
+    }
+}
+
 #[derive(Clone)]
 struct StorageNamespace {
     backend: Arc<StorageBackend>,
@@ -237,6 +341,10 @@ impl StorageNamespace {
 
     async fn delete(&self, path: &str) -> Result<(), String> {
         self.backend.delete(&self.build_key(path)).await
+    }
+
+    async fn list(&self) -> Result<Vec<(String, SystemTime)>, String> {
+        self.backend.list(self.object_prefix).await
     }
 }
 
@@ -417,6 +525,43 @@ impl CommunityStorage {
     }
 }
 
+#[derive(Clone)]
+pub struct AnnouncementStorage {
+    ns: StorageNamespace,
+}
+
+impl AnnouncementStorage {
+    pub fn new(backend: Arc<StorageBackend>) -> Self {
+        Self {
+            ns: StorageNamespace { backend, object_prefix: "announcements" },
+        }
+    }
+
+    pub async fn store_media(&self, id: &str, ext: &str, bytes: &[u8]) -> Result<String, String> {
+        self.ns
+            .store_bytes(&format!("{id}.{ext}"), bytes, media_content_type(ext))
+            .await
+    }
+
+    /// Deletes uploads older than `grace` that no announcement text mentions. The grace period
+    /// keeps media uploaded into an editor that hasn't been saved yet.
+    pub async fn delete_unreferenced(&self, texts: &[String], grace: Duration) -> Result<usize, String> {
+        let now = SystemTime::now();
+        let mut deleted = 0;
+        for (name, modified) in self.ns.list().await? {
+            let old_enough = now.duration_since(modified).is_ok_and(|age| age >= grace);
+            if !old_enough || texts.iter().any(|text| text.contains(&name)) {
+                continue;
+            }
+            match self.ns.delete(&name).await {
+                Ok(()) => deleted += 1,
+                Err(e) => tracing::warn!("Failed to delete unreferenced announcement media {name}: {e}"),
+            }
+        }
+        Ok(deleted)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -484,5 +629,70 @@ mod tests {
         assert_eq!(image_ext_from_content_type("image/webp"), Some("webp"));
         assert_eq!(image_ext_from_content_type("application/octet-stream"), None);
         assert_eq!(image_ext_from_content_type(""), None);
+    }
+
+    #[test]
+    fn announcement_media_accepts_gifs_and_videos() {
+        assert_eq!(media_ext_from_content_type("image/gif"), Some(("gif", MediaKind::Image)));
+        assert_eq!(media_ext_from_content_type("image/png"), Some(("png", MediaKind::Image)));
+        assert_eq!(media_ext_from_content_type("Video/MP4"), Some(("mp4", MediaKind::Video)));
+        assert_eq!(media_ext_from_content_type("video/webm; codecs=vp9"), Some(("webm", MediaKind::Video)));
+        assert_eq!(media_ext_from_content_type("video/quicktime"), None);
+        assert_eq!(media_ext_from_content_type("image/svg+xml"), None);
+        assert_eq!(media_content_type("gif"), "image/gif");
+        assert_eq!(media_content_type("webm"), "video/webm");
+        assert_eq!(media_content_type("jpg"), "image/jpeg");
+    }
+
+    #[tokio::test]
+    async fn announcement_media_is_stored_under_its_own_prefix() {
+        let root = temp_root("announcement-media");
+        let storage = AnnouncementStorage::new(Arc::new(StorageBackend::Local {
+            root: root.to_string_lossy().into_owned(),
+        }));
+
+        let url = storage.store_media("abc", "gif", b"GIF89a").await.unwrap();
+
+        assert_eq!(url, "/models/announcements/abc.gif");
+        assert!(root.join("announcements").join("abc.gif").exists());
+    }
+
+    #[test]
+    fn media_is_identified_by_its_leading_bytes() {
+        assert_eq!(sniff_media_ext(b"\x89PNG\r\n\x1a\nrest"), Some("png"));
+        assert_eq!(sniff_media_ext(&[0xFF, 0xD8, 0xFF, 0xE0]), Some("jpg"));
+        assert_eq!(sniff_media_ext(b"GIF89a..."), Some("gif"));
+        assert_eq!(sniff_media_ext(b"RIFF\x10\0\0\0WEBPVP8 "), Some("webp"));
+        assert_eq!(sniff_media_ext(b"\0\0\0\x20ftypisom"), Some("mp4"));
+        assert_eq!(sniff_media_ext(&[0x1A, 0x45, 0xDF, 0xA3, 0x01]), Some("webm"));
+        assert_eq!(sniff_media_ext(b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>"), None);
+        assert_eq!(sniff_media_ext(b"RIFF\x10\0\0\0WAVEfmt "), None);
+        assert_eq!(sniff_media_ext(b""), None);
+    }
+
+    #[tokio::test]
+    async fn only_old_unreferenced_announcement_media_is_deleted() {
+        let root = temp_root("announcement-cleanup");
+        let storage = AnnouncementStorage::new(Arc::new(StorageBackend::Local {
+            root: root.to_string_lossy().into_owned(),
+        }));
+        storage.store_media("kept", "png", b"png").await.unwrap();
+        storage.store_media("orphan", "gif", b"gif").await.unwrap();
+        let texts = vec!["Look ![map](/models/announcements/kept.png)".to_string()];
+
+        assert_eq!(storage.delete_unreferenced(&texts, Duration::from_secs(3600)).await, Ok(0));
+        assert_eq!(storage.delete_unreferenced(&texts, Duration::ZERO).await, Ok(1));
+        assert!(root.join("announcements").join("kept.png").exists());
+        assert!(!root.join("announcements").join("orphan.gif").exists());
+    }
+
+    #[tokio::test]
+    async fn missing_announcement_folder_is_not_an_error() {
+        let root = temp_root("announcement-cleanup-empty");
+        let storage = AnnouncementStorage::new(Arc::new(StorageBackend::Local {
+            root: root.to_string_lossy().into_owned(),
+        }));
+
+        assert_eq!(storage.delete_unreferenced(&[], Duration::ZERO).await, Ok(0));
     }
 }

@@ -1262,5 +1262,12 @@
       "chatgptComposer": "Ask anything"
     },
     "apiDocsHint": "Предпочитаете обычный HTTP? Большинство инструментов соответствуют обычным эндпоинтам в <link>документации API</link>."
+  },
+  "announcements": {
+    "fallbackTitle": "Объявление",
+    "previous": "Назад",
+    "next": "Далее",
+    "dismiss": "Понятно",
+    "counter": "{current} из {total}"
   }
 }

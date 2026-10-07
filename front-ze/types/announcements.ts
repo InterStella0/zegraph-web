@@ -35,3 +35,10 @@ export interface UpdateAnnouncementDto {
 }
 
 export type AnnouncementStatusFilter = 'All' | 'Active' | 'Scheduled' | 'Expired' | 'Hidden';
+
+export type AnnouncementMediaKind = 'Image' | 'Video';
+
+export interface AnnouncementMedia {
+  url: string;
+  kind: AnnouncementMediaKind;
+}
