@@ -23,7 +23,7 @@ use crate::api_models::players::*;
 use crate::core::audit::{
     insert_audit_log, ACTION_UPDATE_ANONYMIZATION, CATEGORY_USER_PRIVACY,
 };
-use crate::core::player_merge::{is_steam_id, merge_player, revert_merge, LinkError};
+use crate::core::player_merge::{is_steam_id, merge_player, revert_merge, LinkError, SteamName};
 use crate::core::push_service::NotificationType;
 use crate::routers::players::{get_player, get_player_cache_key};
 use crate::FastCache;
@@ -129,7 +129,7 @@ async fn set_associated_player(
     target_steam_id: Option<&str>,
     merged_by: Option<i64>,
     claim_id: Option<Uuid>,
-    steam_name: Option<&str>,
+    steam_name: Option<&SteamName>,
 ) -> Result<LinkChange, LinkError> {
     // Read the outgoing owner first: their aggregates have to be recomputed without this row.
     let previous = sqlx::query_scalar!(
@@ -541,11 +541,28 @@ async fn fetch_steam_info(steam_id: &i64) -> Result<SteamProfile, ErrorCode> {
     }
 }
 
-/// Steam persona name for a link target the site has never seen, or `None` when a `player` or
-/// `website.steam_user` row already exists and the merge can name the account itself.
-async fn lookup_unknown_steam_name(data: &AppData, steam_id: &str) -> Result<Option<String>, String> {
+/// Current Steam persona name of `steam_id`, so a merge never names the account after a stale
+/// copy.
+///
+/// When Steam can't be reached or returns no profile, falls back to `None` if the site already
+/// has a name for the account, and fails only when it has none.
+async fn fetch_steam_name(data: &AppData, steam_id: &str) -> Result<Option<SteamName>, String> {
     let Ok(steam_user_id) = steam_id.parse::<i64>() else {
         return Err(format!("{steam_id} is not a valid Steam ID"));
+    };
+
+    let failure = match tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        fetch_steam_info(&steam_user_id),
+    ).await {
+        Ok(Ok(profile)) => match profile.personaname.filter(|n| !n.trim().is_empty()) {
+            Some(name) => return Ok(Some(SteamName { steam_id: steam_id.to_string(), name })),
+            None => format!("Steam has no account with ID {steam_id}"),
+        },
+        Ok(Err(ErrorCode::NotFound)) => format!("Steam has no account with ID {steam_id}"),
+        Ok(Err(_)) | Err(_) => {
+            format!("Couldn't reach Steam to look up {steam_id}. Try again in a moment.")
+        }
     };
 
     let known = sqlx::query_scalar!(
@@ -564,18 +581,29 @@ async fn lookup_unknown_steam_name(data: &AppData, steam_id: &str) -> Result<Opt
     })?;
 
     if known {
+        tracing::warn!("{failure}; merging {steam_id} under its stored name");
         return Ok(None);
     }
+    Err(failure)
+}
 
-    let unreachable = || format!("Couldn't reach Steam to look up {steam_id}. Try again in a moment.");
-    match tokio::time::timeout(std::time::Duration::from_secs(10), fetch_steam_info(&steam_user_id)).await {
-        Ok(Ok(profile)) => match profile.personaname.filter(|n| !n.trim().is_empty()) {
-            Some(name) => Ok(Some(name)),
-            None => Err(format!("Steam has no account with ID {steam_id}")),
-        },
-        Ok(Err(ErrorCode::NotFound)) => Err(format!("Steam has no account with ID {steam_id}")),
-        Ok(Err(_)) | Err(_) => Err(unreachable()),
+/// The Steam name a link of `player_id` to `target` would merge under, looked up for the account
+/// `target` resolves to. `None` when the link moves no sessions.
+async fn steam_name_for_link(
+    data: &AppData,
+    player_id: &str,
+    target: &str,
+) -> Result<Option<SteamName>, String> {
+    if is_steam_id(player_id) {
+        return Ok(None);
     }
+    let canonical = resolve_canonical_player_id(&data.pool, target)
+        .await
+        .unwrap_or_else(|| target.to_string());
+    if !is_steam_id(&canonical) {
+        return Ok(None);
+    }
+    fetch_steam_name(data, &canonical).await
 }
 
 #[OpenApi(tag = "ApiTags::Accounts")]
@@ -3221,19 +3249,11 @@ impl AccountsApi {
             Err(_) => return response!(err "Invalid claim ID", ErrorCode::BadRequest),
         };
 
-        let mut tx = match data.pool.begin().await {
-            Ok(tx) => tx,
-            Err(e) => {
-                tracing::error!("Failed to open transaction for claim {claim_id}: {e}");
-                return response!(internal_server_error);
-            }
-        };
-
         let claim = match sqlx::query!(
             r#"SELECT player_id, user_id FROM website.player_claiming WHERE id = $1"#,
             claim_id,
         )
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&*data.pool)
         .await
         {
             Ok(Some(c)) => c,
@@ -3243,17 +3263,34 @@ impl AccountsApi {
                 return response!(internal_server_error);
             }
         };
+        let steam_id = claim.user_id.to_string();
+
+        let steam_name = if dto.status == "approved" {
+            match steam_name_for_link(data, &claim.player_id, &steam_id).await {
+                Ok(name) => name,
+                Err(msg) => return response!(err &msg, ErrorCode::BadRequest),
+            }
+        } else {
+            None
+        };
+
+        let mut tx = match data.pool.begin().await {
+            Ok(tx) => tx,
+            Err(e) => {
+                tracing::error!("Failed to open transaction for claim {claim_id}: {e}");
+                return response!(internal_server_error);
+            }
+        };
 
         let mut link_change: Option<LinkChange> = None;
         if dto.status == "approved" {
-            let steam_id = claim.user_id.to_string();
             match set_associated_player(
                 &mut tx,
                 &claim.player_id,
                 Some(&steam_id),
                 Some(user_token.id),
                 Some(claim_id),
-                None,
+                steam_name.as_ref(),
             ).await {
                 Ok(change) => link_change = Some(change),
                 Err(LinkError::User(msg)) => return response!(err &msg, ErrorCode::BadRequest),
@@ -3321,13 +3358,11 @@ impl AccountsApi {
         let target = dto.associated_player_id.as_deref().map(str::trim).filter(|t| !t.is_empty());
 
         let steam_name = match target {
-            Some(target) if is_steam_id(target) && !is_steam_id(&player_id) => {
-                match lookup_unknown_steam_name(data, target).await {
-                    Ok(name) => name,
-                    Err(msg) => return response!(err &msg, ErrorCode::BadRequest),
-                }
-            }
-            _ => None,
+            Some(target) => match steam_name_for_link(data, &player_id, target).await {
+                Ok(name) => name,
+                Err(msg) => return response!(err &msg, ErrorCode::BadRequest),
+            },
+            None => None,
         };
 
         let mut tx = match data.pool.begin().await {
@@ -3339,7 +3374,7 @@ impl AccountsApi {
         };
 
         let change = match set_associated_player(
-            &mut tx, &player_id, target, Some(user_token.id), None, steam_name.as_deref(),
+            &mut tx, &player_id, target, Some(user_token.id), None, steam_name.as_ref(),
         ).await {
             Ok(c) => c,
             Err(LinkError::User(msg)) => return response!(err &msg, ErrorCode::BadRequest),
@@ -3380,6 +3415,11 @@ impl AccountsApi {
             .await
             .unwrap_or(steam_id);
 
+        let steam_name = match fetch_steam_name(data, &canonical).await {
+            Ok(name) => name,
+            Err(msg) => return response!(err &msg, ErrorCode::BadRequest),
+        };
+
         let mut tx = match data.pool.begin().await {
             Ok(tx) => tx,
             Err(e) => {
@@ -3413,7 +3453,9 @@ impl AccountsApi {
 
         let mut sessions_moved = 0;
         for fake in &fakes {
-            match merge_player(&mut tx, fake, &canonical, Some(user_token.id), None, None).await {
+            match merge_player(
+                &mut tx, fake, &canonical, Some(user_token.id), None, steam_name.as_ref(),
+            ).await {
                 Ok(outcome) => sessions_moved += outcome.sessions_moved,
                 Err(LinkError::User(msg)) => return response!(err &msg, ErrorCode::BadRequest),
                 Err(LinkError::Internal) => return response!(internal_server_error),

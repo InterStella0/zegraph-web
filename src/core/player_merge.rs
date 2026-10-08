@@ -20,6 +20,13 @@ pub(crate) fn merged_name(merge_id: Uuid, name: &str) -> String {
     format!("[merged_{merge_id}] {name}")
 }
 
+/// A persona name fetched from Steam, kept with the ID it belongs to so it can't name the wrong
+/// account when a link resolves to a different canonical ID.
+pub(crate) struct SteamName {
+    pub steam_id: String,
+    pub name: String,
+}
+
 pub(crate) struct MergeOutcome {
     pub sessions_moved: i64,
 }
@@ -40,17 +47,18 @@ fn internal(context: String) -> impl FnOnce(sqlx::Error) -> LinkError {
 /// Moves every session of the name-tracked `fake_id` onto `steam_id` and leaves the fake behind
 /// as a renamed tombstone pointing at it.
 ///
-/// Must run inside the caller's transaction. Creates the Steam `player` row from
-/// `website.steam_user`, or from `steam_name` when the account has never logged in, and records
-/// each moved session so `revert_merge` can put it back.
+/// Must run inside the caller's transaction. Names the Steam `player` row after `steam_name`,
+/// falling back to `website.steam_user` and then to the row's current name, and records each
+/// moved session so `revert_merge` can put it back.
 pub(crate) async fn merge_player(
     conn: &mut PgConnection,
     fake_id: &str,
     steam_id: &str,
     merged_by: Option<i64>,
     claim_id: Option<Uuid>,
-    steam_name: Option<&str>,
+    steam_name: Option<&SteamName>,
 ) -> Result<MergeOutcome, LinkError> {
+    let steam_name = steam_name.filter(|n| n.steam_id == steam_id).map(|n| n.name.as_str());
     if is_steam_id(fake_id) {
         return Err(LinkError::User(format!(
             "{fake_id} is a Steam account; only name-tracked profiles can be merged."
@@ -85,34 +93,22 @@ pub(crate) async fn merge_player(
 
     sqlx::query!(
         "INSERT INTO player (player_id, player_name, location_code, location)
-         SELECT su.user_id::text, su.persona_name, f.location_code, f.location
-         FROM website.steam_user su
-         JOIN player f ON f.player_id = $2
-         WHERE su.user_id = $1
+         SELECT $1, COALESCE($2::text, su.persona_name), f.location_code, f.location
+         FROM player f
+         LEFT JOIN website.steam_user su ON su.user_id = $3
+         WHERE f.player_id = $4 AND COALESCE($2::text, su.persona_name) IS NOT NULL
          ON CONFLICT (player_id) DO UPDATE SET
             player_name = EXCLUDED.player_name,
             location_code = COALESCE(player.location_code, EXCLUDED.location_code),
             location = COALESCE(player.location, EXCLUDED.location)",
+        steam_id,
+        steam_name,
         steam_user_id,
         fake_id,
     )
     .execute(&mut *conn)
     .await
     .map_err(internal(format!("Failed to upsert Steam player {steam_id}")))?;
-
-    if let Some(name) = steam_name {
-        sqlx::query!(
-            "INSERT INTO player (player_id, player_name, location_code, location)
-             SELECT $1, $2, f.location_code, f.location FROM player f WHERE f.player_id = $3
-             ON CONFLICT (player_id) DO NOTHING",
-            steam_id,
-            name,
-            fake_id,
-        )
-        .execute(&mut *conn)
-        .await
-        .map_err(internal(format!("Failed to create Steam player {steam_id}")))?;
-    }
 
     let steam_exists = sqlx::query_scalar!(
         r#"SELECT EXISTS (SELECT 1 FROM player WHERE player_id = $1) AS "exists!""#,
