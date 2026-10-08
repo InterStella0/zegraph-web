@@ -479,7 +479,16 @@
         "servers": "서버",
         "steamId": "Steam ID",
         "nameMatched": "이름 일치",
-        "noPlaytime": "플레이 시간 없음"
+        "noPlaytime": "플레이 시간 없음",
+        "merge": {
+          "button": "{count, plural, other {연결된 이름 #개 병합}}",
+          "title": "Steam 계정으로 병합",
+          "description": "{server}에 있는 연결된 이름 {count, plural, other {#개}}의 세션이 Steam 계정으로 옮겨지고, 이전 이름은 별칭으로 표시됩니다. 이전 이름으로 다시 접속하면 새 플레이어로 집계됩니다.",
+          "confirm": "병합",
+          "cancel": "취소",
+          "success": "프로필 {count, plural, other {#개}} 병합됨 (세션 {sessions}개)",
+          "failed": "계정을 병합하지 못했습니다"
+        }
       }
     },
     "playedWith": {

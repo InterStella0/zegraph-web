@@ -23,6 +23,7 @@ use crate::api_models::players::*;
 use crate::core::audit::{
     insert_audit_log, ACTION_UPDATE_ANONYMIZATION, CATEGORY_USER_PRIVACY,
 };
+use crate::core::player_merge::{is_steam_id, merge_player, revert_merge, LinkError, SteamName};
 use crate::core::push_service::NotificationType;
 use crate::routers::players::{get_player, get_player_cache_key};
 use crate::FastCache;
@@ -104,38 +105,31 @@ async fn resolve_canonical_player_id(
     ).fetch_optional(pool).await.ok().flatten()
 }
 
-/// Whether a `player_id` is a Steam ID rather than a name-tracked row.
-///
-/// Name-tracked servers give each name its own UUID-shaped row; Steam-tracked ones use the
-/// numeric Steam ID as the primary key. The same distinction is drawn in SQL elsewhere with
-/// `player_id ~ '^[0-9]+$'`.
-fn is_steam_id(player_id: &str) -> bool {
-    !player_id.is_empty() && player_id.bytes().all(|b| b.is_ascii_digit())
-}
-
-/// Why a link could not be made. `User` carries wording meant for the moderator.
-enum LinkError {
-    User(String),
-    Internal,
-}
-
 /// What a link operation changed, so the caller knows whose caches and totals are now wrong.
 struct LinkChange {
     /// The account this profile belonged to beforehand, if any. Its playtime shrinks.
     previous: Option<String>,
     /// The account it belongs to now, if any. Its playtime grows.
     current: Option<String>,
+    /// Sessions moved onto `current` (positive) or back off it on unlink.
+    sessions_moved: i64,
+    /// An unmerged profile already uses the name restored by an unlink.
+    name_conflict: bool,
 }
 
-/// Points `player_id` at `target_steam_id`, or clears the link when the target is `None`.
+/// Points `player_id` at `target_steam_id` and merges it into that account, or unlinks it (and
+/// reverts its merge) when the target is `None`.
 ///
 /// Shared by claim approval and the superuser override so both enforce the same invariants:
-/// the target must already exist as a `player` row (`associated_player_id` is a self-FK), links
-/// stay one hop deep, and a profile never points at itself.
+/// links stay one hop deep, a profile never points at itself, and a name-tracked profile is
+/// always merged into the Steam account it links to.
 async fn set_associated_player(
     conn: &mut sqlx::PgConnection,
     player_id: &str,
     target_steam_id: Option<&str>,
+    merged_by: Option<i64>,
+    claim_id: Option<Uuid>,
+    steam_name: Option<&SteamName>,
 ) -> Result<LinkChange, LinkError> {
     // Read the outgoing owner first: their aggregates have to be recomputed without this row.
     let previous = sqlx::query_scalar!(
@@ -151,6 +145,7 @@ async fn set_associated_player(
     .flatten();
 
     let Some(target) = target_steam_id else {
+        let reverted = revert_merge(conn, player_id).await?;
         let result = sqlx::query!(
             "UPDATE player SET associated_player_id = NULL WHERE player_id = $1",
             player_id,
@@ -165,7 +160,12 @@ async fn set_associated_player(
         if result.rows_affected() == 0 {
             return Err(LinkError::User("Player not found".to_string()));
         }
-        return Ok(LinkChange { previous, current: None });
+        return Ok(LinkChange {
+            previous,
+            current: None,
+            sessions_moved: reverted.as_ref().map(|r| -r.sessions_restored).unwrap_or(0),
+            name_conflict: reverted.is_some_and(|r| r.name_conflict),
+        });
     };
 
     let canonical = sqlx::query_scalar!(
@@ -180,15 +180,10 @@ async fn set_associated_player(
         LinkError::Internal
     })?;
 
-    let Some(canonical) = canonical else {
-        return Err(LinkError::User(if is_steam_id(target) {
-            format!(
-                "No player record exists for Steam ID {target}. They need to be seen on a \
-                 Steam-tracked server before their account can be linked."
-            )
-        } else {
-            format!("No player record exists for {target}.")
-        }));
+    let canonical = match canonical {
+        Some(canonical) => canonical,
+        None if is_steam_id(target) && !is_steam_id(player_id) => target.to_string(),
+        None => return Err(LinkError::User(format!("No player record exists for {target}."))),
     };
 
     if !is_steam_id(&canonical) {
@@ -204,21 +199,26 @@ async fn set_associated_player(
         ));
     }
 
-    let result = sqlx::query!(
-        "UPDATE player SET associated_player_id = $1 WHERE player_id = $2",
-        canonical,
-        player_id,
-    )
-    .execute(&mut *conn)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to link {player_id} -> {canonical}: {e}");
-        LinkError::Internal
-    })?;
+    let sessions_moved = if is_steam_id(player_id) {
+        let result = sqlx::query!(
+            "UPDATE player SET associated_player_id = $1 WHERE player_id = $2",
+            canonical,
+            player_id,
+        )
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to link {player_id} -> {canonical}: {e}");
+            LinkError::Internal
+        })?;
 
-    if result.rows_affected() == 0 {
-        return Err(LinkError::User("Player not found".to_string()));
-    }
+        if result.rows_affected() == 0 {
+            return Err(LinkError::User("Player not found".to_string()));
+        }
+        0
+    } else {
+        merge_player(conn, player_id, &canonical, merged_by, claim_id, steam_name).await?.sessions_moved
+    };
 
     // Anything that pointed at this profile has to follow it, or it would become a second hop.
     sqlx::query!(
@@ -233,7 +233,7 @@ async fn set_associated_player(
         LinkError::Internal
     })?;
 
-    Ok(LinkChange { previous, current: Some(canonical) })
+    Ok(LinkChange { previous, current: Some(canonical), sessions_moved, name_conflict: false })
 }
 
 /// Clears the caches a link change invalidated, then queues fresh playtime for both the account
@@ -417,6 +417,12 @@ pub struct PlayerClaimStatusDto {
 }
 
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
+pub struct MergeAccountsDto {
+    /// Only merge profiles seen on this server. Omit to merge every linked profile.
+    pub server_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct AssociatePlayerDto {
     /// Steam ID to link this profile to. `null` unlinks it.
     pub associated_player_id: Option<String>,
@@ -533,6 +539,71 @@ async fn fetch_steam_info(steam_id: &i64) -> Result<SteamProfile, ErrorCode> {
             }
         }
     }
+}
+
+/// Current Steam persona name of `steam_id`, so a merge never names the account after a stale
+/// copy.
+///
+/// When Steam can't be reached or returns no profile, falls back to `None` if the site already
+/// has a name for the account, and fails only when it has none.
+async fn fetch_steam_name(data: &AppData, steam_id: &str) -> Result<Option<SteamName>, String> {
+    let Ok(steam_user_id) = steam_id.parse::<i64>() else {
+        return Err(format!("{steam_id} is not a valid Steam ID"));
+    };
+
+    let failure = match tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        fetch_steam_info(&steam_user_id),
+    ).await {
+        Ok(Ok(profile)) => match profile.personaname.filter(|n| !n.trim().is_empty()) {
+            Some(name) => return Ok(Some(SteamName { steam_id: steam_id.to_string(), name })),
+            None => format!("Steam has no account with ID {steam_id}"),
+        },
+        Ok(Err(ErrorCode::NotFound)) => format!("Steam has no account with ID {steam_id}"),
+        Ok(Err(_)) | Err(_) => {
+            format!("Couldn't reach Steam to look up {steam_id}. Try again in a moment.")
+        }
+    };
+
+    let known = sqlx::query_scalar!(
+        r#"SELECT (
+            EXISTS (SELECT 1 FROM player WHERE player_id = $1)
+            OR EXISTS (SELECT 1 FROM website.steam_user WHERE user_id = $2)
+        ) AS "known!""#,
+        steam_id,
+        steam_user_id,
+    )
+    .fetch_one(&*data.pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to check whether {steam_id} is known: {e}");
+        "Internal server error".to_string()
+    })?;
+
+    if known {
+        tracing::warn!("{failure}; merging {steam_id} under its stored name");
+        return Ok(None);
+    }
+    Err(failure)
+}
+
+/// The Steam name a link of `player_id` to `target` would merge under, looked up for the account
+/// `target` resolves to. `None` when the link moves no sessions.
+async fn steam_name_for_link(
+    data: &AppData,
+    player_id: &str,
+    target: &str,
+) -> Result<Option<SteamName>, String> {
+    if is_steam_id(player_id) {
+        return Ok(None);
+    }
+    let canonical = resolve_canonical_player_id(&data.pool, target)
+        .await
+        .unwrap_or_else(|| target.to_string());
+    if !is_steam_id(&canonical) {
+        return Ok(None);
+    }
+    fetch_steam_name(data, &canonical).await
 }
 
 #[OpenApi(tag = "ApiTags::Accounts")]
@@ -863,6 +934,7 @@ impl AccountsApi {
 
             let by_id = server.source_by_id.unwrap_or(false);
             let mut linked_names: Vec<LinkedName> = vec![];
+            let mut mergeable_count = 0;
             if !by_id {
                 let names = sqlx::query_as!(
                     DbLinkedName,
@@ -884,6 +956,20 @@ impl AccountsApi {
 
                 if !linked_names.is_empty() {
                     detail.total_playtime = linked_names.iter().map(|n| n.total_playtime).sum();
+                }
+
+                if is_owner {
+                    mergeable_count = sqlx::query_scalar!(
+                        r#"SELECT COUNT(DISTINCT p.player_id) AS "count!"
+                           FROM player p
+                           JOIN player_server_session pss
+                             ON pss.player_id = p.player_id AND pss.server_id = $1
+                           WHERE p.associated_player_id = $2
+                             AND p.merged_at IS NULL
+                             AND p.player_id !~ '^[0-9]+$'"#,
+                        server_id,
+                        canonical_id
+                    ).fetch_one(pool).await.unwrap_or(0);
                 }
             }
 
@@ -929,6 +1015,7 @@ impl AccountsApi {
                 last_played_duration: server_duration,
                 player: detail,
                 linked_names,
+                mergeable_count,
                 recent_sessions,
             };
 
@@ -3162,19 +3249,11 @@ impl AccountsApi {
             Err(_) => return response!(err "Invalid claim ID", ErrorCode::BadRequest),
         };
 
-        let mut tx = match data.pool.begin().await {
-            Ok(tx) => tx,
-            Err(e) => {
-                tracing::error!("Failed to open transaction for claim {claim_id}: {e}");
-                return response!(internal_server_error);
-            }
-        };
-
         let claim = match sqlx::query!(
             r#"SELECT player_id, user_id FROM website.player_claiming WHERE id = $1"#,
             claim_id,
         )
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&*data.pool)
         .await
         {
             Ok(Some(c)) => c,
@@ -3184,11 +3263,35 @@ impl AccountsApi {
                 return response!(internal_server_error);
             }
         };
+        let steam_id = claim.user_id.to_string();
+
+        let steam_name = if dto.status == "approved" {
+            match steam_name_for_link(data, &claim.player_id, &steam_id).await {
+                Ok(name) => name,
+                Err(msg) => return response!(err &msg, ErrorCode::BadRequest),
+            }
+        } else {
+            None
+        };
+
+        let mut tx = match data.pool.begin().await {
+            Ok(tx) => tx,
+            Err(e) => {
+                tracing::error!("Failed to open transaction for claim {claim_id}: {e}");
+                return response!(internal_server_error);
+            }
+        };
 
         let mut link_change: Option<LinkChange> = None;
         if dto.status == "approved" {
-            let steam_id = claim.user_id.to_string();
-            match set_associated_player(&mut tx, &claim.player_id, Some(&steam_id)).await {
+            match set_associated_player(
+                &mut tx,
+                &claim.player_id,
+                Some(&steam_id),
+                Some(user_token.id),
+                Some(claim_id),
+                steam_name.as_ref(),
+            ).await {
                 Ok(change) => link_change = Some(change),
                 Err(LinkError::User(msg)) => return response!(err &msg, ErrorCode::BadRequest),
                 Err(LinkError::Internal) => return response!(internal_server_error),
@@ -3219,7 +3322,10 @@ impl AccountsApi {
         // `website.player_global_playtime`; neither notices the new link on its own. Caches have
         // to be dropped before the refresh, or it reads its own stale entries straight back.
         if let Some(change) = &link_change {
-            tracing::info!("Claim {claim_id}: linked {} -> {:?}", claim.player_id, change.current);
+            tracing::info!(
+                "Claim {claim_id}: merged {} -> {:?} ({} sessions)",
+                claim.player_id, change.current, change.sessions_moved,
+            );
             apply_link_side_effects(data, &claim.player_id, change).await;
         }
 
@@ -3251,6 +3357,14 @@ impl AccountsApi {
 
         let target = dto.associated_player_id.as_deref().map(str::trim).filter(|t| !t.is_empty());
 
+        let steam_name = match target {
+            Some(target) => match steam_name_for_link(data, &player_id, target).await {
+                Ok(name) => name,
+                Err(msg) => return response!(err &msg, ErrorCode::BadRequest),
+            },
+            None => None,
+        };
+
         let mut tx = match data.pool.begin().await {
             Ok(tx) => tx,
             Err(e) => {
@@ -3259,7 +3373,9 @@ impl AccountsApi {
             }
         };
 
-        let change = match set_associated_player(&mut tx, &player_id, target).await {
+        let change = match set_associated_player(
+            &mut tx, &player_id, target, Some(user_token.id), None, steam_name.as_ref(),
+        ).await {
             Ok(c) => c,
             Err(LinkError::User(msg)) => return response!(err &msg, ErrorCode::BadRequest),
             Err(LinkError::Internal) => return response!(internal_server_error),
@@ -3270,11 +3386,102 @@ impl AccountsApi {
             return response!(internal_server_error);
         }
 
-        tracing::info!("Superuser {} set {player_id} -> {:?}", user_token.id, change.current);
+        tracing::info!(
+            "Superuser {} set {player_id} -> {:?} ({} sessions)",
+            user_token.id, change.current, change.sessions_moved,
+        );
 
         apply_link_side_effects(data, &player_id, &change).await;
 
+        if change.name_conflict {
+            return response!(ok "NAME_CONFLICT".to_string());
+        }
         response!(ok "OK".to_string())
+    }
+
+    /// Merge the name-tracked profiles already linked to your Steam account into it.
+    ///
+    /// Their sessions move onto the Steam account and each profile is renamed
+    /// `[merged_<uuid>] <name>`. `server_id` limits this to profiles seen on that server.
+    #[oai(path="/accounts/me/merge", method="post", tag = "ApiTags::PlayerClaims")]
+    async fn merge_my_accounts(
+        &self,
+        Data(data): Data<&AppData>,
+        TokenBearer(user_token): TokenBearer,
+        Json(dto): Json<MergeAccountsDto>,
+    ) -> Response<MergeAccountsResult> {
+        let steam_id = user_token.id.to_string();
+        let canonical = resolve_canonical_player_id(&data.pool, &steam_id)
+            .await
+            .unwrap_or(steam_id);
+
+        let steam_name = match fetch_steam_name(data, &canonical).await {
+            Ok(name) => name,
+            Err(msg) => return response!(err &msg, ErrorCode::BadRequest),
+        };
+
+        let mut tx = match data.pool.begin().await {
+            Ok(tx) => tx,
+            Err(e) => {
+                tracing::error!("Failed to open transaction for merging {canonical}: {e}");
+                return response!(internal_server_error);
+            }
+        };
+
+        let fakes = match sqlx::query_scalar!(
+            "SELECT p.player_id FROM player p
+             WHERE p.associated_player_id = $1
+               AND p.merged_at IS NULL
+               AND p.player_id !~ '^[0-9]+$'
+               AND ($2::text IS NULL OR EXISTS (
+                   SELECT 1 FROM player_server_session pss
+                   WHERE pss.player_id = p.player_id AND pss.server_id = $2
+               ))
+             ORDER BY p.player_id",
+            canonical,
+            dto.server_id,
+        )
+        .fetch_all(&mut *tx)
+        .await
+        {
+            Ok(f) => f,
+            Err(e) => {
+                tracing::error!("Failed to list mergeable profiles of {canonical}: {e}");
+                return response!(internal_server_error);
+            }
+        };
+
+        let mut sessions_moved = 0;
+        for fake in &fakes {
+            match merge_player(
+                &mut tx, fake, &canonical, Some(user_token.id), None, steam_name.as_ref(),
+            ).await {
+                Ok(outcome) => sessions_moved += outcome.sessions_moved,
+                Err(LinkError::User(msg)) => return response!(err &msg, ErrorCode::BadRequest),
+                Err(LinkError::Internal) => return response!(internal_server_error),
+            }
+        }
+
+        if let Err(e) = tx.commit().await {
+            tracing::error!("Failed to commit merge for {canonical}: {e}");
+            return response!(internal_server_error);
+        }
+
+        if !fakes.is_empty() {
+            tracing::info!(
+                "User {} merged {} profile(s) into {canonical} ({sessions_moved} sessions)",
+                user_token.id, fakes.len(),
+            );
+            let mut touched = fakes.clone();
+            touched.push(canonical.clone());
+            data.player_worker.invalidate_players(&touched).await;
+            data.player_worker.enqueue_global_refresh(&canonical).await;
+        }
+
+        response!(ok MergeAccountsResult {
+            merged_profiles: fakes.len() as i64,
+            sessions_moved,
+        })
     }
 }
 impl UriPatternExt for AccountsApi{
@@ -3284,6 +3491,7 @@ impl UriPatternExt for AccountsApi{
             "/accounts/me",
             "/accounts/me/communities",
             "/accounts/me/anonymize",
+            "/accounts/me/merge",
             "/accounts/{user_id}/anonymize",
             "/players/{player_id}/profile",
             "/players/{player_id}/sessions",

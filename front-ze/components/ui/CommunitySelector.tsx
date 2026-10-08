@@ -16,11 +16,11 @@ import {COMMUNITY_COLLAPSE} from "./communityCollapse";
 export function Logo() {
     return (
         <div className="logo flex items-center gap-2">
-            <h1
+            <span
                 className="text-[22px] font-bold bg-gradient-to-r from-pink-400 via-purple-500 to-purple-600 bg-clip-text text-transparent"
             >
                 ZE Graph
-            </h1>
+            </span>
         </div>
     );
 }

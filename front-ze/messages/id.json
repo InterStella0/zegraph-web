@@ -479,7 +479,16 @@
         "servers": "Server",
         "steamId": "Steam ID",
         "nameMatched": "Cocok berdasarkan nama",
-        "noPlaytime": "Tidak ada waktu bermain"
+        "noPlaytime": "Tidak ada waktu bermain",
+        "merge": {
+          "button": "{count, plural, other {Gabungkan # nama tertaut}}",
+          "title": "Gabungkan ke akun Steam kamu",
+          "description": "Sesi dari {count, plural, other {# nama tertaut}} di {server} akan dipindahkan ke akun Steam kamu, dan nama lama akan tampil sebagai alias. Masuk lagi dengan nama lama akan dihitung sebagai pemain baru.",
+          "confirm": "Gabungkan",
+          "cancel": "Batal",
+          "success": "{count, plural, other {# profil}} digabungkan ({sessions} sesi)",
+          "failed": "Gagal menggabungkan akun"
+        }
       }
     },
     "playedWith": {

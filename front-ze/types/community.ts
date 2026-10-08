@@ -68,6 +68,8 @@ export interface ProfileServerEntry {
     last_played_duration: number | null;
     player: DetailedPlayer;
     linked_names: LinkedName[];
+    /** Linked name-tracked profiles on this server not yet merged. Only counted for the owner. */
+    mergeable_count: number;
     /** The player's last few sessions on this server, oldest first. */
     recent_sessions: ProfileRecentSession[];
 }

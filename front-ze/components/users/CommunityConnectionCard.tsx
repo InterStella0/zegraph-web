@@ -11,9 +11,16 @@ import { Label } from "components/ui/label";
 import { Separator } from "components/ui/separator";
 import { Badge } from "components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
-import { Clock, ChevronDown, Info } from "lucide-react";
+import { Button } from "components/ui/button";
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "components/ui/dialog";
+import { Clock, ChevronDown, Info, Loader2, Merge } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
+import { fetchApiUrl } from "utils/generalUtils";
 import ServerSessionStrip from "./ServerSessionStrip";
 
 interface CommunityConnectionCardProps {
@@ -56,6 +63,57 @@ function LinkedNamesPanel({ names }: { names: { name: string; total_playtime: nu
                 </div>
             </CollapsibleContent>
         </Collapsible>
+    );
+}
+
+function MergeAccountsButton({ serverId, serverName, count }: { serverId: string; serverName: string; count: number }) {
+    const t = useTranslations('players.profile.connectionCard.merge');
+    const router = useRouter();
+    const [open, setOpen] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+
+    const merge = async () => {
+        setSubmitting(true);
+        try {
+            const result: { merged_profiles: number; sessions_moved: number } = await fetchApiUrl('/accounts/me/merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ server_id: serverId }),
+            });
+            toast.success(t('success', { count: result.merged_profiles, sessions: result.sessions_moved }));
+            setOpen(false);
+            router.refresh();
+        } catch (error: any) {
+            toast.error(t('failed'), { description: error?.message });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <>
+            <Button variant="outline" size="sm" className="mt-2 h-7 text-xs" onClick={() => setOpen(true)}>
+                <Merge className="h-3.5 w-3.5" />
+                {t('button', { count })}
+            </Button>
+            <Dialog open={open} onOpenChange={(isOpen) => { if (!submitting) setOpen(isOpen); }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{t('title')}</DialogTitle>
+                        <DialogDescription>{t('description', { count, server: serverName })}</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+                            {t('cancel')}
+                        </Button>
+                        <Button onClick={merge} disabled={submitting}>
+                            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                            {t('confirm')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 
@@ -200,6 +258,13 @@ export default function CommunityConnectionCard({
                                         )}
 
                                         <LinkedNamesPanel names={serverPlayer.linked_names} />
+                                        {serverPlayer.mergeable_count > 0 && (
+                                            <MergeAccountsButton
+                                                serverId={serverPlayer.server_id}
+                                                serverName={serverPlayer.server_name}
+                                                count={serverPlayer.mergeable_count}
+                                            />
+                                        )}
                                     </div>
 
                                     <div className="shrink-0">

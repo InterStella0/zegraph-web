@@ -479,7 +479,16 @@
         "servers": "Servers",
         "steamId": "Steam ID",
         "nameMatched": "Name-matched",
-        "noPlaytime": "No playtime"
+        "noPlaytime": "No playtime",
+        "merge": {
+          "button": "{count, plural, one {Merge linked name} other {Merge # linked names}}",
+          "title": "Merge into your Steam account",
+          "description": "Sessions from {count, plural, one {your linked name} other {your # linked names}} on {server} will move onto your Steam account, and the old {count, plural, one {name} other {names}} will show as an alias. Joining under an old name again counts as a new player.",
+          "confirm": "Merge",
+          "cancel": "Cancel",
+          "success": "Merged {count, plural, one {# profile} other {# profiles}} ({sessions} sessions)",
+          "failed": "Couldn't merge accounts"
+        }
       }
     },
     "playedWith": {

@@ -479,7 +479,16 @@
         "servers": "服务器",
         "steamId": "Steam ID",
         "nameMatched": "名称匹配",
-        "noPlaytime": "无游戏时长"
+        "noPlaytime": "无游戏时长",
+        "merge": {
+          "button": "{count, plural, other {合并 # 个关联名称}}",
+          "title": "合并到你的 Steam 账号",
+          "description": "{server} 上 {count, plural, other {# 个关联名称}}的游戏记录将移到你的 Steam 账号，旧名称将作为别名显示。之后再用旧名称加入会被算作新玩家。",
+          "confirm": "合并",
+          "cancel": "取消",
+          "success": "已合并 {count, plural, other {# 个资料}}（{sessions} 次游戏记录）",
+          "failed": "无法合并账号"
+        }
       }
     },
     "playedWith": {

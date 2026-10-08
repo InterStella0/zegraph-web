@@ -479,7 +479,16 @@
         "servers": "伺服器",
         "steamId": "Steam ID",
         "nameMatched": "名稱相符",
-        "noPlaytime": "無遊玩時間"
+        "noPlaytime": "無遊玩時間",
+        "merge": {
+          "button": "{count, plural, other {合併 # 個連結名稱}}",
+          "title": "合併到你的 Steam 帳號",
+          "description": "{server} 上 {count, plural, other {# 個連結名稱}}的遊戲紀錄將移到你的 Steam 帳號，舊名稱會以別名顯示。之後再用舊名稱加入會被算作新玩家。",
+          "confirm": "合併",
+          "cancel": "取消",
+          "success": "已合併 {count, plural, other {# 個資料}}（{sessions} 次遊戲紀錄）",
+          "failed": "無法合併帳號"
+        }
       }
     },
     "playedWith": {

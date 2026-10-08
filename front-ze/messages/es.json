@@ -479,7 +479,16 @@
         "servers": "Servidores",
         "steamId": "ID de Steam",
         "nameMatched": "Coincidencia por nombre",
-        "noPlaytime": "Sin tiempo de juego"
+        "noPlaytime": "Sin tiempo de juego",
+        "merge": {
+          "button": "{count, plural, one {Fusionar nombre vinculado} other {Fusionar # nombres vinculados}}",
+          "title": "Fusionar con tu cuenta de Steam",
+          "description": "Las sesiones de {count, plural, one {tu nombre vinculado} other {tus # nombres vinculados}} en {server} pasarán a tu cuenta de Steam, y {count, plural, one {el nombre antiguo aparecerá} other {los nombres antiguos aparecerán}} como alias. Volver a entrar con un nombre antiguo cuenta como un jugador nuevo.",
+          "confirm": "Fusionar",
+          "cancel": "Cancelar",
+          "success": "{count, plural, one {# perfil fusionado} other {# perfiles fusionados}} ({sessions} sesiones)",
+          "failed": "No se pudieron fusionar las cuentas"
+        }
       }
     },
     "playedWith": {

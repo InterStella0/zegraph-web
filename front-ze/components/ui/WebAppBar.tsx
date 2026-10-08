@@ -7,6 +7,8 @@ import ServerIndicator from "./ServerIndicator";
 import {use} from "react";
 import {SteamProfile} from "../../next-auth-steam/steam.ts";
 import LanguageToggle from "./LanguageToggle";
+import Link from "./Link";
+import {Logo} from "./CommunitySelector";
 
 
 export default function WebAppBar(
@@ -21,6 +23,9 @@ export default function WebAppBar(
                     <div className="min-[750px]:hidden">
                         <NavDrawerButton server={server} user={user} />
                     </div>
+                    {!server && <Link href="/" className="flex-shrink-0">
+                        <Logo />
+                    </Link>}
                     <div className="hidden min-[877px]:block min-[1200px]:hidden">
                         <ServerIndicator server={server} setDisplayCommunity={setDisplayCommunity} />
                     </div>

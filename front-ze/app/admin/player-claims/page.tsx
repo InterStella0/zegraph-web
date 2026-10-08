@@ -54,11 +54,9 @@ export default function PlayerClaimsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status }),
             });
-            toast.success(status === 'approved' ? 'Claim approved and profile linked' : 'Claim rejected');
+            toast.success(status === 'approved' ? 'Claim approved and profile merged' : 'Claim rejected');
             fetchData();
         } catch (error: any) {
-            // Approving fails for real reasons a moderator needs to read — most often the claimer
-            // has no player record yet, so there is nothing to link to.
             console.error('Failed to update claim status:', error);
             toast.error('Failed to update claim', {
                 description: error?.message || 'Please try again later.',
@@ -80,7 +78,8 @@ export default function PlayerClaimsPage() {
                 <h1 className="text-3xl font-bold mb-2">Profile Claims</h1>
                 <p className="text-muted-foreground">
                     Players asking to have a name-tracked profile linked to their Steam account.
-                    Approving links the profile and merges its playtime.
+                    Approving moves the profile&apos;s sessions onto the Steam account and renames it
+                    to <span className="font-mono">[merged_&lt;uuid&gt;] &lt;name&gt;</span>.
                 </p>
             </div>
 
@@ -173,7 +172,7 @@ export default function PlayerClaimsPage() {
                                                     disabled={claim.status === 'approved'}
                                                 >
                                                     <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                                                    Approve &amp; link
+                                                    Approve &amp; merge
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     onClick={() => updateStatus(claim.id, 'rejected')}
