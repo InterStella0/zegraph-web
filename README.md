@@ -81,11 +81,11 @@ flowchart LR
   %% Core flow (left to right)
   DataScraper    <==> Database
   Database       ==>|Heavy Query| Backend
-  Database       <==|Write Only| Backend
-  Database       == PostGIS ==> QGIS
+  Backend        ==>|Write Only| Database
+  Database       ==>|PostGIS| QGIS
   ProfileProvider ==>|Image URL| Backend
   Backend        <==> Website
-  QGIS           == WMS ==> Website
+  QGIS           ==>|WMS| Website
 
   %% Node styles
   classDef fe fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000000
