@@ -22,74 +22,88 @@ your own datascraping mechanism.
 ## How it works
 ```mermaid
 flowchart LR
-  %% Frontend
-  subgraph FE["🌐 Frontend"]
+  %% Scraper sources
+  subgraph EXS["🔗 Scraper Sources"]
     direction TB
-    Website("The Website")
+    SteamA2s("Steam A2S")
+    GFLAPI("GFL API")
+    GFLBans("GFLBans")
+    Nide("Nide.GG")
+    MusicNames("GitHub Music-Names")
+    YouTube("Youtube API v3")
+    SteamAPI("Steam API")
   end
-  %% Backend & GIS
-  subgraph BE["🖥️ Backend Services"]
-    direction TB
-    Backend("Backend")
-    QGIS("QGIS Server")
-    ProfileProvider("Profile Picture Provider")
-  end
+
   %% Scraper & Database
   subgraph DSDB["🗄️ Scraper & Database"]
     direction TB
     DataScraper("Data Scraper (Hidden)")
     Database[("PostgreSQL")]
   end
-  %% External services
-  subgraph EX["🔗 External Services"]
+
+  %% Backend sources
+  subgraph EXB["🔗 Backend Sources"]
     direction TB
     ExternalProfileProvider("External Profile Provider")
-    SteamAPI("Steam API")
-    GFLAPI("GFL API")
-    SteamA2s("Steam A2S")
-    GFLBans("GFLBans")
     Vauff("Vauff.com")
     S2ZE("s2ze.com")
-    YouTube("Youtube API v3")
-    MusicNames("GitHub Music-Names")
-    Nide("Nide.GG")
   end
-  %% Connections with higher contrast arrows
-  Website        ==> Backend
-  QGIS           == WMS ==> Website
-  Database       == PostGIS ==> QGIS
-  Backend        ==>|Write Only| Database
-  Database       ==>|Heavy Query| Backend
-  Backend        ==> Website
-  DataScraper    ==> Database
-  Database       ==> DataScraper
-  ProfileProvider ==>|Image URL| Backend
-  SteamAPI       ==> ProfileProvider
-  ExternalProfileProvider ==> ProfileProvider
-  SteamAPI       ==>|Location| DataScraper
-  GFLAPI       ==>|Match Score & Misc data| DataScraper
-  MusicNames      ==>|Map Music| DataScraper
-  YouTube      ==>|Map Music Video| DataScraper
-  SteamA2s  ==>|Players & Map| DataScraper
+
+  %% Backend & GIS
+  subgraph BE["🖥️ Backend Services"]
+    direction TB
+    ProfileProvider("Profile Picture Provider")
+    Backend("Backend")
+    QGIS("QGIS Server")
+  end
+
+  %% Frontend
+  subgraph FE["🌐 Frontend"]
+    direction TB
+    Website("The Website")
+  end
+
+  %% Scraper inputs
+  SteamA2s       ==>|Players & Map| DataScraper
+  GFLAPI         ==>|Match Score & Misc data| DataScraper
   GFLBans        ==>|Players & Infraction| DataScraper
-  Nide        ==>|Players & Infraction| DataScraper
+  Nide           ==>|Players & Infraction| DataScraper
+  MusicNames     ==>|Map Music| DataScraper
+  YouTube        ==>|Map Music Video| DataScraper
+  SteamAPI       ==>|Location| DataScraper
+
+  %% Profile + backend inputs
+  SteamAPI                ==> ProfileProvider
+  ExternalProfileProvider ==> ProfileProvider
   Vauff          ==>|Map Images| Backend
-  S2ZE      ==>|Map Metadata| Backend
-  %% GitHub-friendly styles with high contrast and rounded borders
+  S2ZE           ==>|Map Metadata| Backend
+
+  %% Core flow (left to right)
+  DataScraper    <==> Database
+  Database       ==>|Heavy Query| Backend
+  Database       <==|Write Only| Backend
+  Database       == PostGIS ==> QGIS
+  ProfileProvider ==>|Image URL| Backend
+  Backend        <==> Website
+  QGIS           == WMS ==> Website
+
+  %% Node styles
   classDef fe fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000000
   classDef be fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000000
   classDef db fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000000
   classDef ex fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000000
-  %% Apply styling to nodes
+
   class Website fe
   class Backend,QGIS,ProfileProvider be
   class DataScraper,Database db
-  class ExternalProfileProvider,MusicNames,YouTube,SteamAPI,SteamA2s,GFLBans,Vauff,S2ZE,GFLAPI ex
-  %% Style subgraphs with rounded corners
+  class ExternalProfileProvider,MusicNames,YouTube,SteamAPI,SteamA2s,GFLBans,Vauff,S2ZE,GFLAPI,Nide ex
+
+  %% Subgraph styles
   style FE fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000000
   style BE fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000000
   style DSDB fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000000
-  style EX fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000000
+  style EXS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000000
+  style EXB fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000000
 ```
 ## Preview
 ![Main Page](assets/img.png)
