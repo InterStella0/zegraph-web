@@ -13,7 +13,7 @@ import { Skeleton } from "../ui/skeleton";
 import {fetchServerUrl, formatHours, formatNumber, REGION_COLORS, StillCalculate} from "utils/generalUtils.ts";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
-import {PeriodChip, splitPeriod, usePeriod} from "components/period/Period";
+import {isShortPeriod, PeriodChip, rangeDays, splitRange, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
@@ -87,7 +87,10 @@ function MapHeatRegionDisplay(){
     const colors = getChartColors();
     const dayNames = useWeekdayLabels();
 
-    const isMonth = !!period && splitPeriod(period).month !== null
+    const isShort = !!period && isShortPeriod(period)
+    const range = period ? splitRange(period) : null
+    const isRange = !!range
+    const weeks = range ? Math.ceil(rangeDays(range) / 7) + 1 : 53
 
     const options = useMemo(() => ({
         responsive: false,
@@ -199,14 +202,14 @@ function MapHeatRegionDisplay(){
             hoverBorderColor: 'grey',
             width(c: any) {
                 const a = c.chart.chartArea;
-                return (a.right - a.left) / 53 - 1;
+                return (a.right - a.left) / weeks - 1;
             },
             height(c: any) {
                 const a = c.chart.chartArea;
                 return (a.bottom - a.top) / 7 - 1;
             }
         }]
-    }), [regions])
+    }), [regions, weeks])
 
     const barData = useMemo(() => {
         const days = [...regions].sort((a, b) => a.d.localeCompare(b.d))
@@ -242,7 +245,7 @@ function MapHeatRegionDisplay(){
                     color: colors.textColor,
                     maxRotation: 0,
                     callback(this: any, value: any) {
-                        return dayjs.utc(this.getLabelForValue(value)).format('D');
+                        return dayjs.utc(this.getLabelForValue(value)).format(isRange ? 'D MMM' : 'D');
                     }
                 },
                 grid: {
@@ -288,7 +291,7 @@ function MapHeatRegionDisplay(){
                 }
             }
         }
-    }), [colors, locale, tRegion])
+    }), [colors, locale, tRegion, isRange])
 
     // Generate SEO summary
     const summary = useMemo(() => {
@@ -328,7 +331,7 @@ function MapHeatRegionDisplay(){
         });
     }, [regions, dayNames]);
 
-    const ChartDisplay = !loading && regions.length > 0 && (isMonth
+    const ChartDisplay = !loading && regions.length > 0 && (isShort
         // @ts-ignore
         ? <div className="w-full h-[260px]"><LazyBarChart data={barData} options={barOptions} /></div>
         // @ts-ignore

@@ -12,7 +12,7 @@ use crate::models::admins::DbEvent;
 use crate::models::maps::*;
 use crate::models::players::DbPlayerBrief;
 use crate::models::servers::*;
-use super::player::{PERIOD_CLOSED_TTL, PERIOD_OPEN_TTL};
+use super::player::{period_priority, period_ttl};
 use super::{BackgroundWorker, JobKind, MapContext, MapData, MapPeriodData, Query, QueryPriority, RefreshJob, WorkResult, WorkerQuery};
 
 #[derive(Clone)]
@@ -694,7 +694,11 @@ impl<T> MapPeriodQuery<T> {
     }
 
     fn period_ttl(&self) -> u64 {
-        if self.context.data.closed { PERIOD_CLOSED_TTL } else { PERIOD_OPEN_TTL }
+        period_ttl(&self.context.data.period, self.context.data.closed)
+    }
+
+    fn period_priority(&self, priority: QueryPriority) -> QueryPriority {
+        period_priority(&self.context.data.period, priority)
     }
 
     fn bounds(&self) -> (OffsetDateTime, OffsetDateTime) {
@@ -763,7 +767,7 @@ impl WorkerQuery<DbMapAnalyze> for MapPeriodQuery<DbMapAnalyze> {
 
     fn cache_key_pattern(&self) -> String { self.period_key("analyze") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::MapPeriodAnalyze(self.context.data.clone())
@@ -848,7 +852,7 @@ impl WorkerQuery<Vec<DbMapRegion>> for MapPeriodQuery<Vec<DbMapRegion>> {
 
     fn cache_key_pattern(&self) -> String { self.period_key("regions") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::MapPeriodRegions(self.context.data.clone())
@@ -948,7 +952,7 @@ impl WorkerQuery<Vec<DbMapRegionDate>> for MapPeriodQuery<Vec<DbMapRegionDate>> 
 
     fn cache_key_pattern(&self) -> String { self.period_key("heat-region") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::MapPeriodHeatRegions(self.context.data.clone())
@@ -990,7 +994,7 @@ impl WorkerQuery<Vec<DbMapSessionDistribution>> for MapPeriodQuery<Vec<DbMapSess
 
     fn cache_key_pattern(&self) -> String { self.period_key("session-distribution") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::MapPeriodSessionDistribution(self.context.data.clone())
@@ -1033,7 +1037,7 @@ impl WorkerQuery<Vec<DbMapPlayerTypeTime>> for MapPeriodQuery<Vec<DbMapPlayerTyp
 
     fn cache_key_pattern(&self) -> String { self.period_key("player-type") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::MapPeriodPlayerTypeTime(self.context.data.clone())
@@ -1079,7 +1083,7 @@ impl WorkerQuery<Vec<DbMapPeriodPlayer>> for MapPeriodQuery<Vec<DbMapPeriodPlaye
 
     fn cache_key_pattern(&self) -> String { self.period_key("top-players") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::MapPeriodTopPlayers(self.context.data.clone())
@@ -1300,7 +1304,7 @@ impl MapWorker {
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{map_period_query, map_query, TEST_MAP, TEST_SERVER, TEST_SESSION};
+    use super::super::test_support::{map_period_query, map_query, map_range_query, TEST_LONG_RANGE, TEST_MAP, TEST_SERVER, TEST_SESSION, TEST_SHORT_RANGE};
     use super::*;
 
     macro_rules! assert_map_metadata {
@@ -1382,6 +1386,33 @@ mod tests {
         assert_period_scoped!(
             Vec<DbMapPeriodPlayer>, "map-period-top-players", QueryPriority::Heavy, JobKind::MapPeriodTopPlayers(_)
         );
+    }
+
+    macro_rules! assert_range_scoped {
+        ($query:ty, $prefix:literal, $priority:pat) => {{
+            let short: MapPeriodQuery<$query> = map_range_query(TEST_SHORT_RANGE);
+            let pattern = short.cache_key_pattern();
+
+            assert_eq!(pattern, format!(concat!($prefix, ":{}:{}:2025-06-01..2025-06-15"), TEST_SERVER, TEST_MAP));
+            assert_eq!(short.ttl(), DAY, "{pattern} is a range, so it is cached for a day at most");
+            assert!(matches!(short.priority(), QueryPriority::Light), "{pattern} is a short range, so it runs light");
+
+            let long: MapPeriodQuery<$query> = map_range_query(TEST_LONG_RANGE);
+            let pattern = long.cache_key_pattern();
+
+            assert_eq!(long.ttl(), DAY, "{pattern} is a range, so it is cached for a day at most");
+            assert!(matches!(long.priority(), $priority), "{pattern} is a long range, so it keeps its priority");
+        }};
+    }
+
+    #[tokio::test]
+    async fn a_closed_range_is_cached_for_a_day_and_light_only_when_short() {
+        assert_range_scoped!(DbMapAnalyze, "map-period-analyze", QueryPriority::Heavy);
+        assert_range_scoped!(Vec<DbMapRegion>, "map-period-regions", QueryPriority::Light);
+        assert_range_scoped!(Vec<DbMapRegionDate>, "map-period-heat-region", QueryPriority::Light);
+        assert_range_scoped!(Vec<DbMapSessionDistribution>, "map-period-session-distribution", QueryPriority::Heavy);
+        assert_range_scoped!(Vec<DbMapPlayerTypeTime>, "map-period-player-type", QueryPriority::Heavy);
+        assert_range_scoped!(Vec<DbMapPeriodPlayer>, "map-period-top-players", QueryPriority::Heavy);
     }
 
     #[tokio::test]

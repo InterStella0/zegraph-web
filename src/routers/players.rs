@@ -639,9 +639,10 @@ impl PlayerApi{
     }
     /// Chart data for a player's session history on a server. Backed by `PlayerWorker`'s cache.
     ///
-    /// `period` narrows the figures to one UTC calendar year (`YYYY`) or month (`YYYY-MM`); `all` or
-    /// no value is all-time. A period is calculated on request and only cached, so its first request
-    /// may report that it is still calculating.
+    /// `period` narrows the figures to one UTC calendar year (`YYYY`), month (`YYYY-MM`) or
+    /// inclusive range of days (`YYYY-MM-DD..YYYY-MM-DD`); `all` or no value is all-time. A period
+    /// is calculated on request and only cached, so its first request may report that it is still
+    /// calculating.
     #[oai(path = "/servers/:server_id/players/:player_id/graph/sessions", method = "get", operation_id = "get_player_sessions_graph", tag = "ApiTags::Mcp")]
     async fn get_player_sessions(
         &self,
@@ -655,8 +656,9 @@ impl PlayerApi{
     }
     /// A player's playtime broken down by hour of day. Backed by `PlayerWorker`'s cache.
     ///
-    /// With a `period` (`YYYY` or `YYYY-MM`, UTC), joins are counted for sessions starting in it and
-    /// leaves for sessions ending in it. Periods are calculated on request and only cached.
+    /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC),
+    /// joins are counted for sessions starting in it and leaves for sessions ending in it. Periods
+    /// are calculated on request and only cached.
     #[oai(path="/servers/:server_id/players/:player_id/hours_of_day", method="get", operation_id = "get_player_hours_of_day", tag = "ApiTags::Mcp")]
     async fn get_hours_of_day_player(&self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerHourDay>>{
         let context = PlayerContext::from(extract);
@@ -665,9 +667,10 @@ impl PlayerApi{
 
     /// A player's online activity heatmap (by day/hour). Backed by `PlayerWorker`'s cache.
     ///
-    /// `period` narrows the figures to one UTC calendar year (`YYYY`) or month (`YYYY-MM`); `all` or
-    /// no value is all-time. A period is calculated on request and only cached, so its first request
-    /// may report that it is still calculating.
+    /// `period` narrows the figures to one UTC calendar year (`YYYY`), month (`YYYY-MM`) or
+    /// inclusive range of days (`YYYY-MM-DD..YYYY-MM-DD`); `all` or no value is all-time. A period
+    /// is calculated on request and only cached, so its first request may report that it is still
+    /// calculating.
     #[oai(path="/servers/:server_id/players/:player_id/online_heatmap", method="get", operation_id = "get_player_online_heatmap", tag = "ApiTags::Mcp")]
     async fn get_online_heatmap_player(&self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerOnlineHeatmap>>{
         let context = PlayerContext::from(extract);
@@ -675,9 +678,10 @@ impl PlayerApi{
     }
     /// Paginated list of a player's sessions on a server within a day.
     ///
-    /// `datetime` selects which day to list. Without it, `period` (`YYYY` or `YYYY-MM`, UTC) lists
-    /// the sessions that started in that year or month; with neither, everything from 2024-02-01 to
-    /// now. `page` paginates in pages of 10.
+    /// `datetime` selects which day to list. Without it, `period` (`YYYY`, `YYYY-MM` or an
+    /// inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) lists the sessions that started in that year,
+    /// month or range; with neither, everything from 2024-02-01 to now. `page` paginates in pages
+    /// of 10.
     #[oai(path = "/servers/:server_id/players/:player_id/sessions", method = "get", operation_id = "get_player_sessions", tag = "ApiTags::Mcp")]
     async fn get_list_sessions(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
@@ -923,9 +927,10 @@ impl PlayerApi{
     ///
     /// Backed by `PlayerWorker`'s cache. When nothing current is cached this falls back to db.
     ///
-    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the playtime and category cover only that year
-    /// or month and `ranks` is null, since ranks are all-time. A period is calculated on request
-    /// and only cached, with no stored fallback, so its first request reports still calculating.
+    /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) the
+    /// playtime and category cover only that year, month or range and `ranks` is null, since ranks
+    /// are all-time. A period is calculated on request and only cached, with no stored fallback, so
+    /// its first request reports still calculating.
     #[oai(path = "/servers/:server_id/players/:player_id/detail", method = "get", operation_id = "get_player_detail", tag = "ApiTags::Mcp")]
     async fn get_player_detail(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
@@ -1043,10 +1048,10 @@ impl PlayerApi{
     /// calculated on the spot instead, keeping only those who ever played together, and
     /// `live_search` is set. Anonymized players show as "Anonymous" and never match `q`.
     ///
-    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the list is instead the top 100 for that year or
-    /// month, calculated on request and only cached; `is_calculating` is set while it runs. In a
-    /// period, `q` only filters whatever is already cached: it never starts the calculation and
-    /// never falls back to the live search.
+    /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) the
+    /// list is instead the top 100 for that year, month or range, calculated on request and only
+    /// cached; `is_calculating` is set while it runs. In a period, `q` only filters whatever is
+    /// already cached: it never starts the calculation and never falls back to the live search.
     #[oai(path="/servers/:server_id/players/:player_id/might_friends", method="get", operation_id = "get_player_might_friends", tag = "ApiTags::Mcp")]
     async fn get_player_might_friends(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
@@ -1082,8 +1087,9 @@ impl PlayerApi{
     }
     /// A player's most-played maps on a server. Backed by `PlayerWorker`'s cache.
     ///
-    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the time covers only that year or month and every
-    /// `rank` is 0, since map ranks are all-time. Periods are calculated on request and only cached.
+    /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) the
+    /// time covers only that year, month or range and every `rank` is 0, since map ranks are
+    /// all-time. Periods are calculated on request and only cached.
     #[oai(path = "/servers/:server_id/players/:player_id/most_played_maps", method = "get", operation_id = "get_player_most_played_maps", tag = "ApiTags::Mcp")]
     async fn get_player_most_played(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
@@ -1095,9 +1101,10 @@ impl PlayerApi{
     }
     /// A player's playtime broken down by geographic region. Backed by `PlayerWorker`'s cache.
     ///
-    /// `period` narrows the figures to one UTC calendar year (`YYYY`) or month (`YYYY-MM`); `all` or
-    /// no value is all-time. A period is calculated on request and only cached, so its first request
-    /// may report that it is still calculating.
+    /// `period` narrows the figures to one UTC calendar year (`YYYY`), month (`YYYY-MM`) or
+    /// inclusive range of days (`YYYY-MM-DD..YYYY-MM-DD`); `all` or no value is all-time. A period
+    /// is calculated on request and only cached, so its first request may report that it is still
+    /// calculating.
     #[oai(path = "/servers/:server_id/players/:player_id/regions", method = "get", operation_id = "get_player_regions", tag = "ApiTags::Mcp")]
     async fn get_player_region(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,

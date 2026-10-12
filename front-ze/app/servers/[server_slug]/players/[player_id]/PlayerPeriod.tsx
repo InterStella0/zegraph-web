@@ -10,6 +10,7 @@ export {
     parsePeriod,
     periodBounds,
     splitPeriod,
+    splitRange,
     usePeriodLabel,
 } from "components/period/Period";
 export type {Period as PlayerPeriod} from "components/period/Period";

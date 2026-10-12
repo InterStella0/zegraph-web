@@ -454,8 +454,9 @@ impl MapApi{
     /// `MapWorker`'s cache.
     ///
     /// `period` narrows the figures to the map sessions that started in one UTC calendar year
-    /// (`YYYY`) or month (`YYYY-MM`); `all` or no value is all-time. A period is calculated on request
-    /// and only cached, so its first request may report that it is still calculating.
+    /// (`YYYY`), month (`YYYY-MM`) or inclusive range of days (`YYYY-MM-DD..YYYY-MM-DD`); `all` or
+    /// no value is all-time. A period is calculated on request and only cached, so its first
+    /// request may report that it is still calculating.
     #[oai(path = "/servers/:server_id/maps/:map_name/player_types", method = "get", operation_id = "get_map_player_types", tag = "ApiTags::Mcp")]
     async fn get_map_player_type(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
@@ -468,9 +469,10 @@ impl MapApi{
     /// Performance metrics for a map: dropoff rate, average session length and similar. Backed
     /// by `MapWorker`'s cache.
     ///
-    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) every figure covers only the completed map
-    /// sessions that started in that year or month. A period is calculated on request and only
-    /// cached, with no stored fallback, so its first request reports still calculating.
+    /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC)
+    /// every figure covers only the completed map sessions that started in that year, month or
+    /// range. A period is calculated on request and only cached, with no stored fallback, so its
+    /// first request reports still calculating.
     #[oai(path = "/servers/:server_id/maps/:map_name/analyze", method = "get", operation_id = "get_map_analysis", tag = "ApiTags::Mcp")]
     async fn get_maps_highlight(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
@@ -480,8 +482,9 @@ impl MapApi{
     }
     /// Paginated list of a single map's play sessions on a server, newest first.
     ///
-    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) only the sessions that started in that year or
-    /// month are listed. Pages are 5 sessions each.
+    /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) only
+    /// the sessions that started in that year, month or range are listed. Pages are 5 sessions
+    /// each.
     #[oai(path = "/servers/:server_id/maps/:map_name/sessions", method = "get", operation_id = "get_map_sessions", tag = "ApiTags::Mcp")]
     async fn get_maps_sessions(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
@@ -836,9 +839,10 @@ impl MapApi{
     /// Per-day geographic heat map data for a map's player activity, over the last year. Backed by
     /// `MapWorker`'s cache.
     ///
-    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the days cover that year or month instead, from
-    /// the map sessions that started in it. A period is calculated on request and only cached, so
-    /// its first request may report that it is still calculating.
+    /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) the
+    /// days cover that year, month or range instead, from the map sessions that started in it. A
+    /// period is calculated on request and only cached, so its first request may report that it is
+    /// still calculating.
     #[oai(path="/servers/:server_id/maps/:map_name/heat-regions", method="get", operation_id = "get_map_heat_regions", tag = "ApiTags::Mcp")]
     async fn get_heat_regions(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
@@ -850,8 +854,9 @@ impl MapApi{
     /// cache.
     ///
     /// `period` narrows the figures to the map sessions that started in one UTC calendar year
-    /// (`YYYY`) or month (`YYYY-MM`); `all` or no value is all-time. A period is calculated on request
-    /// and only cached, so its first request may report that it is still calculating.
+    /// (`YYYY`), month (`YYYY-MM`) or inclusive range of days (`YYYY-MM-DD..YYYY-MM-DD`); `all` or
+    /// no value is all-time. A period is calculated on request and only cached, so its first
+    /// request may report that it is still calculating.
     #[oai(path="/servers/:server_id/maps/:map_name/regions", method="get", operation_id = "get_map_regions", tag = "ApiTags::Mcp")]
     async fn get_map_regions(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
@@ -863,8 +868,9 @@ impl MapApi{
     /// `MapWorker`'s cache.
     ///
     /// `period` narrows the figures to the map sessions that started in one UTC calendar year
-    /// (`YYYY`) or month (`YYYY-MM`); `all` or no value is all-time. A period is calculated on request
-    /// and only cached, so its first request may report that it is still calculating.
+    /// (`YYYY`), month (`YYYY-MM`) or inclusive range of days (`YYYY-MM-DD..YYYY-MM-DD`); `all` or
+    /// no value is all-time. A period is calculated on request and only cached, so its first
+    /// request may report that it is still calculating.
     #[oai(path="/servers/:server_id/maps/:map_name/sessions_distribution", method="get", operation_id = "get_map_session_distribution", tag = "ApiTags::Mcp")]
     async fn get_map_sessions_distribution(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
@@ -901,10 +907,11 @@ impl MapApi{
     /// `player_name` (minimum 2 characters) filters to matching players; pages are 10 players
     /// each.
     ///
-    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the list is instead the top 100 by time in the map
-    /// sessions that started in that year or month, calculated on request and only cached, so its
-    /// first request may report that it is still calculating. In a period, `player_name` only
-    /// filters whatever is already cached and never starts the calculation.
+    /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) the
+    /// list is instead the top 100 by time in the map sessions that started in that year, month or
+    /// range, calculated on request and only cached, so its first request may report that it is
+    /// still calculating. In a period, `player_name` only filters whatever is already cached and
+    /// never starts the calculation.
     #[oai(path = "/servers/:server_id/maps/:map_name/top_players", method = "get", operation_id = "get_map_top_players", tag = "ApiTags::Mcp")]
     async fn get_map_players(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor,

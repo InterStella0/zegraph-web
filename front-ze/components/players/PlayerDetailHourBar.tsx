@@ -15,7 +15,7 @@ import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import { Server } from "types/community.ts";
 import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import type { PlayerSessionTime } from "./PlayTimeHeatmap";
-import { PeriodChip, splitPeriod, usePlayerPeriod } from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import { PeriodChip, splitPeriod, splitRange, usePlayerPeriod } from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 
 export default function PlayerDetailHourBar({ player, server }: { server: Server, player: PlayerInfo }) {
     const t = useTranslations('players.hourBar');
@@ -30,15 +30,17 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
 
     const [ sumMethodYearly, setSumMethodYearly ] = useState<"monthly" | "yearly">("yearly")
     const { period } = usePlayerPeriod()
-    const scope = period ? splitPeriod(period) : null
+    const range = period ? splitRange(period) : null
+    const scope = period && !range ? splitPeriod(period) : null
     const [ periodGroup, setPeriodGroup ] = useState<"daily" | "monthly">("daily")
 
-    const viewGroupBy = !scope ? groupByTime
+    const viewGroupBy = range ? "daily"
+        : !scope ? groupByTime
         : scope.month !== null ? "monthly"
         : periodGroup === "monthly" ? "yearly" : "daily"
     const viewYear = scope?.year ?? selectedYear
     const viewMonth = scope?.month != null ? scope.month - 1 : selectedMonth
-    const viewSumMethod = scope ? "monthly" : sumMethodYearly
+    const viewSumMethod = period ? "monthly" : sumMethodYearly
     const handleGroupChange = (value: string) => {
         setGroupByTime(value as "daily" | "monthly" | "yearly")
     }
@@ -79,7 +81,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                     </div>
                 )}
 
-                {!scope && <div className="flex gap-2 flex-wrap justify-end">
+                {!period && <div className="flex gap-2 flex-wrap justify-end">
                     {/* Group By selector */}
                     <div className="flex gap-0 rounded-md border overflow-hidden">
                         <div className="border-r bg-background p-1 px-3">
@@ -231,6 +233,8 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                     sumMethodYearly={viewSumMethod}
                     onDataLoaded={handleDataLoaded}
                     onChangeTotalPlayed={setTotalPlayTime}
+                    rangeFrom={range?.from.toISOString().slice(0, 10)}
+                    rangeTo={range?.to.toISOString().slice(0, 10)}
                 />
             </div>
         </Card>

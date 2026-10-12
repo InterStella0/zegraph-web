@@ -13,19 +13,19 @@
     "get_map_analysis": {
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "Return a map's performance summary, including player drop-off, average session length, total playtime, session count, and related activity metrics. With a period, every metric covers only the completed map sessions that started in that year or month.",
+      "description": "Return a map's performance summary, including player drop-off, average session length, total playtime, session count, and related activity metrics. With a period, every metric covers only the completed map sessions that started in that year, month or range.",
       "title": "Map Performance Summary"
     },
     "get_map_heat_regions": {
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "Return daily geographic activity data for a map, suitable for a region heatmap showing where its players came from over time. Without a period it covers the last year; with one, the days of that year or month.",
+      "description": "Return daily geographic activity data for a map, suitable for a region heatmap showing where its players came from over time. Without a period it covers the last year; with one, the days of that year, month or range.",
       "title": "Map Activity Heatmap"
     },
     "get_map_info": {
@@ -47,28 +47,28 @@
     "get_map_player_types": {
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "Return how playtime on a map is divided among player types, such as casual, tryhard, and mixed players. With a period, the playtime covers only the map sessions that started in that year or month.",
+      "description": "Return how playtime on a map is divided among player types, such as casual, tryhard, and mixed players. With a period, the playtime covers only the map sessions that started in that year, month or range.",
       "title": "Map Playtime by Player Type"
     },
     "get_map_regions": {
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "Return a geographic breakdown of the players and playtime recorded for a map. Without a period it covers the last year; with one, that year or month.",
+      "description": "Return a geographic breakdown of the players and playtime recorded for a map. Without a period it covers the last year; with one, that year, month or range.",
       "title": "Map Activity by Region"
     },
     "get_map_session_distribution": {
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "Return the distribution of session lengths for a map to show how long players typically remain connected while it is played. With a period, only the map sessions that started in that year or month are counted.",
+      "description": "Return the distribution of session lengths for a map to show how long players typically remain connected while it is played. With a period, only the map sessions that started in that year, month or range are counted.",
       "title": "Map Session Lengths"
     },
     "get_map_session_player_count_graph": {
@@ -92,30 +92,30 @@
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
         "page": "Zero-based page number; each page contains 5 sessions.",
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for every session. Lists only the sessions that started in the period. Use get_map_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for every session. Lists only the sessions that started in the period. Use get_map_periods for the periods that have data.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "List a map's play sessions on a server, newest first, with 5 sessions per page. Each result includes the session ID needed by the map-session tools. With a period, only sessions that started in that year or month are listed.",
+      "description": "List a map's play sessions on a server, newest first, with 5 sessions per page. Each result includes the session ID needed by the map-session tools. With a period, only sessions that started in that year, month or range are listed.",
       "title": "Map Play History"
     },
     "get_map_top_players": {
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
         "page": "Zero-based page number; each page contains up to 10 players.",
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
         "player_name": "Optional case-insensitive player-name search containing at least 2 characters. With a period, it only filters the period's list once it has been calculated and never triggers a calculation.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "List players ranked by their total playtime on a map. Optionally search by player name; results contain up to 10 players per page. With a period, it is instead the top 100 by time in the map sessions that started in that year or month, calculated on request.",
+      "description": "List players ranked by their total playtime on a map. Optionally search by player name; results contain up to 10 players per page. With a period, it is instead the top 100 by time in the map sessions that started in that year, month or range, calculated on request.",
       "title": "Top Players for a Map"
     },
     "get_player_detail": {
       "arguments": {
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
         "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "Return a player's full profile for one server, including their name, total playtime, rank, session activity, and related statistics. With a period, playtime and category cover only that year or month and ranks are omitted.",
+      "description": "Return a player's full profile for one server, including their name, total playtime, rank, session activity, and related statistics. With a period, playtime and category cover only that year, month or range and ranks are omitted.",
       "title": "Player Profile"
     },
     "get_player_global_playtime_heatmap": {
@@ -127,7 +127,7 @@
     },
     "get_player_hours_of_day": {
       "arguments": {
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
         "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
@@ -155,26 +155,26 @@
     "get_player_might_friends": {
       "arguments": {
         "page": "Zero-based page number; each page contains up to 20 players.",
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
         "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
         "q": "Optional case-insensitive player-name search. If no stored player matches and q has at least 3 characters, the time together with matching players on the server is calculated live. Anonymized players never match. With a period, q only filters the period's list once it has been calculated and never triggers a calculation or the live search.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "List who a player has played with on a server: the players who spent the most time on the server alongside them, all-time, sorted by time together. Returns the stored list: calculated_at says how current it is, is_stale whether the player has newer sessions, is_calculating whether a recalculation is running. Time together is symmetric, so a never-calculated player may already list the players whose own calculation included them (calculated_at stays null until their own calculation runs); a name search still works through the live fallback (live_search is then true). Results contain up to 20 players per page and respect each player's privacy setting. With a period, it is instead the top 100 for that year or month, calculated on request (is_calculating is true while it runs).",
+      "description": "List who a player has played with on a server: the players who spent the most time on the server alongside them, all-time, sorted by time together. Returns the stored list: calculated_at says how current it is, is_stale whether the player has newer sessions, is_calculating whether a recalculation is running. Time together is symmetric, so a never-calculated player may already list the players whose own calculation included them (calculated_at stays null until their own calculation runs); a name search still works through the live fallback (live_search is then true). Results contain up to 20 players per page and respect each player's privacy setting. With a period, it is instead the top 100 for that year, month or range, calculated on request (is_calculating is true while it runs).",
       "title": "Players Played With"
     },
     "get_player_most_played_maps": {
       "arguments": {
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
         "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "Return the maps a player has spent the most time playing on a server, ranked by playtime. With a period, the playtime covers only that year or month and map ranks are 0.",
+      "description": "Return the maps a player has spent the most time playing on a server, ranked by playtime. With a period, the playtime covers only that year, month or range and map ranks are 0.",
       "title": "Player's Most-Played Maps"
     },
     "get_player_online_heatmap": {
       "arguments": {
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
         "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
@@ -191,7 +191,7 @@
     },
     "get_player_regions": {
       "arguments": {
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
         "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
@@ -211,16 +211,16 @@
       "arguments": {
         "datetime": "Optional RFC 3339 timestamp marking the start of the 24-hour window to list; omit it to search all records since 2024-02-01.",
         "page": "Zero-based page number; each page contains up to 10 sessions.",
-        "period": "Optional UTC calendar period, `YYYY` or `YYYY-MM`, listing the sessions that started in it. Ignored when `datetime` is given; omit both (or pass `all`) to search all records since 2024-02-01.",
+        "period": "Optional UTC period, `YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, listing the sessions that started in it. Ignored when `datetime` is given; omit both (or pass `all`) to search all records since 2024-02-01.",
         "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "List a player's sessions on a server, newest first, with up to 10 sessions per page. Supply `datetime` for a specific 24-hour window, `period` for a year or month, or neither to include all available history.",
+      "description": "List a player's sessions on a server, newest first, with up to 10 sessions per page. Supply `datetime` for a specific 24-hour window, `period` for a year, month or range, or neither to include all available history.",
       "title": "Player Session History"
     },
     "get_player_sessions_graph": {
       "arguments": {
-        "period": "Optional UTC calendar period: `YYYY` for a whole year or `YYYY-MM` for one month, e.g. 2025 or 2025-06. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
+        "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_player_periods for the periods that have data.",
         "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
