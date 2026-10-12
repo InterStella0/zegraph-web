@@ -125,6 +125,15 @@ pub struct DbMapBriefInfo{
     pub first_occurrence: OffsetDateTime,
 }
 
+/// A player's time on a map over one period, as cached for the period's top-players list.
+#[derive(Clone)]
+#[auto_serde_with]
+pub struct DbMapPeriodPlayer{
+    pub player_id: String,
+    pub player_name: String,
+    pub total_playtime: Option<PgInterval>,
+}
+
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
 #[db_into(MapPlayerTypeTime)]

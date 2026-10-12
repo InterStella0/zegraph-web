@@ -515,18 +515,18 @@
       "periodCalculating": "Calculando con quién jugó en este periodo...",
       "periodEmpty": "No jugó con nadie en este periodo.",
       "periodNoMatches": "Nadie coincide con \"{query}\" en la lista de este periodo."
-    },
-    "period": {
-      "label": "Periodo",
-      "allTime": "Todo el tiempo",
-      "allTimeDescription": "Todas las sesiones desde que comenzó el registro.",
-      "noPeriods": "Aún no hay sesiones completadas para elegir un periodo.",
-      "wholeYear": "Todo {year}",
-      "done": "Listo",
-      "hint": "Todas las métricas de abajo se filtran por el periodo seleccionado.",
-      "previous": "Periodo anterior",
-      "next": "Periodo siguiente"
     }
+  },
+  "period": {
+    "label": "Periodo",
+    "allTime": "Todo el tiempo",
+    "allTimeDescription": "Todas las sesiones desde que comenzó el registro.",
+    "noPeriods": "Aún no hay sesiones completadas para elegir un periodo.",
+    "wholeYear": "Todo {year}",
+    "done": "Listo",
+    "hint": "Todas las métricas de abajo se filtran por el periodo seleccionado.",
+    "previous": "Periodo anterior",
+    "next": "Periodo siguiente"
   },
   "sessions": {
     "matchScoreProgression": "Progresión de puntuación de la partida",

@@ -1,7 +1,7 @@
 'use client'
-import {CategoryScale, Chart as ChartJS, LinearScale, TimeScale, Title, Tooltip as TooltipChart} from 'chart.js';
+import {BarController, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, TimeScale, Title, Tooltip as TooltipChart} from 'chart.js';
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
-import {LazyMatrixChart} from "components/graphs/LazyCharts";
+import {LazyBarChart, LazyMatrixChart} from "components/graphs/LazyCharts";
 import {color} from "chart.js/helpers";
 import { useEffect, useMemo, useState} from "react";
 import dayjs from "dayjs";
@@ -13,6 +13,7 @@ import { Skeleton } from "../ui/skeleton";
 import {fetchServerUrl, formatHours, formatNumber, REGION_COLORS, StillCalculate} from "utils/generalUtils.ts";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {PeriodChip, splitPeriod, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
@@ -24,7 +25,7 @@ import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 dayjs.extend(utc);
 
 ChartJS.register(MatrixController, MatrixElement,
-    TimeScale, TooltipChart, CategoryScale, LinearScale, Title, MatrixController);
+    TimeScale, TooltipChart, CategoryScale, LinearScale, Title, MatrixController, BarController, BarElement, Legend);
 
 type HeatRegionData = {
     x: string,
@@ -35,8 +36,10 @@ type HeatRegionData = {
 
 function MapHeatRegionDisplay(){
     const t = useTranslations('maps.heatRegion');
+    const tRegion = useTranslations('maps.regionDistribution');
     const locale = useLocale();
     const { name } = useMapContext()
+    const { period } = usePeriod()
     const [ loading, setLoading ] = useState<boolean>(true)
     const [ regions, setRegions ] = useState<HeatRegionData[]>([])
     const [ error, setError ] = useState<Error | null>(null)
@@ -50,7 +53,7 @@ function MapHeatRegionDisplay(){
         setLoading(true)
         setError(null)
         setRegions([])
-        fetchServerUrl(server_id, `/maps/${name}/heat-regions`)
+        fetchServerUrl(server_id, `/maps/${name}/heat-regions`, period ? { params: { period } } : {})
             .then((resp: DailyMapRegion[]) => resp.map(e => {
                 const dt = dayjs.utc(e.date)
                 const iso = dt.format("YYYY-MM-DD")
@@ -64,7 +67,7 @@ function MapHeatRegionDisplay(){
             .then(setRegions)
             .catch(setError)
             .finally(() => setLoading(false))
-    }, [server_id, name, retryTick]);
+    }, [server_id, name, period, retryTick]);
 
     const getChartColors = () => {
         if (typeof window === 'undefined') return {
@@ -83,6 +86,8 @@ function MapHeatRegionDisplay(){
 
     const colors = getChartColors();
     const dayNames = useWeekdayLabels();
+
+    const isMonth = !!period && splitPeriod(period).month !== null
 
     const options = useMemo(() => ({
         responsive: false,
@@ -203,6 +208,88 @@ function MapHeatRegionDisplay(){
         }]
     }), [regions])
 
+    const barData = useMemo(() => {
+        const days = [...regions].sort((a, b) => a.d.localeCompare(b.d))
+        const names = new Set(days.flatMap(r => r.v.regions.map(e => e.region_name)))
+        const ordered = [
+            ...Object.keys(REGION_COLORS).filter(n => names.has(n)),
+            ...[...names].filter(n => !(n in REGION_COLORS)),
+        ]
+        return {
+            labels: days.map(r => r.d),
+            datasets: ordered.map(region => {
+                const base = color((REGION_COLORS as Record<string, string>)[region] ?? 'grey')
+                return {
+                    label: region,
+                    data: days.map(r =>
+                        (r.v.regions.find(e => e.region_name === region)?.total_play_duration ?? 0) / 3600
+                    ),
+                    backgroundColor: base.alpha(0.7).rgbString(),
+                    borderColor: base.alpha(1).rgbString(),
+                    borderWidth: 1,
+                }
+            }),
+        }
+    }, [regions])
+
+    const barOptions = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: {
+                stacked: true,
+                ticks: {
+                    color: colors.textColor,
+                    maxRotation: 0,
+                    callback(this: any, value: any) {
+                        return dayjs.utc(this.getLabelForValue(value)).format('D');
+                    }
+                },
+                grid: {
+                    display: false
+                }
+            },
+            y: {
+                stacked: true,
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: tRegion('hours'),
+                    color: colors.textColor
+                },
+                ticks: {
+                    color: colors.textColor
+                },
+                grid: {
+                    color: colors.gridColor
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    color: colors.textColor
+                }
+            },
+            tooltip: {
+                backgroundColor: colors.tooltipBg,
+                titleColor: colors.textColor,
+                bodyColor: colors.textColor,
+                borderColor: colors.gridColor,
+                borderWidth: 1,
+                callbacks: {
+                    title(items: any[]) {
+                        return items[0] ? dayjs.utc(items[0].label).locale(locale).format('ddd, D MMM YYYY') : '';
+                    },
+                    label(context: any) {
+                        return `${context.dataset.label}: ${(context.parsed.y * 60).toFixed(2)}mins`;
+                    }
+                }
+            }
+        }
+    }), [colors, locale, tRegion])
+
     // Generate SEO summary
     const summary = useMemo(() => {
         if (!regions || regions.length === 0) {
@@ -241,14 +328,20 @@ function MapHeatRegionDisplay(){
         });
     }, [regions, dayNames]);
 
-    // @ts-ignore
-    const ChartDisplay = !loading && regions.length > 0 && <LazyMatrixChart data={data} options={options} width="1000px" />
+    const ChartDisplay = !loading && regions.length > 0 && (isMonth
+        // @ts-ignore
+        ? <div className="w-full h-[260px]"><LazyBarChart data={barData} options={barOptions} /></div>
+        // @ts-ignore
+        : <LazyMatrixChart data={data} options={options} width="1000px" />)
     return (
         <div className="p-4">
             <div className="flex justify-between">
-                <h2 className="text-xl font-bold text-primary">
-                    {t('title')}
-                </h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-primary">
+                        {t('title')}
+                    </h2>
+                    <PeriodChip />
+                </div>
                 <div>
                     <TooltipProvider>
                         <Tooltip>

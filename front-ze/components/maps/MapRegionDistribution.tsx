@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableRow } from "../ui/table";
 import {fetchServerUrl, fetchUrl, REGION_COLORS, StillCalculate} from "utils/generalUtils.ts";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {MapRegion} from "types/maps.ts";
@@ -28,6 +29,7 @@ ChartJS.register(
 function RegionDistribution() {
     const t = useTranslations('maps.regionDistribution');
     const { name } = useMapContext();
+    const { period } = usePeriod();
     const [detail, setDetail] = useState<MapRegion[] | null>(null);
     const [ regions, setRegions ] = useState<Region[]>([])
     const [loading, setLoading] = useState<boolean>(true);
@@ -44,7 +46,7 @@ function RegionDistribution() {
         setNotReady(false);
         setDetail(null)
 
-        fetchServerUrl(server_id, `/maps/${name}/regions`)
+        fetchServerUrl(server_id, `/maps/${name}/regions`, period ? { params: { period } } : {})
             .then(data => {
                 setDetail(data)
             })
@@ -59,7 +61,7 @@ function RegionDistribution() {
             .finally(() => setLoading(false))
         fetchUrl(`/graph/${server_id}/get_regions`)
             .then(setRegions)
-    }, [server_id, name, retryTick]);
+    }, [server_id, name, period, retryTick]);
 
     // Get theme-aware colors
     const getChartColors = () => {

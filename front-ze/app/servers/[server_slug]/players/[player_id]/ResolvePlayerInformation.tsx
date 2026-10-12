@@ -12,7 +12,7 @@ import StillCalculatingPlayer from "./StillCalculatingPlayer.tsx";
 import StalePlayerStats from "./StalePlayerStats.tsx";
 import {PlayerStatsPatchProvider} from "./PlayerStatsPatch.tsx";
 import {PlayerPeriodProvider} from "./PlayerPeriod.tsx";
-import PlayerPeriodSelector from "components/players/PlayerPeriodSelector.tsx";
+import PeriodSelector from "components/period/PeriodSelector.tsx";
 import AccessDenied from "./AccessDenied.tsx";
 import {SteamProfile} from "../../../../../next-auth-steam/steam.ts";
 
@@ -38,7 +38,7 @@ export default function ResolvePlayerInformation({ serverPlayerPromise, userProm
         <PlayerPeriodProvider serverId={server.id} playerId={player.id}>
             <div className="grid grid-cols-12 gap-4">
                 <div className="col-span-12">
-                    <PlayerPeriodSelector />
+                    <PeriodSelector />
                 </div>
                 {player.is_stale && <StalePlayerStats
                     serverId={server.id}

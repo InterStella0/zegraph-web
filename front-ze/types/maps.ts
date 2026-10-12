@@ -40,7 +40,7 @@ type MapInfo = {
     file_bytes: number | null,
     removed: boolean,
 }
-type MapAnalyze = {
+export type MapAnalyze = {
     map: string,
     unique_players: number,
     cum_player_hours: number,

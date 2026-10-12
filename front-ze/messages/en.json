@@ -515,18 +515,18 @@
       "periodCalculating": "Working out who they played with in this period...",
       "periodEmpty": "Didn't play with anyone in this period.",
       "periodNoMatches": "No one matching \"{query}\" in this period's list."
-    },
-    "period": {
-      "label": "Time period",
-      "allTime": "All time",
-      "allTimeDescription": "Every session since tracking started.",
-      "noPeriods": "No completed sessions to choose a period from yet.",
-      "wholeYear": "Whole {year}",
-      "done": "Done",
-      "hint": "All metrics below are filtered to the selected period.",
-      "previous": "Previous period",
-      "next": "Next period"
     }
+  },
+  "period": {
+    "label": "Time period",
+    "allTime": "All time",
+    "allTimeDescription": "Every session since tracking started.",
+    "noPeriods": "No completed sessions to choose a period from yet.",
+    "wholeYear": "Whole {year}",
+    "done": "Done",
+    "hint": "All metrics below are filtered to the selected period.",
+    "previous": "Previous period",
+    "next": "Next period"
   },
   "sessions": {
     "matchScoreProgression": "Match Score Progression",

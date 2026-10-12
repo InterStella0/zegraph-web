@@ -7,9 +7,9 @@ use crate::models::admins::DbEvent;
 use crate::models::maps::*;
 use crate::models::players::*;
 use crate::models::servers::*;
-use super::map::MapBasicQuery;
+use super::map::{MapBasicQuery, MapPeriodQuery};
 use super::player::{run_global_playtime_job, PlayerBasicQuery, PlayerGlobalQuery, PlayerPeriodQuery, PlayerSessionQuery};
-use super::{MapData, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query, QueryPriority, WorkerQuery};
+use super::{MapData, MapPeriodData, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query, QueryPriority, WorkerQuery};
 
 pub const QUEUE_HEAVY: &str = "gfl-ze-watcher:jobs:heavy";
 pub const QUEUE_LIGHT: &str = "gfl-ze-watcher:jobs:light";
@@ -95,6 +95,14 @@ pub enum JobKind {
     MapInfo(MapData),
     MapAnalyze(MapData),
 
+    // MapPeriodQuery<T>
+    MapPeriodAnalyze(MapPeriodData),
+    MapPeriodRegions(MapPeriodData),
+    MapPeriodHeatRegions(MapPeriodData),
+    MapPeriodSessionDistribution(MapPeriodData),
+    MapPeriodPlayerTypeTime(MapPeriodData),
+    MapPeriodTopPlayers(MapPeriodData),
+
     // PlayerBasicQuery<T>
     PlayerSessionTime(PlayerData),
     PlayerMapPlayed(PlayerData),
@@ -152,6 +160,21 @@ pub async fn dispatch(
         JobKind::MapPlayerTypeTime(d) => run!(map_query::<Vec<DbMapPlayerTypeTime>>(d, pool, cache)),
         JobKind::MapInfo(d) => run!(map_query::<DbMapInfo>(d, pool, cache)),
         JobKind::MapAnalyze(d) => run!(map_query::<DbMapAnalyze>(d, pool, cache)),
+
+        JobKind::MapPeriodAnalyze(d) => run!(map_period_query::<DbMapAnalyze>(d, pool, cache)),
+        JobKind::MapPeriodRegions(d) => run!(map_period_query::<Vec<DbMapRegion>>(d, pool, cache)),
+        JobKind::MapPeriodHeatRegions(d) => {
+            run!(map_period_query::<Vec<DbMapRegionDate>>(d, pool, cache))
+        }
+        JobKind::MapPeriodSessionDistribution(d) => {
+            run!(map_period_query::<Vec<DbMapSessionDistribution>>(d, pool, cache))
+        }
+        JobKind::MapPeriodPlayerTypeTime(d) => {
+            run!(map_period_query::<Vec<DbMapPlayerTypeTime>>(d, pool, cache))
+        }
+        JobKind::MapPeriodTopPlayers(d) => {
+            run!(map_period_query::<Vec<DbMapPeriodPlayer>>(d, pool, cache))
+        }
 
         JobKind::PlayerSessionTime(d) => {
             run!(player_query::<Vec<DbPlayerSessionTime>>(d, pool, cache))
@@ -214,6 +237,12 @@ fn map_query<T>(data: &MapData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>
     MapBasicQuery::raw(Query { pool, cache, data: data.clone() })
 }
 
+fn map_period_query<T>(
+    data: &MapPeriodData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
+) -> MapPeriodQuery<T> {
+    MapPeriodQuery::raw(Query { pool, cache, data: data.clone() })
+}
+
 fn player_query<T>(
     data: &PlayerData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
 ) -> PlayerBasicQuery<T> {
@@ -267,7 +296,7 @@ impl std::fmt::Display for JobError {
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{map_data, player_data, player_global_data, player_period_data, player_session_data};
+    use super::super::test_support::{map_data, map_period_data, player_data, player_global_data, player_period_data, player_session_data};
     use super::*;
 
     fn job(priority: QueryPriority) -> RefreshJob {
@@ -338,6 +367,7 @@ mod tests {
     fn all_job_kinds() -> Vec<JobKind> {
         let (p, m, s, g) = (player_data(), map_data(), player_session_data(), player_global_data());
         let r = player_period_data(true);
+        let mp = map_period_data(true);
         let kinds = vec![
             JobKind::MapRegions(m.clone()),
             JobKind::MapHeatRegions(m.clone()),
@@ -348,6 +378,12 @@ mod tests {
             JobKind::MapPlayerTypeTime(m.clone()),
             JobKind::MapInfo(m.clone()),
             JobKind::MapAnalyze(m),
+            JobKind::MapPeriodAnalyze(mp.clone()),
+            JobKind::MapPeriodRegions(mp.clone()),
+            JobKind::MapPeriodHeatRegions(mp.clone()),
+            JobKind::MapPeriodSessionDistribution(mp.clone()),
+            JobKind::MapPeriodPlayerTypeTime(mp.clone()),
+            JobKind::MapPeriodTopPlayers(mp),
             JobKind::PlayerSessionTime(p.clone()),
             JobKind::PlayerMapPlayed(p.clone()),
             JobKind::PlayerPlaytimeRanks(p.clone()),
@@ -377,7 +413,10 @@ mod tests {
                 JobKind::MapRegions(_) | JobKind::MapHeatRegions(_) | JobKind::MapEvents(_)
                 | JobKind::MapSessionDistribution(_) | JobKind::MapPartial(_)
                 | JobKind::MapMetadata(_) | JobKind::MapPlayerTypeTime(_) | JobKind::MapInfo(_)
-                | JobKind::MapAnalyze(_) | JobKind::PlayerSessionTime(_)
+                | JobKind::MapAnalyze(_) | JobKind::MapPeriodAnalyze(_) | JobKind::MapPeriodRegions(_)
+                | JobKind::MapPeriodHeatRegions(_) | JobKind::MapPeriodSessionDistribution(_)
+                | JobKind::MapPeriodPlayerTypeTime(_) | JobKind::MapPeriodTopPlayers(_)
+                | JobKind::PlayerSessionTime(_)
                 | JobKind::PlayerMapPlayed(_) | JobKind::PlayerPlaytimeRanks(_)
                 | JobKind::PlayerMapRanks(_) | JobKind::PlayerAliases(_) | JobKind::PlayerDetail(_)
                 | JobKind::PlayerLegacyStats(_) | JobKind::PlayerRegionTime(_) | JobKind::PlayerHourCount(_)
@@ -405,6 +444,6 @@ mod tests {
             assert!(tags.insert(tag.clone()), "two JobKind variants share the tag {tag}");
         }
 
-        assert_eq!(tags.len(), 31, "all variants must be covered by all_job_kinds()");
+        assert_eq!(tags.len(), 37, "all variants must be covered by all_job_kinds()");
     }
 }

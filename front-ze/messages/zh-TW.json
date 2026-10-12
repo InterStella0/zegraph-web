@@ -515,18 +515,18 @@
       "periodCalculating": "正在計算此時間範圍內一起玩過的玩家...",
       "periodEmpty": "此時間範圍內沒有和任何人一起玩過。",
       "periodNoMatches": "此時間範圍的列表中沒有符合「{query}」的玩家。"
-    },
-    "period": {
-      "label": "時間範圍",
-      "allTime": "全部時間",
-      "allTimeDescription": "自開始記錄以來的所有場次。",
-      "noPeriods": "尚無可用於選擇時間範圍的已完成場次。",
-      "wholeYear": "{year} 全年",
-      "done": "完成",
-      "hint": "下方所有數據皆依所選時間範圍篩選。",
-      "previous": "上一個時間範圍",
-      "next": "下一個時間範圍"
     }
+  },
+  "period": {
+    "label": "時間範圍",
+    "allTime": "全部時間",
+    "allTimeDescription": "自開始記錄以來的所有場次。",
+    "noPeriods": "尚無可用於選擇時間範圍的已完成場次。",
+    "wholeYear": "{year} 全年",
+    "done": "完成",
+    "hint": "下方所有數據皆依所選時間範圍篩選。",
+    "previous": "上一個時間範圍",
+    "next": "下一個時間範圍"
   },
   "sessions": {
     "matchScoreProgression": "比賽比分進程",
