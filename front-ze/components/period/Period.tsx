@@ -7,9 +7,12 @@ import {cn} from "components/lib/utils";
 import {PeriodYear} from "types/players";
 
 const PERIOD_PATTERN = /^\d{4}(-(0[1-9]|1[0-2]))?$/;
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const FIRST_YEAR = 2024;
+export const SHORT_RANGE_DAYS = 31;
 
-/** `YYYY` or `YYYY-MM` in UTC; null is All time. */
+/** `YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range in UTC; null is All time. */
 export type Period = string | null;
 
 type PeriodValue = {
@@ -27,9 +30,52 @@ const PeriodContext = createContext<PeriodValue>({
 });
 
 export function parsePeriod(value: string | null | undefined): Period {
-    if (!value || !PERIOD_PATTERN.test(value)) return null;
+    if (!value) return null;
+    const range = splitRange(value);
+    if (range) {
+        const valid = range.from <= range.to
+            && range.from.getUTCFullYear() >= FIRST_YEAR
+            && range.to.getTime() <= Date.now();
+        return valid ? value : null;
+    }
+    if (!PERIOD_PATTERN.test(value)) return null;
     if (splitPeriod(value).year < FIRST_YEAR || periodBounds(value).start.getTime() > Date.now()) return null;
     return value;
+}
+
+function parseDay(value: string): Date | null {
+    if (!DAY_PATTERN.test(value)) return null;
+    const [year, month, day] = value.split('-').map(part => parseInt(part, 10));
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? date : null;
+}
+
+/** The UTC midnights of a range's first and last day, or null when the period is not a range. */
+export function splitRange(period: string): { from: Date, to: Date } | null {
+    const parts = period.split('..');
+    if (parts.length !== 2) return null;
+    const from = parseDay(parts[0]);
+    const to = parseDay(parts[1]);
+    return from && to ? { from, to } : null;
+}
+
+export function rangePeriod(from: Date, to: Date): string {
+    return `${from.toISOString().slice(0, 10)}..${to.toISOString().slice(0, 10)}`;
+}
+
+/** The number of days in a range, counting both ends. */
+export function rangeDays(range: { from: Date, to: Date }): number {
+    return Math.round((range.to.getTime() - range.from.getTime()) / DAY_MS) + 1;
+}
+
+export function addDays(date: Date, days: number): Date {
+    return new Date(date.getTime() + days * DAY_MS);
+}
+
+/** Whether a period covers at most a month: a month, or a range of up to `SHORT_RANGE_DAYS`. */
+export function isShortPeriod(period: string): boolean {
+    const range = splitRange(period);
+    return range ? rangeDays(range) <= SHORT_RANGE_DAYS : splitPeriod(period).month !== null;
 }
 
 export function splitPeriod(period: string): { year: number, month: number | null } {
@@ -43,6 +89,10 @@ export function monthPeriod(year: number, month: number): string {
 
 /** Half-open UTC bounds of a period, `[start, end)`. */
 export function periodBounds(period: string): { start: Date, end: Date } {
+    const range = splitRange(period);
+    if (range) {
+        return { start: range.from, end: addDays(range.to, 1) };
+    }
     const { year, month } = splitPeriod(period);
     if (month === null) {
         return { start: new Date(Date.UTC(year, 0, 1)), end: new Date(Date.UTC(year + 1, 0, 1)) };
@@ -56,6 +106,15 @@ export function formatPeriodMonth(locale: string, year: number, month: number, w
         ...(withYear ? { year: 'numeric' } : {}),
         timeZone: 'UTC',
     }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+export function formatPeriodRange(locale: string, from: Date, to: Date): string {
+    return new Intl.DateTimeFormat(locale, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+    }).formatRange(from, to).replace(/[  ]/g, ' ');
 }
 
 /**
@@ -107,6 +166,8 @@ export function usePeriodLabel(period: Period): string {
     const t = useTranslations('period');
     const locale = useLocale();
     if (!period) return t('allTime');
+    const range = splitRange(period);
+    if (range) return formatPeriodRange(locale, range.from, range.to);
     const { year, month } = splitPeriod(period);
     return month === null ? String(year) : formatPeriodMonth(locale, year, month);
 }

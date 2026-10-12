@@ -1219,7 +1219,11 @@ impl<T> PlayerPeriodQuery<T> {
     }
 
     fn period_ttl(&self) -> u64 {
-        if self.context.data.closed { PERIOD_CLOSED_TTL } else { PERIOD_OPEN_TTL }
+        period_ttl(&self.context.data.period, self.context.data.closed)
+    }
+
+    fn period_priority(&self, priority: QueryPriority) -> QueryPriority {
+        period_priority(&self.context.data.period, priority)
     }
 
     fn bounds(&self) -> (OffsetDateTime, OffsetDateTime) {
@@ -1230,6 +1234,26 @@ impl<T> PlayerPeriodQuery<T> {
 
 pub const PERIOD_CLOSED_TTL: u64 = 7 * DAY;
 pub const PERIOD_OPEN_TTL: u64 = DAY;
+pub const PERIOD_RANGE_TTL: u64 = HOUR;
+
+pub const LIGHT_RANGE_DAYS: i64 = 31;
+
+pub fn period_ttl(period: &TimePeriod, closed: bool) -> u64 {
+    if period.range_days().is_some() {
+        PERIOD_RANGE_TTL
+    } else if closed {
+        PERIOD_CLOSED_TTL
+    } else {
+        PERIOD_OPEN_TTL
+    }
+}
+
+pub fn period_priority(period: &TimePeriod, priority: QueryPriority) -> QueryPriority {
+    match period.range_days() {
+        Some(days) if days <= LIGHT_RANGE_DAYS => QueryPriority::Light,
+        _ => priority,
+    }
+}
 
 #[async_trait]
 impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerPeriodQuery<Vec<DbPlayerMapPlayed>> {
@@ -1262,7 +1286,7 @@ impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerPeriodQuery<Vec<DbPlayerMapPl
 
     fn cache_key_pattern(&self) -> String { self.period_key("map-played") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::PlayerPeriodMapPlayed(self.context.data.clone())
@@ -1312,7 +1336,7 @@ impl WorkerQuery<DbPlayerDetail> for PlayerPeriodQuery<DbPlayerDetail> {
 
     fn cache_key_pattern(&self) -> String { self.period_key("detail") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::PlayerPeriodDetail(self.context.data.clone())
@@ -1342,7 +1366,7 @@ impl WorkerQuery<Vec<DbPlayerSessionTime>> for PlayerPeriodQuery<Vec<DbPlayerSes
 
     fn cache_key_pattern(&self) -> String { self.period_key("session") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::PlayerPeriodSessionTime(self.context.data.clone())
@@ -1387,7 +1411,7 @@ impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerPeriodQuery<Vec<DbPlayerHourC
 
     fn cache_key_pattern(&self) -> String { self.period_key("hour-day") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::PlayerPeriodHourCount(self.context.data.clone())
@@ -1438,7 +1462,7 @@ impl WorkerQuery<Vec<DbPlayerOnlineHeatmap>> for PlayerPeriodQuery<Vec<DbPlayerO
 
     fn cache_key_pattern(&self) -> String { self.period_key("online-heatmap") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::PlayerPeriodOnlineHeatmap(self.context.data.clone())
@@ -1532,7 +1556,7 @@ impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerPeriodQuery<Vec<DbPlayerRegi
 
     fn cache_key_pattern(&self) -> String { self.period_key("region") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::PlayerPeriodRegionTime(self.context.data.clone())
@@ -1605,7 +1629,7 @@ impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerPeriodQuery<Vec<DbPlayerSeen>> {
 
     fn cache_key_pattern(&self) -> String { self.period_key("played-with") }
     fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
 
     fn job_kind(&self) -> JobKind {
         JobKind::PlayerPeriodPlayedWith(self.context.data.clone())
@@ -2372,7 +2396,7 @@ async fn run_global_refresh(
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{player_global_query, player_period_query, player_query, player_session_query, TEST_PLAYER, TEST_SERVER, TEST_SESSION};
+    use super::super::test_support::{player_global_query, player_period_query, player_query, player_range_query, player_session_query, TEST_LONG_RANGE, TEST_PLAYER, TEST_SERVER, TEST_SESSION, TEST_SHORT_RANGE};
     use super::*;
 
     fn metadata<T, Q: WorkerQuery<T>>(query: &Q) -> (String, u64, QueryPriority, JobKind) {
@@ -2479,6 +2503,34 @@ mod tests {
         assert_period_scoped!(OnlineHeatmap, "player-period-online-heatmap", QueryPriority::Light, JobKind::PlayerPeriodOnlineHeatmap(_));
         assert_period_scoped!(RegionTime, "player-period-region", QueryPriority::Light, JobKind::PlayerPeriodRegionTime(_));
         assert_period_scoped!(PlayedWith, "player-period-played-with", QueryPriority::Heavy, JobKind::PlayerPeriodPlayedWith(_));
+    }
+
+    macro_rules! assert_range_scoped {
+        ($query:ident, $prefix:literal, $priority:pat) => {{
+            let short: PlayerPeriodQuery<$query> = player_range_query(TEST_SHORT_RANGE);
+            let (pattern, ttl, priority, _) = metadata(&short);
+
+            assert_eq!(pattern, format!(concat!($prefix, ":{}:{}:2025-06-01..2025-06-15"), TEST_SERVER, TEST_PLAYER));
+            assert_eq!(ttl, HOUR, "{pattern} is a range, so it is cached for an hour");
+            assert!(matches!(priority, QueryPriority::Light), "{pattern} is a short range, so it runs light");
+
+            let long: PlayerPeriodQuery<$query> = player_range_query(TEST_LONG_RANGE);
+            let (pattern, ttl, priority, _) = metadata(&long);
+
+            assert_eq!(ttl, HOUR, "{pattern} is a range, so it is cached for an hour");
+            assert!(matches!(priority, $priority), "{pattern} is a long range, so it keeps its priority");
+        }};
+    }
+
+    #[tokio::test]
+    async fn a_closed_range_is_cached_for_an_hour_and_light_only_when_short() {
+        assert_range_scoped!(MapPlayed, "player-period-map-played", QueryPriority::Heavy);
+        assert_range_scoped!(DbPlayerDetail, "player-period-detail", QueryPriority::Heavy);
+        assert_range_scoped!(SessionTime, "player-period-session", QueryPriority::Light);
+        assert_range_scoped!(HourCount, "player-period-hour-day", QueryPriority::Light);
+        assert_range_scoped!(OnlineHeatmap, "player-period-online-heatmap", QueryPriority::Light);
+        assert_range_scoped!(RegionTime, "player-period-region", QueryPriority::Light);
+        assert_range_scoped!(PlayedWith, "player-period-played-with", QueryPriority::Heavy);
     }
 
     #[tokio::test]

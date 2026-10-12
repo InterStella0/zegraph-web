@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, TimeDelta, TimeZone, Utc};
 use poem_openapi::Object;
 use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
 use poem_openapi::types::{ParseError, ParseFromParameter, ParseResult, Type};
@@ -8,35 +8,57 @@ use serde::{Deserialize, Serialize};
 
 /// The first year the data covers; collection started in February 2024.
 pub const FIRST_YEAR: i32 = 2024;
-pub const PERIOD_PATTERN: &str = r"^(all|\d{4}(-\d{2})?)$";
+pub const PERIOD_PATTERN: &str = r"^(all|\d{4}(-\d{2})?|\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2})$";
 
-/// A calendar year or month in UTC, covering `[start, end)`.
+/// A calendar year or month, or an inclusive range of days, in UTC, covering `[start, end)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TimePeriod {
     Year(i32),
     Month(i32, u32),
+    Range(NaiveDate, NaiveDate),
 }
 
 impl TimePeriod {
-    /// Parses `YYYY` or `YYYY-MM`; `all` (or an empty value) means no period.
+    /// Parses `YYYY`, `YYYY-MM` or `YYYY-MM-DD..YYYY-MM-DD`; `all` (or an empty value) means no
+    /// period.
     pub fn parse(value: &str, now: DateTime<Utc>) -> Result<Option<Self>, String> {
         let value = value.trim();
         if value.is_empty() || value.eq_ignore_ascii_case("all") {
             return Ok(None);
         }
         let digits = |s: &str, len: usize| s.len() == len && s.bytes().all(|b| b.is_ascii_digit());
-        let invalid = || format!("`{value}` is not a period; expected `all`, `YYYY` or `YYYY-MM`");
-
-        let period = match value.split_once('-') {
-            None if digits(value, 4) => TimePeriod::Year(value.parse().map_err(|_| invalid())?),
-            Some((year, month)) if digits(year, 4) && digits(month, 2) => {
-                let month: u32 = month.parse().map_err(|_| invalid())?;
-                if !(1..=12).contains(&month) {
-                    return Err(format!("`{value}` has no month {month}"));
-                }
-                TimePeriod::Month(year.parse().map_err(|_| invalid())?, month)
+        let invalid = || format!(
+            "`{value}` is not a period; expected `all`, `YYYY`, `YYYY-MM` or `YYYY-MM-DD..YYYY-MM-DD`"
+        );
+        let date = |s: &str| {
+            let shaped = s.len() == 10 && s.bytes().enumerate().all(|(i, b)| match i {
+                4 | 7 => b == b'-',
+                _ => b.is_ascii_digit(),
+            });
+            if !shaped {
+                return Err(invalid());
             }
-            _ => return Err(invalid()),
+            NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|_| format!("`{s}` is not a calendar date"))
+        };
+
+        let period = if let Some((from, to)) = value.split_once("..") {
+            let (from, to) = (date(from)?, date(to)?);
+            if from > to {
+                return Err(format!("`{value}` ends before it starts"));
+            }
+            TimePeriod::Range(from, to)
+        } else {
+            match value.split_once('-') {
+                None if digits(value, 4) => TimePeriod::Year(value.parse().map_err(|_| invalid())?),
+                Some((year, month)) if digits(year, 4) && digits(month, 2) => {
+                    let month: u32 = month.parse().map_err(|_| invalid())?;
+                    if !(1..=12).contains(&month) {
+                        return Err(format!("`{value}` has no month {month}"));
+                    }
+                    TimePeriod::Month(year.parse().map_err(|_| invalid())?, month)
+                }
+                _ => return Err(invalid()),
+            }
         };
 
         if period.year() < FIRST_YEAR {
@@ -45,12 +67,26 @@ impl TimePeriod {
         if period.start() > now {
             return Err(format!("`{value}` has not started yet"));
         }
+        if let TimePeriod::Range(_, to) = period {
+            if day_start(to) > now {
+                return Err(format!("`{value}` ends in the future"));
+            }
+        }
         Ok(Some(period))
     }
 
     fn year(&self) -> i32 {
         match *self {
             TimePeriod::Year(year) | TimePeriod::Month(year, _) => year,
+            TimePeriod::Range(from, _) => from.year(),
+        }
+    }
+
+    /// The number of days in a range, counting both ends; `None` for a year or month.
+    pub fn range_days(&self) -> Option<i64> {
+        match *self {
+            TimePeriod::Range(from, to) => Some((to - from).num_days() + 1),
+            _ => None,
         }
     }
 
@@ -58,6 +94,7 @@ impl TimePeriod {
         match *self {
             TimePeriod::Year(year) => month_start(year, 1),
             TimePeriod::Month(year, month) => month_start(year, month),
+            TimePeriod::Range(from, _) => day_start(from),
         }
     }
 
@@ -66,6 +103,7 @@ impl TimePeriod {
             TimePeriod::Year(year) => month_start(year + 1, 1),
             TimePeriod::Month(year, 12) => month_start(year + 1, 1),
             TimePeriod::Month(year, month) => month_start(year, month + 1),
+            TimePeriod::Range(_, to) => day_start(to) + TimeDelta::days(1),
         }
     }
 
@@ -73,6 +111,7 @@ impl TimePeriod {
         match *self {
             TimePeriod::Year(year) => format!("{year:04}"),
             TimePeriod::Month(year, month) => format!("{year:04}-{month:02}"),
+            TimePeriod::Range(from, to) => format!("{}..{}", from.format("%Y-%m-%d"), to.format("%Y-%m-%d")),
         }
     }
 
@@ -88,7 +127,11 @@ fn month_start(year: i32, month: u32) -> DateTime<Utc> {
         .expect("the first of a month at midnight UTC always exists")
 }
 
-/// The `period` query parameter: `all`, `YYYY` or `YYYY-MM`, in UTC.
+fn day_start(date: NaiveDate) -> DateTime<Utc> {
+    date.and_time(NaiveTime::MIN).and_utc()
+}
+
+/// The `period` query parameter: `all`, `YYYY`, `YYYY-MM` or `YYYY-MM-DD..YYYY-MM-DD`, in UTC.
 pub struct PeriodParam(pub Option<TimePeriod>);
 
 impl Type for PeriodParam {
@@ -167,6 +210,14 @@ mod tests {
         at(2026, 10, 6)
     }
 
+    fn date(year: i32, month: u32, day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(year, month, day).unwrap()
+    }
+
+    fn range(from: NaiveDate, to: NaiveDate) -> TimePeriod {
+        TimePeriod::Range(from, to)
+    }
+
     #[test]
     fn parses_years_months_and_all() {
         assert_eq!(TimePeriod::parse("2025", now()), Ok(Some(TimePeriod::Year(2025))));
@@ -176,8 +227,30 @@ mod tests {
     }
 
     #[test]
+    fn parses_inclusive_day_ranges() {
+        assert_eq!(
+            TimePeriod::parse("2025-05-05..2026-01-02", now()),
+            Ok(Some(range(date(2025, 5, 5), date(2026, 1, 2)))),
+        );
+        assert_eq!(
+            TimePeriod::parse("2025-06-15..2025-06-15", now()),
+            Ok(Some(range(date(2025, 6, 15), date(2025, 6, 15)))),
+        );
+        assert_eq!(
+            TimePeriod::parse("2024-02-28..2024-03-01", now()),
+            Ok(Some(range(date(2024, 2, 28), date(2024, 3, 1)))),
+        );
+    }
+
+    #[test]
     fn rejects_malformed_and_out_of_range_values() {
-        for value in ["2025-13", "2025-00", "2025-6x", "2025-6", "abcd", "25", "2025-06-01", "-2025"] {
+        for value in [
+            "2025-13", "2025-00", "2025-6x", "2025-6", "abcd", "25", "2025-06-01", "-2025",
+            "2025-06-10..2025-06-01", "2025-02-29..2025-03-01", "2025-06-31..2025-07-01",
+            "2025-06-1..2025-06-02", "2025-06-01..", "..2025-06-01", "2025-06-01...2025-06-02",
+            "2025-06-01..2025-06-02..2025-06-03", "2025-06..2025-07", "2025-06-01-2025-06-02",
+            "2025-0a-01..2025-06-02",
+        ] {
             assert!(TimePeriod::parse(value, now()).is_err(), "{value} should be rejected");
         }
     }
@@ -190,6 +263,12 @@ mod tests {
         assert!(TimePeriod::parse("2027", now()).is_err());
         assert_eq!(TimePeriod::parse("2026-10", now()), Ok(Some(TimePeriod::Month(2026, 10))));
         assert_eq!(TimePeriod::parse("2026", now()), Ok(Some(TimePeriod::Year(2026))));
+        assert!(TimePeriod::parse("2023-12-31..2024-01-05", now()).is_err());
+        assert!(TimePeriod::parse("2026-10-01..2026-10-07", now()).is_err());
+        assert_eq!(
+            TimePeriod::parse("2026-10-01..2026-10-06", now()),
+            Ok(Some(range(date(2026, 10, 1), date(2026, 10, 6)))),
+        );
     }
 
     #[test]
@@ -204,12 +283,27 @@ mod tests {
         let year = TimePeriod::Year(2025);
         assert_eq!(year.start(), at(2025, 1, 1));
         assert_eq!(year.end(), at(2026, 1, 1));
+
+        let days = range(date(2025, 12, 30), date(2026, 1, 2));
+        assert_eq!(days.start(), at(2025, 12, 30));
+        assert_eq!(days.end(), at(2026, 1, 3));
+        assert_eq!(range(date(2024, 2, 28), date(2024, 2, 28)).end(), at(2024, 2, 29));
     }
 
     #[test]
     fn labels_are_zero_padded() {
         assert_eq!(TimePeriod::Year(2025).label(), "2025");
         assert_eq!(TimePeriod::Month(2025, 6).label(), "2025-06");
+        assert_eq!(range(date(2025, 6, 5), date(2025, 7, 1)).label(), "2025-06-05..2025-07-01");
+    }
+
+    #[test]
+    fn only_a_range_counts_days() {
+        assert_eq!(range(date(2025, 6, 5), date(2025, 6, 5)).range_days(), Some(1));
+        assert_eq!(range(date(2025, 6, 1), date(2025, 7, 1)).range_days(), Some(31));
+        assert_eq!(range(date(2024, 1, 1), date(2024, 12, 31)).range_days(), Some(366));
+        assert_eq!(TimePeriod::Month(2025, 6).range_days(), None);
+        assert_eq!(TimePeriod::Year(2025).range_days(), None);
     }
 
     #[test]

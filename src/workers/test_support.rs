@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use chrono::NaiveDate;
 use deadpool_redis::{Config, Runtime};
 use moka::future::Cache;
 use sqlx::postgres::PgPoolOptions;
@@ -95,6 +96,14 @@ pub fn player_data() -> PlayerData {
 
 pub const TEST_CLOSED_PERIOD: TimePeriod = TimePeriod::Month(2025, 6);
 pub const TEST_OPEN_PERIOD: TimePeriod = TimePeriod::Year(2026);
+pub const TEST_SHORT_RANGE: TimePeriod = TimePeriod::Range(
+    NaiveDate::from_ymd_opt(2025, 6, 1).unwrap(),
+    NaiveDate::from_ymd_opt(2025, 6, 15).unwrap(),
+);
+pub const TEST_LONG_RANGE: TimePeriod = TimePeriod::Range(
+    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+    NaiveDate::from_ymd_opt(2025, 6, 30).unwrap(),
+);
 
 pub fn player_period_data(closed: bool) -> PlayerPeriodData {
     PlayerPeriodData {
@@ -162,4 +171,14 @@ pub fn player_period_query<T>(closed: bool) -> PlayerPeriodQuery<T> {
 
 pub fn map_period_query<T>(closed: bool) -> MapPeriodQuery<T> {
     MapPeriodQuery::raw(Query { pool: fake_pool(), cache: fake_cache(), data: map_period_data(closed) })
+}
+
+pub fn player_range_query<T>(period: TimePeriod) -> PlayerPeriodQuery<T> {
+    let data = PlayerPeriodData { period, ..player_period_data(true) };
+    PlayerPeriodQuery::raw(Query { pool: fake_pool(), cache: fake_cache(), data })
+}
+
+pub fn map_range_query<T>(period: TimePeriod) -> MapPeriodQuery<T> {
+    let data = MapPeriodData { period, ..map_period_data(true) };
+    MapPeriodQuery::raw(Query { pool: fake_pool(), cache: fake_cache(), data })
 }

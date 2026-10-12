@@ -532,14 +532,17 @@ mod route_tests {
             "regions", "might_friends",
         ] {
             let base = format!("/servers/1/players/76561198000000001/{route}");
-            for bad in ["2025-13", "2025-6x", "abcd", "2023", "2999-01"] {
+            for bad in [
+                "2025-13", "2025-6x", "abcd", "2023", "2999-01", "2025-06-15", "2025-06-10..2025-06-01",
+                "2025-02-29..2025-03-01", "2999-01-01..2999-01-02",
+            ] {
                 assert_eq!(
                     send(&cli, "GET", &format!("{base}?period={bad}"), None).await,
                     poem::http::StatusCode::BAD_REQUEST,
                     "GET {base}?period={bad} should fail validation",
                 );
             }
-            for good in ["2025", "2025-06", "all"] {
+            for good in ["2025", "2025-06", "2025-06-01..2025-06-15", "all"] {
                 assert_eq!(
                     send(&cli, "GET", &format!("{base}?period={good}"), None).await,
                     poem::http::StatusCode::NOT_FOUND,
@@ -560,14 +563,17 @@ mod route_tests {
         ] {
             let base = format!("/servers/1/maps/ze_test_map_v1/{route}");
             let join = if route.contains('?') { '&' } else { '?' };
-            for bad in ["2025-13", "2025-6x", "abcd", "2023", "2999-01"] {
+            for bad in [
+                "2025-13", "2025-6x", "abcd", "2023", "2999-01", "2025-06-15", "2025-06-10..2025-06-01",
+                "2025-02-29..2025-03-01", "2999-01-01..2999-01-02",
+            ] {
                 assert_eq!(
                     send(&cli, "GET", &format!("{base}{join}period={bad}"), None).await,
                     poem::http::StatusCode::BAD_REQUEST,
                     "GET {base}{join}period={bad} should fail validation",
                 );
             }
-            for good in ["2025", "2025-06", "all"] {
+            for good in ["2025", "2025-06", "2025-06-01..2025-06-15", "all"] {
                 assert_eq!(
                     send(&cli, "GET", &format!("{base}{join}period={good}"), None).await,
                     poem::http::StatusCode::NOT_FOUND,

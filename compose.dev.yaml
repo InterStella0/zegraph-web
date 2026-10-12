@@ -57,6 +57,7 @@ services:
           target: /app/
           ignore:
             - node_modules
+            - .next
         - action: rebuild
           path: vite.config.js
         - action: sync+restart

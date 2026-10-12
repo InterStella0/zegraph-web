@@ -47,7 +47,9 @@ export default function PlayTimeHeatmap({
     selectedMonth,
     onDataLoaded,
     sumMethodYearly,
-    onChangeTotalPlayed
+    onChangeTotalPlayed,
+    rangeFrom,
+    rangeTo,
 }: {
     groupBy: GroupByType
     player: PlayerInfo
@@ -61,6 +63,8 @@ export default function PlayTimeHeatmap({
         rawData: PlayerSessionTime[]
     }) => void
     onChangeTotalPlayed: (value: number) => void
+    rangeFrom?: string
+    rangeTo?: string
 }) {
     const t = useTranslations('players.heatmap')
     const playerId = player.id
@@ -90,6 +94,12 @@ export default function PlayTimeHeatmap({
 
         switch (groupBy) {
             case 'daily':
+                if (rangeFrom && rangeTo) {
+                    return rawData.filter(d => {
+                        const day = dayjs.utc(d.bucket_time).startOf('day')
+                        return !day.isBefore(dayjs.utc(rangeFrom)) && !day.isAfter(dayjs.utc(rangeTo))
+                    })
+                }
                 return rawData.filter(d => dayjs.utc(d.bucket_time).year() === selectedYear)
             case 'monthly':
                 return rawData.filter(d => {
@@ -104,7 +114,7 @@ export default function PlayTimeHeatmap({
             default:
                 return rawData
         }
-    }, [rawData, groupBy, selectedYear, selectedMonth, sumMethodYearly])
+    }, [rawData, groupBy, selectedYear, selectedMonth, sumMethodYearly, rangeFrom, rangeTo])
 
     useEffect(() => {
         const total = filteredData.reduce((c, d) => c + d.hours, 0)
@@ -130,9 +140,9 @@ export default function PlayTimeHeatmap({
                 dataMap.set(iso, e.hours)
             })
 
-            // Generate all days for the selected year
-            const startOfYear = dayjs(`${selectedYear}-01-01`)
-            const endOfYear = dayjs(`${selectedYear}-12-31`)
+            // Generate all days for the selected year, or the selected range
+            const startOfYear = rangeFrom ? dayjs.utc(rangeFrom) : dayjs(`${selectedYear}-01-01`)
+            const endOfYear = rangeTo ? dayjs.utc(rangeTo) : dayjs(`${selectedYear}-12-31`)
             let currentDate = startOfYear
 
             while (currentDate.isBefore(endOfYear) || currentDate.isSame(endOfYear, 'day')) {
@@ -200,7 +210,7 @@ export default function PlayTimeHeatmap({
         }
 
         setHeatmapData(transformed)
-    }, [filteredData, groupBy, rawData, sumMethodYearly])
+    }, [filteredData, groupBy, rawData, sumMethodYearly, rangeFrom, rangeTo])
 
     const getChartColors = () => {
         if (typeof window === 'undefined') return {
@@ -244,8 +254,11 @@ export default function PlayTimeHeatmap({
     // Get dimensions based on groupBy
     const getDimensions = () => {
         switch (groupBy) {
-            case 'daily':
-                return { width: '1025px', cols: 53, rows: 7 }
+            case 'daily': {
+                if (!rangeFrom || !rangeTo) return { width: '1025px', cols: 53, rows: 7 }
+                const cols = Math.ceil((dayjs.utc(rangeTo).diff(dayjs.utc(rangeFrom), 'day') + 1) / 7) + 1
+                return { width: `${cols * 19 + 40}px`, cols, rows: 7 }
+            }
             case 'monthly':
                 return { width: '800px', cols: 31, rows: 7 }  // Days in month
             case 'yearly':
