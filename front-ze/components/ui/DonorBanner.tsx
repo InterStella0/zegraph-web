@@ -2,16 +2,20 @@
 import Link from 'next/link';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { getRecentSupporters, RecentSupporter } from 'utils/supporters';
+import { getAllSupporters, getRecentSupporters, RecentSupporter } from 'utils/supporters';
 
 const LS_KEY = 'donor_banner_dismissed';
 
 export function DonorBanner() {
   const [donors, setDonors] = useState<RecentSupporter[] | null>(null);
+  const [totalSupporters, setTotalSupporters] = useState(0);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     getRecentSupporters(10).then(setDonors);
+    getAllSupporters().then((all) => {
+      if (all) setTotalSupporters(all.names.length + all.anonymous);
+    });
   }, []);
 
   useEffect(() => {
@@ -25,7 +29,7 @@ export function DonorBanner() {
   const uniqueNames = [...new Set(donors.map((d) => d.name))];
   const latestId = donors[0].created_at;
   const shown = uniqueNames.slice(0, 3);
-  const remaining = uniqueNames.length - shown.length;
+  const remaining = Math.max(totalSupporters, uniqueNames.length) - shown.length;
   const names = shown.join(', ');
   const suffix = remaining > 0 ? ` +${remaining} more` : '';
 
