@@ -10,11 +10,13 @@ import {ChevronDown, ChevronUp, Globe} from "lucide-react";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "components/ui/collapsible";
 import {useTheme} from "next-themes";
 import {useTranslations} from 'next-intl';
+import {NIGHT_SHADING_STYLE} from "./NightShadingLayer.tsx";
+import {TWILIGHT_ALTITUDES} from "utils/terminator.ts";
 
 
 
 function LegendWrapper({ setUpdateFn }) {
-    const [data, setData] = useState<{theme: string, legendLabel: string, errorLabel: string | null}>({theme: 'light', legendLabel: null, errorLabel: null});
+    const [data, setData] = useState<{theme: string, legendLabel: string, errorLabel: string | null, nightLabel: string | null}>({theme: 'light', legendLabel: null, errorLabel: null, nightLabel: null});
     useEffect(() => {
         setUpdateFn(setData);
     }, [setUpdateFn]);
@@ -59,9 +61,25 @@ function WMSLegendImage({name, style = ""}){
     </div>
 }
 
+function stackedFill(band: { fillColor: string, fillOpacity: number }): string {
+    const alpha = 1 - (1 - band.fillOpacity) ** TWILIGHT_ALTITUDES.length;
+    return `color-mix(in srgb, ${band.fillColor} ${(alpha * 100).toFixed(1)}%, transparent)`;
+}
+
+function NightShadingLegend({ label, isDarkMode }){
+    const { basemap, night } = NIGHT_SHADING_STYLE[isDarkMode ? 'dark' : 'light'];
+    const nightFill = stackedFill(night);
+    return <div className="flex flex-row gap-2 mt-3">
+        <div className="w-5 h-5 border" style={{
+            backgroundColor: basemap,
+            backgroundImage: `linear-gradient(to right, transparent 50%, ${nightFill} 50%)`,
+        }} />
+        <p className="text-primary">{label}</p>
+    </div>
+}
+
 function LegendWrapped({ reactData }){
-    const { resolvedTheme } = useTheme()
-    const isDarkMode = resolvedTheme === "dark"
+    const isDarkMode = reactData?.theme === "dark"
     const [ isExpanded, setExpanded ] = useState(true)
     return <>
         <div className="backdrop-blur-[10px] bg-background border transition-all duration-300 max-w-[250px]">
@@ -89,6 +107,7 @@ function LegendWrapped({ reactData }){
                         <WMSLegendImage name="player_server_timed" />
                         <WMSLegendImage name="player_server_mapped" />
                         <WMSLegendImage name={`countries_${isDarkMode ? "dark" : "light"}`} />
+                        <NightShadingLegend label={reactData?.nightLabel ?? "Night Shading"} isDarkMode={isDarkMode} />
                     </div>
                 </CollapsibleContent>
             </Collapsible>
@@ -103,6 +122,7 @@ const LegendControlExtends = L.Control.extend({
         this._setReactDataFn = () => {}
     },
     updateData: function(data){
+        L.Util.setOptions(this, data)
         if (this._setReactDataFn) {
             this._setReactDataFn(data);
         }
@@ -116,7 +136,7 @@ const LegendControlExtends = L.Control.extend({
         const reactRoot = ReactDOM.createRoot(this._container);
         reactRoot.render(<LegendWrapper setUpdateFn={(fn) => {
             this._setReactDataFn = fn;
-            fn({theme: this.options.theme, legendLabel: this.options.legendLabel, errorLabel: this.options.errorLabel})
+            fn({theme: this.options.theme, legendLabel: this.options.legendLabel, errorLabel: this.options.errorLabel, nightLabel: this.options.nightLabel})
         }} />);
         return this._container;
     },
@@ -134,7 +154,13 @@ const LegendWrapperComponent = createControlComponent(
 
 export default function LegendControl(){
     const t = useTranslations('radar');
-    const ref = useRef()
+    const { resolvedTheme } = useTheme();
+    const ref = useRef<InstanceType<typeof LegendControlExtends>>(null)
+    const data = {theme: resolvedTheme, legendLabel: t('legend'), errorLabel: t('legendError'), nightLabel: t('layers.nightShading')}
 
-    return <LegendWrapperComponent ref={ref} position="topright" legendLabel={t('legend')} errorLabel={t('legendError')} />
+    useEffect(() => {
+        ref.current?.updateData(data)
+    }, [data.theme, data.legendLabel, data.errorLabel, data.nightLabel]);
+
+    return <LegendWrapperComponent ref={ref} position="topright" {...data} />
 }

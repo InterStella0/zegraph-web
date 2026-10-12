@@ -1016,7 +1016,8 @@
       "darkBasemap": "深色底图",
       "livePlayers": "实时玩家",
       "historicalPlayers": "历史玩家",
-      "countries": "国家"
+      "countries": "国家",
+      "nightShading": "夜间阴影"
     },
     "temporal": {
       "interval10min": "10 分钟",

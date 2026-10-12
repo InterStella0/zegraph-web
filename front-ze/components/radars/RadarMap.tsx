@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "compon
 import L from 'leaflet';  // L is used by nontiledlayer
 import 'leaflet.nontiledlayer'
 import { formatDateWMS } from "components/radars/TemporalController.tsx";
+import NightShadingLayer from "components/radars/NightShadingLayer.tsx";
 import { Dayjs } from "dayjs";
 
 
@@ -27,6 +28,8 @@ export default function RadarMap({ dateDisplay, height, fullscreen = false }) {
     const center = [0, 0];
     const timedLayer = useRef(null);
     const maxLimit = dateDisplay ? dateDisplay.end.diff(dateDisplay.start, 'day') > 1 : true
+    const nightShadingTime = dateDisplay ? dateDisplay.start.add(dateDisplay.end.diff(dateDisplay.start) / 2, 'millisecond') : undefined
+    const nightShadingChecked = dateDisplay ? dateDisplay.end.diff(dateDisplay.start, 'minute') <= 60 : true
     const isDarkMode = resolvedTheme === "dark";
     const zoom = fullscreen ? 2 : 1;
     const { server } = useServerData()
@@ -115,6 +118,10 @@ export default function RadarMap({ dateDisplay, height, fullscreen = false }) {
                                 attribution={`&copy; <a href="https://basemap.queeniemella.cc/">queeniemella</a>, &copy; OpenStreetMap contributors`}
                             />
                         </LayersControl.BaseLayer>
+
+                        <LayersControl.Overlay checked={nightShadingChecked} name="Night Shading">
+                            <NightShadingLayer time={nightShadingTime} live={!dateDisplay} />
+                        </LayersControl.Overlay>
 
                         <LayersControl.Overlay checked={false} name="Live Players">
                             <NonTiledWMSLayer

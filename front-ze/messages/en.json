@@ -1016,7 +1016,8 @@
       "darkBasemap": "Dark Basemap",
       "livePlayers": "Live Players",
       "historicalPlayers": "Historical Players",
-      "countries": "Countries"
+      "countries": "Countries",
+      "nightShading": "Night Shading"
     },
     "temporal": {
       "interval10min": "10 minutes",

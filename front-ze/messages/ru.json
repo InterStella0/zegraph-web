@@ -1016,7 +1016,8 @@
       "darkBasemap": "Тёмная базовая карта",
       "livePlayers": "Игроки в реальном времени",
       "historicalPlayers": "Исторические игроки",
-      "countries": "Страны"
+      "countries": "Страны",
+      "nightShading": "Ночная тень"
     },
     "temporal": {
       "interval10min": "10 минут",

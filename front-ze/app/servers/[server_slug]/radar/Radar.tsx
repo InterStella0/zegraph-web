@@ -1,5 +1,5 @@
 'use client'
-import {ReactElement, useEffect, useRef, useState} from "react";
+import {ReactElement, useEffect, useMemo, useRef, useState} from "react";
 import dayjs from "dayjs";
 import L from "leaflet/dist/leaflet-src";
 import {LayersControl, MapContainer, TileLayer} from "react-leaflet";
@@ -12,6 +12,8 @@ import TemporalController, {TemporalContext, TemporalData} from "components/rada
 import StatsComponent from "components/radars/StatComponents.tsx";
 import LegendControl from "components/radars/Legend.tsx";
 import PlayerMapControl from "components/radars/PlayerMapControl";
+import NightShadingLayer from "components/radars/NightShadingLayer.tsx";
+import {getIntervalCallback} from "utils/generalUtils.ts";
 import {useServerData} from "../ServerDataProvider";
 import {useTheme} from "next-themes";
 import { useTranslations } from 'next-intl';
@@ -24,6 +26,10 @@ export default function Radar(): ReactElement {
     const wmsLayerRef = useRef([]);
     const [ temporal, setTemporal ] = useState<TemporalData>({ cursor: dayjs(), interval: '10min', isLive: true})
     const isDarkMode = resolvedTheme === 'dark';
+    const nightShadingTime = useMemo(() => {
+        const end = getIntervalCallback(temporal.interval)(temporal.cursor);
+        return temporal.cursor.add(end.diff(temporal.cursor) / 2, 'millisecond');
+    }, [temporal.cursor, temporal.interval]);
     const center = [0, 0];
     const zoom   = 2;
     const worldBounds = L.latLngBounds(
@@ -85,6 +91,9 @@ export default function Radar(): ReactElement {
                         />
                     </LayersControl.BaseLayer>
 
+                    <LayersControl.Overlay checked={['10min', '30min', '1hour'].includes(temporal.interval)} name={t('layers.nightShading')}>
+                        <NightShadingLayer time={nightShadingTime} live={temporal.isLive} />
+                    </LayersControl.Overlay>
                     <LayersControl.Overlay checked={temporal.isLive} name={t('layers.livePlayers')}>
                         <NonTiledWMSLayer
                             url={formWMSUrl(server?.id, true)}
