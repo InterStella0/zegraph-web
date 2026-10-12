@@ -1234,11 +1234,18 @@ impl<T> PlayerPeriodQuery<T> {
 
 pub const PERIOD_CLOSED_TTL: u64 = 7 * DAY;
 pub const PERIOD_OPEN_TTL: u64 = DAY;
+pub const PERIOD_RANGE_TTL: u64 = HOUR;
 
 pub const LIGHT_RANGE_DAYS: i64 = 31;
 
 pub fn period_ttl(period: &TimePeriod, closed: bool) -> u64 {
-    if period.range_days().is_some() || !closed { PERIOD_OPEN_TTL } else { PERIOD_CLOSED_TTL }
+    if period.range_days().is_some() {
+        PERIOD_RANGE_TTL
+    } else if closed {
+        PERIOD_CLOSED_TTL
+    } else {
+        PERIOD_OPEN_TTL
+    }
 }
 
 pub fn period_priority(period: &TimePeriod, priority: QueryPriority) -> QueryPriority {
@@ -2504,19 +2511,19 @@ mod tests {
             let (pattern, ttl, priority, _) = metadata(&short);
 
             assert_eq!(pattern, format!(concat!($prefix, ":{}:{}:2025-06-01..2025-06-15"), TEST_SERVER, TEST_PLAYER));
-            assert_eq!(ttl, DAY, "{pattern} is a range, so it is cached for a day at most");
+            assert_eq!(ttl, HOUR, "{pattern} is a range, so it is cached for an hour");
             assert!(matches!(priority, QueryPriority::Light), "{pattern} is a short range, so it runs light");
 
             let long: PlayerPeriodQuery<$query> = player_range_query(TEST_LONG_RANGE);
             let (pattern, ttl, priority, _) = metadata(&long);
 
-            assert_eq!(ttl, DAY, "{pattern} is a range, so it is cached for a day at most");
+            assert_eq!(ttl, HOUR, "{pattern} is a range, so it is cached for an hour");
             assert!(matches!(priority, $priority), "{pattern} is a long range, so it keeps its priority");
         }};
     }
 
     #[tokio::test]
-    async fn a_closed_range_is_cached_for_a_day_and_light_only_when_short() {
+    async fn a_closed_range_is_cached_for_an_hour_and_light_only_when_short() {
         assert_range_scoped!(MapPlayed, "player-period-map-played", QueryPriority::Heavy);
         assert_range_scoped!(DbPlayerDetail, "player-period-detail", QueryPriority::Heavy);
         assert_range_scoped!(SessionTime, "player-period-session", QueryPriority::Light);

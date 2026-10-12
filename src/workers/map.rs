@@ -1394,19 +1394,19 @@ mod tests {
             let pattern = short.cache_key_pattern();
 
             assert_eq!(pattern, format!(concat!($prefix, ":{}:{}:2025-06-01..2025-06-15"), TEST_SERVER, TEST_MAP));
-            assert_eq!(short.ttl(), DAY, "{pattern} is a range, so it is cached for a day at most");
+            assert_eq!(short.ttl(), HOUR, "{pattern} is a range, so it is cached for an hour");
             assert!(matches!(short.priority(), QueryPriority::Light), "{pattern} is a short range, so it runs light");
 
             let long: MapPeriodQuery<$query> = map_range_query(TEST_LONG_RANGE);
             let pattern = long.cache_key_pattern();
 
-            assert_eq!(long.ttl(), DAY, "{pattern} is a range, so it is cached for a day at most");
+            assert_eq!(long.ttl(), HOUR, "{pattern} is a range, so it is cached for an hour");
             assert!(matches!(long.priority(), $priority), "{pattern} is a long range, so it keeps its priority");
         }};
     }
 
     #[tokio::test]
-    async fn a_closed_range_is_cached_for_a_day_and_light_only_when_short() {
+    async fn a_closed_range_is_cached_for_an_hour_and_light_only_when_short() {
         assert_range_scoped!(DbMapAnalyze, "map-period-analyze", QueryPriority::Heavy);
         assert_range_scoped!(Vec<DbMapRegion>, "map-period-regions", QueryPriority::Light);
         assert_range_scoped!(Vec<DbMapRegionDate>, "map-period-heat-region", QueryPriority::Light);

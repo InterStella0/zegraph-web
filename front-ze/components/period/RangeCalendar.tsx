@@ -1,5 +1,6 @@
 'use client'
 import {ChevronLeft, ChevronRight} from "lucide-react";
+import {useTranslations} from "next-intl";
 import {cn} from "components/lib/utils";
 
 const TINT = 'color-mix(in oklab, var(--primary) 22%, transparent)';
@@ -27,6 +28,7 @@ export default function RangeCalendar({
     onNext?: () => void,
     nextClassName?: string,
 }) {
+    const t = useTranslations('period');
     const year = Math.floor(month / 12);
     const monthOfYear = month % 12;
     const first = new Date(Date.UTC(year, monthOfYear, 1)).getUTCDay();
@@ -47,11 +49,11 @@ export default function RangeCalendar({
         <div className="flex flex-col gap-2">
             <div className="flex h-8 items-center justify-between">
                 {onPrev
-                    ? <button type="button" className={arrow} onClick={onPrev} aria-label="Previous month"><ChevronLeft className="size-4" /></button>
+                    ? <button type="button" className={arrow} onClick={onPrev} aria-label={t('previousMonth')}><ChevronLeft className="size-4" /></button>
                     : <span className="size-8" />}
                 <span className="text-sm font-semibold">{title}</span>
                 {onNext
-                    ? <button type="button" className={cn(arrow, nextClassName)} onClick={onNext} aria-label="Next month"><ChevronRight className="size-4" /></button>
+                    ? <button type="button" className={cn(arrow, nextClassName)} onClick={onNext} aria-label={t('nextMonth')}><ChevronRight className="size-4" /></button>
                     : <span className="size-8" />}
             </div>
             <div className="grid grid-cols-[repeat(7,36px)] gap-y-1" onMouseLeave={() => onHover(null)}>

@@ -4,7 +4,6 @@ import {useLocale, useTranslations} from "next-intl";
 import {Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight} from "lucide-react";
 import {Button} from "components/ui/button";
 import {Card} from "components/ui/card";
-import {Input} from "components/ui/input";
 import {Popover, PopoverAnchor, PopoverContent, PopoverTrigger} from "components/ui/popover";
 import {Skeleton} from "components/ui/skeleton";
 import {cn} from "components/lib/utils";
@@ -22,6 +21,7 @@ import {
     usePeriodLabel,
 } from "./Period";
 import RangeCalendar, {monthIndex} from "./RangeCalendar";
+import DateField from "./DateField";
 
 const MONTHS = Array.from({length: 12}, (_, i) => i + 1);
 const QUICK_RANGES = [['last7Days', 7], ['last30Days', 30], ['last90Days', 90]] as const;
@@ -171,7 +171,6 @@ export default function PeriodSelector() {
         ['all', t('allTime')],
     ];
 
-    const dateInput = "h-10 [color-scheme:light] dark:[color-scheme:dark]";
 
     return (
         <Card className="flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2">
@@ -267,33 +266,37 @@ export default function PeriodSelector() {
                                             })}
                                         </div>
                                         <div className="flex items-end gap-2.5">
-                                            <label className="flex flex-1 flex-col gap-1">
+                                            <div className="flex flex-1 flex-col gap-1">
                                                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('start')}</span>
-                                                <Input
-                                                    type="date"
-                                                    className={cn(dateInput, !start && !pending && "border-primary")}
+                                                <DateField
+                                                    label={t('start')}
                                                     value={startText ?? (start ? isoDay(start) : '')}
-                                                    min={firstDay ? isoDay(firstDay) : undefined}
-                                                    max={isoDay(end ?? today)}
-                                                    aria-invalid={startInvalid}
-                                                    onChange={e => typeStart(e.target.value)}
+                                                    min={firstDay}
+                                                    max={end ?? today}
+                                                    invalid={startInvalid}
+                                                    highlighted={!start && !pending}
+                                                    pickLabel={t('pickDate')}
+                                                    onChange={typeStart}
+                                                    onPick={day => { typeStart(isoDay(day)); setStartText(null); }}
                                                     onBlur={() => setStartText(null)}
                                                 />
-                                            </label>
+                                            </div>
                                             <span className="pb-2.5 text-muted-foreground">→</span>
-                                            <label className="flex flex-1 flex-col gap-1">
+                                            <div className="flex flex-1 flex-col gap-1">
                                                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('end')}</span>
-                                                <Input
-                                                    type="date"
-                                                    className={cn(dateInput, pending && "border-primary")}
+                                                <DateField
+                                                    label={t('end')}
                                                     value={endText ?? (end ? isoDay(end) : '')}
-                                                    min={start ? isoDay(start) : firstDay ? isoDay(firstDay) : undefined}
-                                                    max={isoDay(today)}
-                                                    aria-invalid={endInvalid}
-                                                    onChange={e => typeEnd(e.target.value)}
+                                                    min={start ?? firstDay}
+                                                    max={today}
+                                                    invalid={endInvalid}
+                                                    highlighted={pending}
+                                                    pickLabel={t('pickDate')}
+                                                    onChange={typeEnd}
+                                                    onPick={day => { typeEnd(isoDay(day)); setEndText(null); }}
                                                     onBlur={() => setEndText(null)}
                                                 />
-                                            </label>
+                                            </div>
                                         </div>
                                         <div className="flex justify-center gap-6">
                                             {[view, view + 1].map((month, side) => (

@@ -96,8 +96,8 @@ export default function PlayTimeHeatmap({
             case 'daily':
                 if (rangeFrom && rangeTo) {
                     return rawData.filter(d => {
-                        const iso = dayjs.utc(d.bucket_time).format("YYYY-MM-DD")
-                        return iso >= rangeFrom && iso <= rangeTo
+                        const day = dayjs.utc(d.bucket_time).startOf('day')
+                        return !day.isBefore(dayjs.utc(rangeFrom)) && !day.isAfter(dayjs.utc(rangeTo))
                     })
                 }
                 return rawData.filter(d => dayjs.utc(d.bucket_time).year() === selectedYear)
@@ -141,8 +141,8 @@ export default function PlayTimeHeatmap({
             })
 
             // Generate all days for the selected year, or the selected range
-            const startOfYear = dayjs(rangeFrom ?? `${selectedYear}-01-01`)
-            const endOfYear = dayjs(rangeTo ?? `${selectedYear}-12-31`)
+            const startOfYear = rangeFrom ? dayjs.utc(rangeFrom) : dayjs(`${selectedYear}-01-01`)
+            const endOfYear = rangeTo ? dayjs.utc(rangeTo) : dayjs(`${selectedYear}-12-31`)
             let currentDate = startOfYear
 
             while (currentDate.isBefore(endOfYear) || currentDate.isSame(endOfYear, 'day')) {
@@ -256,7 +256,7 @@ export default function PlayTimeHeatmap({
         switch (groupBy) {
             case 'daily': {
                 if (!rangeFrom || !rangeTo) return { width: '1025px', cols: 53, rows: 7 }
-                const cols = Math.ceil((dayjs(rangeTo).diff(dayjs(rangeFrom), 'day') + 1) / 7) + 1
+                const cols = Math.ceil((dayjs.utc(rangeTo).diff(dayjs.utc(rangeFrom), 'day') + 1) / 7) + 1
                 return { width: `${cols * 19 + 40}px`, cols, rows: 7 }
             }
             case 'monthly':
