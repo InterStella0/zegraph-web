@@ -2,16 +2,18 @@
 import Link from 'next/link';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { getRecentSupporters, RecentSupporter } from 'utils/supporters';
+import { getRecentSupporters, getTopSupporters, RecentSupporter } from 'utils/supporters';
 
 const LS_KEY = 'donor_banner_dismissed';
 
 export function DonorBanner() {
   const [donors, setDonors] = useState<RecentSupporter[] | null>(null);
+  const [allNames, setAllNames] = useState<string[]>([]);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     getRecentSupporters(10).then(setDonors);
+    getTopSupporters(50).then((top) => setAllNames(top.map((s) => s.name)));
   }, []);
 
   useEffect(() => {
@@ -22,10 +24,12 @@ export function DonorBanner() {
   if (!donors || donors.length === 0 || dismissed) return null;
 
   // Already newest first; the same supporter can appear more than once.
-  const uniqueNames = [...new Set(donors.map((d) => d.name))];
+  const recentNames = donors.map((d) => d.name);
+  const uniqueNames = [...new Set(recentNames)];
+  const totalNames = new Set([...allNames, ...recentNames]);
   const latestId = donors[0].created_at;
   const shown = uniqueNames.slice(0, 3);
-  const remaining = uniqueNames.length - shown.length;
+  const remaining = totalNames.size - shown.length;
   const names = shown.join(', ');
   const suffix = remaining > 0 ? ` +${remaining} more` : '';
 

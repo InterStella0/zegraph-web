@@ -23,8 +23,8 @@ async function fetchSupporters<T>(url: string): Promise<T[]> {
   }
 }
 
-export function getTopSupporters(): Promise<TopSupporter[]> {
-  return fetchSupporters<TopSupporter>(`${SUPPORTERS_ROOT}/top`);
+export function getTopSupporters(limit = 10): Promise<TopSupporter[]> {
+  return fetchSupporters<TopSupporter>(`${SUPPORTERS_ROOT}/top?limit=${limit}`);
 }
 
 export function getRecentSupporters(limit = 10): Promise<RecentSupporter[]> {
