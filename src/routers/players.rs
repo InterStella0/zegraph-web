@@ -26,6 +26,7 @@ pub struct PlayerApi;
 
 pub const PLAYER_DEFAULT_KEY: &str = "first-time";
 pub const NIDE_SERVER_ID: &str = "7ae2ca188ebf8be21d4f42b2827153ac";
+pub const COLA_BANS_SOURCE: &str = "https://bans.cola-team.es";
 #[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct PlayerInfractionUpdateData {
@@ -815,11 +816,11 @@ impl PlayerApi{
     /// from its originating anti-cheat/ban-tracking service in parallel.
     #[oai(path = "/servers/:server_id/players/:player_id/infraction_update", method="get")]
     async fn get_force_player_infraction_update(
-        &self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, player_id: Path<i64>,
+        &self, data: Data<&AppData>, extract: PlayerExtractor,
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<PlayerInfractionUpdate>{
         let pool = &*data.pool.clone();
-        let rows = if server.server_id == NIDE_SERVER_ID{
+        let rows = if extract.server.server_id == NIDE_SERVER_ID{
             sqlx::query_as!(DbPlayerInfraction, "
                 UPDATE public.server_infractions
                 SET pending_update = TRUE
@@ -833,7 +834,7 @@ impl PlayerApi{
                     NULL AS admin_avatar,
                     (payload->>'flags')::bigint AS flags,
                     to_timestamp((payload->>'invoked_on')::double precision::bigint) AS infraction_time
-            ", player_id.0.to_string(), server.server_id).fetch_all(pool).await
+            ", extract.player.player_id, extract.server.server_id).fetch_all(pool).await
         }else{
             sqlx::query_as!(DbPlayerInfraction, "
                 UPDATE public.server_infractions
@@ -849,7 +850,7 @@ impl PlayerApi{
                     payload->'admin'->>'avatar_id' AS admin_avatar,
                     (payload->>'flags')::bigint AS flags,
                     to_timestamp((payload->>'created')::double precision::bigint) AS infraction_time
-            ", player_id.0.to_string(), server.server_id).fetch_all(pool).await
+            ", extract.player.associated_player_id.clone().unwrap_or(extract.player.player_id.clone()), extract.server.server_id).fetch_all(pool).await
         };
         let Ok(result) = rows else {
             return response!(internal_server_error)
@@ -858,11 +859,15 @@ impl PlayerApi{
         let mut tasks = vec![];
         for infraction in result {
             let task = task::spawn(async move {
-                let new_infraction = match fetch_infraction(&infraction.infraction_id, &infraction.source).await {
-                    Ok(result) => Some(result),
-                    Err(e) => {
-                        tracing::warn!("Something went wrong fetching {} ({}): {e}", infraction.infraction_id, infraction.source);
-                        None
+                let new_infraction = if infraction.source.starts_with(COLA_BANS_SOURCE) {
+                    None
+                } else {
+                    match fetch_infraction(&infraction.infraction_id, &infraction.source).await {
+                        Ok(result) => Some(result),
+                        Err(e) => {
+                            tracing::warn!("Something went wrong fetching {} ({}): {e}", infraction.infraction_id, infraction.source);
+                            None
+                        }
                     }
                 };
                 InfractionCombined {
@@ -880,7 +885,7 @@ impl PlayerApi{
             .filter_map(Result::ok)
             .collect();
         response!(ok PlayerInfractionUpdate {
-            id: player_id.0,
+            id: extract.player.player_id.clone(),
             infractions: fake_update.iter_into(),
         })
     }
@@ -918,7 +923,7 @@ impl PlayerApi{
                     AND payload->>'server_id' = $2
                     AND payload->'player'->>'gs_id' = $1
                 ORDER BY infraction_time DESC
-            ", extract.player.player_id, extract.server.server_id).fetch_all(pool).await
+            ", extract.player.associated_player_id.clone().unwrap_or(extract.player.player_id.clone()), extract.server.server_id).fetch_all(pool).await
         };
         let Ok(result) = sql else {
             return response!(internal_server_error)

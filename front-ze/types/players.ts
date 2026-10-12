@@ -49,7 +49,7 @@ export type PlayerInfraction = {
 
 
 export type PlayerInfractionUpdate = {
-    id: number,
+    id: string,
     infractions: PlayerInfraction[],
 }
 export interface PlayerBase{

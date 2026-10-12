@@ -327,7 +327,7 @@ pub struct PlayerInfraction{
 
 #[derive(Object)]
 pub struct PlayerInfractionUpdate{
-    pub id: i64,
+    pub id: String,
     pub infractions: Vec<PlayerInfraction>,
 }
 
