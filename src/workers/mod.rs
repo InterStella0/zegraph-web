@@ -333,6 +333,17 @@ pub struct MapContext{
     pub map: DbMap,
     pub cache_key: CacheKey,
 }
+impl MapContext {
+    pub fn period_data(&self, period: TimePeriod) -> MapPeriodData {
+        MapPeriodData {
+            map_name: self.map.map.clone(),
+            server_id: self.server.server_id.clone(),
+            current_session: self.cache_key.current.clone(),
+            period,
+            closed: period.is_closed(chrono::Utc::now()),
+        }
+    }
+}
 pub type WorkResult<T> = Result<T, WorkError>;
 
 #[derive(Clone)]
@@ -370,6 +381,17 @@ pub struct PlayerSessionData{
 pub struct MapData{
     pub map_name: String,
     pub server_id: String,
+}
+
+/// A map on a server over one calendar period, with `closed` fixed at build time as in
+/// `PlayerPeriodData`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MapPeriodData{
+    pub map_name: String,
+    pub server_id: String,
+    pub current_session: String,
+    pub period: TimePeriod,
+    pub closed: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -703,7 +725,7 @@ mod cache_key_tests {
     use crate::models::maps::*;
     use crate::models::players::*;
     use crate::models::servers::DbServerMapPartial;
-    use super::test_support::{map_query, player_global_query, player_period_query, player_query, player_session_query};
+    use super::test_support::{map_period_query, map_query, player_global_query, player_period_query, player_query, player_session_query};
     use super::WorkerQuery;
 
     #[tokio::test]
@@ -739,6 +761,12 @@ mod cache_key_tests {
             player_period_query::<Vec<DbPlayerOnlineHeatmap>>(true).cache_key_pattern(),
             player_period_query::<Vec<DbPlayerRegionTime>>(true).cache_key_pattern(),
             player_period_query::<Vec<DbPlayerSeen>>(true).cache_key_pattern(),
+            map_period_query::<DbMapAnalyze>(true).cache_key_pattern(),
+            map_period_query::<Vec<DbMapRegion>>(true).cache_key_pattern(),
+            map_period_query::<Vec<DbMapRegionDate>>(true).cache_key_pattern(),
+            map_period_query::<Vec<DbMapSessionDistribution>>(true).cache_key_pattern(),
+            map_period_query::<Vec<DbMapPlayerTypeTime>>(true).cache_key_pattern(),
+            map_period_query::<Vec<DbMapPeriodPlayer>>(true).cache_key_pattern(),
         ];
 
         let unique: HashSet<&String> = patterns.iter().collect();
@@ -746,6 +774,6 @@ mod cache_key_tests {
             unique.len(), patterns.len(),
             "two WorkerQuery impls resolve to the same cache key; patterns were {patterns:#?}",
         );
-        assert_eq!(patterns.len(), 30, "every WorkerQuery impl must be listed here");
+        assert_eq!(patterns.len(), 36, "every WorkerQuery impl must be listed here");
     }
 }

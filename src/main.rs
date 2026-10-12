@@ -549,6 +549,38 @@ mod route_tests {
         }
     }
 
+    /// The map routes declare `period` before the map extractor too, so the same split holds: a bad
+    /// value is a 400 from request validation, a valid one reaches the map lookup and 404s.
+    #[tokio::test]
+    async fn map_routes_validate_period_before_the_database() {
+        let cli = client();
+        for route in [
+            "analyze", "regions", "heat-regions", "sessions_distribution", "player_types", "top_players",
+            "sessions?page=0",
+        ] {
+            let base = format!("/servers/1/maps/ze_test_map_v1/{route}");
+            let join = if route.contains('?') { '&' } else { '?' };
+            for bad in ["2025-13", "2025-6x", "abcd", "2023", "2999-01"] {
+                assert_eq!(
+                    send(&cli, "GET", &format!("{base}{join}period={bad}"), None).await,
+                    poem::http::StatusCode::BAD_REQUEST,
+                    "GET {base}{join}period={bad} should fail validation",
+                );
+            }
+            for good in ["2025", "2025-06", "all"] {
+                assert_eq!(
+                    send(&cli, "GET", &format!("{base}{join}period={good}"), None).await,
+                    poem::http::StatusCode::NOT_FOUND,
+                    "GET {base}{join}period={good} should pass validation and reach the map lookup",
+                );
+            }
+        }
+        assert_eq!(
+            send(&cli, "GET", "/servers/1/maps/ze_test_map_v1/periods", None).await,
+            poem::http::StatusCode::NOT_FOUND,
+        );
+    }
+
     /// Documents the shape of the public route surface. Unlike the test above this cannot detect
     /// the poem-openapi regression, but it does catch a route being renamed or dropped outright.
     #[test]
@@ -843,7 +875,7 @@ mod route_tests {
         let cli = client();
         let (_, body) = mcp(&cli, rpc(1, "tools/list", serde_json::Value::Null)).await;
         let tools = body["result"]["tools"].as_array().expect("a tools array");
-        assert_eq!(tools.len(), 39);
+        assert_eq!(tools.len(), 40);
         for tool in tools {
             assert_eq!(tool["inputSchema"]["type"], "object", "{tool:#}");
             assert!(tool["description"].as_str().is_some_and(|d| !d.is_empty()), "{tool:#}");

@@ -515,18 +515,18 @@
       "periodCalculating": "Sedang mengira siapa yang bermain bersamanya dalam tempoh ini...",
       "periodEmpty": "Tidak bermain dengan sesiapa dalam tempoh ini.",
       "periodNoMatches": "Tiada sesiapa yang sepadan dengan \"{query}\" dalam senarai tempoh ini."
-    },
-    "period": {
-      "label": "Tempoh masa",
-      "allTime": "Sepanjang masa",
-      "allTimeDescription": "Setiap sesi sejak penjejakan bermula.",
-      "noPeriods": "Belum ada sesi lengkap untuk memilih tempoh.",
-      "wholeYear": "Sepanjang {year}",
-      "done": "Selesai",
-      "hint": "Semua metrik di bawah ditapis mengikut tempoh yang dipilih.",
-      "previous": "Tempoh sebelumnya",
-      "next": "Tempoh seterusnya"
     }
+  },
+  "period": {
+    "label": "Tempoh masa",
+    "allTime": "Sepanjang masa",
+    "allTimeDescription": "Setiap sesi sejak penjejakan bermula.",
+    "noPeriods": "Belum ada sesi lengkap untuk memilih tempoh.",
+    "wholeYear": "Sepanjang {year}",
+    "done": "Selesai",
+    "hint": "Semua metrik di bawah ditapis mengikut tempoh yang dipilih.",
+    "previous": "Tempoh sebelumnya",
+    "next": "Tempoh seterusnya"
   },
   "sessions": {
     "matchScoreProgression": "Kemajuan Markah Perlawanan",

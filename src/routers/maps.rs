@@ -14,6 +14,7 @@ use crate::api_models::misc::*;
 use crate::api_models::players::*;
 use crate::api_models::radars::*;
 use crate::api_models::servers::*;
+use crate::core::period::{flatten_period, group_periods, DbPeriodMonth, PeriodParam, PeriodYear};
 use crate::core::utils::*;
 use crate::models::admins::*;
 use crate::models::maps::*;
@@ -451,42 +452,57 @@ impl MapApi{
 
     /// Time breakdown by player type (e.g. casual vs tryhard) for a map. Backed by
     /// `MapWorker`'s cache.
+    ///
+    /// `period` narrows the figures to the map sessions that started in one UTC calendar year
+    /// (`YYYY`) or month (`YYYY-MM`); `all` or no value is all-time. A period is calculated on request
+    /// and only cached, so its first request may report that it is still calculating.
     #[oai(path = "/servers/:server_id/maps/:map_name/player_types", method = "get", operation_id = "get_map_player_types", tag = "ApiTags::Mcp")]
     async fn get_map_player_type(
-        &self, Data(app): Data<&AppData>, extract: MapExtractor
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
     ) -> Response<Vec<MapPlayerTypeTime>>{
         let context = MapContext::from(extract);
 
-        handle_worker_map_result(app.map_worker.get_player_types(&context).await)
+        handle_worker_map_result(app.map_worker.get_player_types(&context, flatten_period(period)).await)
     }
 
     /// Performance metrics for a map: dropoff rate, average session length and similar. Backed
     /// by `MapWorker`'s cache.
+    ///
+    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) every figure covers only the completed map
+    /// sessions that started in that year or month. A period is calculated on request and only
+    /// cached, with no stored fallback, so its first request reports still calculating.
     #[oai(path = "/servers/:server_id/maps/:map_name/analyze", method = "get", operation_id = "get_map_analysis", tag = "ApiTags::Mcp")]
     async fn get_maps_highlight(
-        &self, Data(app): Data<&AppData>, extract: MapExtractor
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
     ) -> Response<MapAnalyze>{
         let context = MapContext::from(extract);
-        handle_worker_map_result(app.map_worker.get_statistics(&context).await)
+        handle_worker_map_result(app.map_worker.get_statistics(&context, flatten_period(period)).await)
     }
     /// Paginated list of a single map's play sessions on a server, newest first.
     ///
-    /// Pages are 5 sessions each.
+    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) only the sessions that started in that year or
+    /// month are listed. Pages are 5 sessions each.
     #[oai(path = "/servers/:server_id/maps/:map_name/sessions", method = "get", operation_id = "get_map_sessions", tag = "ApiTags::Mcp")]
     async fn get_maps_sessions(
-        &self, Data(app): Data<&AppData>, extract: MapExtractor, Query(page): Query<usize>
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
+        extract: MapExtractor, Query(page): Query<usize>
     ) -> Response<ServerMapPlayedPaginated>{
         let pagination = 5;
         let offset = pagination * page as i64;
+        let period = flatten_period(period);
+        let start = period.map(|p| p.start().to_db_time());
+        let end = period.map(|p| p.end().to_db_time());
 
         let Ok(result) = sqlx::query_as!(DbServerMapPlayed,
             "SELECT *, COUNT(time_id) OVER()::integer AS total_sessions
                 FROM server_map_played
                 WHERE server_id=$1 AND map=$2
+                  AND ($5::timestamptz IS NULL OR started_at >= $5)
+                  AND ($6::timestamptz IS NULL OR started_at < $6)
                 ORDER BY started_at DESC
                 LIMIT $3
                 OFFSET $4",
-            extract.server.server_id, extract.map.map, pagination, offset
+            extract.server.server_id, extract.map.map, pagination, offset, start, end
         ).fetch_all(&*app.pool).await else {
             return response!(err "Could not fetch this map's page", ErrorCode::NotFound)
         };
@@ -817,39 +833,81 @@ impl MapApi{
         let context = MapContext::from(extract);
         handle_worker_map_result(app.map_worker.get_events(&context).await)
     }
-    /// Per-day geographic heat map data for a map's player activity. Backed by `MapWorker`'s
-    /// cache.
+    /// Per-day geographic heat map data for a map's player activity, over the last year. Backed by
+    /// `MapWorker`'s cache.
+    ///
+    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the days cover that year or month instead, from
+    /// the map sessions that started in it. A period is calculated on request and only cached, so
+    /// its first request may report that it is still calculating.
     #[oai(path="/servers/:server_id/maps/:map_name/heat-regions", method="get", operation_id = "get_map_heat_regions", tag = "ApiTags::Mcp")]
     async fn get_heat_regions(
-        &self, Data(app): Data<&AppData>, extract: MapExtractor
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
     ) -> Response<Vec<DailyMapRegion>> {
         let context = MapContext::from(extract);
-        handle_worker_map_result(app.map_worker.get_heat_regions(&context).await)
+        handle_worker_map_result(app.map_worker.get_heat_regions(&context, flatten_period(period)).await)
     }
-    /// Geographic region breakdown for a map's players. Backed by `MapWorker`'s cache.
+    /// Geographic region breakdown for a map's players, over the last year. Backed by `MapWorker`'s
+    /// cache.
+    ///
+    /// `period` narrows the figures to the map sessions that started in one UTC calendar year
+    /// (`YYYY`) or month (`YYYY-MM`); `all` or no value is all-time. A period is calculated on request
+    /// and only cached, so its first request may report that it is still calculating.
     #[oai(path="/servers/:server_id/maps/:map_name/regions", method="get", operation_id = "get_map_regions", tag = "ApiTags::Mcp")]
     async fn get_map_regions(
-        &self, Data(app): Data<&AppData>, extract: MapExtractor
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
     ) -> Response<Vec<MapRegion>>{
         let context = MapContext::from(extract);
-        handle_worker_map_result(app.map_worker.get_regions(&context).await)
+        handle_worker_map_result(app.map_worker.get_regions(&context, flatten_period(period)).await)
     }
     /// Distribution of session lengths for a map (how long players typically stay). Backed by
     /// `MapWorker`'s cache.
+    ///
+    /// `period` narrows the figures to the map sessions that started in one UTC calendar year
+    /// (`YYYY`) or month (`YYYY-MM`); `all` or no value is all-time. A period is calculated on request
+    /// and only cached, so its first request may report that it is still calculating.
     #[oai(path="/servers/:server_id/maps/:map_name/sessions_distribution", method="get", operation_id = "get_map_session_distribution", tag = "ApiTags::Mcp")]
     async fn get_map_sessions_distribution(
-        &self, Data(app): Data<&AppData>, extract: MapExtractor
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor
     ) -> Response<Vec<MapSessionDistribution>>{
         let context = MapContext::from(extract);
-        handle_worker_map_result(app.map_worker.get_session_distributions(&context).await)
+        handle_worker_map_result(app.map_worker.get_session_distributions(&context, flatten_period(period)).await)
+    }
+    /// The UTC years and months in which a map has completed sessions on a server, newest year
+    /// first, for choosing a `period` on the other map routes.
+    #[oai(path = "/servers/:server_id/maps/:map_name/periods", method = "get", operation_id = "get_map_periods", tag = "ApiTags::Mcp")]
+    async fn get_map_periods(
+        &self, Data(app): Data<&AppData>, extract: MapExtractor
+    ) -> Response<Vec<PeriodYear>>{
+        let server_id = &extract.server.server_id;
+        let map_name = &extract.map.map;
+        let pool = &*app.pool;
+        let func = || sqlx::query_as!(DbPeriodMonth, "
+            SELECT DISTINCT
+                EXTRACT(YEAR FROM started_at AT TIME ZONE 'UTC')::int AS \"year!\",
+                EXTRACT(MONTH FROM started_at AT TIME ZONE 'UTC')::int AS \"month!\"
+            FROM server_map_played
+            WHERE server_id = $1 AND map = $2 AND ended_at IS NOT NULL
+            ORDER BY 1 DESC, 2
+        ", server_id, map_name).fetch_all(pool);
+
+        let key = format!("map-periods:{server_id}:{map_name}:{}", extract.cache_key.current);
+        let Ok(result) = cached_response(&key, &app.cache, DAY, func).await else {
+            return response!(internal_server_error)
+        };
+        response!(ok group_periods(result.result))
     }
     /// Top players on a map, ranked by playtime, with optional name search.
     ///
     /// `player_name` (minimum 2 characters) filters to matching players; pages are 10 players
     /// each.
+    ///
+    /// With a `period` (`YYYY` or `YYYY-MM`, UTC) the list is instead the top 100 by time in the map
+    /// sessions that started in that year or month, calculated on request and only cached, so its
+    /// first request may report that it is still calculating. In a period, `player_name` only
+    /// filters whatever is already cached and never starts the calculation.
     #[oai(path = "/servers/:server_id/maps/:map_name/top_players", method = "get", operation_id = "get_map_top_players", tag = "ApiTags::Mcp")]
     async fn get_map_players(
-        &self, Data(app): Data<&AppData>, extract: MapExtractor,
+        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor,
         Query(page): Query<Option<usize>>, Query(player_name): Query<Option<String>>,
         OptionalTokenBearer(user_token): OptionalTokenBearer,
     ) -> Response<BriefPlayers>{
@@ -862,6 +920,27 @@ impl MapApi{
         let player_name = player_name
             .map(|n| n.trim().to_string())
             .filter(|n| n.len() >= 2);
+
+        if let Some(period) = flatten_period(period) {
+            let context = MapContext::from(extract);
+            let rows = match app.map_worker.get_period_top_players(&context, period, player_name.as_deref()).await {
+                Ok(rows) => rows,
+                Err(e) => return handle_worker_map_result(Err(e)),
+            };
+            let mut players: Vec<PlayerBrief> = rows.iter_into();
+            let anonymizer = BriefAnonymizer::new(app, &server_id, user_token.as_ref().map(|t| t.id)).await;
+            if player_name.is_some() {
+                anonymizer.retain_visible(&mut players);
+            } else {
+                anonymizer.apply(&mut players);
+            }
+            let total_players = players.len() as i64;
+            let players = players.into_iter()
+                .skip(offset as usize)
+                .take(pagination_size as usize)
+                .collect();
+            return response!(ok BriefPlayers { total_players, players })
+        }
 
         let (rows, is_new) = match &player_name {
             Some(player_name) => {
@@ -1980,6 +2059,7 @@ impl UriPatternExt for MapApi{
             "/servers/{server_id}/maps/{map_name}/sessions_distribution",
             "/servers/{server_id}/maps/{map_name}/top_players",
             "/servers/{server_id}/maps/{map_name}/player_types",
+            "/servers/{server_id}/maps/{map_name}/periods",
             "/servers/{server_id}/maps/{map_name}/musics",
             "/servers/{server_id}/sessions/{session_id}/players",
             "/servers/{server_id}/sessions/{session_id}/info",

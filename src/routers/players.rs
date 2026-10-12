@@ -14,7 +14,7 @@ use crate::{response, AppData, FastCache};
 use crate::api_models::common::*;
 use crate::api_models::players::*;
 use crate::api_models::radars::CountryStatistic;
-use crate::core::period::{flatten_period, PeriodParam};
+use crate::core::period::{flatten_period, group_periods, DbPeriodMonth, PeriodParam, PeriodYear};
 use crate::core::utils::*;
 use crate::models::players::*;
 use crate::models::radars::DbCountryStatistic;
@@ -204,17 +204,6 @@ struct ServerPlayersStatistic{
 #[derive(Object)]
 struct ServerCountriesStatistics{
     countries: Vec<CountryStatistic>
-}
-
-fn group_periods(months: Vec<DbPlayerPeriodMonth>) -> Vec<PlayerPeriodYear> {
-    let mut years: Vec<PlayerPeriodYear> = vec![];
-    for row in months {
-        match years.last_mut() {
-            Some(year) if year.year == row.year => year.months.push(row.month),
-            _ => years.push(PlayerPeriodYear { year: row.year, months: vec![row.month] }),
-        }
-    }
-    years
 }
 
 fn handle_worker_player_result<T>(result: WorkResult<T>) -> Response<T>
@@ -952,11 +941,11 @@ impl PlayerApi{
     async fn get_player_periods(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
-    ) -> Response<Vec<PlayerPeriodYear>>{
+    ) -> Response<Vec<PeriodYear>>{
         let server_id = &extract.server.server_id;
         let player_id = &extract.player.player_id;
         let pool = &*app.pool;
-        let func = || sqlx::query_as!(DbPlayerPeriodMonth, "
+        let func = || sqlx::query_as!(DbPeriodMonth, "
             SELECT DISTINCT
                 EXTRACT(YEAR FROM m)::int AS \"year!\",
                 EXTRACT(MONTH FROM m)::int AS \"month!\"

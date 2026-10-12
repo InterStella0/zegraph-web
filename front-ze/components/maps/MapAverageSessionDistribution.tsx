@@ -10,6 +10,7 @@ import { Skeleton } from "../ui/skeleton";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import SkeletonBarGraph from "../graphs/SkeletonBarGraph.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {PeriodChip, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {MapSessionDistribution} from "types/maps.ts";
@@ -20,6 +21,7 @@ import {useTranslations} from 'next-intl';
 function AverageSessionDistribution() {
     const t = useTranslations('maps.sessionDistribution');
     const { name } = useMapContext();
+    const { period } = usePeriod();
     const [detail, setDetail] = useState<MapSessionDistribution[] | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ function AverageSessionDistribution() {
         setLoading(true)
         setDetail(null)
         setNotReady(false)
-        fetchServerUrl(server_id, `/maps/${name}/sessions_distribution`)
+        fetchServerUrl(server_id, `/maps/${name}/sessions_distribution`, period ? { params: { period } } : {})
             .then((data: MapSessionDistribution[]) => {
                 setDetail(data);
             })
@@ -42,7 +44,7 @@ function AverageSessionDistribution() {
                 setError(err.message || t('somethingWrong'));
             })
             .finally(() => setLoading(false))
-    }, [server_id, name, retryTick]);
+    }, [server_id, name, period, retryTick]);
 
     const labels = {
         "Under 10": t('under10'),
@@ -204,7 +206,10 @@ function AverageSessionDistribution() {
     return (
         <Card className="p-6 rounded-lg transition-transform duration-300">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
+                    <PeriodChip />
+                </div>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>

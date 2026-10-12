@@ -12,6 +12,7 @@ import {fetchApiServerUrl, fetchServerUrl, StillCalculate} from "utils/generalUt
 import PlayerTableRow, {PlayerTableRowLoading} from "../players/PlayerTableRow.tsx";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {PeriodChip, usePeriod} from "components/period/Period";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {BriefPlayers, ExtendedPlayerBrief, SearchPlayer} from "types/players.ts";
@@ -27,6 +28,7 @@ const COMMIT_DEBOUNCE_MS = 2000
 function MapTopPlayerListDisplay(): ReactElement{
     const t = useTranslations('maps.top10');
     const { name } = useMapContext()
+    const { period } = usePeriod()
     const [ currentPage, setPage ] = useState<number>(0)
     const pageDef = useDeferredValue(currentPage)
     const [ playersInfoResult, setPlayerInfo ] = useState<BriefPlayers | null>(null)
@@ -52,13 +54,13 @@ function MapTopPlayerListDisplay(): ReactElement{
         setSearchTerm('')
         setSuggestions([])
         setSuggestionsOpen(false)
-    }, [server_id, name])
+    }, [server_id, name, period])
 
     useEffect(() => {
         const abortController = new AbortController()
         const signal = abortController.signal
         setLoading(true)
-        fetchServerUrl(server_id, `/maps/${name}/top_players`, { params: { page: pageDef, ...(searchTerm && { player_name: searchTerm }) }, signal })
+        fetchServerUrl(server_id, `/maps/${name}/top_players`, { params: { page: pageDef, ...(searchTerm && { player_name: searchTerm }), ...(period && { period }) }, signal })
             .then((data: BriefPlayers) => {
                 for(const p of data.players)
                     (p as ExtendedPlayerBrief).server_id = server_id
@@ -75,7 +77,7 @@ function MapTopPlayerListDisplay(): ReactElement{
         return () => {
             abortController.abort("Value changed")
         }
-    }, [server_id, name, pageDef, searchTerm, retryTick])
+    }, [server_id, name, pageDef, searchTerm, period, retryTick])
 
     useEffect(() => {
         const trimmed = searchInput.trim()
@@ -158,7 +160,10 @@ function MapTopPlayerListDisplay(): ReactElement{
     return (
         <Card className="w-full">
             <div className="px-4 pt-4 pb-1 flex justify-between">
-                <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
+                    <PeriodChip />
+                </div>
                 <div>
                     <TooltipProvider>
                         <Tooltip>

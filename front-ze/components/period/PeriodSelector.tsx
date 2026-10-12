@@ -7,20 +7,14 @@ import {Card} from "components/ui/card";
 import {Popover, PopoverAnchor, PopoverContent, PopoverTrigger} from "components/ui/popover";
 import {Skeleton} from "components/ui/skeleton";
 import {cn} from "components/lib/utils";
-import {
-    formatPeriodMonth,
-    monthPeriod,
-    splitPeriod,
-    usePeriodLabel,
-    usePlayerPeriod,
-} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {formatPeriodMonth, monthPeriod, splitPeriod, usePeriod, usePeriodLabel} from "./Period";
 
 const MONTHS = Array.from({length: 12}, (_, i) => i + 1);
 
-export default function PlayerPeriodSelector() {
-    const t = useTranslations('players.period');
+export default function PeriodSelector() {
+    const t = useTranslations('period');
     const locale = useLocale();
-    const {period, setPeriod, periods} = usePlayerPeriod();
+    const {period, setPeriod, periods} = usePeriod();
     const label = usePeriodLabel(period);
     const [open, setOpen] = useState(false);
     const [viewYear, setViewYear] = useState<number | null>(null);

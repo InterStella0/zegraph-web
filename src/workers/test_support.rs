@@ -12,10 +12,10 @@ use crate::core::push_service::PushNotificationService;
 use crate::core::storage::{AnnouncementStorage, CharacterStorage, CommunityStorage, MapStorage, StorageBackend};
 use crate::routers::misc::{HealthMonitor, LiveEventHub};
 use crate::{AppData, FastCache};
-use super::map::{MapBasicQuery, MapWorker};
+use super::map::{MapBasicQuery, MapPeriodQuery, MapWorker};
 use super::player::{PlayerBasicQuery, PlayerGlobalQuery, PlayerPeriodQuery, PlayerSessionQuery, PlayerWorker};
 use crate::core::period::TimePeriod;
-use super::{MapData, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query};
+use super::{MapData, MapPeriodData, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query};
 
 /// Port 1 is reserved and never listened on, so `connect_lazy` yields a pool that can be held
 const DEAD_POSTGRES: &str = "postgres://test:test@127.0.0.1:1/test";
@@ -121,6 +121,16 @@ pub fn map_data() -> MapData {
     }
 }
 
+pub fn map_period_data(closed: bool) -> MapPeriodData {
+    MapPeriodData {
+        map_name: TEST_MAP.to_string(),
+        server_id: TEST_SERVER.to_string(),
+        current_session: TEST_SESSION.to_string(),
+        period: if closed { TEST_CLOSED_PERIOD } else { TEST_OPEN_PERIOD },
+        closed,
+    }
+}
+
 pub fn player_global_data() -> PlayerGlobalData {
     PlayerGlobalData { canonical_id: TEST_PLAYER.to_string() }
 }
@@ -148,4 +158,8 @@ pub fn player_global_query<T>() -> PlayerGlobalQuery<T> {
 
 pub fn player_period_query<T>(closed: bool) -> PlayerPeriodQuery<T> {
     PlayerPeriodQuery::raw(Query { pool: fake_pool(), cache: fake_cache(), data: player_period_data(closed) })
+}
+
+pub fn map_period_query<T>(closed: bool) -> MapPeriodQuery<T> {
+    MapPeriodQuery::raw(Query { pool: fake_pool(), cache: fake_cache(), data: map_period_data(closed) })
 }

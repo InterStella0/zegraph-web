@@ -3,13 +3,17 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::{Pool, Postgres};
+use sqlx::types::time::OffsetDateTime;
 use crate::api_models::maps::*;
+use crate::core::period::TimePeriod;
 use crate::core::utils::*;
 use crate::FastCache;
 use crate::models::admins::DbEvent;
 use crate::models::maps::*;
+use crate::models::players::DbPlayerBrief;
 use crate::models::servers::*;
-use super::{BackgroundWorker, JobKind, MapContext, MapData, Query, QueryPriority, WorkResult, WorkerQuery};
+use super::player::{PERIOD_CLOSED_TTL, PERIOD_OPEN_TTL};
+use super::{BackgroundWorker, JobKind, MapContext, MapData, MapPeriodData, Query, QueryPriority, RefreshJob, WorkResult, WorkerQuery};
 
 #[derive(Clone)]
 pub struct MapBasicQuery<T> {
@@ -667,6 +671,421 @@ impl WorkerQuery<DbMapAnalyze> for MapBasicQuery<DbMapAnalyze> {
     }
 }
 
+/// Queries over one calendar period. Like `PlayerPeriodQuery`, every impl only reads and the result
+/// lives in the cache alone; a closed period's key carries no `{session}`. A map session belongs to
+/// the period it started in, so each one counts towards exactly one month.
+#[derive(Clone)]
+pub struct MapPeriodQuery<T> {
+    pub context: Query<MapPeriodData>,
+    _phantom: std::marker::PhantomData<T>,
+}
+impl<T> MapPeriodQuery<T> {
+    fn new(ctx: &MapContext, period: TimePeriod, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
+        Self::raw(Query { pool, cache, data: ctx.period_data(period) })
+    }
+    pub(crate) fn raw(context: Query<MapPeriodData>) -> Self {
+        Self { context, _phantom: std::marker::PhantomData }
+    }
+
+    fn period_key(&self, kind: &str) -> String {
+        let data = &self.context.data;
+        let key = format!("map-period-{kind}:{}:{}:{}", data.server_id, data.map_name, data.period.label());
+        if data.closed { key } else { format!("{key}:{{session}}") }
+    }
+
+    fn period_ttl(&self) -> u64 {
+        if self.context.data.closed { PERIOD_CLOSED_TTL } else { PERIOD_OPEN_TTL }
+    }
+
+    fn bounds(&self) -> (OffsetDateTime, OffsetDateTime) {
+        let period = &self.context.data.period;
+        (period.start().to_db_time(), period.end().to_db_time())
+    }
+}
+
+pub const MAP_PERIOD_TOP_LIMIT: i64 = 100;
+
+#[async_trait]
+impl WorkerQuery<DbMapAnalyze> for MapPeriodQuery<DbMapAnalyze> {
+    type Error = sqlx::Error;
+
+    async fn execute(&self) -> Result<DbMapAnalyze, Self::Error> {
+        let ctx = &self.context;
+        let (start, end) = self.bounds();
+        sqlx::query_as!(DbMapAnalyze, "
+            WITH smp AS (
+                SELECT started_at, ended_at
+                FROM server_map_played
+                WHERE server_id = $1 AND map = $2
+                  AND ended_at IS NOT NULL
+                  AND started_at >= $3 AND started_at < $4
+            ),
+            overlapped AS (
+                SELECT
+                    pss.player_id,
+                    LEAST(pss.ended_at, smp.ended_at) - GREATEST(pss.started_at, smp.started_at) AS played
+                FROM smp
+                JOIN player_server_session pss
+                  ON pss.server_id = $1
+                 AND tstzrange(pss.started_at, pss.ended_at) && tstzrange(smp.started_at, smp.ended_at)
+            ),
+            player_metrics AS (
+                SELECT
+                    COUNT(DISTINCT player_id) AS unique_players,
+                    SUM(played) AS cum_hours,
+                    AVG(played) AS avg_playtime,
+                    SUM(CASE WHEN played < INTERVAL '5 minutes' THEN 1 ELSE 0 END)::float
+                        / NULLIF(COUNT(*), 0) AS dropoff_rate
+                FROM overlapped
+            ),
+            player_counts AS (
+                SELECT AVG(spc.player_count) AS avg_players
+                FROM smp
+                JOIN server_player_counts spc
+                  ON spc.server_id = $1
+                 AND spc.bucket_time BETWEEN smp.started_at AND smp.ended_at
+            )
+            SELECT
+                $2 AS \"map!\",
+                COALESCE(pm.unique_players, 0) AS \"unique_players!\",
+                COALESCE(pm.cum_hours, INTERVAL '0 seconds') AS cum_player_hours,
+                (SELECT SUM(ended_at - started_at) FROM smp) AS total_playtime,
+                (SELECT COUNT(*) FROM smp)::int AS \"total_sessions!\",
+                (SELECT MAX(started_at) FROM smp) AS last_played,
+                (SELECT MAX(ended_at) FROM smp) AS last_played_ended,
+                pm.avg_playtime AS avg_playtime_before_quitting,
+                COALESCE(pm.dropoff_rate, 0) AS dropoff_rate,
+                ROUND(COALESCE(pc.avg_players, 0)::numeric, 3)::FLOAT AS avg_players_per_session
+            FROM player_metrics pm
+            CROSS JOIN player_counts pc
+        ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_one(&*ctx.pool).await
+    }
+
+    fn cache_key_pattern(&self) -> String { self.period_key("analyze") }
+    fn ttl(&self) -> u64 { self.period_ttl() }
+    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapPeriodAnalyze(self.context.data.clone())
+    }
+}
+
+#[async_trait]
+impl WorkerQuery<Vec<DbMapRegion>> for MapPeriodQuery<Vec<DbMapRegion>> {
+    type Error = sqlx::Error;
+
+    async fn execute(&self) -> Result<Vec<DbMapRegion>, Self::Error> {
+        let ctx = &self.context;
+        let (start, end) = self.bounds();
+        sqlx::query_as!(DbMapRegion, "
+            WITH session_data AS (
+              SELECT
+                g.started_at AT TIME ZONE 'UTC' AS started_at,
+                g.ended_at AT TIME ZONE 'UTC' AS ended_at,
+                date_trunc('day', g.started_at AT TIME ZONE 'UTC') AS start_day,
+                date_trunc('day', g.ended_at AT TIME ZONE 'UTC') AS end_day
+              FROM server_map_played g
+              WHERE g.server_id = $1
+                AND g.map = $2
+                AND g.ended_at IS NOT NULL
+                AND g.started_at >= $3 AND g.started_at < $4
+            ),
+            game_days AS (
+              SELECT
+                sd.*,
+                d::date AS play_day
+              FROM session_data sd,
+                   generate_series(sd.start_day, sd.end_day, interval '1 day') AS d
+            ),
+            region_intervals AS (
+              SELECT
+                gd.started_at,
+                gd.ended_at,
+                rt.region_id,
+                s.region_start,
+                s.region_end
+              FROM game_days gd
+              CROSS JOIN region_time rt
+              CROSS JOIN LATERAL (
+                VALUES
+                  (
+                    gd.play_day + (rt.start_time AT TIME ZONE 'UTC')::time,
+                    CASE
+                      WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time
+                        THEN gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time
+                      ELSE gd.play_day + interval '1 day'
+                    END
+                  ),
+                  (
+                    gd.play_day + time '00:00',
+                    CASE
+                      WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time
+                        THEN NULL
+                      ELSE gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time
+                    END
+                  )
+              ) AS s(region_start, region_end)
+              WHERE s.region_end IS NOT NULL
+            ),
+            region_play AS (
+              SELECT
+                region_id,
+                SUM(LEAST(ended_at, region_end) - GREATEST(started_at, region_start)) AS region_play_duration
+              FROM region_intervals
+              WHERE ended_at > region_start
+                AND started_at < region_end
+              GROUP BY region_id
+            )
+            SELECT
+              rt.region_name,
+              $2 AS map,
+              SUM(COALESCE(rp.region_play_duration, interval '0 seconds')) AS total_play_duration
+            FROM region_time rt
+            LEFT JOIN region_play rp ON rp.region_id = rt.region_id
+            GROUP BY rt.region_name
+        ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_all(&*ctx.pool).await
+    }
+
+    fn cache_key_pattern(&self) -> String { self.period_key("regions") }
+    fn ttl(&self) -> u64 { self.period_ttl() }
+    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapPeriodRegions(self.context.data.clone())
+    }
+}
+
+#[async_trait]
+impl WorkerQuery<Vec<DbMapRegionDate>> for MapPeriodQuery<Vec<DbMapRegionDate>> {
+    type Error = sqlx::Error;
+
+    async fn execute(&self) -> Result<Vec<DbMapRegionDate>, Self::Error> {
+        let ctx = &self.context;
+        let (start, end) = self.bounds();
+        sqlx::query_as!(DbMapRegionDate, "
+            WITH session_data AS (
+              SELECT
+                g.started_at AT TIME ZONE 'UTC' AS started_at,
+                g.ended_at AT TIME ZONE 'UTC' AS ended_at,
+                date_trunc('day', g.started_at AT TIME ZONE 'UTC') AS start_day,
+                date_trunc('day', g.ended_at AT TIME ZONE 'UTC') AS end_day
+              FROM server_map_played g
+              WHERE g.server_id = $1
+                AND g.map = $2
+                AND g.ended_at IS NOT NULL
+                AND g.started_at >= $3 AND g.started_at < $4
+            ),
+            game_days AS (
+              SELECT
+                sd.*,
+                d::date AS play_day
+              FROM session_data sd,
+                   generate_series(sd.start_day, sd.end_day, interval '1 day') AS d
+            ),
+            region_intervals AS (
+              SELECT
+                gd.started_at,
+                gd.ended_at,
+                gd.play_day,
+                rt.region_id,
+                s.region_start,
+                s.region_end
+              FROM game_days gd
+              CROSS JOIN region_time rt
+              CROSS JOIN LATERAL (
+                VALUES
+                  (
+                    gd.play_day + (rt.start_time AT TIME ZONE 'UTC')::time,
+                    CASE
+                      WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time
+                        THEN gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time
+                      ELSE gd.play_day + interval '1 day'
+                    END
+                  ),
+                  (
+                    gd.play_day + time '00:00',
+                    CASE
+                      WHEN (rt.start_time AT TIME ZONE 'UTC')::time <= (rt.end_time AT TIME ZONE 'UTC')::time
+                        THEN NULL
+                      ELSE gd.play_day + (rt.end_time AT TIME ZONE 'UTC')::time
+                    END
+                  )
+              ) AS s(region_start, region_end)
+              WHERE s.region_end IS NOT NULL
+            ),
+            daily_region_play AS (
+              SELECT
+                region_id,
+                play_day,
+                SUM(
+                  LEAST(ended_at, region_end) - GREATEST(started_at, region_start)
+                ) AS region_play_duration
+              FROM region_intervals
+              WHERE ended_at > region_start
+                AND started_at < region_end
+              GROUP BY region_id, play_day
+            ),
+            all_days AS (
+              SELECT day::date AS play_day
+              FROM generate_series(
+                $3 AT TIME ZONE 'UTC',
+                LEAST($4, CURRENT_TIMESTAMP) AT TIME ZONE 'UTC' - interval '1 second',
+                interval '1 day'
+              ) day
+            )
+            SELECT
+              ad.play_day::timestamptz AS date,
+              rt.region_name,
+              COALESCE(drp.region_play_duration, interval '0 seconds') AS total_play_duration
+            FROM all_days ad
+            CROSS JOIN region_time rt
+            LEFT JOIN daily_region_play drp
+              ON ad.play_day = drp.play_day
+             AND rt.region_id = drp.region_id
+            ORDER BY ad.play_day, total_play_duration DESC
+        ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_all(&*ctx.pool).await
+    }
+
+    fn cache_key_pattern(&self) -> String { self.period_key("heat-region") }
+    fn ttl(&self) -> u64 { self.period_ttl() }
+    fn priority(&self) -> QueryPriority { QueryPriority::Light }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapPeriodHeatRegions(self.context.data.clone())
+    }
+}
+
+#[async_trait]
+impl WorkerQuery<Vec<DbMapSessionDistribution>> for MapPeriodQuery<Vec<DbMapSessionDistribution>> {
+    type Error = sqlx::Error;
+
+    async fn execute(&self) -> Result<Vec<DbMapSessionDistribution>, Self::Error> {
+        let ctx = &self.context;
+        let (start, end) = self.bounds();
+        sqlx::query_as!(DbMapSessionDistribution, "
+            WITH time_spent AS (
+                SELECT
+                    LEAST(pss.ended_at, smp.ended_at) - GREATEST(pss.started_at, smp.started_at) AS total_duration
+                FROM server_map_played smp
+                JOIN player_server_session pss
+                  ON pss.server_id = $1
+                 AND tstzrange(pss.started_at, pss.ended_at) && tstzrange(smp.started_at, smp.ended_at)
+                WHERE smp.server_id = $1 AND smp.map = $2
+                  AND smp.ended_at IS NOT NULL
+                  AND smp.started_at >= $3 AND smp.started_at < $4
+            )
+            SELECT
+                CASE
+                    WHEN total_duration < INTERVAL '10 minutes' THEN 'Under 10'
+                    WHEN total_duration BETWEEN INTERVAL '10 minutes' AND INTERVAL '30 minutes' THEN '10 - 30'
+                    WHEN total_duration BETWEEN INTERVAL '30 minutes' AND INTERVAL '45 minutes' THEN '30 - 45'
+                    WHEN total_duration BETWEEN INTERVAL '45 minutes' AND INTERVAL '60 minutes' THEN '45 - 60'
+                    ELSE 'Over 60'
+                END AS \"session_range!\",
+                COUNT(*)::int AS \"session_count!\"
+            FROM time_spent
+            GROUP BY 1
+        ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_all(&*ctx.pool).await
+    }
+
+    fn cache_key_pattern(&self) -> String { self.period_key("session-distribution") }
+    fn ttl(&self) -> u64 { self.period_ttl() }
+    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapPeriodSessionDistribution(self.context.data.clone())
+    }
+}
+
+#[async_trait]
+impl WorkerQuery<Vec<DbMapPlayerTypeTime>> for MapPeriodQuery<Vec<DbMapPlayerTypeTime>> {
+    type Error = sqlx::Error;
+
+    async fn execute(&self) -> Result<Vec<DbMapPlayerTypeTime>, Self::Error> {
+        let ctx = &self.context;
+        let (start, end) = self.bounds();
+        sqlx::query_as!(DbMapPlayerTypeTime, "
+            WITH smp AS (
+                SELECT started_at, ended_at
+                FROM server_map_played
+                WHERE server_id = $1 AND map = $2
+                  AND ended_at IS NOT NULL
+                  AND started_at >= $3 AND started_at < $4
+            ),
+            time_spent AS (
+                SELECT
+                    pss.player_id,
+                    SUM(LEAST(pss.ended_at, smp.ended_at) - GREATEST(pss.started_at, smp.started_at)) AS played
+                FROM smp
+                JOIN player_server_session pss
+                  ON pss.server_id = $1
+                 AND tstzrange(pss.started_at, pss.ended_at) && tstzrange(smp.started_at, smp.ended_at)
+                GROUP BY pss.player_id
+            )
+            SELECT pp.category, SUM(ts.played) AS time_spent
+            FROM time_spent ts
+            JOIN website.player_playtime pp
+              ON pp.player_id = ts.player_id AND pp.server_id = $1
+            WHERE pp.category IS NOT NULL
+            GROUP BY pp.category
+        ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_all(&*ctx.pool).await
+    }
+
+    fn cache_key_pattern(&self) -> String { self.period_key("player-type") }
+    fn ttl(&self) -> u64 { self.period_ttl() }
+    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapPeriodPlayerTypeTime(self.context.data.clone())
+    }
+}
+
+#[async_trait]
+impl WorkerQuery<Vec<DbMapPeriodPlayer>> for MapPeriodQuery<Vec<DbMapPeriodPlayer>> {
+    type Error = sqlx::Error;
+
+    async fn execute(&self) -> Result<Vec<DbMapPeriodPlayer>, Self::Error> {
+        let ctx = &self.context;
+        let (start, end) = self.bounds();
+        sqlx::query_as!(DbMapPeriodPlayer, "
+            WITH smp AS (
+                SELECT started_at, ended_at
+                FROM server_map_played
+                WHERE server_id = $1 AND map = $2
+                  AND ended_at IS NOT NULL
+                  AND started_at >= $3 AND started_at < $4
+            ),
+            time_spent AS (
+                SELECT
+                    pss.player_id,
+                    SUM(LEAST(pss.ended_at, smp.ended_at) - GREATEST(pss.started_at, smp.started_at)) AS total_playtime
+                FROM smp
+                JOIN player_server_session pss
+                  ON pss.server_id = $1
+                 AND tstzrange(pss.started_at, pss.ended_at) && tstzrange(smp.started_at, smp.ended_at)
+                GROUP BY pss.player_id
+                ORDER BY total_playtime DESC, pss.player_id
+                LIMIT $5
+            )
+            SELECT
+                ts.player_id AS \"player_id!\",
+                p.player_name AS \"player_name!\",
+                ts.total_playtime
+            FROM time_spent ts
+            JOIN player p ON p.player_id = ts.player_id
+            ORDER BY ts.total_playtime DESC, ts.player_id
+        ", ctx.data.server_id, ctx.data.map_name, start, end, MAP_PERIOD_TOP_LIMIT).fetch_all(&*ctx.pool).await
+    }
+
+    fn cache_key_pattern(&self) -> String { self.period_key("top-players") }
+    fn ttl(&self) -> u64 { self.period_ttl() }
+    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
+
+    fn job_kind(&self) -> JobKind {
+        JobKind::MapPeriodTopPlayers(self.context.data.clone())
+    }
+}
+
 pub struct MapWorker {
     background_worker: Arc<BackgroundWorker>,
     pool: Arc<Pool<Postgres>>,
@@ -694,6 +1113,33 @@ impl MapWorker {
             context.cache_key.previous.as_deref(),
         ).await
     }
+    fn period_query<T>(&self, context: &MapContext, period: TimePeriod) -> MapPeriodQuery<T> {
+        MapPeriodQuery::new(context, period, self.pool.clone(), self.background_worker.cache.clone())
+    }
+
+    /// The keys a period query reads: its current key and, for an open period only, the previous
+    /// session's key. A closed period's key has no session in it, so there is nothing to fall back to.
+    fn period_keys<T>(&self, query: &MapPeriodQuery<T>, context: &MapContext) -> (RefreshJob, String, Option<String>)
+    where
+        MapPeriodQuery<T>: WorkerQuery<T>,
+    {
+        let previous = context.cache_key.previous.as_deref().filter(|_| !query.context.data.closed);
+        RefreshJob::for_session(query, &context.cache_key.current, previous)
+    }
+
+    async fn query_map_period<T>(
+        &self, context: &MapContext, period: TimePeriod,
+    ) -> WorkResult<CachedResult<T>>
+    where
+        MapPeriodQuery<T>: WorkerQuery<T> + Send + Sync + Clone + 'static,
+        <MapPeriodQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display + Send + 'static,
+        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+    {
+        let query: MapPeriodQuery<T> = self.period_query(context, period);
+        let (job, current_key, fallback_key) = self.period_keys(&query, context);
+        self.background_worker.get_with_fallback(&current_key, fallback_key.as_deref(), job).await
+    }
+
     pub async fn get_detail(&self, context: &MapContext) -> WorkResult<MapInfo>{
         let value: CachedResult<DbMapInfo> = self.query_map(context).await?;
         let meta: CachedResult<Option<DbMapMeta>> = self.query_map(context).await?;
@@ -706,7 +1152,11 @@ impl MapWorker {
         }
         Ok(result)
     }
-    pub async fn get_statistics(&self, context: &MapContext) -> WorkResult<MapAnalyze> {
+    pub async fn get_statistics(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<MapAnalyze> {
+        if let Some(period) = period {
+            let value: CachedResult<DbMapAnalyze> = self.query_map_period(context, period).await?;
+            return Ok(value.result.into());
+        }
         let mut value: CachedResult<DbMapAnalyze> = self.query_map(context).await?;
         if !value.is_new{
             let partial: DbServerMapPartial = self.query_map(&context).await?.result;
@@ -716,20 +1166,29 @@ impl MapWorker {
         }
         Ok(value.result.into())
     }
-    pub async fn get_regions(&self, context: &MapContext) -> WorkResult<Vec<MapRegion>> {
-        let value: CachedResult<Vec<DbMapRegion>> = self.query_map(context).await?;
+    pub async fn get_regions(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<Vec<MapRegion>> {
+        let value: CachedResult<Vec<DbMapRegion>> = match period {
+            Some(period) => self.query_map_period(context, period).await?,
+            None => self.query_map(context).await?,
+        };
         Ok(value.result.iter_into())
     }
     pub async fn get_events(&self, context: &MapContext) -> WorkResult<Vec<MapEventAverage>> {
         let value: CachedResult<Vec<DbEvent>> = self.query_map(context).await?;
         Ok(value.result.iter_into())
     }
-    pub async fn get_session_distributions(&self, context: &MapContext) -> WorkResult<Vec<MapSessionDistribution>> {
-        let value: CachedResult<Vec<DbMapSessionDistribution>> = self.query_map(context).await?;
+    pub async fn get_session_distributions(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<Vec<MapSessionDistribution>> {
+        let value: CachedResult<Vec<DbMapSessionDistribution>> = match period {
+            Some(period) => self.query_map_period(context, period).await?,
+            None => self.query_map(context).await?,
+        };
         Ok(value.result.iter_into())
     }
-    pub async fn get_heat_regions(&self, context: &MapContext) -> WorkResult<Vec<DailyMapRegion>> {
-        let value: CachedResult<Vec<DbMapRegionDate>> = self.query_map(context).await?;
+    pub async fn get_heat_regions(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<Vec<DailyMapRegion>> {
+        let value: CachedResult<Vec<DbMapRegionDate>> = match period {
+            Some(period) => self.query_map_period(context, period).await?,
+            None => self.query_map(context).await?,
+        };
         let resp: Vec<MapRegionDate> = value.result.iter_into();
         let mut grouped: HashMap<DateTime<Utc>, Vec<MapRegion>> = HashMap::new();
 
@@ -750,15 +1209,98 @@ impl MapWorker {
         days.sort_by(|a, b| a.date.cmp(&b.date));
         Ok(days)
     }
-    pub async fn get_player_types(&self, context: &MapContext) -> WorkResult<Vec<MapPlayerTypeTime>> {
-        let value: CachedResult<Vec<DbMapPlayerTypeTime>> = self.query_map(context).await?;
+    pub async fn get_player_types(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<Vec<MapPlayerTypeTime>> {
+        let value: CachedResult<Vec<DbMapPlayerTypeTime>> = match period {
+            Some(period) => self.query_map_period(context, period).await?,
+            None => self.query_map(context).await?,
+        };
         Ok(value.result.iter_into())
+    }
+
+    /// The period's top players, filtered by `search` and ranked by their place in the full list,
+    /// with live online, last-played and anonymity details. Only the plain list request queues the
+    /// calculation: a search reads whatever is cached and never starts one.
+    pub async fn get_period_top_players(
+        &self, context: &MapContext, period: TimePeriod, search: Option<&str>,
+    ) -> WorkResult<Vec<DbPlayerBrief>> {
+        let query: MapPeriodQuery<Vec<DbMapPeriodPlayer>> = self.period_query(context, period);
+        let (job, current_key, fallback_key) = self.period_keys(&query, context);
+
+        let cached: Vec<DbMapPeriodPlayer> = match search {
+            Some(_) => match self.background_worker.peek(&current_key).await {
+                Some(rows) => rows,
+                None => match fallback_key.as_deref() {
+                    Some(fallback) => self.background_worker.peek(fallback).await.unwrap_or_default(),
+                    None => vec![],
+                },
+            },
+            None => self.background_worker.get_with_fallback(&current_key, fallback_key.as_deref(), job).await?.result,
+        };
+
+        let search = search.map(str::to_lowercase);
+        let ranked: Vec<(i32, DbMapPeriodPlayer)> = cached.into_iter()
+            .enumerate()
+            .map(|(index, row)| (index as i32 + 1, row))
+            .filter(|(_, row)| search.as_deref().is_none_or(|q| row.player_name.to_lowercase().contains(q)))
+            .collect();
+        if ranked.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let ids: Vec<String> = ranked.iter().map(|(_, row)| row.player_id.clone()).collect();
+        let details = sqlx::query_as!(DbPlayerBrief, "
+            SELECT
+                NULL::bigint AS total_players,
+                p.player_id,
+                p.player_name,
+                p.created_at,
+                NULL::interval AS total_playtime,
+                NULL::int AS rank,
+                op.started_at AS \"online_since?\",
+                lp.started_at AS \"last_played?\",
+                lp.ended_at AS \"last_played_ended?\",
+                (lp.ended_at - lp.started_at) AS \"last_played_duration?\",
+                COALESCE((SELECT is_anonymous FROM server_player_names spn WHERE spn.server_id = $1 AND spn.player_id = p.player_id), FALSE) AS \"is_anonymous!\"
+            FROM player p
+            LEFT JOIN LATERAL (
+                SELECT s.started_at, s.ended_at
+                FROM player_server_session s
+                WHERE s.player_id = p.player_id
+                  AND s.server_id = $1
+                  AND s.ended_at IS NOT NULL
+                ORDER BY s.started_at DESC
+                LIMIT 1
+            ) lp ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT s.started_at
+                FROM player_server_session s
+                WHERE s.player_id = p.player_id
+                  AND s.server_id = $1
+                  AND s.ended_at IS NULL
+                  AND (CURRENT_TIMESTAMP - s.last_verified) < INTERVAL '20 minutes'
+                ORDER BY s.started_at
+                LIMIT 1
+            ) op ON TRUE
+            WHERE p.player_id = ANY($2)
+        ", context.server.server_id, &ids).fetch_all(&*self.pool).await?;
+
+        let mut details: HashMap<String, DbPlayerBrief> = details.into_iter()
+            .map(|row| (row.player_id.clone(), row))
+            .collect();
+        Ok(ranked.into_iter()
+            .filter_map(|(rank, row)| {
+                let mut brief = details.remove(&row.player_id)?;
+                brief.rank = Some(rank);
+                brief.total_playtime = row.total_playtime;
+                Some(brief)
+            })
+            .collect())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{map_query, TEST_MAP, TEST_SERVER};
+    use super::super::test_support::{map_period_query, map_query, TEST_MAP, TEST_SERVER, TEST_SESSION};
     use super::*;
 
     macro_rules! assert_map_metadata {
@@ -806,5 +1348,69 @@ mod tests {
         assert_map_metadata!(
             map_query::<DbMapAnalyze>(), "map_analyze-2", QueryPriority::Heavy, JobKind::MapAnalyze(_)
         );
+    }
+
+    macro_rules! assert_period_scoped {
+        ($query:ty, $prefix:literal, $priority:pat, $kind:pat) => {{
+            let closed: MapPeriodQuery<$query> = map_period_query(true);
+            let open: MapPeriodQuery<$query> = map_period_query(false);
+            let closed_pattern = closed.cache_key_pattern();
+            let open_pattern = open.cache_key_pattern();
+
+            assert_eq!(closed_pattern, format!(concat!($prefix, ":{}:{}:2025-06"), TEST_SERVER, TEST_MAP));
+            assert!(!closed_pattern.contains("{session}"), "a closed period cannot change per session");
+            assert_eq!(open_pattern, format!(concat!($prefix, ":{}:{}:2026:{{session}}"), TEST_SERVER, TEST_MAP));
+            assert!(closed.ttl() > open.ttl(), "{closed_pattern} cannot change, so it should outlive the open period");
+            assert!(open.ttl() > 0);
+            assert!(matches!(closed.priority(), $priority), "unexpected priority for {closed_pattern}");
+            assert!(matches!(closed.job_kind(), $kind), "job_kind does not match the query type for {closed_pattern}");
+        }};
+    }
+
+    #[tokio::test]
+    async fn period_query_metadata_matches_its_type() {
+        assert_period_scoped!(DbMapAnalyze, "map-period-analyze", QueryPriority::Heavy, JobKind::MapPeriodAnalyze(_));
+        assert_period_scoped!(Vec<DbMapRegion>, "map-period-regions", QueryPriority::Light, JobKind::MapPeriodRegions(_));
+        assert_period_scoped!(Vec<DbMapRegionDate>, "map-period-heat-region", QueryPriority::Light, JobKind::MapPeriodHeatRegions(_));
+        assert_period_scoped!(
+            Vec<DbMapSessionDistribution>, "map-period-session-distribution",
+            QueryPriority::Heavy, JobKind::MapPeriodSessionDistribution(_)
+        );
+        assert_period_scoped!(
+            Vec<DbMapPlayerTypeTime>, "map-period-player-type", QueryPriority::Heavy, JobKind::MapPeriodPlayerTypeTime(_)
+        );
+        assert_period_scoped!(
+            Vec<DbMapPeriodPlayer>, "map-period-top-players", QueryPriority::Heavy, JobKind::MapPeriodTopPlayers(_)
+        );
+    }
+
+    #[tokio::test]
+    async fn a_closed_period_job_has_no_session_fallbacks() {
+        let query: MapPeriodQuery<DbMapAnalyze> = map_period_query(true);
+        let (job, current_key, fallback_key) = RefreshJob::for_session(&query, TEST_SESSION, None);
+
+        assert_eq!(current_key, format!("map-period-analyze:{TEST_SERVER}:{TEST_MAP}:2025-06"));
+        assert_eq!(job.cache_key, current_key);
+        assert!(fallback_key.is_none());
+        assert!(job.stale_key.is_none(), "a closed period has no older key to evict");
+        assert!(job.latest_key.is_none(), "a closed period's key is already session-independent");
+    }
+
+    #[tokio::test]
+    async fn an_open_period_falls_back_to_the_previous_session() {
+        let query: MapPeriodQuery<DbMapAnalyze> = map_period_query(false);
+        let (job, current_key, _) = RefreshJob::for_session(&query, TEST_SESSION, Some("older"));
+
+        assert!(current_key.ends_with(&format!(":2026:{TEST_SESSION}")));
+        assert_eq!(job.stale_key, Some(format!("map-period-analyze:{TEST_SERVER}:{TEST_MAP}:2026:older")));
+    }
+
+    #[tokio::test]
+    async fn period_keys_never_collide_with_all_time_keys() {
+        let all_time = map_query::<DbMapAnalyze>().cache_key_pattern();
+        for closed in [true, false] {
+            let period = map_period_query::<DbMapAnalyze>(closed).cache_key_pattern();
+            assert!(!period.starts_with(all_time.trim_end_matches("{session}")));
+        }
     }
 }

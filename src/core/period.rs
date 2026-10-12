@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use chrono::{DateTime, TimeZone, Utc};
+use poem_openapi::Object;
 use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
 use poem_openapi::types::{ParseError, ParseFromParameter, ParseResult, Type};
 use serde::{Deserialize, Serialize};
@@ -127,6 +128,31 @@ impl ParseFromParameter for PeriodParam {
 
 pub fn flatten_period(param: Option<PeriodParam>) -> Option<TimePeriod> {
     param.and_then(|p| p.0)
+}
+
+/// A UTC year that has data, with its months (1-12, ascending).
+#[derive(Object, Clone, Debug, PartialEq)]
+pub struct PeriodYear{
+    pub year: i32,
+    pub months: Vec<i32>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct DbPeriodMonth{
+    pub year: i32,
+    pub month: i32,
+}
+
+/// Groups months sorted by year into one entry per year, keeping their order.
+pub fn group_periods(months: Vec<DbPeriodMonth>) -> Vec<PeriodYear> {
+    let mut years: Vec<PeriodYear> = vec![];
+    for row in months {
+        match years.last_mut() {
+            Some(year) if year.year == row.year => year.months.push(row.month),
+            _ => years.push(PeriodYear { year: row.year, months: vec![row.month] }),
+        }
+    }
+    years
 }
 
 #[cfg(test)]

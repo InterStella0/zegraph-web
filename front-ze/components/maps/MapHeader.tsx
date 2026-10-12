@@ -14,6 +14,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
 import {useRouter} from "next/navigation";
 import {MapWithModels} from "types/maps.ts";
+import {PeriodChip, usePeriod} from "components/period/Period";
 dayjs.extend(relativeTime);
 
 async function checkModelExists(mapName: string): Promise<boolean> {
@@ -31,6 +32,7 @@ function MapHeaderDisplay() {
     const [url, setUrl] = useState<string | null>(null);
     const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
     const { name, analyze, info, notReady } = useMapContext();
+    const { period } = usePeriod();
     const { server} = useServerData()
     const router = useRouter()
     const server_id = server.id
@@ -236,6 +238,7 @@ function MapHeaderDisplay() {
                         {name}
                     </h1>
                     <div className="flex flex-wrap gap-1 sm:gap-2 items-center">
+                        <PeriodChip className="mr-2 sm:mr-4 mb-2 sm:mb-0 border-white/40 bg-white/15 text-white" />
                         {/* Total playtime */}
                         <div className="flex items-center mr-2 sm:mr-4 mb-2 sm:mb-0">
                             <Clock className="text-white h-3.5 w-3.5 sm:h-5 sm:w-5" />
@@ -279,7 +282,7 @@ function MapHeaderDisplay() {
                         </div>
 
                         {/* Last played */}
-                        <div className="flex items-center mr-2 sm:mr-4 mb-2 sm:mb-0">
+                        {!period && <div className="flex items-center mr-2 sm:mr-4 mb-2 sm:mb-0">
                             <RotateCcw className="text-white h-3.5 w-3.5 sm:h-5 sm:w-5" />
                             {isLoading && (
                                 <>
@@ -297,7 +300,7 @@ function MapHeaderDisplay() {
                                     </span>
                                 </>
                             )}
-                        </div>
+                        </div>}
 
                         {/* Unique players */}
                         <div className="flex items-center mb-2 sm:mb-0">

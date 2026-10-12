@@ -5,6 +5,7 @@ import {LazyDoughnutChart as Doughnut} from 'components/graphs/LazyCharts';
 import { Chart as ChartJS, ArcElement, Legend } from 'chart.js';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {PeriodChip, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {MapPlayerTypeTime} from "types/players.ts";
@@ -25,6 +26,7 @@ function MapPlayerTypeDisplay() {
     const tCommon = useTranslations('common');
     const locale = useLocale();
     const { name } = useMapContext();
+    const { period } = usePeriod();
     const { server } = useServerData();
     const server_id = server.id
     const { resolvedTheme } = useTheme();
@@ -41,7 +43,7 @@ function MapPlayerTypeDisplay() {
         setError(null);
         setPlayerTypes([]);
 
-        fetchServerUrl(server_id, `/maps/${name}/player_types`)
+        fetchServerUrl(server_id, `/maps/${name}/player_types`, period ? { params: { period } } : {})
             .then(data => {
                 setPlayerTypes(data)
             })
@@ -52,7 +54,7 @@ function MapPlayerTypeDisplay() {
                 setError(err);
             })
             .finally(() => setLoading(false));
-    }, [server_id, name, retryTick]);
+    }, [server_id, name, period, retryTick]);
 
     const totalSeconds = playerTypes.reduce((sum, p) => sum + p.time_spent, 0);
     const categoryColors = {
@@ -122,7 +124,10 @@ function MapPlayerTypeDisplay() {
     <Card className="p-6">
         <TooltipProvider>
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
+                    <PeriodChip />
+                </div>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">

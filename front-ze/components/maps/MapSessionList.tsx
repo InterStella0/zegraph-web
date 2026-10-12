@@ -8,6 +8,7 @@ import {Users, Trophy, AlertTriangle} from "lucide-react";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {PeriodChip, usePeriod} from "components/period/Period";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Link from "next/link";
@@ -23,6 +24,7 @@ dayjs.extend(relativeTime);
 function AllSessions(){
     const t = useTranslations('maps.sessionList');
     const { name } = useMapContext();
+    const { period } = usePeriod();
     const [page, setPage] = useState<number>(0)
     const [ sessions, setSessions ] = useState<ServerMapPlayed[]>([])
     const [ totalSessions, setTotalSessions ] = useState(0)
@@ -36,12 +38,12 @@ function AllSessions(){
 
     useEffect(() => {
         setPage(0)
-    }, [server_id, name])
+    }, [server_id, name, period])
 
     useEffect(() => {
         const abort = new AbortController()
         setLoading(true)
-        fetchServerUrl(server_id, `/maps/${name}/sessions`, { params: { page }, signal: abort.signal })
+        fetchServerUrl(server_id, `/maps/${name}/sessions`, { params: { page, ...(period && { period }) }, signal: abort.signal })
             .then(resp => {
                 setSessions(resp.maps)
                 setTotalSessions(resp.total_sessions)
@@ -57,7 +59,7 @@ function AllSessions(){
         return () => {
             abort.abort("New Page")
         }
-    }, [server_id, page, name, retryTick]);
+    }, [server_id, page, name, period, retryTick]);
     const sessionGraphs = useMemo(() => {
         return [...sessions.map((e, index) => <SessionGraph key={index} session={e} />)]
     }, [sessions])
@@ -67,7 +69,10 @@ function AllSessions(){
             <div className="p-2">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     <div className="lg:col-span-4">
-                        <h2 className="text-lg font-bold text-primary text-start">{t('title')}</h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-lg font-bold text-primary text-start">{t('title')}</h2>
+                            <PeriodChip />
+                        </div>
                     </div>
                     <div className="col-span-full">
                         <div className="min-h-[835px] flex gap-4 justify-center items-center">
@@ -85,7 +90,10 @@ function AllSessions(){
             <div className="p-2">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
                     <div className="lg:col-span-4">
-                        <h2 className="text-lg font-bold text-primary text-start">{t('title')}</h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-lg font-bold text-primary text-start">{t('title')}</h2>
+                            <PeriodChip />
+                        </div>
                     </div>
                     <div className="lg:col-span-8">
                         <div className="flex items-center justify-center lg:justify-end w-full">

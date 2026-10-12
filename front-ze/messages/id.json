@@ -515,18 +515,18 @@
       "periodCalculating": "Sedang menghitung siapa saja yang bermain bersamanya di periode ini...",
       "periodEmpty": "Tidak bermain dengan siapa pun di periode ini.",
       "periodNoMatches": "Tidak ada yang cocok dengan \"{query}\" di daftar periode ini."
-    },
-    "period": {
-      "label": "Periode waktu",
-      "allTime": "Sepanjang waktu",
-      "allTimeDescription": "Semua sesi sejak pelacakan dimulai.",
-      "noPeriods": "Belum ada sesi selesai untuk memilih periode.",
-      "wholeYear": "Sepanjang {year}",
-      "done": "Selesai",
-      "hint": "Semua metrik di bawah difilter sesuai periode yang dipilih.",
-      "previous": "Periode sebelumnya",
-      "next": "Periode berikutnya"
     }
+  },
+  "period": {
+    "label": "Periode waktu",
+    "allTime": "Sepanjang waktu",
+    "allTimeDescription": "Semua sesi sejak pelacakan dimulai.",
+    "noPeriods": "Belum ada sesi selesai untuk memilih periode.",
+    "wholeYear": "Sepanjang {year}",
+    "done": "Selesai",
+    "hint": "Semua metrik di bawah difilter sesuai periode yang dipilih.",
+    "previous": "Periode sebelumnya",
+    "next": "Periode berikutnya"
   },
   "sessions": {
     "matchScoreProgression": "Perkembangan Skor Pertandingan",
