@@ -29,6 +29,7 @@ flowchart LR
     GFLAPI("GFL API")
     GFLBans("GFLBans")
     Nide("Nide.GG")
+    Cola("Cola Team Bans")
     MusicNames("GitHub Music-Names")
     YouTube("Youtube API v3")
     SteamAPI("Steam API")
@@ -68,6 +69,7 @@ flowchart LR
   GFLAPI         ==>|Match Score & Misc data| DataScraper
   GFLBans        ==>|Players & Infraction| DataScraper
   Nide           ==>|Players & Infraction| DataScraper
+  Cola           ==>|Players & Infraction| DataScraper
   MusicNames     ==>|Map Music| DataScraper
   YouTube        ==>|Map Music Video| DataScraper
   SteamAPI       ==>|Location| DataScraper
@@ -96,7 +98,7 @@ flowchart LR
   class Website fe
   class Backend,QGIS,ProfileProvider be
   class DataScraper,Database db
-  class ExternalProfileProvider,MusicNames,YouTube,SteamAPI,SteamA2s,GFLBans,Vauff,S2ZE,GFLAPI,Nide ex
+  class ExternalProfileProvider,MusicNames,YouTube,SteamAPI,SteamA2s,GFLBans,Vauff,S2ZE,GFLAPI,Nide,Cola ex
 
   %% Subgraph styles
   style FE fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000000
