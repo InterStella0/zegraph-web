@@ -6,6 +6,7 @@ import {useTheme} from 'next-themes';
 import L from 'leaflet';
 import 'leaflet.nontiledlayer';
 import NonTiledWMSLayer from 'components/radars/NonTiledWMSLayer';
+import NightShadingLayer from 'components/radars/NightShadingLayer';
 import {DARK_BASEMAP, LIGHT_BASEMAP, WMS_PLAYER_MAPPED_NOW_URL} from 'components/radars/RadarPreview';
 
 function MapResizeHandler() {
@@ -47,6 +48,9 @@ export default function WorldRadarMap({refreshKey = 0}) {
                 // @ts-ignore react-leaflet prop types clash with this @types/react version
                 position="bottomleft"
             >
+                <LayersControl.Overlay checked name="Night Shading">
+                    <NightShadingLayer live />
+                </LayersControl.Overlay>
                 <LayersControl.Overlay checked name="Players">
                     <NonTiledWMSLayer
                         key={refreshKey}

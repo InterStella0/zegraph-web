@@ -1016,7 +1016,8 @@
       "darkBasemap": "Bản đồ nền tối",
       "livePlayers": "Người chơi trực tiếp",
       "historicalPlayers": "Người chơi lịch sử",
-      "countries": "Quốc gia"
+      "countries": "Quốc gia",
+      "nightShading": "Vùng ban đêm"
     },
     "temporal": {
       "interval10min": "10 phút",

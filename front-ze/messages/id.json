@@ -1016,7 +1016,8 @@
       "darkBasemap": "Peta Dasar Gelap",
       "livePlayers": "Pemain Langsung",
       "historicalPlayers": "Pemain Historis",
-      "countries": "Negara"
+      "countries": "Negara",
+      "nightShading": "Bayangan Malam"
     },
     "temporal": {
       "interval10min": "10 menit",

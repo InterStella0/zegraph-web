@@ -1016,7 +1016,8 @@
       "darkBasemap": "ダークベースマップ",
       "livePlayers": "ライブプレイヤー",
       "historicalPlayers": "履歴プレイヤー",
-      "countries": "国"
+      "countries": "国",
+      "nightShading": "夜間の陰影"
     },
     "temporal": {
       "interval10min": "10分",

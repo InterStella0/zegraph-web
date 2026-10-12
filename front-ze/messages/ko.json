@@ -1016,7 +1016,8 @@
       "darkBasemap": "어두운 배경 지도",
       "livePlayers": "실시간 플레이어",
       "historicalPlayers": "과거 플레이어",
-      "countries": "국가"
+      "countries": "국가",
+      "nightShading": "야간 음영"
     },
     "temporal": {
       "interval10min": "10분",

@@ -1016,7 +1016,8 @@
       "darkBasemap": "Mapa base oscuro",
       "livePlayers": "Jugadores en vivo",
       "historicalPlayers": "Jugadores históricos",
-      "countries": "Países"
+      "countries": "Países",
+      "nightShading": "Sombreado nocturno"
     },
     "temporal": {
       "interval10min": "10 minutos",
