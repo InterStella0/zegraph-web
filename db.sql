@@ -1077,6 +1077,17 @@ CREATE TABLE external_data.nide_players (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
 
+CREATE TABLE external_data.cola_players (
+    steamid64 VARCHAR(19) NOT NULL,
+    name TEXT NOT NULL,
+    avatar_url VARCHAR(255) DEFAULT NULL,
+    first_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (steamid64, name)
+);
+CREATE INDEX idx_cola_players_name ON external_data.cola_players(name);
+
 CREATE SCHEMA IF NOT EXISTS layers;
 -- everything after this part, require PostGIS manual importing through QGIS
 

@@ -96,6 +96,10 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
     }, [updatedData]);
 
     const handleOnClick = (row) => {
+        if (row.source?.startsWith("https://bans.cola-team.es")) {
+            window.open(row.source, "_blank", "noopener,noreferrer");
+            return;
+        }
         const isNide = row.source?.includes("nide.gg");
         if (isNide) {
             let url: string;
