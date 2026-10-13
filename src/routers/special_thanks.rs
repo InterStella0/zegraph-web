@@ -5,7 +5,7 @@ use poem_openapi::param::Path;
 use uuid::Uuid;
 
 use crate::core::utils::*;
-use crate::{response, AppData};
+use crate::{or_ise, require, response, AppData};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::models::misc::DbSpecialThanks;
@@ -22,7 +22,7 @@ impl SpecialThanksApi {
         &self,
         Data(data): Data<&AppData>,
     ) -> Response<Vec<SpecialThanksResponse>> {
-        let entries = match sqlx::query_as!(
+        let entries = or_ise!(sqlx::query_as!(
             DbSpecialThanks,
             r#"
             SELECT id, display_name, description
@@ -31,14 +31,7 @@ impl SpecialThanksApi {
             "#
         )
         .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(rows) => rows,
-            Err(e) => {
-                tracing::error!("Failed to fetch special thanks: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to fetch special thanks: {}", e);
 
         response!(ok entries.into_iter().map(Into::into).collect())
     }
@@ -51,9 +44,7 @@ impl SpecialThanksApi {
         TokenBearer(user_token): TokenBearer,
         Json(payload): Json<CreateSpecialThanksPayload>,
     ) -> Response<SpecialThanksResponse> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         if payload.display_name.trim().is_empty() {
             return response!(err "Display name cannot be empty", ErrorCode::BadRequest);
@@ -65,7 +56,7 @@ impl SpecialThanksApi {
             return response!(err "Description cannot be empty", ErrorCode::BadRequest);
         }
 
-        let entry = match sqlx::query_as!(
+        let entry = or_ise!(sqlx::query_as!(
             DbSpecialThanks,
             r#"
             INSERT INTO website.special_thanks (display_name, description)
@@ -76,14 +67,7 @@ impl SpecialThanksApi {
             payload.description,
         )
         .fetch_one(&*data.pool)
-        .await
-        {
-            Ok(row) => row,
-            Err(e) => {
-                tracing::error!("Failed to create special thanks entry: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to create special thanks entry: {}", e);
 
         response!(ok entry.into())
     }
@@ -101,9 +85,7 @@ impl SpecialThanksApi {
             Ok(u) => u,
             Err(_) => return response!(err "Invalid id", ErrorCode::BadRequest),
         };
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         if let Some(ref name) = payload.display_name {
             if name.trim().is_empty() {
@@ -119,7 +101,7 @@ impl SpecialThanksApi {
             }
         }
 
-        let entry = match sqlx::query_as!(
+        let Some(entry) = or_ise!(sqlx::query_as!(
             DbSpecialThanks,
             r#"
             UPDATE website.special_thanks
@@ -134,14 +116,8 @@ impl SpecialThanksApi {
             payload.description,
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(row)) => row,
-            Ok(None) => return response!(err "Entry not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to update special thanks entry: {}", e);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to update special thanks entry: {}", e) else {
+            return response!(err "Entry not found", ErrorCode::NotFound);
         };
 
         response!(ok entry.into())
@@ -159,37 +135,19 @@ impl SpecialThanksApi {
             Ok(u) => u,
             Err(_) => return response!(err "Invalid id", ErrorCode::BadRequest),
         };
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
-        let result = match sqlx::query!(
+        let result = or_ise!(sqlx::query!(
             "DELETE FROM website.special_thanks WHERE id = $1",
             id,
         )
         .execute(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to delete special thanks entry: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to delete special thanks entry: {}", e);
 
         if result.rows_affected() == 0 {
             return response!(err "Entry not found", ErrorCode::NotFound);
         }
 
         response!(ok true)
-    }
-}
-
-impl UriPatternExt for SpecialThanksApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/special-thanks",
-            "/special-thanks/{id}",
-        ].iter_into()
     }
 }

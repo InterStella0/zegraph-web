@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, useGLTF, Grid, Stats, useProgress, Html } from '@react-three/drei'
 import { useTheme } from 'next-themes'
-import { Suspense, useState, useRef, useEffect } from 'react'
+import { ReactNode, Suspense, useState, useRef, useEffect } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { Button } from 'components/ui/button'
 import { Vector3, Raycaster, SRGBColorSpace, ACESFilmicToneMapping, Box3, Euler } from 'three'
@@ -14,12 +14,9 @@ import { traverseSceneChunked } from 'utils/sceneProcessing'
 import { getCachedModelData, cacheModelData } from 'utils/modelCache'
 import { Map3DModel } from 'types/maps'
 import { useTranslations } from 'next-intl'
+import { formatFileSize } from 'utils/format'
 
 const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('firefox')
-const formatFileSize = (bytes: number): string => {
-  const mb = bytes / (1024 * 1024)
-  return `${mb.toFixed(1)} MB`
-}
 
 interface MapViewer3DProps {
   mapName: string
@@ -520,6 +517,55 @@ function CustomPointerLockControls({ sensitivity }: { sensitivity: number }) {
   return null
 }
 
+function RangeSetting({ label, display, min, max, step, value, onChange, hint }: {
+  label: string, display: ReactNode, min: string, max: string, step: string, value: number, onChange: (value: number) => void, hint?: string
+}) {
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1">
+        <label className="text-xs text-muted-foreground">{label}</label>
+        <span className="text-xs font-mono">{display}</span>
+      </div>
+      <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+      />
+      {hint && (
+        <div className="text-[10px] text-muted-foreground mt-1">
+          {hint}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const CONTROL_MODES: [ControlMode, string, string][] = [['orbit', 'orbit', 'F1'], ['fly', 'noclip', 'F2'], ['walk', 'walkMode', 'F3']]
+
+const WASD_KEYS = { KeyW: 'forward', KeyS: 'backward', KeyA: 'left', KeyD: 'right' } as const
+
+function listenGameKeys(gameKeys: string[], onKey: (e: KeyboardEvent, pressed: boolean) => void) {
+  const handler = (pressed: boolean) => (e: KeyboardEvent) => {
+    if (gameKeys.includes(e.code)) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    onKey(e, pressed)
+  }
+  const handleKeyDown = handler(true)
+  const handleKeyUp = handler(false)
+  document.addEventListener('keydown', handleKeyDown)
+  document.addEventListener('keyup', handleKeyUp)
+  return () => {
+    document.removeEventListener('keydown', handleKeyDown)
+    document.removeEventListener('keyup', handleKeyUp)
+  }
+}
+
 function FlyControls({ speed, enabled }: { speed: number; enabled: boolean }) {
   const { camera } = useThree()
   const moveState = useRef({
@@ -533,82 +579,11 @@ function FlyControls({ speed, enabled }: { speed: number; enabled: boolean }) {
 
   useEffect(() => {
     if (!enabled) return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const gameKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight']
-
-      if (gameKeys.includes(e.code)) {
-        e.preventDefault()
-        e.stopPropagation()
-      }
-
-      if (e.ctrlKey && ['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
-        e.preventDefault()
-        e.stopPropagation()
-        return
-      }
-
-      switch (e.code) {
-        case 'KeyW':
-          moveState.current.forward = true
-          break
-        case 'KeyS':
-          moveState.current.backward = true
-          break
-        case 'KeyA':
-          moveState.current.left = true
-          break
-        case 'KeyD':
-          moveState.current.right = true
-          break
-        case 'Space':
-          moveState.current.up = true
-          break
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          moveState.current.down = true
-          break
-      }
-    }
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const gameKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight']
-
-      if (gameKeys.includes(e.code)) {
-        e.preventDefault()
-        e.stopPropagation()
-      }
-
-      switch (e.code) {
-        case 'KeyW':
-          moveState.current.forward = false
-          break
-        case 'KeyS':
-          moveState.current.backward = false
-          break
-        case 'KeyA':
-          moveState.current.left = false
-          break
-        case 'KeyD':
-          moveState.current.right = false
-          break
-        case 'Space':
-          moveState.current.up = false
-          break
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          moveState.current.down = false
-          break
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('keyup', handleKeyUp)
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('keyup', handleKeyUp)
-    }
+    const keys: Record<string, keyof typeof moveState.current> = { ...WASD_KEYS, Space: 'up', ShiftLeft: 'down', ShiftRight: 'down' }
+    return listenGameKeys(Object.keys(keys), (e, pressed) => {
+      if (pressed && e.ctrlKey && e.code in WASD_KEYS) return
+      if (keys[e.code]) moveState.current[keys[e.code]] = pressed
+    })
   }, [enabled])
 
   useFrame((_, delta) => {
@@ -703,86 +678,24 @@ function WalkControls({
       }
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const gameKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyC']
-
-      if (gameKeys.includes(e.code)) {
-        e.preventDefault()
-        e.stopPropagation()
+    const keys: Record<string, keyof typeof moveState.current> = { ...WASD_KEYS, ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyC: 'crouch' }
+    return listenGameKeys([...Object.keys(keys), 'Space'], (e, pressed) => {
+      if (e.code === 'Space') {
+        if (!pressed) return
+        if (playerState.current.isOnLadder) {
+          // Jump off ladder
+          playerState.current.isOnLadder = false
+          playerState.current.velocity.y = JUMP_FORCE
+        } else if (playerState.current.isOnGround && !playerState.current.isCrouching) {
+          playerState.current.velocity.y = JUMP_FORCE
+        }
+        return
       }
-
-      switch (e.code) {
-        case 'KeyW':
-          moveState.current.forward = true
-          break
-        case 'KeyS':
-          moveState.current.backward = true
-          break
-        case 'KeyA':
-          moveState.current.left = true
-          break
-        case 'KeyD':
-          moveState.current.right = true
-          break
-        case 'Space':
-          if (playerState.current.isOnLadder) {
-            // Jump off ladder
-            playerState.current.isOnLadder = false
-            playerState.current.velocity.y = JUMP_FORCE
-          } else if (playerState.current.isOnGround && !playerState.current.isCrouching) {
-            playerState.current.velocity.y = JUMP_FORCE
-          }
-          break
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          moveState.current.sprint = true
-          break
-        case 'KeyC':
-          moveState.current.crouch = true
-          playerState.current.isCrouching = true
-          break
-      }
-    }
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const gameKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyC']
-
-      if (gameKeys.includes(e.code)) {
-        e.preventDefault()
-        e.stopPropagation()
-      }
-
-      switch (e.code) {
-        case 'KeyW':
-          moveState.current.forward = false
-          break
-        case 'KeyS':
-          moveState.current.backward = false
-          break
-        case 'KeyA':
-          moveState.current.left = false
-          break
-        case 'KeyD':
-          moveState.current.right = false
-          break
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          moveState.current.sprint = false
-          break
-        case 'KeyC':
-          moveState.current.crouch = false
-          playerState.current.isCrouching = false
-          break
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('keyup', handleKeyUp)
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('keyup', handleKeyUp)
-    }
+      const key = keys[e.code]
+      if (!key) return
+      moveState.current[key] = pressed
+      if (key === 'crouch') playerState.current.isCrouching = pressed
+    })
   }, [camera, enabled])
 
   useFrame((state, delta) => {
@@ -1174,69 +1087,65 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
     return () => document.removeEventListener('wheel', handleWheel)
   }, [controlMode])
 
+  const toggles: { onClick: () => void, label: string, mobileLabel?: string, title?: string }[] = [
+    {
+      onClick: () => setShowControlsHelp(!showControlsHelp),
+      label: showControlsHelp ? t('hideControls') : t('showControls'),
+      mobileLabel: showControlsHelp ? t('hideControlsHelp') : t('showControlsHelp'),
+    },
+    { onClick: () => setShowStats(!showStats), label: showStats ? t('hideStats') : t('showStats') },
+    {
+      onClick: () => setWireframe(!wireframe),
+      label: t('wireframe'),
+      mobileLabel: t('wireframeToggle', {state: wireframe ? t('on') : t('off')}),
+    },
+    {
+      onClick: () => setUseBBoxCulling(!useBBoxCulling),
+      label: t('culling', {mode: useBBoxCulling ? 'BBox' : 'Center'}),
+      title: useBBoxCulling ? t('cullingBBoxTitle') : t('cullingCenterTitle'),
+    },
+  ]
+
+  const controlHelp: Record<string, [string, [string, string][]]> = {
+    orbit: [t('orbitControls'), [[t('leftMouse'), t('rotate')], [t('rightMouse'), t('pan')], [t('scroll'), t('zoom')]]],
+    fly: [t('flyControls'), [
+      ['WASD:', t('move')], [t('space'), t('up')], ['Shift:', t('down')], [t('mouse'), t('lookAround')], [t('scroll'), t('speedLabel')],
+    ]],
+    walk: [t('walkControls'), [
+      ['WASD:', t('walkAction')], [t('space'), t('jump')], ['Shift:', t('sprint')], ['C:', t('crouch')],
+      [t('mouse'), t('lookAround')], [t('scroll'), t('speedLabel')],
+    ]],
+  }
+
   return (
     <ErrorBoundary
       fallbackRender={({ error }) => <ErrorFallback error={error} mapName={mapName} />}
     >
       <div ref={containerRef} className="w-full h-full relative">
         <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-10 flex gap-1 sm:gap-2 flex-wrap justify-end max-w-[calc(100%-1rem)] sm:max-w-none">
-          <Button
-            size="sm"
-            className="text-xs sm:text-sm px-2 sm:px-3"
-            variant={controlMode === 'orbit' ? 'default' : 'secondary'}
-            onClick={() => handleControlModeChange('orbit')}
-          >
-            {t('orbit')}<span className="hidden sm:inline"> (F1)</span>
-          </Button>
-          <Button
-            size="sm"
-            className="text-xs sm:text-sm px-2 sm:px-3"
-            variant={controlMode === 'fly' ? 'default' : 'secondary'}
-            onClick={() => handleControlModeChange('fly')}
-          >
-            {t('noclip')}<span className="hidden sm:inline"> (F2)</span>
-          </Button>
-          <Button
-            size="sm"
-            className="text-xs sm:text-sm px-2 sm:px-3"
-            variant={controlMode === 'walk' ? 'default' : 'secondary'}
-            onClick={() => handleControlModeChange('walk')}
-          >
-            {t('walkMode')}<span className="hidden sm:inline"> (F3)</span>
-          </Button>
-          <Button
-            size="sm"
-            className="hidden sm:inline-flex text-xs sm:text-sm px-2 sm:px-3"
-            variant="secondary"
-            onClick={() => setShowControlsHelp(!showControlsHelp)}
-          >
-            {showControlsHelp ? t('hideControls') : t('showControls')}
-          </Button>
-          <Button
-            size="sm"
-            className="hidden sm:inline-flex"
-            variant="secondary"
-            onClick={() => setShowStats(!showStats)}
-          >
-            {showStats ? t('hideStats') : t('showStats')}
-          </Button>
-          <Button
-            size="sm"
-            className="hidden sm:inline-flex"
-            variant="secondary"
-            onClick={() => setWireframe(!wireframe)}
-          >
-            {t('wireframe')}
-          </Button>
-          <Button
-            size="sm"
-            className="hidden sm:inline-flex"
-            variant="secondary"
-            onClick={() => setUseBBoxCulling(!useBBoxCulling)}
-            title={useBBoxCulling ? t('cullingBBoxTitle') : t('cullingCenterTitle')}
-          >
-            {t('culling', {mode: useBBoxCulling ? 'BBox' : 'Center'})}
-          </Button>
+          {CONTROL_MODES.map(([mode, labelKey, key]) => (
+            <Button
+              key={mode}
+              size="sm"
+              className="text-xs sm:text-sm px-2 sm:px-3"
+              variant={controlMode === mode ? 'default' : 'secondary'}
+              onClick={() => handleControlModeChange(mode)}
+            >
+              {t(labelKey)}<span className="hidden sm:inline"> ({key})</span>
+            </Button>
+          ))}
+          {toggles.map((toggle, index) => (
+            <Button
+              key={index}
+              size="sm"
+              className={index === 0 ? "hidden sm:inline-flex text-xs sm:text-sm px-2 sm:px-3" : "hidden sm:inline-flex"}
+              variant="secondary"
+              onClick={toggle.onClick}
+              title={toggle.title}
+            >
+              {toggle.label}
+            </Button>
+          ))}
           <Button
             size="sm"
             className="px-2 sm:px-3"
@@ -1267,128 +1176,21 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
 
               <div className="text-xs font-semibold mb-3">{t('controls')}</div>
               <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">{t('mouseSensitivity')}</label>
-                    <span className="text-xs font-mono">{mouseSensitivity.toFixed(2)}x</span>
-                  </div>
-                  <input
-                      type="range"
-                      min="0.1"
-                      max="5"
-                      step="0.1"
-                      value={mouseSensitivity}
-                      onChange={(e) => setMouseSensitivity(parseFloat(e.target.value))}
-                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <div className="text-[10px] text-muted-foreground mt-1">
-                    {isFirefox ? t('firefoxDefault') : t('chromeDefault')}
-                  </div>
-                </div>
+                <RangeSetting label={t('mouseSensitivity')} display={`${mouseSensitivity.toFixed(2)}x`} min="0.1" max="5" step="0.1" value={mouseSensitivity} onChange={setMouseSensitivity} hint={isFirefox ? t('firefoxDefault') : t('chromeDefault')} />
               </div>
 
               <div className="text-xs font-semibold mb-3 mt-4 pt-3 border-t">{t('lighting')}</div>
               <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">{t('exposure')}</label>
-                    <span className="text-xs font-mono">{(toneMapExposure * 10000).toFixed(0)}</span>
-                  </div>
-                  <input
-                      type="range"
-                      min="0.0001"
-                      max="0.01"
-                      step="0.0001"
-                      value={toneMapExposure}
-                      onChange={(e) => setToneMapExposure(parseFloat(e.target.value))}
-                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">{t('renderDistance')}</label>
-                    <span className="text-xs font-mono">{renderDistance}</span>
-                  </div>
-                  <input
-                      type="range"
-                      min="20"
-                      max="1000"
-                      step="10"
-                      value={renderDistance}
-                      onChange={(e) => setRenderDistance(parseFloat(e.target.value))}
-                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">{t('ambient')}</label>
-                    <span className="text-xs font-mono">{ambientIntensity}</span>
-                  </div>
-                  <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={ambientIntensity}
-                      onChange={(e) => setAmbientIntensity(parseFloat(e.target.value))}
-                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">{t('directional')}</label>
-                    <span className="text-xs font-mono">{directionalIntensity.toFixed(2)}</span>
-                  </div>
-                  <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      step="0.1"
-                      value={directionalIntensity}
-                      onChange={(e) => setDirectionalIntensity(parseFloat(e.target.value))}
-                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                </div>
+                <RangeSetting label={t('exposure')} display={(toneMapExposure * 10000).toFixed(0)} min="0.0001" max="0.01" step="0.0001" value={toneMapExposure} onChange={setToneMapExposure} />
+                <RangeSetting label={t('renderDistance')} display={renderDistance} min="20" max="1000" step="10" value={renderDistance} onChange={setRenderDistance} />
+                <RangeSetting label={t('ambient')} display={ambientIntensity} min="0" max="100" step="1" value={ambientIntensity} onChange={setAmbientIntensity} />
+                <RangeSetting label={t('directional')} display={directionalIntensity.toFixed(2)} min="0" max="200" step="0.1" value={directionalIntensity} onChange={setDirectionalIntensity} />
               </div>
 
               <div className="text-xs font-semibold mb-3 mt-4 pt-3 border-t">{t('materials')}</div>
               <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">{t('roughness')}</label>
-                    <span className="text-xs font-mono">{materialRoughness.toFixed(2)}</span>
-                  </div>
-                  <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={materialRoughness}
-                      onChange={(e) => setMaterialRoughness(parseFloat(e.target.value))}
-                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <div className="text-[10px] text-muted-foreground mt-1">
-                    {t('higherLessShiny')}
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-muted-foreground">{t('metalness')}</label>
-                    <span className="text-xs font-mono">{materialMetalness.toFixed(2)}</span>
-                  </div>
-                  <input
-                      type="range"
-                      min="0.001"
-                      max="5"
-                      step="0.001"
-                      value={materialMetalness}
-                      onChange={(e) => setMaterialMetalness(parseFloat(e.target.value))}
-                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <div className="text-[10px] text-muted-foreground mt-1">
-                    {t('lowerLessReflective')}
-                  </div>
-                </div>
+                <RangeSetting label={t('roughness')} display={materialRoughness.toFixed(2)} min="0" max="1" step="0.05" value={materialRoughness} onChange={setMaterialRoughness} hint={t('higherLessShiny')} />
+                <RangeSetting label={t('metalness')} display={materialMetalness.toFixed(2)} min="0.001" max="5" step="0.001" value={materialMetalness} onChange={setMaterialMetalness} hint={t('lowerLessReflective')} />
                 <Button
                     size="sm"
                     variant="outline"
@@ -1408,38 +1210,17 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
 
               <div className="sm:hidden mt-4 pt-3 border-t space-y-2">
                 <div className="text-xs font-semibold mb-2">{t('toggles')}</div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full text-xs justify-start"
-                  onClick={() => setShowControlsHelp(!showControlsHelp)}
-                >
-                  {showControlsHelp ? t('hideControlsHelp') : t('showControlsHelp')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full text-xs justify-start"
-                  onClick={() => setShowStats(!showStats)}
-                >
-                  {showStats ? t('hideStats') : t('showStats')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full text-xs justify-start"
-                  onClick={() => setWireframe(!wireframe)}
-                >
-                  {t('wireframeToggle', {state: wireframe ? t('on') : t('off')})}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full text-xs justify-start"
-                  onClick={() => setUseBBoxCulling(!useBBoxCulling)}
-                >
-                  {t('culling', {mode: useBBoxCulling ? 'BBox' : 'Center'})}
-                </Button>
+                {toggles.map((toggle, index) => (
+                  <Button
+                    key={index}
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs justify-start"
+                    onClick={toggle.onClick}
+                  >
+                    {toggle.mobileLabel ?? toggle.label}
+                  </Button>
+                ))}
               </div>
             </AccordionContent>
           </AccordionItem>
@@ -1476,43 +1257,17 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
 
         </div>
 
-        {showControlsHelp && controlMode === 'orbit' && (
+        {showControlsHelp && controlHelp[controlMode] && (
           <div className="absolute top-12 sm:top-4 left-2 sm:left-4 z-10 p-2 sm:p-3 bg-background/95 backdrop-blur rounded-lg border shadow-lg max-w-[10rem] sm:max-w-xs">
-            <div className="text-[10px] sm:text-xs font-semibold mb-2">{t('orbitControls')}</div>
+            <div className="text-[10px] sm:text-xs font-semibold mb-2">{controlHelp[controlMode][0]}</div>
             <div className="text-[10px] sm:text-xs text-muted-foreground space-y-1">
-              <div><span className="font-medium">{t('leftMouse')}</span> {t('rotate')}</div>
-              <div><span className="font-medium">{t('rightMouse')}</span> {t('pan')}</div>
-              <div><span className="font-medium">{t('scroll')}</span> {t('zoom')}</div>
+              {controlHelp[controlMode][1].map(([key, action], index) => (
+                <div key={index}><span className="font-medium">{key}</span> {action}</div>
+              ))}
               <div className="hidden sm:block"><span className="font-medium">F:</span> {t('toggleFullscreen')}</div>
-            </div>
-          </div>
-        )}
-        {showControlsHelp && controlMode === 'fly' && (
-          <div className="absolute top-12 sm:top-4 left-2 sm:left-4 z-10 p-2 sm:p-3 bg-background/95 backdrop-blur rounded-lg border shadow-lg max-w-[10rem] sm:max-w-xs">
-            <div className="text-[10px] sm:text-xs font-semibold mb-2">{t('flyControls')}</div>
-            <div className="text-[10px] sm:text-xs text-muted-foreground space-y-1">
-              <div><span className="font-medium">WASD:</span> {t('move')}</div>
-              <div><span className="font-medium">{t('space')}</span> {t('up')}</div>
-              <div><span className="font-medium">Shift:</span> {t('down')}</div>
-              <div><span className="font-medium">{t('mouse')}</span> {t('lookAround')}</div>
-              <div><span className="font-medium">{t('scroll')}</span> {t('speedLabel')}</div>
-              <div className="hidden sm:block"><span className="font-medium">F:</span> {t('toggleFullscreen')}</div>
-              <div className="hidden sm:block"><span className="font-medium">ESC:</span> {t('unlockMouse')}</div>
-            </div>
-          </div>
-        )}
-        {showControlsHelp && controlMode === 'walk' && (
-          <div className="absolute top-12 sm:top-4 left-2 sm:left-4 z-10 p-2 sm:p-3 bg-background/95 backdrop-blur rounded-lg border shadow-lg max-w-[10rem] sm:max-w-xs">
-            <div className="text-[10px] sm:text-xs font-semibold mb-2">{t('walkControls')}</div>
-            <div className="text-[10px] sm:text-xs text-muted-foreground space-y-1">
-              <div><span className="font-medium">WASD:</span> {t('walkAction')}</div>
-              <div><span className="font-medium">{t('space')}</span> {t('jump')}</div>
-              <div><span className="font-medium">Shift:</span> {t('sprint')}</div>
-              <div><span className="font-medium">C:</span> {t('crouch')}</div>
-              <div><span className="font-medium">{t('mouse')}</span> {t('lookAround')}</div>
-              <div><span className="font-medium">{t('scroll')}</span> {t('speedLabel')}</div>
-              <div className="hidden sm:block"><span className="font-medium">F:</span> {t('toggleFullscreen')}</div>
-              <div className="hidden sm:block"><span className="font-medium">ESC:</span> {t('unlockMouse')}</div>
+              {controlMode !== 'orbit' && (
+                <div className="hidden sm:block"><span className="font-medium">ESC:</span> {t('unlockMouse')}</div>
+              )}
             </div>
           </div>
         )}

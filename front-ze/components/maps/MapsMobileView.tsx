@@ -9,7 +9,7 @@ import Link from "next/link";
 import {Badge} from "components/ui/badge";
 import {Button} from "components/ui/button";
 import {Skeleton} from "components/ui/skeleton";
-import {Pagination, PaginationContent, PaginationFirst, PaginationItem, PaginationLast, PaginationLink, PaginationNext, PaginationPrevious} from "components/ui/pagination";
+import PaginationPage from "components/ui/PaginationPage.tsx";
 import {Server} from "types/community.ts";
 import {MapPlayedPaginated} from "types/maps.ts";
 import CategoryChip from "components/ui/CategoryChip.tsx";
@@ -201,58 +201,7 @@ export default function MapsMobileView({
             </div>
 
             <div className="flex justify-center mt-6 mb-4">
-                <Pagination>
-                    <PaginationContent>
-                        <PaginationItem>
-                            <PaginationFirst
-                                onClick={() => setPage(0)}
-                                className={page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                            />
-                        </PaginationItem>
-                        <PaginationItem>
-                            <PaginationPrevious
-                                onClick={() => page > 0 && setPage(page - 1)}
-                                className={page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                            />
-                        </PaginationItem>
-                        {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
-                            let pageNum;
-                            if (totalPages <= 3) {
-                                pageNum = i;
-                            } else if (page < 2) {
-                                pageNum = i;
-                            } else if (page >= totalPages - 2) {
-                                pageNum = totalPages - 3 + i;
-                            } else {
-                                pageNum = page - 1 + i;
-                            }
-
-                            return (
-                                <PaginationItem key={pageNum}>
-                                    <PaginationLink
-                                        onClick={() => setPage(pageNum)}
-                                        isActive={page === pageNum}
-                                        className="cursor-pointer"
-                                    >
-                                        {pageNum + 1}
-                                    </PaginationLink>
-                                </PaginationItem>
-                            );
-                        })}
-                        <PaginationItem>
-                            <PaginationNext
-                                onClick={() => page < totalPages - 1 && setPage(page + 1)}
-                                className={page >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                            />
-                        </PaginationItem>
-                        <PaginationItem>
-                            <PaginationLast
-                                onClick={() => setPage(totalPages - 1)}
-                                className={page >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                            />
-                        </PaginationItem>
-                    </PaginationContent>
-                </Pagination>
+                <PaginationPage totalPages={totalPages} page={page} setPage={setPage} />
             </div>
         </>
     );

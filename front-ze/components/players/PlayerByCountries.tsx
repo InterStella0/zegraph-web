@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, use } from 'react';
 import { Globe, Radar } from 'lucide-react';
 import { getFlagUrl, fetchServerUrl } from "utils/generalUtils.ts";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader } from "components/ui/card";
 import { Button } from "components/ui/button";
 import { Skeleton } from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
-import ErrorCatch from "components/ui/ErrorMessage.tsx";
+import {useResource} from "lib/hooks/useResource";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 const CountriesSkeleton = () => (
     <div className="p-2 space-y-2">
@@ -38,28 +39,15 @@ type PlayerByCountriesProps = { initialDataPromise: Promise<{ countries: Country
 function PlayerByCountriesDisplay({ initialDataPromise }: PlayerByCountriesProps) {
     const t = useTranslations('players.byCountries');
     const initialData = use(initialDataPromise);
-    const [countries, setCountries] = useState<CountryStatistic[]>(initialData?.countries || []);
-    const [countriesLoading, setCountriesLoading] = useState<boolean>(false);
-    const [countriesError, setCountriesError] = useState<string | null>(null);
     const [communityPage, setCommunityPage] = useState<number>(0);
     const { server } = useServerData()
     const serverId = server.id
-    const isFirstRun = useRef(true);
     const COUNTRIES_PER_PAGE = 10;
-
-    const fetchCountries = async () => {
-        try {
-            setCountriesLoading(true);
-            setCountriesError(null);
-            const data = await fetchServerUrl(serverId, '/players/countries');
-            setCountries(data.countries || []);
-        } catch (error) {
-            console.error('Error fetching countries:', error);
-            setCountriesError(error.message);
-        } finally {
-            setCountriesLoading(false);
-        }
-    };
+    const { data, loading: countriesLoading, error } = useResource<CountryStatistic[]>(
+        () => fetchServerUrl(serverId, '/players/countries').then(data => data.countries || []),
+        [serverId], { initial: initialData?.countries || [], keepData: true, errorLog: 'Error fetching countries:' });
+    const countries = data ?? [];
+    const countriesError = error?.message;
 
     const getPaginatedCountries = () => {
         const startIndex = communityPage * COUNTRIES_PER_PAGE;
@@ -68,14 +56,6 @@ function PlayerByCountriesDisplay({ initialDataPromise }: PlayerByCountriesProps
     };
 
     const totalCountryPages = Math.ceil(countries.length / COUNTRIES_PER_PAGE);
-
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false;
-            return;
-        }
-        fetchCountries();
-    }, [serverId]);
 
     return (
         <Card>
@@ -166,10 +146,4 @@ export function PlayerByCountriesLoading() {
     );
 }
 
-export default function PlayerByCountries({ initialDataPromise }: PlayerByCountriesProps) {
-    return (
-        <ErrorCatch message="Countries couldn't be loaded.">
-            <PlayerByCountriesDisplay initialDataPromise={initialDataPromise}/>
-        </ErrorCatch>
-    );
-}
+export default withErrorCatch(PlayerByCountriesDisplay, () => "Countries couldn't be loaded.")

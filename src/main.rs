@@ -34,7 +34,8 @@ use crate::routers::misc::{HealthMonitor, LiveEventHub, MiscApi};
 use crate::routers::radars::RadarApi;
 use core::updater::*;
 use moka::future::Cache;
-use crate::api_models::common::{endpoint_metrics, EndpointMetrics, PatternLogger, UriPatternExt};
+use crate::api_models::common::{endpoint_metrics, EndpointMetrics, PatternLogger};
+use crate::api_models::uri_pattern::PatternTable;
 use crate::core::utils::*;
 use crate::workers::*;
 use crate::workers::consumer;
@@ -48,7 +49,7 @@ use crate::routers::ze_community_links::ZeCommunityLinksApi;
 use crate::routers::admin_maps::AdminMapsApi;
 use crate::routers::admin_audit::AdminAuditApi;
 use crate::routers::admin_servers::AdminServersApi;
-use crate::mcp::{McpApi, McpEndpoint};
+use crate::mcp::McpEndpoint;
 
 #[derive(Clone)]
 struct AppData{
@@ -148,25 +149,8 @@ fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
         .server("https://zegraph.xyz/data/api")
 }
 
-/// For logging endpoints, because poem dev rly makes it hard for me.
-fn registered_patterns() -> Vec<Arc<dyn UriPatternExt + Send + Sync>> {
-    vec![
-        Arc::new(MapApi),
-        Arc::new(ServerApi),
-        Arc::new(PlayerApi),
-        Arc::new(GraphApi),
-        Arc::new(RadarApi),
-        Arc::new(MiscApi),
-        Arc::new(AccountsApi),
-        Arc::new(CharacterApi),
-        Arc::new(SpecialThanksApi),
-        Arc::new(ZeCommunityLinksApi),
-        Arc::new(AdminMapsApi),
-        Arc::new(AdminAuditApi),
-        Arc::new(AdminServersApi),
-        Arc::new(McpApi),
-    ]
-}
+/// Routes mounted outside the OpenAPI service, so absent from the spec.
+const NON_SPEC_PATTERNS: &[&str] = &["/mcp"];
 
 fn build_app(data: AppData, environment: &str, swagger_ui_enabled: bool) -> impl poem::Endpoint + use<> {
     let api_service = build_api_service();
@@ -187,7 +171,7 @@ fn build_app(data: AppData, environment: &str, swagger_ui_enabled: bool) -> impl
     route = route.at("/mcp", McpEndpoint::new(mcp_api, &mcp_spec, data.clone()));
     route.nest("/", api_service)
         .with(Cors::new()) // 600MB limit for large file uploads
-        .with(PatternLogger::new(registered_patterns()))
+        .with(PatternLogger::new(PatternTable::from_spec(&mcp_spec, NON_SPEC_PATTERNS)))
         .with(CookieSession::new(CookieConfig::default()))
         .data(data)
 }
@@ -413,7 +397,7 @@ async fn init_precalculate(port: &str){
 mod route_tests {
     use super::*;
     use crate::api_models::common::{Claims, MAX_KEY_LIST};
-    use crate::api_models::uri_pattern::{PatternTable, RoutePattern};
+    use crate::api_models::uri_pattern::RoutePattern;
     use crate::workers::test_support::fake_app_data;
     use poem::test::TestClient;
     use std::collections::BTreeSet;
@@ -635,47 +619,13 @@ mod route_tests {
         }
     }
 
-    /// Routes mounted outside the OpenAPI service, so absent from the spec but still registered
-    /// with `PatternLogger`.
-    const NON_SPEC_PATTERNS: &[&str] = &["/mcp"];
-
-    /// `registered_patterns()` is maintained by hand and feeds `PatternLogger`; a path missing from
-    /// it is logged as `unknown_pattern` and loses its tracing identity, while a stale entry matches
-    /// nothing. Neither shows up at runtime, so the two lists are compared here.
-    #[test]
-    fn registered_patterns_match_spec() {
-        let patterns = registered_patterns();
-        let declared: BTreeSet<String> = patterns
-            .iter()
-            .flat_map(|api| api.get_all_patterns())
-            .map(|p| p.uri().to_string())
-            .collect();
-        let spec = spec_paths();
-
-        let unregistered: Vec<_> = spec.difference(&declared).collect();
-        assert!(
-            unregistered.is_empty(),
-            "these routes exist but are not in any get_all_patterns(), so PatternLogger will log \
-             them as `unknown_pattern`: {unregistered:#?}"
-        );
-
-        let stale: Vec<_> = declared.difference(&spec)
-            .filter(|p| !NON_SPEC_PATTERNS.contains(&p.as_str()))
-            .collect();
-        assert!(
-            stale.is_empty(),
-            "these patterns are declared but match no route; they are leftovers from deleted or \
-             renamed endpoints: {stale:#?}"
-        );
-    }
-
     /// The unit tests in `uri_pattern` cover the matcher itself; this one runs the *real* set of
     /// ~150 patterns through it, which is where overlaps between routers show up. The long path is
     /// the case that used to panic: `uri-pattern-matcher` indexed its parts vector by the
     /// candidate's segment number, so any path longer than a pattern went out of bounds.
     #[test]
     fn pattern_table_resolves_real_routes() {
-        let table = PatternTable::new(&registered_patterns());
+        let table = PatternTable::from_spec(&build_api_service().spec(), NON_SPEC_PATTERNS);
 
         for (path, expected) in [
             ("/servers/1/maps/autocomplete", "/servers/{server_id}/maps/autocomplete"),
@@ -687,6 +637,7 @@ mod route_tests {
             ("/servers/1/maps/ze_test_map_v1/images", "/servers/{server_id}/maps/{map_name}/images"),
             ("/players/pfps", "/players/pfps"),
             ("/players/76561198000000001/pfp", "/players/{player_id}/pfp"),
+            ("/mcp", "/mcp"),
         ] {
             assert_eq!(
                 table.find(path).map(RoutePattern::uri),
@@ -712,31 +663,7 @@ mod route_tests {
     const INVALID_TOKEN: poem::http::StatusCode = poem::http::StatusCode::FORBIDDEN;
 
     #[tokio::test]
-    async fn protected_routes_reject_missing_token() {
-        let cli = client();
-        for (method, path) in PROTECTED {
-            let status = send(&cli, method, path, None).await;
-            assert_eq!(
-                status, MISSING_TOKEN,
-                "{method} {path} should reject an unauthenticated request"
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn protected_routes_reject_malformed_token() {
-        let cli = client();
-        for (method, path) in PROTECTED {
-            let status = send(&cli, method, path, Some("not-a-real-jwt")).await;
-            assert_eq!(
-                status, INVALID_TOKEN,
-                "{method} {path} should reject a malformed token"
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn protected_routes_reject_token_signed_with_wrong_secret() {
+    async fn protected_routes_reject_bad_tokens() {
         let cli = client();
         let claims = Claims {
             sub: "76561198000000001".to_string(),
@@ -751,12 +678,15 @@ mod route_tests {
         )
         .expect("minting should not fail");
 
-        for (method, path) in PROTECTED {
-            let status = send(&cli, method, path, Some(&forged)).await;
-            assert_eq!(
-                status, INVALID_TOKEN,
-                "{method} {path} accepted a token signed with the wrong secret"
-            );
+        for (token, expected, case) in [
+            (None, MISSING_TOKEN, "an unauthenticated request"),
+            (Some("not-a-real-jwt"), INVALID_TOKEN, "a malformed token"),
+            (Some(forged.as_str()), INVALID_TOKEN, "a token signed with the wrong secret"),
+        ] {
+            for (method, path) in PROTECTED {
+                let status = send(&cli, method, path, token).await;
+                assert_eq!(status, expected, "{method} {path} should reject {case}");
+            }
         }
     }
 
