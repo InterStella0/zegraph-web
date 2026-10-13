@@ -1,19 +1,21 @@
-import { proxyGet, proxyPost, proxyToBackendChange } from "lib/apiProxy";
+import { proxyGet, proxyPost, proxyToBackendChange, withJsonBody } from "lib/apiProxy";
 
-const browserPath = (req: Request) => {
+const browserParams = (req: Request) => {
   const url = new URL(req.url);
-  const ip = url.searchParams.get("ip") ?? "";
-  const port = url.searchParams.get("port") ?? "";
-  return `/admin/server-browsers?ip=${encodeURIComponent(ip)}&port=${encodeURIComponent(port)}`;
+  return {
+    ip: url.searchParams.get("ip") ?? "",
+    port: url.searchParams.get("port") ?? "",
+  };
 };
 
 export const GET = proxyGet("/admin/server-browsers");
 export const POST = proxyPost("/admin/server-browsers");
 
 export async function PUT(req: Request) {
-  return await proxyToBackendChange(browserPath(req), await req.json(), "PUT");
+  return withJsonBody(req, body =>
+    proxyToBackendChange("/admin/server-browsers", body, "PUT", browserParams(req)));
 }
 
 export async function DELETE(req: Request) {
-  return await proxyToBackendChange(browserPath(req), null, "DELETE");
+  return await proxyToBackendChange("/admin/server-browsers", null, "DELETE", browserParams(req));
 }

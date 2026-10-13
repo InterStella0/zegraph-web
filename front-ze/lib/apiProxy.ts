@@ -90,11 +90,21 @@ export async function proxyToBackendChange<T>(
     const addition = searchParams? `?${new URLSearchParams(searchParams).toString()}`: ''
     const backendUrl = new URL(BACKEND_DOMAIN + endpoint + addition)
     const headers = {"Content-Type": "application/json"}
-    if(session){
-        headers['Authorization'] = `Bearer ${session?.backendJwt}`
+    if(session?.backendJwt){
+        headers['Authorization'] = `Bearer ${session.backendJwt}`
     }
     const body = payload == null ? undefined : JSON.stringify(payload)
     return callBackend(endpoint, backendUrl, { method, headers, cache: "no-store", body }, timeoutMs);
+}
+
+export async function withJsonBody<T = any>(req: Request, handle: (body: T) => Promise<Response>) {
+    let body: T;
+    try {
+        body = await req.json();
+    } catch {
+        return NextResponse.json({ msg: "Invalid JSON body", code: 400 }, { status: 400 });
+    }
+    return handle(body);
 }
 
 export const proxyGet = (path: RoutePath, { cache, query = true }: { cache?: CachePreset, query?: boolean } = {}) =>
@@ -105,7 +115,8 @@ const proxyChange = (method: "POST" | "PUT" | "DELETE") =>
     (path: RoutePath, { body = method !== "DELETE" }: { body?: boolean } = {}) =>
         async (req: Request, context: RouteContext) => {
             const endpoint = await resolvePath(path, context);
-            return proxyToBackendChange(endpoint, body ? await req.json() : null, method);
+            if (!body) return proxyToBackendChange(endpoint, null, method);
+            return withJsonBody(req, payload => proxyToBackendChange(endpoint, payload, method));
         };
 
 export const proxyPost = proxyChange("POST");
