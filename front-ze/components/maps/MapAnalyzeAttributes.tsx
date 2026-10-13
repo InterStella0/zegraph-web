@@ -5,9 +5,9 @@ import { Info, Users, LogOut, Clock, Star, AlertTriangle, Save, Hourglass } from
 import { Card } from "../ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { Skeleton } from "../ui/skeleton";
+import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {useTranslations} from 'next-intl';
-import {withErrorCatch} from "components/common/withErrorCatch";
 
 function StatCard(
     { title, value, description, icon, colorKey, loading = false, notReady = false, href = null }
@@ -227,4 +227,11 @@ function MapStats() {
     );
 }
 
-export default withErrorCatch(MapStats, t => t('maps.analyze.loadError'))
+export default function MapAnalyzeAttributes() {
+    const t = useTranslations('maps.analyze');
+    return (
+        <ErrorCatch message={t('loadError')}>
+            <MapStats />
+        </ErrorCatch>
+    );
+}

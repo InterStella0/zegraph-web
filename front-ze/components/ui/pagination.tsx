@@ -6,6 +6,7 @@ import {
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
+  MoreHorizontalIcon,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 
@@ -142,6 +143,24 @@ function PaginationLast({
   )
 }
 
+function PaginationEllipsis({
+  className,
+  ...props
+}: React.ComponentProps<"span">) {
+  const t = useTranslations("common.pagination")
+  return (
+    <span
+      aria-hidden
+      data-slot="pagination-ellipsis"
+      className={cn("flex size-9 items-center justify-center", className)}
+      {...props}
+    >
+      <MoreHorizontalIcon className="size-4" />
+      <span className="sr-only">{t("morePages")}</span>
+    </span>
+  )
+}
+
 export {
   Pagination,
   PaginationContent,
@@ -151,4 +170,5 @@ export {
   PaginationNext,
   PaginationFirst,
   PaginationLast,
+  PaginationEllipsis,
 }

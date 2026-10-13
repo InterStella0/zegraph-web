@@ -13,7 +13,7 @@ import {isPageGroup, PageLink, pagesSelection} from "./PagesNavigation";
 import {Server} from "types/community";
 import {useRouter, usePathname} from "next/navigation";
 import {SiDiscord, SiGithub} from "@icons-pack/react-simple-icons";
-import {SteamProfile} from "types/steam";
+import {SteamProfile} from "../../next-auth-steam/steam.ts";
 import {useTranslations} from "next-intl";
 import LanguageToggle from "./LanguageToggle";
 

@@ -7,8 +7,9 @@ use crate::models::admins::DbEvent;
 use crate::models::maps::*;
 use crate::models::players::*;
 use crate::models::servers::*;
-use super::player::run_global_playtime_job;
-use super::{MapData, MapPeriodData, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query, QueryPriority, WorkerQ, WorkerQuery};
+use super::map::{MapBasicQuery, MapPeriodQuery};
+use super::player::{run_global_playtime_job, PlayerBasicQuery, PlayerGlobalQuery, PlayerPeriodQuery, PlayerSessionQuery};
+use super::{MapData, MapPeriodData, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query, QueryPriority, WorkerQuery};
 
 pub const QUEUE_HEAVY: &str = "gfl-ze-watcher:jobs:heavy";
 pub const QUEUE_LIGHT: &str = "gfl-ze-watcher:jobs:light";
@@ -81,86 +82,189 @@ impl RefreshJob {
     }
 }
 
-macro_rules! job_registry {
-    ($($variant:ident($data:ident) => $out:ty,)*) => {
-        #[derive(Clone, Serialize, Deserialize)]
-        pub enum JobKind {
-            $($variant($data),)*
-            /// Not a `WorkerQuery`
-            PlayerGlobalPlaytime { canonical_id: String },
-        }
+#[derive(Clone, Serialize, Deserialize)]
+pub enum JobKind {
+    // MapBasicQuery<T>
+    MapRegions(MapData),
+    MapHeatRegions(MapData),
+    MapEvents(MapData),
+    MapSessionDistribution(MapData),
+    MapPartial(MapData),
+    MapMetadata(MapData),
+    MapPlayerTypeTime(MapData),
+    MapInfo(MapData),
+    MapAnalyze(MapData),
 
-        pub async fn dispatch(
-            kind: &JobKind,
-            pool: Arc<Pool<Postgres>>,
-            cache: Arc<FastCache>,
-        ) -> Result<Option<String>, JobError> {
-            let json = match kind {
-                $(JobKind::$variant(d) => {
-                    let result = WorkerQ::<_, $out>::raw(Query { pool, cache, data: d.clone() }).execute().await?;
-                    Some(serde_json::to_string(&result)?)
-                })*
-                JobKind::PlayerGlobalPlaytime { canonical_id } => {
-                    run_global_playtime_job(pool, cache, canonical_id).await?;
-                    None
-                }
-            };
-            Ok(json)
-        }
+    // MapPeriodQuery<T>
+    MapPeriodAnalyze(MapPeriodData),
+    MapPeriodRegions(MapPeriodData),
+    MapPeriodHeatRegions(MapPeriodData),
+    MapPeriodSessionDistribution(MapPeriodData),
+    MapPeriodPlayerTypeTime(MapPeriodData),
+    MapPeriodTopPlayers(MapPeriodData),
 
-        #[cfg(test)]
-        fn all_job_kinds() -> Vec<JobKind> {
-            use super::test_support::Fixture;
-            vec![
-                $(JobKind::$variant(Fixture::fixture()),)*
-                JobKind::PlayerGlobalPlaytime { canonical_id: "canon".to_string() },
-            ]
-        }
-    };
+    // PlayerBasicQuery<T>
+    PlayerSessionTime(PlayerData),
+    PlayerMapPlayed(PlayerData),
+    PlayerPlaytimeRanks(PlayerData),
+    PlayerMapRanks(PlayerData),
+    PlayerAliases(PlayerData),
+    PlayerDetail(PlayerData),
+    PlayerLegacyStats(PlayerData),
+    PlayerRegionTime(PlayerData),
+    PlayerHourCount(PlayerData),
+    PlayerOnlineHeatmap(PlayerData),
+    PlayerMightFriends(PlayerData),
+
+    // PlayerPeriodQuery<T>
+    PlayerPeriodMapPlayed(PlayerPeriodData),
+    PlayerPeriodDetail(PlayerPeriodData),
+    PlayerPeriodSessionTime(PlayerPeriodData),
+    PlayerPeriodHourCount(PlayerPeriodData),
+    PlayerPeriodOnlineHeatmap(PlayerPeriodData),
+    PlayerPeriodRegionTime(PlayerPeriodData),
+    PlayerPeriodPlayedWith(PlayerPeriodData),
+
+    // PlayerSessionQuery<T>
+    PlayerSeen(PlayerSessionData),
+
+    // PlayerGlobalQuery<T>
+    PlayerGlobalSnapshot(PlayerGlobalData),
+    PlayerCommunityPlaytime(PlayerGlobalData),
+
+    /// Not a `WorkerQuery`
+    PlayerGlobalPlaytime { canonical_id: String },
 }
 
-job_registry! {
-    MapRegions(MapData) => Vec<DbMapRegion>,
-    MapHeatRegions(MapData) => Vec<DbMapRegionDate>,
-    MapEvents(MapData) => Vec<DbEvent>,
-    MapSessionDistribution(MapData) => Vec<DbMapSessionDistribution>,
-    MapPartial(MapData) => DbServerMapPartial,
-    MapMetadata(MapData) => Option<DbMapMeta>,
-    MapPlayerTypeTime(MapData) => Vec<DbMapPlayerTypeTime>,
-    MapInfo(MapData) => DbMapInfo,
-    MapAnalyze(MapData) => DbMapAnalyze,
+pub async fn dispatch(
+    kind: &JobKind,
+    pool: Arc<Pool<Postgres>>,
+    cache: Arc<FastCache>,
+) -> Result<Option<String>, JobError> {
+    macro_rules! run {
+        ($query:expr) => {{
+            let result = $query.execute().await?;
+            Some(serde_json::to_string(&result)?)
+        }};
+    }
 
-    MapPeriodAnalyze(MapPeriodData) => DbMapAnalyze,
-    MapPeriodRegions(MapPeriodData) => Vec<DbMapRegion>,
-    MapPeriodHeatRegions(MapPeriodData) => Vec<DbMapRegionDate>,
-    MapPeriodSessionDistribution(MapPeriodData) => Vec<DbMapSessionDistribution>,
-    MapPeriodPlayerTypeTime(MapPeriodData) => Vec<DbMapPlayerTypeTime>,
-    MapPeriodTopPlayers(MapPeriodData) => Vec<DbMapPeriodPlayer>,
+    let json = match kind {
+        JobKind::MapRegions(d) => run!(map_query::<Vec<DbMapRegion>>(d, pool, cache)),
+        JobKind::MapHeatRegions(d) => run!(map_query::<Vec<DbMapRegionDate>>(d, pool, cache)),
+        JobKind::MapEvents(d) => run!(map_query::<Vec<DbEvent>>(d, pool, cache)),
+        JobKind::MapSessionDistribution(d) => {
+            run!(map_query::<Vec<DbMapSessionDistribution>>(d, pool, cache))
+        }
+        JobKind::MapPartial(d) => run!(map_query::<DbServerMapPartial>(d, pool, cache)),
+        JobKind::MapMetadata(d) => run!(map_query::<Option<DbMapMeta>>(d, pool, cache)),
+        JobKind::MapPlayerTypeTime(d) => run!(map_query::<Vec<DbMapPlayerTypeTime>>(d, pool, cache)),
+        JobKind::MapInfo(d) => run!(map_query::<DbMapInfo>(d, pool, cache)),
+        JobKind::MapAnalyze(d) => run!(map_query::<DbMapAnalyze>(d, pool, cache)),
 
-    PlayerSessionTime(PlayerData) => Vec<DbPlayerSessionTime>,
-    PlayerMapPlayed(PlayerData) => Vec<DbPlayerMapPlayed>,
-    PlayerPlaytimeRanks(PlayerData) => Option<DbPlayerRank>,
-    PlayerMapRanks(PlayerData) => Vec<DbMapRank>,
-    PlayerAliases(PlayerData) => Vec<DbPlayerAlias>,
-    PlayerDetail(PlayerData) => DbPlayerDetail,
-    PlayerLegacyStats(PlayerData) => Option<DbPlayerWithLegacyRanks>,
-    PlayerRegionTime(PlayerData) => Vec<DbPlayerRegionTime>,
-    PlayerHourCount(PlayerData) => Vec<DbPlayerHourCount>,
-    PlayerOnlineHeatmap(PlayerData) => Vec<DbPlayerOnlineHeatmap>,
-    PlayerMightFriends(PlayerData) => Vec<DbPlayerSeen>,
+        JobKind::MapPeriodAnalyze(d) => run!(map_period_query::<DbMapAnalyze>(d, pool, cache)),
+        JobKind::MapPeriodRegions(d) => run!(map_period_query::<Vec<DbMapRegion>>(d, pool, cache)),
+        JobKind::MapPeriodHeatRegions(d) => {
+            run!(map_period_query::<Vec<DbMapRegionDate>>(d, pool, cache))
+        }
+        JobKind::MapPeriodSessionDistribution(d) => {
+            run!(map_period_query::<Vec<DbMapSessionDistribution>>(d, pool, cache))
+        }
+        JobKind::MapPeriodPlayerTypeTime(d) => {
+            run!(map_period_query::<Vec<DbMapPlayerTypeTime>>(d, pool, cache))
+        }
+        JobKind::MapPeriodTopPlayers(d) => {
+            run!(map_period_query::<Vec<DbMapPeriodPlayer>>(d, pool, cache))
+        }
 
-    PlayerPeriodMapPlayed(PlayerPeriodData) => Vec<DbPlayerMapPlayed>,
-    PlayerPeriodDetail(PlayerPeriodData) => DbPlayerDetail,
-    PlayerPeriodSessionTime(PlayerPeriodData) => Vec<DbPlayerSessionTime>,
-    PlayerPeriodHourCount(PlayerPeriodData) => Vec<DbPlayerHourCount>,
-    PlayerPeriodOnlineHeatmap(PlayerPeriodData) => Vec<DbPlayerOnlineHeatmap>,
-    PlayerPeriodRegionTime(PlayerPeriodData) => Vec<DbPlayerRegionTime>,
-    PlayerPeriodPlayedWith(PlayerPeriodData) => Vec<DbPlayerSeen>,
+        JobKind::PlayerSessionTime(d) => {
+            run!(player_query::<Vec<DbPlayerSessionTime>>(d, pool, cache))
+        }
+        JobKind::PlayerMapPlayed(d) => run!(player_query::<Vec<DbPlayerMapPlayed>>(d, pool, cache)),
+        JobKind::PlayerPlaytimeRanks(d) => {
+            run!(player_query::<Option<DbPlayerRank>>(d, pool, cache))
+        }
+        JobKind::PlayerMapRanks(d) => run!(player_query::<Vec<DbMapRank>>(d, pool, cache)),
+        JobKind::PlayerAliases(d) => run!(player_query::<Vec<DbPlayerAlias>>(d, pool, cache)),
+        JobKind::PlayerDetail(d) => run!(player_query::<DbPlayerDetail>(d, pool, cache)),
+        JobKind::PlayerLegacyStats(d) => {
+            run!(player_query::<Option<DbPlayerWithLegacyRanks>>(d, pool, cache))
+        }
+        JobKind::PlayerRegionTime(d) => run!(player_query::<Vec<DbPlayerRegionTime>>(d, pool, cache)),
+        JobKind::PlayerHourCount(d) => run!(player_query::<Vec<DbPlayerHourCount>>(d, pool, cache)),
+        JobKind::PlayerOnlineHeatmap(d) => {
+            run!(player_query::<Vec<DbPlayerOnlineHeatmap>>(d, pool, cache))
+        }
+        JobKind::PlayerMightFriends(d) => run!(player_query::<Vec<DbPlayerSeen>>(d, pool, cache)),
 
-    PlayerSeen(PlayerSessionData) => Vec<DbPlayerSeen>,
+        JobKind::PlayerPeriodMapPlayed(d) => {
+            run!(player_period_query::<Vec<DbPlayerMapPlayed>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodDetail(d) => run!(player_period_query::<DbPlayerDetail>(d, pool, cache)),
+        JobKind::PlayerPeriodSessionTime(d) => {
+            run!(player_period_query::<Vec<DbPlayerSessionTime>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodHourCount(d) => {
+            run!(player_period_query::<Vec<DbPlayerHourCount>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodOnlineHeatmap(d) => {
+            run!(player_period_query::<Vec<DbPlayerOnlineHeatmap>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodRegionTime(d) => {
+            run!(player_period_query::<Vec<DbPlayerRegionTime>>(d, pool, cache))
+        }
+        JobKind::PlayerPeriodPlayedWith(d) => {
+            run!(player_period_query::<Vec<DbPlayerSeen>>(d, pool, cache))
+        }
 
-    PlayerGlobalSnapshot(PlayerGlobalData) => DbGlobalPlaytimeSnapshot,
-    PlayerCommunityPlaytime(PlayerGlobalData) => Vec<DbPlayerCommunityPlaytime>,
+        JobKind::PlayerSeen(d) => run!(player_session_query::<Vec<DbPlayerSeen>>(d, pool, cache)),
+
+        JobKind::PlayerGlobalSnapshot(d) => {
+            run!(player_global_query::<DbGlobalPlaytimeSnapshot>(d, pool, cache))
+        }
+        JobKind::PlayerCommunityPlaytime(d) => {
+            run!(player_global_query::<Vec<DbPlayerCommunityPlaytime>>(d, pool, cache))
+        }
+
+        JobKind::PlayerGlobalPlaytime { canonical_id } => {
+            run_global_playtime_job(pool, cache, canonical_id).await?;
+            None
+        }
+    };
+    Ok(json)
+}
+
+fn map_query<T>(data: &MapData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> MapBasicQuery<T> {
+    MapBasicQuery::raw(Query { pool, cache, data: data.clone() })
+}
+
+fn map_period_query<T>(
+    data: &MapPeriodData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
+) -> MapPeriodQuery<T> {
+    MapPeriodQuery::raw(Query { pool, cache, data: data.clone() })
+}
+
+fn player_query<T>(
+    data: &PlayerData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
+) -> PlayerBasicQuery<T> {
+    PlayerBasicQuery::raw(Query { pool, cache, data: data.clone() })
+}
+
+fn player_period_query<T>(
+    data: &PlayerPeriodData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
+) -> PlayerPeriodQuery<T> {
+    PlayerPeriodQuery::raw(Query { pool, cache, data: data.clone() })
+}
+
+fn player_session_query<T>(
+    data: &PlayerSessionData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
+) -> PlayerSessionQuery<T> {
+    PlayerSessionQuery::raw(Query { pool, cache, data: data.clone() })
+}
+
+fn player_global_query<T>(
+    data: &PlayerGlobalData, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>,
+) -> PlayerGlobalQuery<T> {
+    PlayerGlobalQuery::raw(Query { pool, cache, data: data.clone() })
 }
 
 #[derive(Debug)]
@@ -192,7 +296,7 @@ impl std::fmt::Display for JobError {
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{player_data, player_period_data};
+    use super::super::test_support::{map_data, map_period_data, player_data, player_global_data, player_period_data, player_session_data};
     use super::*;
 
     fn job(priority: QueryPriority) -> RefreshJob {
@@ -258,6 +362,74 @@ mod tests {
             decoded,
             JobKind::PlayerPeriodDetail(d) if d.period == player_period_data(false).period && !d.closed
         ));
+    }
+
+    fn all_job_kinds() -> Vec<JobKind> {
+        let (p, m, s, g) = (player_data(), map_data(), player_session_data(), player_global_data());
+        let r = player_period_data(true);
+        let mp = map_period_data(true);
+        let kinds = vec![
+            JobKind::MapRegions(m.clone()),
+            JobKind::MapHeatRegions(m.clone()),
+            JobKind::MapEvents(m.clone()),
+            JobKind::MapSessionDistribution(m.clone()),
+            JobKind::MapPartial(m.clone()),
+            JobKind::MapMetadata(m.clone()),
+            JobKind::MapPlayerTypeTime(m.clone()),
+            JobKind::MapInfo(m.clone()),
+            JobKind::MapAnalyze(m),
+            JobKind::MapPeriodAnalyze(mp.clone()),
+            JobKind::MapPeriodRegions(mp.clone()),
+            JobKind::MapPeriodHeatRegions(mp.clone()),
+            JobKind::MapPeriodSessionDistribution(mp.clone()),
+            JobKind::MapPeriodPlayerTypeTime(mp.clone()),
+            JobKind::MapPeriodTopPlayers(mp),
+            JobKind::PlayerSessionTime(p.clone()),
+            JobKind::PlayerMapPlayed(p.clone()),
+            JobKind::PlayerPlaytimeRanks(p.clone()),
+            JobKind::PlayerMapRanks(p.clone()),
+            JobKind::PlayerAliases(p.clone()),
+            JobKind::PlayerDetail(p.clone()),
+            JobKind::PlayerLegacyStats(p.clone()),
+            JobKind::PlayerRegionTime(p.clone()),
+            JobKind::PlayerHourCount(p.clone()),
+            JobKind::PlayerOnlineHeatmap(p.clone()),
+            JobKind::PlayerMightFriends(p),
+            JobKind::PlayerPeriodMapPlayed(r.clone()),
+            JobKind::PlayerPeriodDetail(r.clone()),
+            JobKind::PlayerPeriodSessionTime(r.clone()),
+            JobKind::PlayerPeriodHourCount(r.clone()),
+            JobKind::PlayerPeriodOnlineHeatmap(r.clone()),
+            JobKind::PlayerPeriodRegionTime(r.clone()),
+            JobKind::PlayerPeriodPlayedWith(r),
+            JobKind::PlayerSeen(s),
+            JobKind::PlayerGlobalSnapshot(g.clone()),
+            JobKind::PlayerCommunityPlaytime(g),
+            JobKind::PlayerGlobalPlaytime { canonical_id: "canon".to_string() },
+        ];
+
+        for kind in &kinds {
+            match kind {
+                JobKind::MapRegions(_) | JobKind::MapHeatRegions(_) | JobKind::MapEvents(_)
+                | JobKind::MapSessionDistribution(_) | JobKind::MapPartial(_)
+                | JobKind::MapMetadata(_) | JobKind::MapPlayerTypeTime(_) | JobKind::MapInfo(_)
+                | JobKind::MapAnalyze(_) | JobKind::MapPeriodAnalyze(_) | JobKind::MapPeriodRegions(_)
+                | JobKind::MapPeriodHeatRegions(_) | JobKind::MapPeriodSessionDistribution(_)
+                | JobKind::MapPeriodPlayerTypeTime(_) | JobKind::MapPeriodTopPlayers(_)
+                | JobKind::PlayerSessionTime(_)
+                | JobKind::PlayerMapPlayed(_) | JobKind::PlayerPlaytimeRanks(_)
+                | JobKind::PlayerMapRanks(_) | JobKind::PlayerAliases(_) | JobKind::PlayerDetail(_)
+                | JobKind::PlayerLegacyStats(_) | JobKind::PlayerRegionTime(_) | JobKind::PlayerHourCount(_)
+                | JobKind::PlayerOnlineHeatmap(_) | JobKind::PlayerMightFriends(_) | JobKind::PlayerSeen(_)
+                | JobKind::PlayerPeriodMapPlayed(_) | JobKind::PlayerPeriodDetail(_)
+                | JobKind::PlayerPeriodSessionTime(_) | JobKind::PlayerPeriodHourCount(_)
+                | JobKind::PlayerPeriodOnlineHeatmap(_) | JobKind::PlayerPeriodRegionTime(_)
+                | JobKind::PlayerPeriodPlayedWith(_)
+                | JobKind::PlayerGlobalSnapshot(_) | JobKind::PlayerCommunityPlaytime(_)
+                | JobKind::PlayerGlobalPlaytime { .. } => {}
+            }
+        }
+        kinds
     }
 
     #[test]

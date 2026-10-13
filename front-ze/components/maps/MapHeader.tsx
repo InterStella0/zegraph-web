@@ -1,9 +1,10 @@
 'use client'
 import {useTranslations, useLocale} from 'next-intl';
-import {ReactNode, useEffect, useState} from "react";
+import { useEffect, useState} from "react";
 import {fetchApiUrl, getMapImage} from "utils/generalUtils.ts";
-import {Clock, Users, RotateCcw, User, AlarmClock, AlertTriangle, Ban, BoxesIcon, LucideIcon} from "lucide-react";
+import {Clock, Users, RotateCcw, User, AlarmClock, AlertTriangle, Ban, BoxesIcon} from "lucide-react";
 import dayjs from "dayjs";
+import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {Skeleton} from "components/ui/skeleton";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "components/ui/tooltip";
 import {Button} from "components/ui/button";
@@ -14,7 +15,6 @@ import Image from "next/image";
 import {useRouter} from "next/navigation";
 import {MapWithModels} from "types/maps.ts";
 import {PeriodChip, usePeriod} from "components/period/Period";
-import {withErrorCatch} from "components/common/withErrorCatch";
 dayjs.extend(relativeTime);
 
 async function checkModelExists(mapName: string): Promise<boolean> {
@@ -24,29 +24,6 @@ async function checkModelExists(mapName: string): Promise<boolean> {
     } catch (error) {
         return false
     }
-}
-
-function OverlayBadge({ color, icon: Icon, spaced, tooltip, suppressHydrationWarning, children }: {
-    color: string, icon?: LucideIcon, spaced?: boolean, tooltip?: ReactNode, suppressHydrationWarning?: boolean, children: ReactNode,
-}) {
-    const content = (
-        <div className={`flex flex-row items-center gap-1 ${color}`}>
-            {Icon && <Icon className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />}
-            <span className="text-xs sm:text-sm md:text-base font-medium" suppressHydrationWarning={suppressHydrationWarning}>
-                {children}
-            </span>
-        </div>
-    );
-    return (
-        <div className={spaced ? "bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2" : "bg-black/50 px-2 py-1 rounded backdrop-blur-sm"}>
-            {tooltip ? (
-                <Tooltip>
-                    <TooltipTrigger asChild>{content}</TooltipTrigger>
-                    <TooltipContent suppressHydrationWarning={suppressHydrationWarning}>{tooltip}</TooltipContent>
-                </Tooltip>
-            ) : content}
-        </div>
-    );
 }
 
 function MapHeaderDisplay() {
@@ -102,32 +79,126 @@ function MapHeaderDisplay() {
                 {/* Top-left cooldown badge */}
                 <div className="absolute top-0 left-0 p-2 sm:p-4">
                     {mapLeft > 0 ? (
-                        <OverlayBadge color="text-amber-500" icon={AlarmClock}>{mapLeft} maps left</OverlayBadge>
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
+                            <div className="flex flex-row items-center gap-1 text-amber-500">
+                                <AlarmClock className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                                <span className="text-xs sm:text-sm md:text-base font-medium">
+                                    {mapLeft} maps left
+                                </span>
+                            </div>
+                        </div>
                     ) : cooldownLeft > 0 && (
-                        <OverlayBadge color="text-amber-500" icon={AlarmClock} tooltip={cooldown?.format('lll')} suppressHydrationWarning>
-                            Cooldown ends in {cooldown?.fromNow(true)}
-                        </OverlayBadge>
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="flex flex-row items-center gap-1 text-amber-500">
+                                        <AlarmClock className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                                        <span className="text-xs sm:text-sm md:text-base font-medium" suppressHydrationWarning>
+                                            Cooldown ends in {cooldown?.fromNow(true)}
+                                        </span>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent suppressHydrationWarning>
+                                    {cooldown?.format('lll')}
+                                </TooltipContent>
+                            </Tooltip>
+                        </div>
                     )}
-                    {info?.removed && <OverlayBadge color="text-destructive" icon={Ban}>{t('removed')}</OverlayBadge>}
-                    {info?.is_casual && !info?.is_tryhard && <OverlayBadge spaced color="text-green-500">{t('casual')}</OverlayBadge>}
-                    {!info?.is_casual && info?.is_tryhard && <OverlayBadge spaced color="text-red-500">{t('tryhard')}</OverlayBadge>}
-                    {info?.is_casual && info?.is_tryhard && <OverlayBadge spaced color="text-blue-500">{t('mixed')}</OverlayBadge>}
-                    {info?.no_noms && <OverlayBadge spaced color="text-orange-500">{t('noNomsOnly')}</OverlayBadge>}
-                    {info?.has_lasers && <OverlayBadge spaced color="text-blue-400">{t('hasLasers')}</OverlayBadge>}
+                    {info?.removed && (
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
+                            <div className="flex flex-row items-center gap-1 text-destructive">
+                                <Ban className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                                <span className="text-xs sm:text-sm md:text-base font-medium">
+                                    {t('removed')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    {info?.is_casual && !info?.is_tryhard && (
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
+                            <div className="flex flex-row items-center gap-1 text-green-500">
+                                <span className="text-xs sm:text-sm md:text-base font-medium">
+                                    {t('casual')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    {!info?.is_casual && info?.is_tryhard && (
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
+                            <div className="flex flex-row items-center gap-1 text-red-500">
+                                <span className="text-xs sm:text-sm md:text-base font-medium">
+                                    {t('tryhard')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    {info?.is_casual && info?.is_tryhard && (
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
+                            <div className="flex flex-row items-center gap-1 text-blue-500">
+                                <span className="text-xs sm:text-sm md:text-base font-medium">
+                                    {t('mixed')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    {info?.no_noms && (
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
+                            <div className="flex flex-row items-center gap-1 text-orange-500">
+                                <span className="text-xs sm:text-sm md:text-base font-medium">
+                                    {t('noNomsOnly')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    {info?.has_lasers && (
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
+                            <div className="flex flex-row items-center gap-1 text-blue-400">
+                                <span className="text-xs sm:text-sm md:text-base font-medium">
+                                    {t('hasLasers')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
                     {info?.min_players != null && info.min_players > 0 && (
-                        <OverlayBadge spaced color="text-white" icon={Users}>{t('minPlayers', {count: info.min_players})}</OverlayBadge>
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
+                            <div className="flex flex-row items-center gap-1 text-white">
+                                <Users className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                                <span className="text-xs sm:text-sm md:text-base font-medium">
+                                    {t('minPlayers', {count: info.min_players})}
+                                </span>
+                            </div>
+                        </div>
                     )}
                     {info?.max_players != null && (info.max_players != server.max_players && info.max_players != 0) && (
-                        <OverlayBadge spaced color="text-white" icon={Users}>Max {info.max_players} players</OverlayBadge>
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm mt-2">
+                            <div className="flex flex-row items-center gap-1 text-white">
+                                <Users className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                                <span className="text-xs sm:text-sm md:text-base font-medium">
+                                    Max {info.max_players} players
+                                </span>
+                            </div>
+                        </div>
                     )}
                 </div>
 
                 {/* Top-right not ready warning and 3D button */}
                 <div className="absolute top-0 right-0 p-2 sm:p-4 flex flex-col gap-2 items-end">
                     {notReady && (
-                        <OverlayBadge color="text-destructive" icon={AlertTriangle} tooltip={t('stillCalculating')}>
-                            {t('dataNotReady')}
-                        </OverlayBadge>
+                        <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="flex flex-row items-center gap-1 text-destructive">
+                                        <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                                        <span className="text-xs sm:text-sm md:text-base font-medium">
+                                            {t('dataNotReady')}
+                                        </span>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {t('stillCalculating')}
+                                </TooltipContent>
+                            </Tooltip>
+                        </div>
                     )}
 
                     {/* 3D Viewer Button */}
@@ -261,4 +332,9 @@ function MapHeaderDisplay() {
     );
 }
 
-export default withErrorCatch(MapHeaderDisplay, t => t('maps.header.loadError'))
+export default function MapHeader(){
+    const t = useTranslations('maps.header');
+    return <ErrorCatch message={t('loadError')}>
+        <MapHeaderDisplay />
+    </ErrorCatch>
+}

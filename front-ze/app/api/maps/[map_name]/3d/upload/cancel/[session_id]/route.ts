@@ -1,3 +1,27 @@
-import { forwardRaw } from "lib/apiProxy";
+import {auth} from "../../../../../../../../auth.ts";
 
-export const DELETE = forwardRaw("DELETE", p => `/maps/${p.map_name}/3d/upload/cancel/${p.session_id}`);
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ map_name: string; session_id: string }> }
+) {
+  const { map_name, session_id } = await params
+  const session = await auth();
+
+  const backendUrl = `${process.env.BACKEND_URL || 'http://backend:3000'}/maps/${map_name}/3d/upload/cancel/${session_id}`
+  const headers: Record<string, string> = {}
+  headers["Authorization"] = `Bearer ${session.backendJwt}`;
+
+  const response = await fetch(backendUrl, {
+    method: 'DELETE',
+    headers,
+  })
+
+  const data = await response.text()
+
+  return new Response(data, {
+    status: response.status,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+}

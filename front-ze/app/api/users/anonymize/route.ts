@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth, SteamSession } from "../../../../auth";
+import { auth } from "../../../../auth";
 import { BACKEND_DOMAIN } from "utils/generalUtils";
 
-async function forwardAnonymize(build: (session: SteamSession) => Promise<[string, RequestInit]>) {
+export async function GET() {
     const session = await auth();
 
     if (!session) {
@@ -13,8 +13,18 @@ async function forwardAnonymize(build: (session: SteamSession) => Promise<[strin
     }
 
     try {
-        const [path, init] = await build(session);
-        const backendResponse = await fetch(new URL(BACKEND_DOMAIN + path).toString(), { ...init, cache: "no-store" });
+        const backendUrl = new URL(BACKEND_DOMAIN + '/accounts/me/anonymize');
+        const headers = {
+            // @ts-ignore
+            "Authorization": `Bearer ${session?.backendJwt}`
+        };
+
+        const backendResponse = await fetch(backendUrl.toString(), {
+            method: "GET",
+            headers,
+            cache: "no-store",
+        });
+
         const data = await backendResponse.json();
         return NextResponse.json(data, { status: backendResponse.status });
     } catch (error) {
@@ -26,23 +36,44 @@ async function forwardAnonymize(build: (session: SteamSession) => Promise<[strin
     }
 }
 
-export const GET = () => forwardAnonymize(async session => ['/accounts/me/anonymize', {
-    method: "GET",
-    headers: { "Authorization": `Bearer ${session?.backendJwt}` },
-}]);
+export async function POST(req: Request) {
+    const session = await auth();
 
-export const POST = (req: Request) => forwardAnonymize(async session => {
-    const { community_id, anonymize, hide_location, user_id } = await req.json();
+    if (!session) {
+        return NextResponse.json(
+            { msg: "Unauthorized", code: 401 },
+            { status: 401 }
+        );
+    }
 
-    // "me" keeps the self-service path; a numeric id targets another user and the backend
-    // enforces superuser there (and writes an audit row).
-    const target = user_id ? encodeURIComponent(String(user_id)) : 'me';
-    return [`/accounts/${target}/anonymize`, {
-        method: "POST",
-        headers: {
+    try {
+        const body = await req.json();
+        const { community_id, anonymize, hide_location, user_id } = body;
+
+        // "me" keeps the self-service path; a numeric id targets another user and the backend
+        // enforces superuser there (and writes an audit row).
+        const target = user_id ? encodeURIComponent(String(user_id)) : 'me';
+        const backendUrl = new URL(`${BACKEND_DOMAIN}/accounts/${target}/anonymize`);
+        const headers = {
             "Content-Type": "application/json",
+            // @ts-ignore
             "Authorization": `Bearer ${session?.backendJwt}`
-        },
-        body: JSON.stringify({ community_id, anonymize, hide_location }),
-    }];
-});
+        };
+
+        const backendResponse = await fetch(backendUrl.toString(), {
+            method: "POST",
+            headers,
+            cache: "no-store",
+            body: JSON.stringify({ community_id, anonymize, hide_location }),
+        });
+
+        const data = await backendResponse.json();
+        return NextResponse.json(data, { status: backendResponse.status });
+    } catch (error) {
+        console.error("Error calling backend anonymize endpoint:", error);
+        return NextResponse.json(
+            { msg: "Internal server error", code: 500 },
+            { status: 500 }
+        );
+    }
+}

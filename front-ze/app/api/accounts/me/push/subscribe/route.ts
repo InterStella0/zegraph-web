@@ -1,3 +1,7 @@
-import { proxyPost } from "lib/apiProxy";
+import { proxyToBackendChange} from "lib/apiProxy";
 
-export const POST = proxyPost("/accounts/me/push/subscribe");
+// POST /api/accounts/me/push/map-change/subscribe
+export async function POST(req: Request) {
+    const body: PushSubscriptionJSON = await req.json();
+    return await proxyToBackendChange<PushSubscriptionJSON>("/accounts/me/push/subscribe", body);
+}

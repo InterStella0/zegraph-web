@@ -1,3 +1,6 @@
-import { proxyPost } from "lib/apiProxy";
+import { proxyToBackendChange } from "lib/apiProxy";
 
-export const POST = proxyPost("/accounts/server-requests");
+// POST /api/server-requests
+export async function POST(req: Request) {
+    return await proxyToBackendChange("/accounts/server-requests", await req.json());
+}

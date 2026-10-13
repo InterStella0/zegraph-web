@@ -1,14 +1,15 @@
 'use client'
-import {use, useEffect, useMemo, useState} from "react";
+import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
 import dayjs from "dayjs";
-import {fetchServerUrl} from "utils/generalUtils.ts";
+import {fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import SessionPlayedGraph from "../graphs/SessionPlayedGraph.tsx";
 import PaginationPage from "../ui/PaginationPage.tsx";
 import {Users, Trophy, AlertTriangle} from "lucide-react";
+import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
-import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
-import {useResource} from "lib/hooks/useResource";
+import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Link from "next/link";
 import {ServerMapPlayed, ServerMapPlayedPaginated} from "types/maps.ts";
@@ -17,11 +18,8 @@ import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "componen
 import {Button} from "components/ui/button";
 import {useTranslations} from 'next-intl';
 import {Card} from "components/ui/card.tsx";
-import {withMapSuspense} from "components/common/withErrorCatch";
 
 dayjs.extend(relativeTime);
-
-const NO_SESSIONS: ServerMapPlayed[] = [];
 
 type MapSessionListProps = { initialDataPromise?: Promise<ServerMapPlayedPaginated | null> }
 
@@ -31,19 +29,46 @@ function AllSessions({ initialDataPromise }: MapSessionListProps){
     const { period } = usePeriod();
     const [page, setPage] = useState<number>(0)
     const initialData = initialDataPromise ? use(initialDataPromise) : null
+    const [ sessions, setSessions ] = useState<ServerMapPlayed[]>(initialData?.maps ?? [])
+    const [ totalSessions, setTotalSessions ] = useState(initialData?.total_sessions ?? 0)
+    const [ loading, setLoading ] = useState<boolean>(initialData === null)
+    const isFirstRun = useRef(initialData !== null)
+    const [ error, setError ] = useState<string | null>(null)
+    const [ notReady, setNotReady ] = useState<boolean>(false)
     const { server } = useServerData()
     const server_id = server.id
+    const [retryTick, setRetryTick] = useState(0)
+    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
         setPage(0)
     }, [server_id, name, period])
 
-    const { data, loading, error: fetchError } = useResource<ServerMapPlayedPaginated>(signal => name
-        ? fetchServerUrl(server_id, `/maps/${name}/sessions`, { params: { page, ...(period && { period }) }, signal })
-        : null, [server_id, page, name, period], { initial: initialData ?? undefined, keepData: true, keepError: true, retryNotReady: true })
-    const sessions = data?.maps ?? NO_SESSIONS
-    const totalSessions = data?.total_sessions ?? 0
-    const error = fetchError && (fetchError.message || t('somethingWrong'))
+    useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false
+            return
+        }
+        if (!name) return
+        const abort = new AbortController()
+        setLoading(true)
+        fetchServerUrl(server_id, `/maps/${name}/sessions`, { params: { page, ...(period && { period }) }, signal: abort.signal })
+            .then(resp => {
+                setSessions(resp.maps)
+                setTotalSessions(resp.total_sessions)
+                setError(null)
+                setNotReady(false)
+            })
+            .catch(e => {
+                if (e === "New Page") return
+                setNotReady(e instanceof StillCalculate)
+                setError(e.message || t('somethingWrong'))
+            })
+            .finally(() => setLoading(false))
+        return () => {
+            abort.abort("New Page")
+        }
+    }, [server_id, page, name, period, retryTick]);
     const sessionGraphs = useMemo(() => {
         return [...sessions.map((e, index) => <SessionGraph key={index} session={e} />)]
     }, [sessions])
@@ -218,4 +243,11 @@ function MapSessionListDisplay({ initialDataPromise }: MapSessionListProps){
     );
 }
 
-export default withMapSuspense(MapSessionListDisplay, t => t('maps.sessionList.noSessionFound'))
+export default function MapSessionList({ initialDataPromise }: MapSessionListProps){
+    const t = useTranslations('maps.sessionList');
+    return <ErrorCatch message={t('noSessionFound')}>
+        <Suspense fallback={<EmptyMapContext><MapSessionListDisplay /></EmptyMapContext>}>
+            <MapSessionListDisplay initialDataPromise={initialDataPromise} />
+        </Suspense>
+    </ErrorCatch>
+}

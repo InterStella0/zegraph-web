@@ -1,4 +1,10 @@
-import { proxyGet, proxyPost } from "lib/apiProxy";
+import { proxyToBackend, proxyToBackendChange } from "lib/apiProxy";
 
-export const GET = proxyGet("/admin/communities");
-export const POST = proxyPost("/admin/communities");
+export async function GET(req: Request) {
+  return await proxyToBackend("/admin/communities", req);
+}
+
+export async function POST(req: Request) {
+  const body = await req.json();
+  return await proxyToBackendChange("/admin/communities", body, "POST");
+}

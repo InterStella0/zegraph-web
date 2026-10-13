@@ -20,7 +20,7 @@ import { Search } from "lucide-react";
 import Link from "next/link";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PlayerMostPlayedMap} from "types/players.ts";
-import {useChartTheme} from "lib/chartTheme";
+import { useTheme } from "next-themes";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
@@ -45,7 +45,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
     const [viewType, setViewType] = useState<"chart" | "table">("chart");
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [page, setPage] = useState<number>(0);
-    const theme = useChartTheme();
+    const { resolvedTheme } = useTheme();
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
@@ -97,7 +97,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
         setPage(0);
     }, [searchTerm, playerId]);
 
-    const isDark = theme.isDark;
+    const isDark = resolvedTheme === 'dark';
 
     const doughnutOptions = {
         responsive: true,
@@ -112,7 +112,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                     padding: 16,
                     usePointStyle: true,
                     pointStyle: 'circle' as const,
-                    color: theme.foreground,
+                    color: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
                     font: {
                         size: isMobile ? 10 : 12,
                         weight: 500
@@ -131,7 +131,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                                     fillStyle: data.datasets[0].backgroundColor[i],
                                     hidden: !chart.getDataVisibility(i),
                                     index: i,
-                                    fontColor: theme.foreground,
+                                    fontColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
                                     pointStyle: 'circle'
                                 };
                             });
@@ -141,7 +141,11 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                 }
             },
             tooltip: {
-                ...theme.tooltip,
+                backgroundColor: isDark ? 'rgba(50, 50, 50, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                titleColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
+                bodyColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
+                borderColor: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
+                borderWidth: 1,
                 cornerRadius: 8,
                 padding: 12,
                 callbacks: {
@@ -153,7 +157,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
         elements: {
             arc: {
                 borderWidth: 2,
-                borderColor: theme.background,
+                borderColor: isDark ? 'hsl(222.2 84% 4.9%)' : 'hsl(0 0% 100%)',
                 hoverBorderWidth: 3
             }
         }

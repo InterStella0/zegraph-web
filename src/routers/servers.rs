@@ -6,7 +6,7 @@ use poem::web::Data;
 use poem_openapi::{Enum, OpenApi};
 use poem_openapi::param::Query;
 use sqlx::Postgres;
-use crate::{or_ise, require, response, AppData, FastCache};
+use crate::{response, AppData, FastCache};
 use crate::api_models::common::*;
 use crate::api_models::misc::*;
 use crate::api_models::players::{GlobalBriefPlayers, PlayerDetailSession, PlayerDetailSessionCommunity};
@@ -163,7 +163,9 @@ impl ServerApi {
             ORDER BY player_count DESC, online DESC, c.community_name
         ").fetch_all(pool);
 
-        let response = or_ise!(cached_response("communities", &data.cache, 60, func).await);
+        let Ok(response) = cached_response("communities", &data.cache, 60, func).await else {
+            return response!(internal_server_error)
+        };
         let mut results: IndexMap<String, Community> = IndexMap::new();
         let data = response.result;
 
@@ -267,9 +269,15 @@ impl ServerApi {
                 21..=30 => HOUR,
                 _ => 10 * 60,
             };
-            or_ise!(cached_response(&format!("global-players:{page}"), &data.cache, caching_time, func).await).result
+            match cached_response(&format!("global-players:{page}"), &data.cache, caching_time, func).await {
+                Ok(cached) => cached.result,
+                Err(_) => return response!(internal_server_error),
+            }
         } else {
-            or_ise!(func().await)
+            match func().await {
+                Ok(rows) => rows,
+                Err(_) => return response!(internal_server_error),
+            }
         };
 
         let total_players = rows.first()
@@ -329,7 +337,10 @@ impl ServerApi {
         let viewer_cache_key = user_id
             .map(|id| format!("global-players-playing:{id}"))
             .unwrap_or_else(|| "global-players-playing:anonymous".to_string());
-        let result = or_ise!(cached_response(&viewer_cache_key, &app.cache, 10 * 60, func).await).result;
+        let result = match cached_response(&viewer_cache_key, &app.cache, 10 * 60, func).await {
+            Ok(cached) => cached.result,
+            Err(_) => return response!(internal_server_error),
+        };
         let converted = result.into_iter().map(|e| {
             let server_id = e.server_id.clone();
             let player_detail: PlayerDetailSession = e.into();
@@ -422,7 +433,9 @@ impl ServerApi {
                 time_type_str
             ).fetch_all(pool);
 
-            let response = or_ise!(cached_response(&key, &data.cache, cache_ttl, func).await);
+            let Ok(response) = cached_response(&key, &data.cache, cache_ttl, func).await else {
+                return response!(internal_server_error)
+            };
             response
         } else {
             let func = || sqlx::query_as!(
@@ -465,7 +478,9 @@ impl ServerApi {
                 time_type_str
             ).fetch_all(pool);
 
-            let response = or_ise!(cached_response(&key, &data.cache, cache_ttl, func).await);
+            let Ok(response) = cached_response(&key, &data.cache, cache_ttl, func).await else {
+                return response!(internal_server_error)
+            };
             response
         };
         response!(ok response.result.iter_into())
@@ -476,7 +491,9 @@ impl ServerApi {
     /// with its success flag and error message, newest first.
     #[oai(path = "/fetch-status", method="get")]
     async fn get_fetch_status(&self, Data(data): Data<&AppData>, TokenBearer(user_token): TokenBearer) -> Response<Vec<FetchStatusEntry>> {
-        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
         let pool = &*data.pool.clone();
         let func = || async {
             sqlx::query_as!(DbFetchStatus, "
@@ -501,7 +518,9 @@ impl ServerApi {
             .await
         };
 
-        let response = or_ise!(cached_response("fetch_status", &data.cache, 60, func).await);
+        let Ok(response) = cached_response("fetch_status", &data.cache, 60, func).await else {
+            return response!(internal_server_error)
+        };
 
         response!(ok response.result.iter_into())
     }
@@ -534,7 +553,9 @@ impl ServerApi {
             .await
         };
 
-        let response = or_ise!(cached_response("fetch_status_truncated", &data.cache, 60, func).await);
+        let Ok(response) = cached_response("fetch_status_truncated", &data.cache, 60, func).await else {
+            return response!(internal_server_error)
+        };
 
         const BUCKET_COUNT: usize = 90;
         const BUCKET_MINUTES: i64 = (24 * 60) / BUCKET_COUNT as i64;
@@ -602,5 +623,17 @@ impl ServerApi {
         }
 
         response!(ok communities)
+    }
+}
+impl UriPatternExt for ServerApi {
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
+        vec![
+            "/communities",
+            "/communities/all/players",
+            "/communities/all/players/playing",
+            "/communities/{community_id}/unique_players",
+            "/fetch-status",
+            "/fetch-status-truncated",
+        ].iter_into()
     }
 }

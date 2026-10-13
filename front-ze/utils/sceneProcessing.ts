@@ -37,3 +37,16 @@ export async function traverseSceneChunked(
     }
   }
 }
+
+// Falls back to synchronous traversal if chunking fails.
+export async function traverseSceneSafe(
+  scene: Object3D,
+  callback: (obj: Object3D) => void
+): Promise<void> {
+  try {
+    await traverseSceneChunked(scene, callback)
+  } catch (error) {
+    console.warn('Chunked processing failed, falling back to sync:', error)
+    scene.traverse(callback)
+  }
+}

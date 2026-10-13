@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from "next/dynamic";
-import { SteamProfile } from "types/steam";
+import { SteamProfile } from "../../next-auth-steam/steam";
 
 const NotificationBanner = dynamic(
     () => import("./NotificationBanner").then(m => m.NotificationBanner),

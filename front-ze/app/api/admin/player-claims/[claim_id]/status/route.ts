@@ -1,3 +1,8 @@
-import { proxyPut } from "lib/apiProxy";
+import { proxyToBackendChange } from "lib/apiProxy";
 
-export const PUT = proxyPut(p => `/admin/player-claims/${p.claim_id}/status`);
+// PUT /api/admin/player-claims/[claim_id]/status
+export async function PUT(req: Request, context: { params: Promise<{ claim_id: string }> }) {
+    const { claim_id } = await context.params;
+    const body = await req.json();
+    return await proxyToBackendChange(`/admin/player-claims/${claim_id}/status`, body, "PUT");
+}

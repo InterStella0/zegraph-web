@@ -1,3 +1,9 @@
-import { proxyGet } from "lib/apiProxy";
+import { proxyToBackend } from "lib/apiProxy";
 
-export const GET = proxyGet(p => `/players/${p.player_id}/profile`);
+export async function GET(
+    req: Request,
+    { params }: { params: Promise<{ player_id: string }> }
+) {
+    const { player_id } = await params;
+    return await proxyToBackend(`/players/${player_id}/profile`, req);
+}

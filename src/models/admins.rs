@@ -527,15 +527,12 @@ pub struct UpdateServerBrowserPayload {
     pub cooldown_type: Option<String>,
 }
 
-#[derive(DbInto)]
-#[db_into(AdminServer)]
 pub struct AdminServerRow {
     pub server_id: String,
     pub server_name: Option<String>,
     pub server_fullname: Option<String>,
     pub server_ip: Option<String>,
     pub server_port: Option<i32>,
-    #[expr(self.community_id.map(|u| u.to_string()))]
     pub community_id: Option<Uuid>,
     pub online: Option<bool>,
     pub readable_link: Option<String>,
@@ -545,6 +542,27 @@ pub struct AdminServerRow {
     pub timezone: Option<String>,
     pub game: Option<String>,
     pub source_by_id: Option<bool>,
+}
+
+impl From<AdminServerRow> for AdminServer {
+    fn from(r: AdminServerRow) -> Self {
+        AdminServer {
+            server_id: r.server_id,
+            server_name: r.server_name,
+            server_fullname: r.server_fullname,
+            server_ip: r.server_ip,
+            server_port: r.server_port,
+            community_id: r.community_id.map(|u| u.to_string()),
+            online: r.online,
+            readable_link: r.readable_link,
+            server_website: r.server_website,
+            server_discord_link: r.server_discord_link,
+            server_source: r.server_source,
+            timezone: r.timezone,
+            game: r.game,
+            source_by_id: r.source_by_id,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Object)]

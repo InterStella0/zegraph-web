@@ -2,7 +2,7 @@ import ErrorCatch from "./ErrorMessage.tsx";
 import WebAppBar from "./WebAppBar";
 import {Dispatch} from "react";
 import {Server} from "types/community";
-import {SteamProfile} from "types/steam";
+import {SteamProfile} from "../../next-auth-steam/steam.ts";
 
 
 export default function ResponsiveAppBar(

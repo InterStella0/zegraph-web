@@ -5,7 +5,11 @@ import { Button } from 'components/ui/button'
 import { AlertTriangle, Boxes } from 'lucide-react'
 import { Card } from 'components/ui/card'
 import { MapWithModels } from 'types/maps'
-import { formatFileSize } from 'utils/format'
+
+const formatFileSize = (bytes: number): string => {
+  const mb = bytes / (1024 * 1024)
+  return `${mb.toFixed(1)} MB`
+}
 
 export default function MapViewerRenderer({ map_name, modelMetadata, error }: {
   map_name: string,

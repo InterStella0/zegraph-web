@@ -1,3 +1,5 @@
-import { proxyGet } from "lib/apiProxy";
+import { proxyToBackend } from "lib/apiProxy";
 
-export const GET = proxyGet("/accounts/me/push/map-notify");
+export async function GET(req: Request) {
+    return await proxyToBackend("/accounts/me/push/map-notify", req);
+}

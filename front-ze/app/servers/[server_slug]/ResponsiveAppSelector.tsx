@@ -3,7 +3,7 @@ import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
 import Announcement from "components/ui/Annoucement";
 import Footer from "components/ui/Footer";
 import {ReactNode, Suspense, use} from "react";
-import {SteamProfile} from "types/steam";
+import {SteamProfile} from "../../../next-auth-steam/steam.ts";
 import type {Announcement as AnnouncementData} from "types/announcements";
 import {ServerSlugPromise} from "./util.ts";
 import {useSidebar} from "../ServersShell";

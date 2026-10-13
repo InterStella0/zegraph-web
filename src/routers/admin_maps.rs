@@ -11,7 +11,7 @@ use crate::core::audit::{
     ACTION_UPDATE_SERVER, CATEGORY_MAP_METADATA,
 };
 use crate::core::utils::*;
-use crate::{or_ise, or_rollback, require, response, AppData};
+use crate::{response, AppData};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::models::admins::*;
@@ -35,14 +35,16 @@ impl AdminMapsApi {
         Query(limit): Query<Option<i64>>,
         Query(search): Query<Option<String>>,
     ) -> Response<AdminMapMetadataResponse> {
-        require!(check_superuser_or_map_manager(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
+        if !check_superuser_or_map_manager(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
 
         let page = page.unwrap_or(1).max(1);
         let limit = limit.unwrap_or(50).min(200).max(1);
         let offset = (page - 1) * limit;
         let search_str = search.unwrap_or_default();
 
-        let map_rows = or_ise!(sqlx::query_as!(
+        let map_rows = match sqlx::query_as!(
             DbAdminMapRow,
             r#"
             WITH distinct_maps AS (
@@ -68,7 +70,14 @@ impl AdminMapsApi {
             offset
         )
         .fetch_all(&*data.pool)
-        .await, e => "Failed to fetch admin map metadata: {}", e);
+        .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!("Failed to fetch admin map metadata: {}", e);
+                return response!(internal_server_error);
+            }
+        };
 
         let total = map_rows.first().and_then(|r| r.total).unwrap_or(0);
         let map_names: Vec<String> = map_rows.iter().map(|r| r.map_name.clone()).collect();
@@ -76,7 +85,7 @@ impl AdminMapsApi {
         let server_rows = if map_names.is_empty() {
             vec![]
         } else {
-            or_ise!(sqlx::query_as!(
+            match sqlx::query_as!(
                 DbAdminMapServerRow,
                 r#"
                 SELECT
@@ -98,7 +107,14 @@ impl AdminMapsApi {
                 &map_names as &[String]
             )
             .fetch_all(&*data.pool)
-            .await, e => "Failed to fetch admin map server entries: {}", e)
+            .await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::error!("Failed to fetch admin map server entries: {}", e);
+                    return response!(internal_server_error);
+                }
+            }
         };
 
         let mut servers_by_map: HashMap<String, Vec<AdminMapServerEntry>> = HashMap::new();
@@ -146,12 +162,29 @@ impl AdminMapsApi {
         TokenBearer(user_token): TokenBearer,
         Json(dto): Json<UpdateGlobalMapMetadataDto>,
     ) -> Response<bool> {
-        require!(check_superuser_or_map_manager(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
+        if !check_superuser_or_map_manager(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
 
-        let mut tx = or_ise!(data.pool.begin().await, e => "Failed to begin transaction for global map metadata update: {}", e);
+        let mut tx = match data.pool.begin().await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to begin transaction for global map metadata update: {}", e);
+                return response!(internal_server_error);
+            }
+        };
 
         macro_rules! exec {
-            ($query:expr) => { or_rollback!(tx, $query.await, e => "Failed to update global map metadata for {}: {}", dto.map_name, e) };
+            ($query:expr) => {
+                match $query.await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!("Failed to update global map metadata for {}: {}", dto.map_name, e);
+                        let _ = tx.rollback().await;
+                        return response!(internal_server_error);
+                    }
+                }
+            };
         }
 
         let old_row = exec!(sqlx::query!(
@@ -222,7 +255,10 @@ impl AdminMapsApi {
             ));
         }
 
-        or_ise!(tx.commit().await, e => "Failed to commit global map metadata update for {}: {}", dto.map_name, e);
+        if let Err(e) = tx.commit().await {
+            tracing::error!("Failed to commit global map metadata update for {}: {}", dto.map_name, e);
+            return response!(internal_server_error);
+        }
 
         response!(ok true)
     }
@@ -239,16 +275,39 @@ impl AdminMapsApi {
         TokenBearer(user_token): TokenBearer,
         poem_openapi::param::Path(map_name): poem_openapi::param::Path<String>,
     ) -> Response<bool> {
-        require!(check_superuser_or_map_manager(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
+        if !check_superuser_or_map_manager(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
 
-        let mut tx = or_ise!(data.pool.begin().await, e => "Failed to begin transaction for map deletion: {}", e);
+        let mut tx = match data.pool.begin().await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to begin transaction for map deletion: {}", e);
+                return response!(internal_server_error);
+            }
+        };
 
         macro_rules! exec {
-            ($query:expr) => { or_rollback!(tx, $query.execute(&mut *tx).await, e => "Failed to delete map data for {}: {}", map_name, e) };
+            ($query:expr) => {
+                if let Err(e) = $query.execute(&mut *tx).await {
+                    tracing::error!("Failed to delete map data for {}: {}", map_name, e);
+                    let _ = tx.rollback().await;
+                    return response!(internal_server_error);
+                }
+            };
         }
 
         macro_rules! fetch {
-            ($query:expr) => { or_rollback!(tx, $query.await, e => "Failed to snapshot map data for {}: {}", map_name, e) };
+            ($query:expr) => {
+                match $query.await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!("Failed to snapshot map data for {}: {}", map_name, e);
+                        let _ = tx.rollback().await;
+                        return response!(internal_server_error);
+                    }
+                }
+            };
         }
 
         let metadata_snapshot = fetch!(sqlx::query_scalar!(
@@ -287,7 +346,10 @@ impl AdminMapsApi {
         exec!(sqlx::query!("DELETE FROM server_map WHERE map = $1", map_name));
         exec!(sqlx::query!("DELETE FROM map_metadata WHERE name = $1", map_name));
 
-        or_ise!(tx.commit().await, e => "Failed to commit map deletion for {}: {}", map_name, e);
+        if let Err(e) = tx.commit().await {
+            tracing::error!("Failed to commit map deletion for {}: {}", map_name, e);
+            return response!(internal_server_error);
+        }
 
         response!(ok true)
     }
@@ -303,13 +365,31 @@ impl AdminMapsApi {
         TokenBearer(user_token): TokenBearer,
         Json(dto): Json<UpdateServerMapMetadataDto>,
     ) -> Response<bool> {
-        require!(check_superuser_or_map_manager(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
+        if !check_superuser_or_map_manager(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
 
-        let mut tx = or_ise!(data.pool.begin().await, e => "Failed to begin transaction for server map metadata update: {}", e);
+        let mut tx = match data.pool.begin().await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to begin transaction for server map metadata update: {}", e);
+                return response!(internal_server_error);
+            }
+        };
 
         macro_rules! exec {
             ($query:expr) => {
-                or_rollback!(tx, $query.await, e => "Failed to update server map metadata for {} / {}: {}", dto.server_id, dto.map_name, e)
+                match $query.await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!(
+                            "Failed to update server map metadata for {} / {}: {}",
+                            dto.server_id, dto.map_name, e
+                        );
+                        let _ = tx.rollback().await;
+                        return response!(internal_server_error);
+                    }
+                }
             };
         }
 
@@ -384,8 +464,25 @@ impl AdminMapsApi {
             ));
         }
 
-        or_ise!(tx.commit().await, e => "Failed to commit server map metadata update for {} / {}: {}", dto.server_id, dto.map_name, e);
+        if let Err(e) = tx.commit().await {
+            tracing::error!(
+                "Failed to commit server map metadata update for {} / {}: {}",
+                dto.server_id, dto.map_name, e
+            );
+            return response!(internal_server_error);
+        }
 
         response!(ok true)
+    }
+}
+
+impl UriPatternExt for AdminMapsApi {
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
+        vec![
+            "/admin/maps/metadata",
+            "/admin/maps/metadata/global",
+            "/admin/maps/metadata/server",
+            "/admin/maps/{map_name}",
+        ].iter_into()
     }
 }

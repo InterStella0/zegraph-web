@@ -10,7 +10,7 @@ use poem_openapi::param::Path;
 use sqlx::{Pool, Postgres};
 use time::OffsetDateTime;
 use crate::core::utils::*;
-use crate::{or_ise, require, response, AppData};
+use crate::{response, AppData};
 use crate::api_models::common::*;
 use crate::api_models::maps::Region;
 use crate::api_models::players::{BriefPlayers, EventType, PlayerBrief};
@@ -154,8 +154,10 @@ impl GraphApi {
 	async fn get_server_graph_region(
 		&self, Data(app): Data<&AppData>, ServerExtractor(_server): ServerExtractor
 	) -> Response<Vec<Region>>{
-		let data = or_ise!(sqlx::query_as!(DbRegion, "SELECT * FROM region_time LIMIT 10").fetch_all(&*app.pool.clone()).await
-			.inspect_err(|e| tracing::error!("get_regions query failed: {e}")));
+		let Ok(data) = sqlx::query_as!(DbRegion, "SELECT * FROM region_time LIMIT 10").fetch_all(&*app.pool.clone()).await
+			.inspect_err(|e| tracing::error!("get_regions query failed: {e}")) else {
+			return response!(internal_server_error)
+		};
 		response!(ok data.iter_into())
 	}
 	/// Player-count chart for a single map session.
@@ -216,9 +218,11 @@ impl GraphApi {
 		).fetch_all(pool);
 		let key = format!("graph-server-map-players:{}:{}:{}", server.server_id, map_name, session_id);
 		let ttl = if is_playing{ 60 } else { 60 * DAY };
-		let resp = or_ise!(cached_response(&key, cache, ttl, func)
+		let Ok(resp) = cached_response(&key, cache, ttl, func)
 			.await
-			.inspect_err(|e| tracing::error!("query failed for {key}: {e}")));
+			.inspect_err(|e| tracing::error!("query failed for {key}: {e}")) else {
+			return response!(internal_server_error);
+		};
 		let mut result = retain_peaks(resp.result, 1_500,
 									  |left, maxed| left.player_count > maxed.player_count,
 									  |left, min| left.player_count < min.player_count,
@@ -238,7 +242,9 @@ impl GraphApi {
 		Path(player_id): Path<String>, Path(session_id): Path<String>,
 		OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
 	) -> Response<Vec<ServerCountData>> {
-		require!(is_session_id(&session_id), "This session does not exist.", ErrorCode::NotFound);
+		if !is_session_id(&session_id) {
+			return response!(err "This session does not exist.", ErrorCode::NotFound);
+		}
 		let pool = &*app.pool.clone();
 		let cache = &app.cache;
 		let func = || sqlx::query_as!(DbPlayerSession, "
@@ -284,9 +290,11 @@ impl GraphApi {
 		).fetch_all(pool);
 		let key = format!("graph-server-session-players:{}:{}:{}", server.server_id, player_id, session_id);
 		let ttl = if is_playing{ 5 * 60 } else { 60 * DAY };
-		let resp = or_ise!(cached_response(&key, cache, ttl, func)
+		let Ok(resp) = cached_response(&key, cache, ttl, func)
 			.await
-			.inspect_err(|e| tracing::error!("query failed for {key}: {e}")));
+			.inspect_err(|e| tracing::error!("query failed for {key}: {e}")) else {
+			return response!(internal_server_error);
+		};
 		let mut result = retain_peaks(resp.result, 1_500,
 									  |left, maxed| left.player_count > maxed.player_count,
 									  |left, min| left.player_count < min.player_count,
@@ -310,13 +318,15 @@ impl GraphApi {
 			return response!(err "You can only get data within 1 year", ErrorCode::BadRequest);
 		};
 		if span <= Duration::hours(6) {
-			let result = or_ise!(get_counts_hour_chunked(
+			let Ok(result) = get_counts_hour_chunked(
 				pool, &data.count_chunk_cache, &server.server_id, start, end
 			).await
-				.inspect_err(|e| tracing::error!("unique_players hour chunks failed for {}: {e}", server.server_id)));
+				.inspect_err(|e| tracing::error!("unique_players hour chunks failed for {}: {e}", server.server_id)) else {
+				return response!(internal_server_error);
+			};
 			return response!(ok result.iter_into());
 		}
-		let result = or_ise!(sqlx::query_as!(DbServerCountData,
+		let Ok(result) = sqlx::query_as!(DbServerCountData,
 			"WITH agg AS (
 			  SELECT
 				date_bin(make_interval(mins => $4), bucket_time, 'epoch'::timestamptz) AS bucket,
@@ -341,7 +351,9 @@ impl GraphApi {
 		)
 		.fetch_all(pool)
 		.await
-		.inspect_err(|e| tracing::error!("unique_players query failed for {}: {e}", server.server_id)));
+		.inspect_err(|e| tracing::error!("unique_players query failed for {}: {e}", server.server_id)) else {
+			return response!(internal_server_error);
+		};
 		response!(ok result.iter_into())
     }
     /// Maps played on a server within a date range.
@@ -356,14 +368,16 @@ impl GraphApi {
 			return response!(err "You can only get maps within 2 days", ErrorCode::BadRequest);
 		};
 
-		let rows = or_ise!(sqlx::query_as!(DbServerMapPlayed, 
+		let Ok(rows) = sqlx::query_as!(DbServerMapPlayed, 
 			"SELECT *, NULL::integer total_sessions
 				FROM server_map_played
          		WHERE server_id=$1 AND started_at >= $2 AND started_at <= $3 ",
 				server.server_id, start.to_db_time(), end.to_db_time())
 			.fetch_all(pool)
 			.await
-			.inspect_err(|e| tracing::error!("server maps query failed for {}: {e}", server.server_id)));
+			.inspect_err(|e| tracing::error!("server maps query failed for {}: {e}", server.server_id)) else {
+				return response!(internal_server_error)
+			};
 		response!(ok rows.iter_into())
     }
 	/// Time series of how often a given event type occurred.
@@ -381,7 +395,7 @@ impl GraphApi {
 		if end.signed_duration_since(start) > Duration::days(1) {
 			return response!(err "You can only get data within 1 day", ErrorCode::BadRequest);
 		};
-		let result = or_ise!(sqlx::query_as!(DbServerCountData, "
+		let Ok(result) = sqlx::query_as!(DbServerCountData, "
 			WITH buckets AS (
 				SELECT
 					server_id,
@@ -411,7 +425,9 @@ impl GraphApi {
 			ORDER BY bucket_time;
 		", event_type.to_string(), server.server_id, start.to_db_time(), end.to_db_time())
 		.fetch_all(pool).await
-		.inspect_err(|e| tracing::error!("player counts query failed for {}: {e}", server.server_id)));
+		.inspect_err(|e| tracing::error!("player counts query failed for {}: {e}", server.server_id)) else {
+			return response!(internal_server_error)
+		};
 		response!(ok result.iter_into())
 	}
 	/// Top 20 players on a server, ranked by playtime within a preset time frame.
@@ -614,8 +630,10 @@ impl GraphApi {
 					cached_response(&key, &data.cache, ttl, sql).await
 				}
 		};
-		let result = or_ise!(resulted
-			.inspect_err(|e| tracing::error!("top_players query failed for {} ({time_frame}): {e}", server.server_id)));
+		let Ok(result) = resulted
+			.inspect_err(|e| tracing::error!("top_players query failed for {} ({time_frame}): {e}", server.server_id)) else {
+			return response!(internal_server_error)
+		};
 
 		let rows = result.result;
 		let total_player_count = rows
@@ -735,8 +753,10 @@ impl GraphApi {
 			server.server_id, start.0.map(|s| s.to_string()).unwrap_or_default(),
 			end.0.to_string(), page.0
 		);
-		let result = or_ise!(cached_response(&key, &data.cache, 5 * 60, sql_func).await
-			.inspect_err(|e| tracing::error!("server players query failed for {key}: {e}")));
+		let Ok(result) = cached_response(&key, &data.cache, 5 * 60, sql_func).await
+			.inspect_err(|e| tracing::error!("server players query failed for {key}: {e}")) else {
+			return response!(internal_server_error);
+		};
 
 		let rows = result.result;
 		let total_player_count = rows
@@ -753,5 +773,19 @@ impl GraphApi {
 			players
 		};
 		response!(ok value)
+	}
+}
+impl UriPatternExt for GraphApi{
+	fn get_all_patterns(&self) -> Vec<RoutePattern> {
+		vec![
+			"/graph/{server_id}/get_regions",
+			"/graph/{server_id}/unique_players",
+			"/graph/{server_id}/maps",
+			"/graph/{server_id}/event_count",
+			"/graph/{server_id}/top_players",
+			"/graph/{server_id}/players",
+			"/graph/{server_id}/unique_players/maps/{map_name}/sessions/{session_id}",
+			"/graph/{server_id}/unique_players/players/{player_id}/sessions/{session_id}",
+		].iter_into()
 	}
 }

@@ -14,7 +14,7 @@ import {PlayerStatSeedsProvider, PlayerStatsPatchProvider, PlayerStatSuspense} f
 import {PlayerPeriodProvider} from "./PlayerPeriod.tsx";
 import PeriodSelector from "components/period/PeriodSelector.tsx";
 import AccessDenied from "./AccessDenied.tsx";
-import {SteamProfile} from "types/steam";
+import {SteamProfile} from "../../../../../next-auth-steam/steam.ts";
 
 export default function ResolvePlayerInformation({ serverPlayerPromise, userPromise, statSeeds }: {
     serverPlayerPromise: Promise<ServerPlayerDetailedWithError>,

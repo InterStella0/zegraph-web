@@ -1,5 +1,5 @@
 import {auth} from "../auth.ts";
-import {SteamProfile} from "types/steam";
+import {SteamProfile} from "../next-auth-steam/steam.ts";
 
 
 

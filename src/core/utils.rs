@@ -318,26 +318,56 @@ pub trait AnonRow {
     fn mask(&mut self);
 }
 
-macro_rules! anon_row {
-    (@mask $s:ident, true) => { $s.id = Uuid::new_v4().to_string(); };
-    (@mask $s:ident, false) => {};
-    ($($t:ty => $new_id:tt),* $(,)?) => {$(
-        impl AnonRow for $t {
-            fn row_id(&self) -> &str { &self.id }
-            fn is_anonymous(&self) -> bool { self.is_anonymous }
-            fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
-            fn set_hidden_from_others(&mut self, value: bool) { self.hidden_from_others = value; }
-            fn mask(&mut self) {
-                self.name = "Anonymous".to_string();
-                anon_row!(@mask self, $new_id);
-                self.is_anonymous = true;
-                self.hidden_from_others = true;
-            }
-        }
-    )*};
+impl AnonRow for PlayerBrief {
+    fn row_id(&self) -> &str { &self.id }
+    fn is_anonymous(&self) -> bool { self.is_anonymous }
+    fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn set_hidden_from_others(&mut self, value: bool) { self.hidden_from_others = value; }
+    fn mask(&mut self) {
+        self.name = "Anonymous".to_string();
+        self.id = Uuid::new_v4().to_string();
+        self.is_anonymous = true;
+        self.hidden_from_others = true;
+    }
 }
 
-anon_row!(PlayerBrief => true, PlayerSeen => true, CountryPlayer => true, PlayerDetailSession => false);
+impl AnonRow for PlayerSeen {
+    fn row_id(&self) -> &str { &self.id }
+    fn is_anonymous(&self) -> bool { self.is_anonymous }
+    fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn set_hidden_from_others(&mut self, value: bool) { self.hidden_from_others = value; }
+    fn mask(&mut self) {
+        self.name = "Anonymous".to_string();
+        self.id = Uuid::new_v4().to_string();
+        self.is_anonymous = true;
+        self.hidden_from_others = true;
+    }
+}
+
+impl AnonRow for CountryPlayer {
+    fn row_id(&self) -> &str { &self.id }
+    fn is_anonymous(&self) -> bool { self.is_anonymous }
+    fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn set_hidden_from_others(&mut self, value: bool) { self.hidden_from_others = value; }
+    fn mask(&mut self) {
+        self.name = "Anonymous".to_string();
+        self.id = Uuid::new_v4().to_string();
+        self.is_anonymous = true;
+        self.hidden_from_others = true;
+    }
+}
+
+impl AnonRow for PlayerDetailSession {
+    fn row_id(&self) -> &str { &self.id }
+    fn is_anonymous(&self) -> bool { self.is_anonymous }
+    fn set_anonymous(&mut self, value: bool) { self.is_anonymous = value; }
+    fn set_hidden_from_others(&mut self, value: bool) { self.hidden_from_others = value; }
+    fn mask(&mut self) {
+        self.name = "Anonymous".to_string();
+        self.is_anonymous = true;
+        self.hidden_from_others = true;
+    }
+}
 
 #[allow(dead_code)]
 pub struct UserTokenAuthorized{

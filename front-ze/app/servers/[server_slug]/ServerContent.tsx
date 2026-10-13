@@ -4,7 +4,7 @@ import { useState, Activity, Suspense } from "react";
 import PlayerList from "components/players/PlayerList.tsx";
 import MapGraphList, {MapGraphListLoading} from "components/maps/MapGraphList.tsx";
 import dynamic from "next/dynamic";
-import {Play} from "lucide-react";
+import {Info, Play} from "lucide-react";
 import Link from "next/link";
 import { cn } from "components/lib/utils";
 
@@ -15,10 +15,9 @@ import {getServerAvatarText} from "components/ui/CommunitySelector.tsx";
 import { Avatar, AvatarImage, AvatarFallback } from "components/ui/avatar";
 import { Card, CardContent } from "components/ui/card";
 import { Button } from "components/ui/button";
-import { TooltipProvider } from "components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
 import { Progress } from "components/ui/progress";
 import ServerTrackingSince from "./ServerTrackingSince";
-import InfoTooltip from "components/common/InfoTooltip";
 const RadarPreview = dynamic(() => import("components/radars/RadarPreview.tsx"), {
     ssr: false,
 });
@@ -117,7 +116,16 @@ export default function ServerContent({ server, description, mapSessionsPromise 
                                 <h3 className="text-sm md:text-base font-bold truncate">
                                     {t('dataSource')}
                                 </h3>
-                                <InfoTooltip text={server.byId ? t('trackedBySteamId') : t('trackedByName')} />
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Info className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{server.byId ? t('trackedBySteamId') : t('trackedByName')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
                             <p className="mt-2">
                                 {server.source ? (

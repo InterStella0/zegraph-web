@@ -16,7 +16,7 @@ import { ApiHealth, AvgGraphPoint, DependencyHealth } from "types/health";
 import { fetchUrl } from "utils/generalUtils.ts";
 import { useTranslations, useLocale } from "next-intl";
 import { useTheme } from "next-themes";
-import {withErrorCatch} from "components/common/withErrorCatch";
+import ErrorCatch from "components/ui/ErrorMessage.tsx";
 
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
@@ -409,4 +409,11 @@ function ApiHealthPanelDisplay({ initialDataPromise }: { initialDataPromise: Pro
     );
 }
 
-export default withErrorCatch(ApiHealthPanelDisplay, t => t('status.api.loadFailed'))
+export default function ApiHealthPanel({ initialDataPromise }: { initialDataPromise: Promise<ApiHealth> }) {
+    const t = useTranslations("status.api");
+    return (
+        <ErrorCatch message={t("loadFailed")}>
+            <ApiHealthPanelDisplay initialDataPromise={initialDataPromise} />
+        </ErrorCatch>
+    );
+}

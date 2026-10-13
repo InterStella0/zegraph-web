@@ -1,7 +1,6 @@
-import {getServerSlug} from "./util";
-import {serverMetadata} from "./serverMetadata";
+import {getServerSlug, getServerSlugOrNotFound} from "./util";
 import {Metadata} from "next";
-import {fetchServerUrl} from "utils/generalUtils.ts";
+import {fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils.ts";
 import {AdSpot} from "components/ui/AdSpot";
 import {ServerContentWrapper} from "./ServerContentWrapper.tsx";
 import {Server} from "types/community.ts";
@@ -35,12 +34,19 @@ export async function createServerDescription(server: Server): Promise<string> {
 export async function generateMetadata({ params}: {
     params: { server_slug: string }
 }): Promise<Metadata> {
-    return serverMetadata(params, async (server) => ({
-        title: server.community_name,
-        description: await createServerDescription(server),
-        path: '',
-        social: {images: server.community_icon ? [server.community_icon] : null, noTwitter: true},
-    }))
+    const { server_slug } = await params
+    const server = await getServerSlugOrNotFound(server_slug)
+    const description = await createServerDescription(server);
+    const title = formatTitle(server.community_name)
+    const image = server.community_icon
+    return {
+        title: title,
+        description: description,
+        alternates: {
+            canonical: `/servers/${server.gotoLink}`
+        },
+        ...socialMeta({title, description, images: image? [image]: null, noTwitter: true})
+    }
 }
 
 export interface ServerPageProps {
