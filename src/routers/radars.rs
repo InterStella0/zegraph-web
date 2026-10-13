@@ -371,39 +371,7 @@ impl RadarApi {
             tracing::warn!("Unable to cache query-country-live");
             return response!(internal_server_error)
         };
-        let Some(player): Option<&DbCountryPlayer> = result.result.first() else {
-            return response!(ok CountryPlayers{
-                geojson: String::from("{}"),
-                count: 0,
-                name: "Unknown".to_string(),
-                code: "Unknown".to_string(),
-                players: vec![]
-            })
-        };
-        let country_code = player.location_country.as_ref().map(String::clone).unwrap_or_else(|| "".to_string());
-        let get_country_func = || sqlx::query_as!(DbCountryGeometry, "
-            SELECT \"ISO_A2_EH\" as country_code, \"NAME\" as country_name, ST_AsGeoJSON(geom) geometry
-            FROM layers.countries_fixed
-            WHERE \"ISO_A2_EH\"=$1
-            LIMIT 1
-        ", country_code).fetch_one(pool);
-        let country_key = format!("country:{server_id}:{country_code}");
-        let Ok(country_geometry) = cached_response(&country_key, redis_pool, 7 * DAY, get_country_func).await else {
-            tracing::warn!("Unable to cache query-country");
-            return response!(internal_server_error)
-        };
-        let country_geometry = country_geometry.result;
-        let total_player_count = player.total_player_count.unwrap_or_default();
-        let anonymizer = BriefAnonymizer::new(app, &server_id, user_token.as_ref().map(|t| t.id)).await;
-        let mut players_out: Vec<CountryPlayer> = result.result.iter_into();
-        anonymizer.apply(&mut players_out);
-        response!(ok CountryPlayers{
-            geojson: country_geometry.geometry.unwrap_or(String::from("{}")),
-            count: total_player_count,
-            code: country_geometry.country_code.unwrap_or_default(),
-            name: country_geometry.country_name.unwrap_or_default(),
-            players: players_out,
-        })
+        country_players(app, &server_id, user_token.as_ref().map(|t| t.id), result.result).await
     }
     /// Players who were in the country at a given map coordinate, over a historical window.
     ///
@@ -471,50 +439,44 @@ impl RadarApi {
             tracing::warn!("Unable to cache query-country");
             return response!(internal_server_error)
         };
-        let Some(player): Option<&DbCountryPlayer> = result.result.first() else {
-            return response!(ok CountryPlayers{
-                geojson: String::from("{}"),
-                count: 0,
-                name: "Unknown".to_string(),
-                code: "Unknown".to_string(),
-                players: vec![]
-            })
-        };
-        let country_code = player.location_country.as_ref().map(String::clone).unwrap_or_else(|| "".to_string());
-        let get_country_func = || sqlx::query_as!(DbCountryGeometry, "
+        country_players(app, &server_id, user_token.as_ref().map(|t| t.id), result.result).await
+    }
+}
+
+async fn country_players(app: &AppData, server_id: &str, user_id: Option<i64>, rows: Vec<DbCountryPlayer>) -> Response<CountryPlayers> {
+    let pool = &*app.pool.clone();
+    let redis_pool = &app.cache;
+    let Some(player): Option<&DbCountryPlayer> = rows.first() else {
+        return response!(ok CountryPlayers{
+            geojson: String::from("{}"),
+            count: 0,
+            name: "Unknown".to_string(),
+            code: "Unknown".to_string(),
+            players: vec![]
+        })
+    };
+    let country_code = player.location_country.as_ref().map(String::clone).unwrap_or_else(|| "".to_string());
+    let get_country_func = || sqlx::query_as!(DbCountryGeometry, "
             SELECT \"ISO_A2_EH\" as country_code, \"NAME\" as country_name, ST_AsGeoJSON(geom) geometry
             FROM layers.countries_fixed
             WHERE \"ISO_A2_EH\"=$1
             LIMIT 1
         ", country_code).fetch_one(pool);
-        let country_key = format!("country:{server_id}:{country_code}");
-        let Ok(country_geometry) = cached_response(&country_key, redis_pool, 7 * DAY, get_country_func).await else {
-            tracing::warn!("Unable to cache query-country");
-            return response!(internal_server_error)
-        };
-        let country_geometry = country_geometry.result;
-        let total_player_count = player.total_player_count.unwrap_or_default();
-        let anonymizer = BriefAnonymizer::new(app, &server_id, user_token.as_ref().map(|t| t.id)).await;
-        let mut players_out: Vec<CountryPlayer> = result.result.iter_into();
-        anonymizer.apply(&mut players_out);
-        response!(ok CountryPlayers{
-            geojson: country_geometry.geometry.unwrap_or(String::from("{}")),
-            count: total_player_count,
-            code: country_geometry.country_code.unwrap_or_default(),
-            name: country_geometry.country_name.unwrap_or_default(),
-            players: players_out,
-        })
-    }
-}
-impl UriPatternExt for RadarApi{
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/radars/{server_id}/query",
-            "/radars/{server_id}/live_query",
-            "/radars/{server_id}/statistics",
-            "/radars/{server_id}/live_statistics",
-            "/radars/{server_id}/live_statistics/continents",
-            "/radars/global/live_statistics/continents",
-        ].iter_into()
-    }
+    let country_key = format!("country:{server_id}:{country_code}");
+    let Ok(country_geometry) = cached_response(&country_key, redis_pool, 7 * DAY, get_country_func).await else {
+        tracing::warn!("Unable to cache query-country");
+        return response!(internal_server_error)
+    };
+    let country_geometry = country_geometry.result;
+    let total_player_count = player.total_player_count.unwrap_or_default();
+    let anonymizer = BriefAnonymizer::new(app, server_id, user_id).await;
+    let mut players_out: Vec<CountryPlayer> = rows.iter_into();
+    anonymizer.apply(&mut players_out);
+    response!(ok CountryPlayers{
+        geojson: country_geometry.geometry.unwrap_or(String::from("{}")),
+        count: total_player_count,
+        code: country_geometry.country_code.unwrap_or_default(),
+        name: country_geometry.country_name.unwrap_or_default(),
+        players: players_out,
+    })
 }

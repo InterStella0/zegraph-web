@@ -1,0 +1,29 @@
+name: Deploy Label Exclusive
+
+# Keeps `deploy` and `not deploy` mutually exclusive when a human flips one by hand, so overruling
+# the labeler is a single click. Labels applied with GITHUB_TOKEN do not trigger workflows, so this
+# only ever reacts to people and cannot loop with deploy-label.yml.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [labeled]
+
+jobs:
+  exclusive:
+    if: github.event.label.name == 'deploy' || github.event.label.name == 'not deploy'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ADDED: ${{ github.event.label.name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [[ "$ADDED" == "deploy" ]]; then other="not deploy"; else other="deploy"; fi
+          if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name' | grep -qxF "$other"; then
+            gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --remove-label "$other"
+          fi

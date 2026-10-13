@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::{Pool, Postgres};
-use sqlx::types::time::OffsetDateTime;
 use crate::api_models::maps::*;
 use crate::core::period::TimePeriod;
 use crate::core::utils::*;
@@ -12,39 +10,29 @@ use crate::models::admins::DbEvent;
 use crate::models::maps::*;
 use crate::models::players::DbPlayerBrief;
 use crate::models::servers::*;
-use super::player::{period_priority, period_ttl};
-use super::{BackgroundWorker, JobKind, MapContext, MapData, MapPeriodData, Query, QueryPriority, RefreshJob, WorkResult, WorkerQuery};
+use super::{BackgroundWorker, Cacheable, MapContext, MapData, MapPeriodData, Query, WorkResult, WorkerQ, WorkerQuery};
 
-#[derive(Clone)]
-pub struct MapBasicQuery<T> {
-    pub context: Query<MapData>,
-    _phantom: std::marker::PhantomData<T>,
-}
+pub type MapBasicQuery<T> = WorkerQ<MapData, T>;
+/// A map session belongs to the period it started in, so each one counts towards exactly one month.
+pub type MapPeriodQuery<T> = WorkerQ<MapPeriodData, T>;
 
 impl<T> MapBasicQuery<T> {
     fn new(ctx: &MapContext, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
-        Self::raw(Query {
-            pool,
-            cache,
-            data: MapData{
-                map_name: ctx.map.map.clone(),
-                server_id: ctx.server.server_id.clone(),
-            },
-        })
-    }
-
-    /// Rebuilds the query straight from its data, with no `MapContext` to hand. This is the path a
-    /// worker process takes: it has a deserialized `MapData` and nothing else.
-    pub(crate) fn raw(context: Query<MapData>) -> Self {
-        Self { context, _phantom: std::marker::PhantomData }
+        Self::raw(Query { pool, cache, data: MapData {
+            map_name: ctx.map.map.clone(),
+            server_id: ctx.server.server_id.clone(),
+        }})
     }
 }
-#[async_trait]
-impl WorkerQuery<Vec<DbMapRegion>> for MapBasicQuery<Vec<DbMapRegion>> {
-    type Error = sqlx::Error;
+impl<T> MapPeriodQuery<T> {
+    fn new(ctx: &MapContext, period: TimePeriod, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
+        Self::raw(Query { pool, cache, data: ctx.period_data(period) })
+    }
+}
 
-    async fn execute(&self) -> Result<Vec<DbMapRegion>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapBasicQuery<Vec<DbMapRegion>> => MapRegions, 7 * DAY, Light,
+    |self, ctx| format!("map-regions-2:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
         sqlx::query_as!(DbMapRegion, "
             WITH session_data AS (
               SELECT
@@ -139,30 +127,10 @@ impl WorkerQuery<Vec<DbMapRegion>> for MapBasicQuery<Vec<DbMapRegion>> {
 			GROUP BY region_name
         ", ctx.data.server_id, ctx.data.map_name).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("map-regions-2:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        7 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapRegions(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Vec<DbMapRegionDate>> for MapBasicQuery<Vec<DbMapRegionDate>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbMapRegionDate>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapBasicQuery<Vec<DbMapRegionDate>> => MapHeatRegions, 7 * DAY, Light,
+    |self, ctx| format!("heat-region:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
         sqlx::query_as!(DbMapRegionDate, "
             WITH session_data AS (
               SELECT
@@ -252,30 +220,10 @@ impl WorkerQuery<Vec<DbMapRegionDate>> for MapBasicQuery<Vec<DbMapRegionDate>> {
             ORDER BY ad.play_day, total_play_duration DESC
         ", ctx.data.server_id, ctx.data.map_name).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("heat-region:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        7 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapHeatRegions(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Vec<DbEvent>> for MapBasicQuery<Vec<DbEvent>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbEvent>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapBasicQuery<Vec<DbEvent>> => MapEvents, DAY, Light,
+    |self, ctx| format!("map-events:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
         sqlx::query_as!(DbEvent, "
             WITH smp_filtered AS (
               SELECT *
@@ -297,30 +245,10 @@ impl WorkerQuery<Vec<DbEvent>> for MapBasicQuery<Vec<DbEvent>> {
             GROUP BY vals.event_name
         ", ctx.data.server_id, ctx.data.map_name).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("map-events:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapEvents(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Vec<DbMapSessionDistribution>> for MapBasicQuery<Vec<DbMapSessionDistribution>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbMapSessionDistribution>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapBasicQuery<Vec<DbMapSessionDistribution>> => MapSessionDistribution, 30 * DAY, Heavy,
+    |self, ctx| format!("sessions_distribution:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
         // noted to be slow, but i dont think there is anyway to make it faster.
         // possible session_range to be invalid if there is a new key.
         let _ = sqlx::query!("
@@ -371,30 +299,10 @@ impl WorkerQuery<Vec<DbMapSessionDistribution>> for MapBasicQuery<Vec<DbMapSessi
             ctx.data.server_id, ctx.data.map_name
         ).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("sessions_distribution:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        30 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Heavy
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapSessionDistribution(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<DbServerMapPartial> for MapBasicQuery<DbServerMapPartial> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<DbServerMapPartial, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapBasicQuery<DbServerMapPartial> => MapPartial, 7 * DAY, Light,
+    |self, ctx| format!("map-partial:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
         sqlx::query_as!(DbServerMapPartial,
                 "SELECT
                     map,
@@ -408,55 +316,17 @@ impl WorkerQuery<DbServerMapPartial> for MapBasicQuery<DbServerMapPartial> {
             ctx.data.server_id, ctx.data.map_name
             ).fetch_one(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("map-partial:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        7 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapPartial(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Option<DbMapMeta>> for MapBasicQuery<Option<DbMapMeta>> {
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<Option<DbMapMeta>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapBasicQuery<Option<DbMapMeta>> => MapMetadata, DAY, Light,
+    |self, ctx| format!("map_metadata:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
         sqlx::query_as!(DbMapMeta, "SELECT * FROM map_metadata WHERE name=$1 LIMIT 1", ctx.data.map_name)
             .fetch_optional(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("map_metadata:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapMetadata(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Vec<DbMapPlayerTypeTime>> for MapBasicQuery<Vec<DbMapPlayerTypeTime>> {
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<Vec<DbMapPlayerTypeTime>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapBasicQuery<Vec<DbMapPlayerTypeTime>> => MapPlayerTypeTime, DAY, Light,
+    |self, ctx| format!("map_player_type_time:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
         sqlx::query_as!(DbMapPlayerTypeTime, "
             SELECT pp.category, SUM(pmt.total_playtime) AS time_spent
             FROM website.player_map_time pmt
@@ -468,29 +338,10 @@ impl WorkerQuery<Vec<DbMapPlayerTypeTime>> for MapBasicQuery<Vec<DbMapPlayerType
             , ctx.data.server_id, ctx.data.map_name)
             .fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("map_player_type_time:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapPlayerTypeTime(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<DbMapInfo> for MapBasicQuery<DbMapInfo> {
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<DbMapInfo, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapBasicQuery<DbMapInfo> => MapInfo, HOUR, Light,
+    |self, ctx| format!("map_info_data:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
         sqlx::query_as!(DbMapInfo, "
             SELECT sm.map AS name,
                    sm.first_occurrence,
@@ -515,30 +366,10 @@ impl WorkerQuery<DbMapInfo> for MapBasicQuery<DbMapInfo> {
             .fetch_one(&*ctx.pool)
             .await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("map_info_data:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        HOUR
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapInfo(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<DbMapAnalyze> for MapBasicQuery<DbMapAnalyze> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<DbMapAnalyze, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapBasicQuery<DbMapAnalyze> => MapAnalyze, 30 * DAY, Heavy,
+    |self, ctx| format!("map_analyze-2:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
         let _ = sqlx::query!("
              WITH params AS (
                SELECT
@@ -652,69 +483,12 @@ impl WorkerQuery<DbMapAnalyze> for MapBasicQuery<DbMapAnalyze> {
             LIMIT 1
         ", ctx.data.server_id, ctx.data.map_name).fetch_one(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("map_analyze-2:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name)
-    }
-
-    fn ttl(&self) -> u64 {
-        30 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Heavy
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapAnalyze(self.context.data.clone())
-    }
-}
-
-/// Queries over one calendar period. Like `PlayerPeriodQuery`, every impl only reads and the result
-/// lives in the cache alone; a closed period's key carries no `{session}`. A map session belongs to
-/// the period it started in, so each one counts towards exactly one month.
-#[derive(Clone)]
-pub struct MapPeriodQuery<T> {
-    pub context: Query<MapPeriodData>,
-    _phantom: std::marker::PhantomData<T>,
-}
-impl<T> MapPeriodQuery<T> {
-    fn new(ctx: &MapContext, period: TimePeriod, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
-        Self::raw(Query { pool, cache, data: ctx.period_data(period) })
-    }
-    pub(crate) fn raw(context: Query<MapPeriodData>) -> Self {
-        Self { context, _phantom: std::marker::PhantomData }
-    }
-
-    fn period_key(&self, kind: &str) -> String {
-        let data = &self.context.data;
-        let key = format!("map-period-{kind}:{}:{}:{}", data.server_id, data.map_name, data.period.label());
-        if data.closed { key } else { format!("{key}:{{session}}") }
-    }
-
-    fn period_ttl(&self) -> u64 {
-        period_ttl(&self.context.data.period, self.context.data.closed)
-    }
-
-    fn period_priority(&self, priority: QueryPriority) -> QueryPriority {
-        period_priority(&self.context.data.period, priority)
-    }
-
-    fn bounds(&self) -> (OffsetDateTime, OffsetDateTime) {
-        let period = &self.context.data.period;
-        (period.start().to_db_time(), period.end().to_db_time())
-    }
 }
 
 pub const MAP_PERIOD_TOP_LIMIT: i64 = 100;
 
-#[async_trait]
-impl WorkerQuery<DbMapAnalyze> for MapPeriodQuery<DbMapAnalyze> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<DbMapAnalyze, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapPeriodQuery<DbMapAnalyze> => MapPeriodAnalyze, period "analyze", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbMapAnalyze, "
             WITH smp AS (
@@ -764,22 +538,10 @@ impl WorkerQuery<DbMapAnalyze> for MapPeriodQuery<DbMapAnalyze> {
             CROSS JOIN player_counts pc
         ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_one(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("analyze") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapPeriodAnalyze(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbMapRegion>> for MapPeriodQuery<Vec<DbMapRegion>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbMapRegion>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapPeriodQuery<Vec<DbMapRegion>> => MapPeriodRegions, period "regions", Light, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbMapRegion, "
             WITH session_data AS (
@@ -849,22 +611,10 @@ impl WorkerQuery<Vec<DbMapRegion>> for MapPeriodQuery<Vec<DbMapRegion>> {
             GROUP BY rt.region_name
         ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("regions") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapPeriodRegions(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbMapRegionDate>> for MapPeriodQuery<Vec<DbMapRegionDate>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbMapRegionDate>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapPeriodQuery<Vec<DbMapRegionDate>> => MapPeriodHeatRegions, period "heat-region", Light, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbMapRegionDate, "
             WITH session_data AS (
@@ -949,22 +699,10 @@ impl WorkerQuery<Vec<DbMapRegionDate>> for MapPeriodQuery<Vec<DbMapRegionDate>> 
             ORDER BY ad.play_day, total_play_duration DESC
         ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("heat-region") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapPeriodHeatRegions(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbMapSessionDistribution>> for MapPeriodQuery<Vec<DbMapSessionDistribution>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbMapSessionDistribution>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapPeriodQuery<Vec<DbMapSessionDistribution>> => MapPeriodSessionDistribution, period "session-distribution", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbMapSessionDistribution, "
             WITH time_spent AS (
@@ -991,22 +729,10 @@ impl WorkerQuery<Vec<DbMapSessionDistribution>> for MapPeriodQuery<Vec<DbMapSess
             GROUP BY 1
         ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("session-distribution") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapPeriodSessionDistribution(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbMapPlayerTypeTime>> for MapPeriodQuery<Vec<DbMapPlayerTypeTime>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbMapPlayerTypeTime>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapPeriodQuery<Vec<DbMapPlayerTypeTime>> => MapPeriodPlayerTypeTime, period "player-type", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbMapPlayerTypeTime, "
             WITH smp AS (
@@ -1034,22 +760,10 @@ impl WorkerQuery<Vec<DbMapPlayerTypeTime>> for MapPeriodQuery<Vec<DbMapPlayerTyp
             GROUP BY pp.category
         ", ctx.data.server_id, ctx.data.map_name, start, end).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("player-type") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapPeriodPlayerTypeTime(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbMapPeriodPlayer>> for MapPeriodQuery<Vec<DbMapPeriodPlayer>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbMapPeriodPlayer>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    MapPeriodQuery<Vec<DbMapPeriodPlayer>> => MapPeriodTopPlayers, period "top-players", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbMapPeriodPlayer, "
             WITH smp AS (
@@ -1080,14 +794,6 @@ impl WorkerQuery<Vec<DbMapPeriodPlayer>> for MapPeriodQuery<Vec<DbMapPeriodPlaye
             ORDER BY ts.total_playtime DESC, ts.player_id
         ", ctx.data.server_id, ctx.data.map_name, start, end, MAP_PERIOD_TOP_LIMIT).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("top-players") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::MapPeriodTopPlayers(self.context.data.clone())
-    }
 }
 
 pub struct MapWorker {
@@ -1102,13 +808,8 @@ impl MapWorker {
             pool,
         }
     }
-    async fn query_map<T>(
-        &self, context: &MapContext
-    ) -> WorkResult<CachedResult<T>>
-    where
-        MapBasicQuery<T>: WorkerQuery<T> + Send + Sync,
-        <MapBasicQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display,
-        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+    async fn query_map<T: Cacheable>(&self, context: &MapContext) -> WorkResult<CachedResult<T>>
+    where MapBasicQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
     {
         let query = MapBasicQuery::new(context, self.pool.clone(), self.background_worker.cache.clone());
         self.background_worker.execute_with_session_fallback(
@@ -1121,27 +822,22 @@ impl MapWorker {
         MapPeriodQuery::new(context, period, self.pool.clone(), self.background_worker.cache.clone())
     }
 
-    /// The keys a period query reads: its current key and, for an open period only, the previous
-    /// session's key. A closed period's key has no session in it, so there is nothing to fall back to.
-    fn period_keys<T>(&self, query: &MapPeriodQuery<T>, context: &MapContext) -> (RefreshJob, String, Option<String>)
-    where
-        MapPeriodQuery<T>: WorkerQuery<T>,
+    async fn query_map_period<T: Cacheable>(&self, context: &MapContext, period: TimePeriod) -> WorkResult<CachedResult<T>>
+    where MapPeriodQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
     {
-        let previous = context.cache_key.previous.as_deref().filter(|_| !query.context.data.closed);
-        RefreshJob::for_session(query, &context.cache_key.current, previous)
+        let (job, current_key, fallback_key) = self.period_query::<T>(context, period).period_keys(&context.cache_key);
+        self.background_worker.get_with_fallback(&current_key, fallback_key.as_deref(), job).await
     }
 
-    async fn query_map_period<T>(
-        &self, context: &MapContext, period: TimePeriod,
-    ) -> WorkResult<CachedResult<T>>
+    async fn query_map_or_period<T: Cacheable>(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<CachedResult<T>>
     where
-        MapPeriodQuery<T>: WorkerQuery<T> + Send + Sync + Clone + 'static,
-        <MapPeriodQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display + Send + 'static,
-        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+        MapBasicQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
+        MapPeriodQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
     {
-        let query: MapPeriodQuery<T> = self.period_query(context, period);
-        let (job, current_key, fallback_key) = self.period_keys(&query, context);
-        self.background_worker.get_with_fallback(&current_key, fallback_key.as_deref(), job).await
+        match period {
+            Some(period) => self.query_map_period(context, period).await,
+            None => self.query_map(context).await,
+        }
     }
 
     pub async fn get_detail(&self, context: &MapContext) -> WorkResult<MapInfo>{
@@ -1171,10 +867,7 @@ impl MapWorker {
         Ok(value.result.into())
     }
     pub async fn get_regions(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<Vec<MapRegion>> {
-        let value: CachedResult<Vec<DbMapRegion>> = match period {
-            Some(period) => self.query_map_period(context, period).await?,
-            None => self.query_map(context).await?,
-        };
+        let value: CachedResult<Vec<DbMapRegion>> = self.query_map_or_period(context, period).await?;
         Ok(value.result.iter_into())
     }
     pub async fn get_events(&self, context: &MapContext) -> WorkResult<Vec<MapEventAverage>> {
@@ -1182,17 +875,11 @@ impl MapWorker {
         Ok(value.result.iter_into())
     }
     pub async fn get_session_distributions(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<Vec<MapSessionDistribution>> {
-        let value: CachedResult<Vec<DbMapSessionDistribution>> = match period {
-            Some(period) => self.query_map_period(context, period).await?,
-            None => self.query_map(context).await?,
-        };
+        let value: CachedResult<Vec<DbMapSessionDistribution>> = self.query_map_or_period(context, period).await?;
         Ok(value.result.iter_into())
     }
     pub async fn get_heat_regions(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<Vec<DailyMapRegion>> {
-        let value: CachedResult<Vec<DbMapRegionDate>> = match period {
-            Some(period) => self.query_map_period(context, period).await?,
-            None => self.query_map(context).await?,
-        };
+        let value: CachedResult<Vec<DbMapRegionDate>> = self.query_map_or_period(context, period).await?;
         let resp: Vec<MapRegionDate> = value.result.iter_into();
         let mut grouped: HashMap<DateTime<Utc>, Vec<MapRegion>> = HashMap::new();
 
@@ -1214,10 +901,7 @@ impl MapWorker {
         Ok(days)
     }
     pub async fn get_player_types(&self, context: &MapContext, period: Option<TimePeriod>) -> WorkResult<Vec<MapPlayerTypeTime>> {
-        let value: CachedResult<Vec<DbMapPlayerTypeTime>> = match period {
-            Some(period) => self.query_map_period(context, period).await?,
-            None => self.query_map(context).await?,
-        };
+        let value: CachedResult<Vec<DbMapPlayerTypeTime>> = self.query_map_or_period(context, period).await?;
         Ok(value.result.iter_into())
     }
 
@@ -1228,7 +912,7 @@ impl MapWorker {
         &self, context: &MapContext, period: TimePeriod, search: Option<&str>,
     ) -> WorkResult<Vec<DbPlayerBrief>> {
         let query: MapPeriodQuery<Vec<DbMapPeriodPlayer>> = self.period_query(context, period);
-        let (job, current_key, fallback_key) = self.period_keys(&query, context);
+        let (job, current_key, fallback_key) = query.period_keys(&context.cache_key);
 
         let cached: Vec<DbMapPeriodPlayer> = match search {
             Some(_) => match self.background_worker.peek(&current_key).await {
@@ -1305,6 +989,7 @@ impl MapWorker {
 #[cfg(test)]
 mod tests {
     use super::super::test_support::{map_period_query, map_query, map_range_query, TEST_LONG_RANGE, TEST_MAP, TEST_SERVER, TEST_SESSION, TEST_SHORT_RANGE};
+    use super::super::{JobKind, QueryPriority, RefreshJob};
     use super::*;
 
     macro_rules! assert_map_metadata {

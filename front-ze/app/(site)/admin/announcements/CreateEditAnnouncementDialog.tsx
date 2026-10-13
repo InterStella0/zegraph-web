@@ -10,7 +10,7 @@ import { Input } from 'components/ui/input';
 import { Label } from 'components/ui/label';
 import { Switch } from 'components/ui/switch';
 import { cn } from 'components/lib/utils';
-import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import type { Announcement, AnnouncementType, CreateAnnouncementDto } from 'types/announcements';
 import { AnnouncementPreview } from './AnnouncementPreview';
 import { MarkdownToolbar } from './MarkdownToolbar';
@@ -155,11 +155,7 @@ export function CreateEditAnnouncementDialog({
         show: form.show,
       };
 
-      await fetchApiUrl(isEdit ? `/admin/announcements/${announcement.id}` : '/admin/announcements', {
-        method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      await sendJson(isEdit ? `/admin/announcements/${announcement.id}` : '/admin/announcements', isEdit ? 'PUT' : 'POST', payload);
       toast.success(isEdit ? 'Announcement updated' : 'Announcement created');
       onSuccess();
       onOpenChange(false);

@@ -18,7 +18,7 @@ import {Button} from "components/ui/button";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "components/ui/tooltip";
 import {usePushNotifications} from "lib/hooks/usePushNotifications";
 import {toast} from "sonner";
-import {SteamProfile} from "../../next-auth-steam/steam.ts";
+import {SteamProfile} from "types/steam";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import LoginDialog from "components/ui/LoginDialog";
 import {useTranslations} from "next-intl";

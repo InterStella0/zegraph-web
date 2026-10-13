@@ -1,17 +1,15 @@
 'use client'
-import {ReactElement, Suspense, use, useDeferredValue, useEffect, useRef, useState} from "react";
-import { Info, AlertTriangle, Search, Loader2 } from "lucide-react";
+import {ReactElement, use, useDeferredValue, useEffect, useRef, useState} from "react";
+import { AlertTriangle, Search, Loader2 } from "lucide-react";
 import { Card } from "../ui/card";
-import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { TooltipProvider } from "../ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "../ui/command";
 import { Table, TableBody, TableCell, TableRow } from "../ui/table";
 import {fetchApiServerUrl, fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import PlayerTableRow, {PlayerTableRowLoading} from "../players/PlayerTableRow.tsx";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
@@ -19,6 +17,8 @@ import {BriefPlayers, ExtendedPlayerBrief, SearchPlayer} from "types/players.ts"
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {useTranslations} from 'next-intl';
 import {PlayerName} from "components/players/PlayerName";
+import InfoTooltip from "components/common/InfoTooltip";
+import {withMapSuspense} from "components/maps/withMapSuspense";
 
 const PAGE_SIZE = 10
 const SUGGESTION_MIN_CHARS = 3
@@ -176,16 +176,7 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
                 </div>
                 <div>
                     <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <Info className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{t('tooltip')}</p>
-                            </TooltipContent>
-                        </Tooltip>
+                        <InfoTooltip text={t('tooltip')} />
                     </TooltipProvider>
                 </div>
             </div>
@@ -268,11 +259,4 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
         </Card>
     )
 }
-export default function MapTopPlayerList({ initialDataPromise }: MapTopPlayerListProps): ReactElement{
-    const t = useTranslations('maps.top10');
-    return <ErrorCatch message={t('loadError')}>
-        <Suspense fallback={<EmptyMapContext><MapTopPlayerListDisplay /></EmptyMapContext>}>
-            <MapTopPlayerListDisplay initialDataPromise={initialDataPromise} />
-        </Suspense>
-    </ErrorCatch>
-}
+export default withMapSuspense(MapTopPlayerListDisplay, t => t('maps.top10.loadError'))

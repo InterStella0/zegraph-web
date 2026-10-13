@@ -5,7 +5,7 @@ import {cookies} from "next/dist/server/request/cookies";
 
 const API_ROOT = "/data/api"
 const NEXTAPI_ROOT = "/api"
-export const BACKEND_DOMAIN = "http://backend:3000"
+export const BACKEND_DOMAIN = process.env.BACKEND_URL || "http://backend:3000"
 export const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://frontend:3000"
 export const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN ?? "https://zegraph.xyz";
 export const CONTACT_EMAIL = "contact@queeniemella.cc";
@@ -61,12 +61,6 @@ class UserError extends APIError{
 export class RendererError extends APIError{
     constructor(){
         super(`Used while rendered.`, 500)
-    }
-}
-
-class RateLimited extends APIError{
-    constructor(message: string){
-        super(`We're being ratelimited for method ${message}`, 429)
     }
 }
 
@@ -202,12 +196,6 @@ export async function fetchUrl(endpoint: string, options: any = {}, errorOnStill
         } catch (err) {
             if (err instanceof StillCalculate && !errorOnStillCalculate){
                 return err
-            }
-            if (err instanceof RateLimited) {
-                const retry = backoffBaseMs * (2 ** rateLimitAttempts);
-                await sleep(retry);
-                rateLimitAttempts++;
-                continue;
             }
             if (err instanceof UserError){
                 throw err;

@@ -4,7 +4,7 @@ use poem::web::Data;
 use poem_openapi::payload::Json;
 use poem_openapi::{Object, OpenApi};
 use poem_openapi::param::{Path, Query};
-use poem_openapi::types::MaybeUndefined;
+use poem_openapi::types::{MaybeUndefined, ParseFromJSON, ToJSON};
 use tokio::io::AsyncReadExt;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::core::utils::*;
 use crate::workers::PlayerContext;
-use crate::{response, AppData};
+use crate::{or_ise, require, response, AppData};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::api_models::misc::*;
@@ -472,6 +472,38 @@ async fn get_user_role(data: &AppData, user_id: i64) -> Result<UserRole, ErrorCo
     Ok(UserRole::Regular)
 }
 
+async fn owned_push_subscription<T: ParseFromJSON + ToJSON + Send + Sync>(
+    data: &AppData, user_id: i64, subscription_id: &str, server_id: Option<&String>,
+) -> Result<Uuid, Response<T>> {
+    let Ok(subscription_id) = Uuid::parse_str(subscription_id) else {
+        return Err(response!(err "Invalid subscription ID format", ErrorCode::BadRequest));
+    };
+    let subscription_check = sqlx::query_scalar!(
+        "SELECT user_id FROM website.push_subscriptions WHERE id = $1", subscription_id
+    ).fetch_optional(&*data.pool).await;
+    match subscription_check {
+        Ok(Some(owner)) if owner == user_id => {}
+        Ok(Some(_)) => return Err(response!(err "Subscription does not belong to user", ErrorCode::Forbidden)),
+        Ok(None) => return Err(response!(err "Subscription not found", ErrorCode::NotFound)),
+        Err(e) => {
+            tracing::error!("Failed to verify subscription: {}", e);
+            return Err(response!(internal_server_error));
+        }
+    }
+    let Some(server_id) = server_id else { return Ok(subscription_id) };
+    let server_check = sqlx::query_scalar!(
+        "SELECT server_id FROM server WHERE server_id = $1", server_id
+    ).fetch_optional(&*data.pool).await;
+    match server_check {
+        Ok(Some(_)) => Ok(subscription_id),
+        Ok(None) => Err(response!(err "Server not found", ErrorCode::NotFound)),
+        Err(e) => {
+            tracing::error!("Failed to verify server: {}", e);
+            Err(response!(internal_server_error))
+        }
+    }
+}
+
 async fn check_permission(
     data: &AppData,
     requester_id: i64,
@@ -639,15 +671,9 @@ impl AccountsApi {
                 return response!(err "User Steam ID is invalid", ErrorCode::NotFound)
             }
         };
-        let Ok(cvs) = CommunityVisibilityState::try_from(steam_profile.communityvisibilitystate.unwrap_or(1) as i32) else {
-            return response!(internal_server_error)
-        };
-        let Ok(ps) = PersonaState::try_from(steam_profile.personastate.unwrap_or(0) as i32) else {
-            return response!(internal_server_error)
-        };
-        let Ok(steam_id) = steam_profile.steamid.parse::<i64>() else {
-            return response!(internal_server_error)
-        };
+        let cvs = or_ise!(CommunityVisibilityState::try_from(steam_profile.communityvisibilitystate.unwrap_or(1) as i32));
+        let ps = or_ise!(PersonaState::try_from(steam_profile.personastate.unwrap_or(0) as i32));
+        let steam_id = or_ise!(steam_profile.steamid.parse::<i64>());
         let timecreated = steam_profile.timecreated.unwrap_or(-1);
         let clan_id = steam_profile.primaryclanid.unwrap_or("-1".to_string());
         let commentpermission = steam_profile.commentpermission.and_then(|e| Some(e == 1)).unwrap_or(false);
@@ -660,7 +686,7 @@ impl AccountsApi {
         let profileurl = steam_profile.profileurl.unwrap_or_default();
         let personaname = steam_profile.personaname.unwrap_or_default();
         let profilestate = steam_profile.profilestate.unwrap_or_default();
-        let steam_profile_db = match sqlx::query_as!(DbSteam,
+        let steam_profile_db = or_ise!(sqlx::query_as!(DbSteam,
             "INSERT INTO website.steam_user(user_id,
                 community_visibility_state,
                 profile_state,
@@ -707,13 +733,7 @@ impl AccountsApi {
                 timecreated,
                 personastateflags,
                 commentpermission
-        ).fetch_one(&*data.pool).await {
-            Ok(k) => k,
-            Err(e) => {
-                tracing::error!("ERROR {e}");
-                return response!(internal_server_error)
-            }
-        };
+        ).fetch_one(&*data.pool).await, e => "ERROR {e}");
         response!(ok steam_profile_db.into())
 
     }
@@ -777,9 +797,7 @@ impl AccountsApi {
             steam_id
         ).fetch_all(pool).await;
 
-        let Ok(servers_played) = servers_played else {
-            return response!(internal_server_error);
-        };
+        let servers_played = or_ise!(servers_played);
 
         let mut results: IndexMap<String, CommunityPlayerDetail> = IndexMap::new();
 
@@ -858,28 +876,21 @@ impl AccountsApi {
             canonical_id
         ).fetch_all(pool).await;
 
-        let Ok(servers_played) = servers_played else {
-            return response!(internal_server_error);
-        };
+        let servers_played = or_ise!(servers_played);
 
         let anonymization_settings = sqlx::query_as!(
             DbUserAnonymization,
             "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
             canonical_user_id
         ).fetch_all(pool).await;
-        let Ok(anonymization_settings) = anonymization_settings else {
-            return response!(internal_server_error);
-        };
+        let anonymization_settings = or_ise!(anonymization_settings);
 
-        let anonymized_community_ids = match hidden_community_ids(
+        let anonymized_community_ids = or_ise!(hidden_community_ids(
             app,
             &canonical_id,
             &anonymization_settings,
             requester_id,
-        ).await {
-            Ok(ids) => ids,
-            Err(_) => return response!(internal_server_error),
-        };
+        ).await);
 
         let all_community_ids: HashSet<Uuid> = servers_played.iter().map(|e| e.community_id).collect();
         let has_visible_community = all_community_ids.iter().any(|c| !anonymized_community_ids.contains(c));
@@ -1125,18 +1136,13 @@ impl AccountsApi {
             "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
             canonical_id.parse::<i64>().unwrap_or(target_user_id)
         ).fetch_all(pool).await;
-        let Ok(anonymization_settings) = anonymization_settings else {
-            return response!(internal_server_error);
-        };
-        let excluded = match hidden_community_ids(
+        let anonymization_settings = or_ise!(anonymization_settings);
+        let excluded = or_ise!(hidden_community_ids(
             app,
             &canonical_id,
             &anonymization_settings,
             requester.as_ref().map(|token| token.id),
-        ).await {
-            Ok(ids) => ids,
-            Err(_) => return response!(internal_server_error),
-        };
+        ).await);
 
         match app.player_worker.get_community_playtime(&canonical_id).await {
             Ok(mut rows) => {
@@ -1179,19 +1185,14 @@ impl AccountsApi {
             "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
             canonical_user_id
         ).fetch_all(pool).await;
-        let Ok(anonymization_settings) = anonymization_settings else {
-            return response!(internal_server_error);
-        };
+        let anonymization_settings = or_ise!(anonymization_settings);
 
-        let excluded_community_ids: Vec<Uuid> = match hidden_community_ids(
+        let excluded_community_ids: Vec<Uuid> = or_ise!(hidden_community_ids(
             app,
             &canonical_id,
             &anonymization_settings,
             requester_id,
-        ).await {
-            Ok(ids) => ids.into_iter().collect(),
-            Err(_) => return response!(internal_server_error),
-        };
+        ).await).into_iter().collect();
 
         let result = sqlx::query_as!(
             DbPlayerSessionTime,
@@ -1213,9 +1214,7 @@ impl AccountsApi {
             &excluded_community_ids
         ).fetch_all(pool).await;
 
-        let Ok(result) = result else {
-            return response!(internal_server_error);
-        };
+        let result = or_ise!(result);
 
         response!(ok result.iter_into())
     }
@@ -1253,19 +1252,14 @@ impl AccountsApi {
             "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
             canonical_user_id
         ).fetch_all(pool).await;
-        let Ok(anonymization_settings) = anonymization_settings else {
-            return response!(internal_server_error);
-        };
+        let anonymization_settings = or_ise!(anonymization_settings);
 
-        let excluded_community_ids: Vec<Uuid> = match hidden_community_ids(
+        let excluded_community_ids: Vec<Uuid> = or_ise!(hidden_community_ids(
             app,
             &canonical_id,
             &anonymization_settings,
             requester_id,
-        ).await {
-            Ok(ids) => ids.into_iter().collect(),
-            Err(_) => return response!(internal_server_error),
-        };
+        ).await).into_iter().collect();
 
         let offset = PAGE_SIZE * page.unwrap_or(0) as i64;
         // NULL bounds mean "no filter", so the whole history is listed rather than the per-server
@@ -1311,9 +1305,7 @@ impl AccountsApi {
             offset
         ).fetch_all(pool).await;
 
-        let Ok(result) = result else {
-            return response!(internal_server_error);
-        };
+        let result = or_ise!(result);
 
         let total_rows = result.first().and_then(|e| e.total_rows).unwrap_or_default();
         let total_pages = (total_rows + PAGE_SIZE - 1) / PAGE_SIZE;
@@ -1347,15 +1339,8 @@ impl AccountsApi {
         .fetch_one(&*data.pool)
         .await;
 
-        match result {
-            Ok(setting) => {
-                response!(ok setting.into())
-            }
-            Err(e) => {
-                tracing::error!("Failed to set anonymization: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let setting = or_ise!(result, e => "Failed to set anonymization: {}", e);
+        response!(ok setting.into())
     }
 
     /// The signed-in user's anonymization settings across every community they've configured.
@@ -1367,20 +1352,14 @@ impl AccountsApi {
     ) -> Response<Vec<UserAnonymization>> {
         let user_id = user_token.id;
 
-        let settings = match sqlx::query_as!(
+        let settings = or_ise!(sqlx::query_as!(
             DbUserAnonymization,
             "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization
              WHERE user_id = $1",
             user_id
         )
         .fetch_all(&*data.pool)
-        .await {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::error!("Failed to fetch anonymization settings: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to fetch anonymization settings: {}", e);
 
         response!(ok settings.iter_into())
     }
@@ -1410,24 +1389,16 @@ impl AccountsApi {
             .and_then(|id| id.parse::<i64>().ok())
             .unwrap_or(user_id);
 
-        let has_permission = match check_permission(data, requester_id, user_id, uuid).await {
-            Ok(p) => p,
-            Err(_) => return response!(internal_server_error)
-        };
+        let has_permission = or_ise!(check_permission(data, requester_id, user_id, uuid).await);
 
-        if !has_permission {
-            return response!(err "Insufficient permissions", ErrorCode::Forbidden);
-        }
+        require!(has_permission, "Insufficient permissions", ErrorCode::Forbidden);
 
-        let user_exists = match sqlx::query_scalar!(
+        let user_exists = or_ise!(sqlx::query_scalar!(
             "SELECT EXISTS(SELECT 1 FROM website.steam_user WHERE user_id = $1)",
             user_id
         )
         .fetch_one(&*data.pool)
-        .await {
-            Ok(e) => e,
-            Err(_) => return response!(internal_server_error)
-        };
+        .await);
 
         if user_exists != Some(true) {
             return response!(err "Target user not found", ErrorCode::NotFound);
@@ -1460,41 +1431,34 @@ impl AccountsApi {
         .fetch_one(&*data.pool)
         .await;
 
-        match result {
-            Ok(setting) => {
-                // A privacy flag changed by somebody other than its owner must be attributable.
-                if acting_for_other {
-                    let changes = serde_json::json!({
-                        "target_user_id": user_id.to_string(),
-                        "community_id": request.community_id,
-                        "anonymized": {
-                            "old": previous.as_ref().map(|p| p.anonymized),
-                            "new": setting.anonymized,
-                        },
-                        "hide_location": {
-                            "old": previous.as_ref().map(|p| p.hide_location),
-                            "new": setting.hide_location,
-                        },
-                    });
-                    if let Err(e) = insert_audit_log(
-                        &*data.pool,
-                        CATEGORY_USER_PRIVACY,
-                        ACTION_UPDATE_ANONYMIZATION,
-                        None,
-                        None,
-                        requester_id,
-                        &changes,
-                    ).await {
-                        tracing::error!("Failed to audit anonymization change for {user_id}: {e}");
-                    }
-                }
-                response!(ok  setting.into())
-            }
-            Err(e) => {
-                tracing::error!("Failed to set anonymization: {}", e);
-                response!(internal_server_error)
+        let setting = or_ise!(result, e => "Failed to set anonymization: {}", e);
+        // A privacy flag changed by somebody other than its owner must be attributable.
+        if acting_for_other {
+            let changes = serde_json::json!({
+                "target_user_id": user_id.to_string(),
+                "community_id": request.community_id,
+                "anonymized": {
+                    "old": previous.as_ref().map(|p| p.anonymized),
+                    "new": setting.anonymized,
+                },
+                "hide_location": {
+                    "old": previous.as_ref().map(|p| p.hide_location),
+                    "new": setting.hide_location,
+                },
+            });
+            if let Err(e) = insert_audit_log(
+                &*data.pool,
+                CATEGORY_USER_PRIVACY,
+                ACTION_UPDATE_ANONYMIZATION,
+                None,
+                None,
+                requester_id,
+                &changes,
+            ).await {
+                tracing::error!("Failed to audit anonymization change for {user_id}: {e}");
             }
         }
+        response!(ok  setting.into())
     }
 
     /// Another user's anonymization settings across every community.
@@ -1509,20 +1473,15 @@ impl AccountsApi {
     ) -> Response<Vec<UserAnonymization>> {
         let target_user_id = user_id;
 
-        match sqlx::query_as!(
+        let s = or_ise!(sqlx::query_as!(
             DbUserAnonymization,
             "SELECT community_id, anonymized, hide_location, user_id FROM website.user_anonymization
              WHERE user_id = $1",
             target_user_id
         )
         .fetch_all(&*data.pool)
-        .await {
-            Ok(s) => response!(ok s.iter_into()),
-            Err(e) => {
-                tracing::error!("Failed to fetch anonymization settings: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        .await, e => "Failed to fetch anonymization settings: {}", e);
+        response!(ok s.iter_into())
     }
 
     /// Paginated list of map-music reports (e.g. wrong/missing YouTube link). Requires the
@@ -1537,9 +1496,7 @@ impl AccountsApi {
         Query(page): Query<Option<i64>>,
         Query(status): Query<Option<String>>,
     ) -> Response<MapMusicReportsPaginated> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let page = page.unwrap_or(1).max(1);
         let limit = 20i64;
@@ -1547,7 +1504,7 @@ impl AccountsApi {
 
         let status_filter = status.as_deref();
 
-        let reports = match sqlx::query_as!(
+        let reports = or_ise!(sqlx::query_as!(
             DbMapMusicReportFull,
             r#"
             SELECT
@@ -1586,14 +1543,7 @@ impl AccountsApi {
             offset
         )
         .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to fetch music reports: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to fetch music reports: {}", e);
 
         let total = reports.first().and_then(|r| r.total_reports).unwrap_or(0);
 
@@ -1615,9 +1565,7 @@ impl AccountsApi {
         Path(report_id): Path<String>,
         Json(payload): Json<UpdateReportStatusDto>,
     ) -> Response<MapMusicReportAdmin> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let Ok(report_uuid) = Uuid::parse_str(&report_id) else {
             return response!(err "Invalid report ID", ErrorCode::BadRequest);
@@ -1629,7 +1577,7 @@ impl AccountsApi {
 
         let resolved_by = if payload.status == "pending" { None } else { Some(user_token.id) };
 
-        let report = match sqlx::query_as!(
+        let Some(report) = or_ise!(sqlx::query_as!(
             DbMapMusicReportFull,
             r#"
             UPDATE website.report_map_music
@@ -1660,14 +1608,8 @@ impl AccountsApi {
             report_uuid
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(r)) => r,
-            Ok(None) => return response!(err "Report not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to update music report: {}", e);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to update music report: {}", e) else {
+            return response!(err "Report not found", ErrorCode::NotFound);
         };
 
         if payload.status == "resolved" {
@@ -1701,9 +1643,7 @@ impl AccountsApi {
         Path(music_id): Path<String>,
         Json(payload): Json<UpdateMapMusicDto>,
     ) -> Response<String> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let Ok(music_uuid) = Uuid::parse_str(&music_id) else {
             return response!(err "Invalid music ID", ErrorCode::BadRequest);
@@ -1722,18 +1662,11 @@ impl AccountsApi {
         .execute(&*data.pool)
         .await;
 
-        match result {
-            Ok(result) => {
-                if result.rows_affected() == 0 {
-                    return response!(err "Music track not found", ErrorCode::NotFound);
-                }
-                response!(ok "Updated successfully".into())
-            }
-            Err(e) => {
-                tracing::error!("Failed to update music YouTube ID: {}", e);
-                response!(internal_server_error)
-            }
+        let result = or_ise!(result, e => "Failed to update music YouTube ID: {}", e);
+        if result.rows_affected() == 0 {
+            return response!(err "Music track not found", ErrorCode::NotFound);
         }
+        response!(ok "Updated successfully".into())
     }
 
     /// Paginated list of every announcement, including hidden/scheduled/expired ones. Requires
@@ -1750,15 +1683,13 @@ impl AccountsApi {
         Query(status): Query<Option<AnnouncementStatus>>,
         Query(r#type): Query<Option<AnnouncementType>>,
     ) -> Response<AnnouncementsPaginated> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let page = page.unwrap_or(1).max(1);
         let limit = 20i64;
         let offset = (page - 1) * limit;
 
-        let mut all_announcements = match sqlx::query_as!(
+        let mut all_announcements = or_ise!(sqlx::query_as!(
             DbAnnouncement,
             r#"
             SELECT id, type as "type!: AnnouncementTypeState", title, text, created_at, published_at, expires_at, show
@@ -1767,14 +1698,7 @@ impl AccountsApi {
             "#
         )
         .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(a) => a,
-            Err(e) => {
-                tracing::error!("Failed to fetch announcements: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to fetch announcements: {}", e);
 
         if let Some(type_filter) = r#type {
             let type_state: AnnouncementTypeState = type_filter.into();
@@ -1832,9 +1756,7 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         Json(payload): Json<CreateAnnouncementDto>,
     ) -> Response<Announcement> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
         match payload.r#type{
             AnnouncementType::Rich => {
                 let Some(title) = &payload.title else {
@@ -1865,7 +1787,7 @@ impl AccountsApi {
             .to_db_time();
 
         let ptype: AnnouncementTypeState = payload.r#type.into();
-        let announcement = match sqlx::query_as!(
+        let announcement = or_ise!(sqlx::query_as!(
             DbAnnouncement,
             r#"
             INSERT INTO website.announce (title, type, text, published_at, expires_at, show)
@@ -1880,14 +1802,7 @@ impl AccountsApi {
             payload.show
         )
         .fetch_one(&*data.pool)
-        .await
-        {
-            Ok(a) => a,
-            Err(e) => {
-                tracing::error!("Failed to create announcement: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to create announcement: {}", e);
         drop_cached_response(&data.cache, ANNOUNCEMENTS_CACHE_KEY).await;
 
         response!(ok announcement.into())
@@ -1903,9 +1818,7 @@ impl AccountsApi {
         Path(id): Path<String>,
         Json(payload): Json<UpdateAnnouncementDto>,
     ) -> Response<Announcement> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         // Validation
         if let MaybeUndefined::Value(ref title) = payload.title {
@@ -1918,21 +1831,15 @@ impl AccountsApi {
                 return response!(err "Content must be 10-10000 characters", ErrorCode::BadRequest);
             }
         }
-        let current = match sqlx::query_as!(
+        let Some(current) = or_ise!(sqlx::query_as!(
             DbAnnouncement,
             "SELECT id, type AS \"type: AnnouncementTypeState\", title, text, created_at, published_at, expires_at, show
              FROM website.announce WHERE id = $1::TEXT::UUID",
             id
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(a)) => a,
-            Ok(None) => return response!(err "Announcement not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to fetch announcement: {}", e);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to fetch announcement: {}", e) else {
+            return response!(err "Announcement not found", ErrorCode::NotFound);
         };
 
         let new_type: AnnouncementTypeState = payload.r#type.map(|e| e.into()).unwrap_or(current.r#type);
@@ -1957,7 +1864,7 @@ impl AccountsApi {
             return response!(err "published_at must be before expires_at", ErrorCode::BadRequest);
         }
 
-        let updated = match sqlx::query_as!(
+        let updated = or_ise!(sqlx::query_as!(
             DbAnnouncement,
             r#"
             UPDATE website.announce
@@ -1974,14 +1881,7 @@ impl AccountsApi {
             new_show
         )
         .fetch_one(&*data.pool)
-        .await
-        {
-            Ok(a) => a,
-            Err(e) => {
-                tracing::error!("Failed to update announcement: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to update announcement: {}", e);
         drop_cached_response(&data.cache, ANNOUNCEMENTS_CACHE_KEY).await;
 
         response!(ok updated.into())
@@ -1995,23 +1895,14 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         Path(id): Path<String>,
     ) -> Response<String> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
-        let result = match sqlx::query!(
+        let result = or_ise!(sqlx::query!(
             "DELETE FROM website.announce WHERE id = $1::TEXT::UUID",
             id
         )
         .execute(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to delete announcement: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to delete announcement: {}", e);
 
         if result.rows_affected() == 0 {
             return response!(err "Announcement not found", ErrorCode::NotFound);
@@ -2033,9 +1924,7 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         multipart: poem::web::Multipart,
     ) -> Response<AnnouncementMedia> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let mut multipart = multipart;
         let mut upload: Option<(Vec<u8>, &'static str, MediaKind)> = None;
@@ -2074,13 +1963,7 @@ impl AccountsApi {
             return response!(err "File contents don't match its file type", ErrorCode::BadRequest);
         }
 
-        let url = match data.announcement_storage.store_media(&Uuid::new_v4().to_string(), ext, &bytes).await {
-            Ok(url) => url,
-            Err(e) => {
-                tracing::error!("Failed to store announcement media: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        let url = or_ise!(data.announcement_storage.store_media(&Uuid::new_v4().to_string(), ext, &bytes).await, e => "Failed to store announcement media: {}", e);
 
         let kind = match kind {
             MediaKind::Image => AnnouncementMediaKind::Image,
@@ -2125,13 +2008,8 @@ impl AccountsApi {
         .fetch_one(&*data.pool)
         .await;
 
-        match result {
-            Ok(sub) => response!(ok sub.into()),
-            Err(e) => {
-                tracing::error!("Failed to subscribe to push notifications: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let sub = or_ise!(result, e => "Failed to subscribe to push notifications: {}", e);
+        response!(ok sub.into())
     }
 
     /// Remove a Web Push subscription for the signed-in user, identified by its `endpoint`.
@@ -2150,13 +2028,8 @@ impl AccountsApi {
         .execute(&*data.pool)
         .await;
 
-        match result {
-            Ok(_) => response!(ok "Unsubscribed successfully".to_string()),
-            Err(e) => {
-                tracing::error!("Failed to unsubscribe from push notifications: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        or_ise!(result, e => "Failed to unsubscribe from push notifications: {}", e);
+        response!(ok "Unsubscribed successfully".to_string())
     }
 
     /// The server's VAPID public key, needed by the browser to create a push subscription.
@@ -2189,16 +2062,9 @@ impl AccountsApi {
         .fetch_all(&*data.pool)
         .await;
 
-        match result {
-            Ok(subs) => {
-                let subs: Vec<PushSubscription> = subs.into_iter().map(|s| s.into()).collect();
-                response!(ok subs)
-            }
-            Err(e) => {
-                tracing::error!("Failed to get push subscriptions: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let subs = or_ise!(result, e => "Failed to get push subscriptions: {}", e);
+        let subs: Vec<PushSubscription> = subs.into_iter().map(|s| s.into()).collect();
+        response!(ok subs)
     }
 
     /// The signed-in user's notification preferences, creating the default row if absent.
@@ -2289,15 +2155,8 @@ impl AccountsApi {
         .fetch_one(&*data.pool)
         .await;
 
-        match result {
-            Ok(db_prefs) => {
-                response!(ok db_prefs.into())
-            }
-            Err(e) => {
-                tracing::error!("Failed to update notification preferences: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let db_prefs = or_ise!(result, e => "Failed to update notification preferences: {}", e);
+        response!(ok db_prefs.into())
     }
 
     /// Subscribe an existing push subscription to one-time notifications when a server's map
@@ -2312,53 +2171,10 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         Json(dto): Json<CreateMapChangeSubscriptionDto>,
     ) -> Response<MapChangeSubscription> {
-        let subscription_id = match Uuid::parse_str(&dto.subscription_id) {
+        let subscription_id = match owned_push_subscription(data, user_token.id, &dto.subscription_id, Some(&dto.server_id)).await {
             Ok(id) => id,
-            Err(_) => return response!(err "Invalid subscription ID format", ErrorCode::BadRequest),
+            Err(resp) => return resp,
         };
-
-        let subscription_check = sqlx::query_scalar!(
-            "SELECT user_id FROM website.push_subscriptions WHERE id = $1",
-            subscription_id
-        )
-        .fetch_optional(&*data.pool)
-        .await;
-
-        match subscription_check {
-            Ok(Some(user_id)) if user_id == user_token.id => {
-                // Subscription exists and belongs to user, proceed
-            }
-            Ok(Some(_)) => {
-                return response!(err "Subscription does not belong to user", ErrorCode::Forbidden);
-            }
-            Ok(None) => {
-                return response!(err "Subscription not found", ErrorCode::NotFound);
-            }
-            Err(e) => {
-                tracing::error!("Failed to verify subscription: {}", e);
-                return response!(internal_server_error);
-            }
-        }
-
-        let server_check = sqlx::query_scalar!(
-            "SELECT server_id FROM server WHERE server_id = $1",
-            dto.server_id
-        )
-        .fetch_optional(&*data.pool)
-        .await;
-
-        match server_check {
-            Ok(Some(_)) => {
-                // Server exists, proceed
-            }
-            Ok(None) => {
-                return response!(err "Server not found", ErrorCode::NotFound);
-            }
-            Err(e) => {
-                tracing::error!("Failed to verify server: {}", e);
-                return response!(internal_server_error);
-            }
-        }
 
         let result = sqlx::query_as!(
             DbMapChangeSubscription,
@@ -2376,13 +2192,8 @@ impl AccountsApi {
         .fetch_one(&*data.pool)
         .await;
 
-        match result {
-            Ok(sub) => response!(ok sub.into()),
-            Err(e) => {
-                tracing::error!("Failed to create map change subscription: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let sub = or_ise!(result, e => "Failed to create map change subscription: {}", e);
+        response!(ok sub.into())
     }
 
     /// Cancel the signed-in user's not-yet-triggered map-change subscription for a server.
@@ -2401,13 +2212,8 @@ impl AccountsApi {
         .execute(&*data.pool)
         .await;
 
-        match result {
-            Ok(_) => response!(ok "Unsubscribed from map change notifications".to_string()),
-            Err(e) => {
-                tracing::error!("Failed to unsubscribe from map change notifications: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        or_ise!(result, e => "Failed to unsubscribe from map change notifications: {}", e);
+        response!(ok "Unsubscribed from map change notifications".to_string())
     }
 
     /// The signed-in user's pending (not-yet-triggered) map-change subscriptions.
@@ -2430,16 +2236,9 @@ impl AccountsApi {
         .fetch_all(&*data.pool)
         .await;
 
-        match result {
-            Ok(subs) => {
-                let subs: Vec<MapChangeSubscription> = subs.into_iter().map(|s| s.into()).collect();
-                response!(ok subs)
-            }
-            Err(e) => {
-                tracing::error!("Failed to get map change subscriptions: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let subs = or_ise!(result, e => "Failed to get map change subscriptions: {}", e);
+        let subs: Vec<MapChangeSubscription> = subs.into_iter().map(|s| s.into()).collect();
+        response!(ok subs)
     }
 
     /// Subscribe an existing push subscription to one-time notifications when a specific map is
@@ -2454,54 +2253,10 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         Json(dto): Json<CreateMapNotifySubscriptionDto>,
     ) -> Response<MapNotifySubscription> {
-        let subscription_id = match Uuid::parse_str(&dto.subscription_id) {
+        let subscription_id = match owned_push_subscription(data, user_token.id, &dto.subscription_id, dto.server_id.as_ref()).await {
             Ok(id) => id,
-            Err(_) => return response!(err "Invalid subscription ID format", ErrorCode::BadRequest),
+            Err(resp) => return resp,
         };
-        let subscription_check = sqlx::query_scalar!(
-            "SELECT user_id FROM website.push_subscriptions WHERE id = $1",
-            subscription_id
-        )
-        .fetch_optional(&*data.pool)
-        .await;
-
-        match subscription_check {
-            Ok(Some(user_id)) if user_id == user_token.id => {
-                // Subscription exists and belongs to user, proceed
-            }
-            Ok(Some(_)) => {
-                return response!(err "Subscription does not belong to user", ErrorCode::Forbidden);
-            }
-            Ok(None) => {
-                return response!(err "Subscription not found", ErrorCode::NotFound);
-            }
-            Err(e) => {
-                tracing::error!("Failed to verify subscription: {}", e);
-                return response!(internal_server_error);
-            }
-        }
-
-        if let Some(ref server_id) = dto.server_id {
-            let server_check = sqlx::query_scalar!(
-                "SELECT server_id FROM server WHERE server_id = $1",
-                server_id
-            )
-            .fetch_optional(&*data.pool)
-            .await;
-
-            match server_check {
-                Ok(Some(_)) => {
-                    // Server exists, proceed
-                }
-                Ok(None) => {
-                    return response!(err "Server not found", ErrorCode::NotFound);
-                }
-                Err(e) => {
-                    tracing::error!("Failed to verify server: {}", e);
-                    return response!(internal_server_error);
-                }
-            }
-        }
 
         let result = sqlx::query_as!(
             DbMapNotifySubscription,
@@ -2520,13 +2275,8 @@ impl AccountsApi {
         .fetch_one(&*data.pool)
         .await;
 
-        match result {
-            Ok(sub) => response!(ok sub.into()),
-            Err(e) => {
-                tracing::error!("Failed to create map notify subscription: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let sub = or_ise!(result, e => "Failed to create map notify subscription: {}", e);
+        response!(ok sub.into())
     }
 
     /// The signed-in user's pending (not-yet-triggered) map-notify subscriptions.
@@ -2549,16 +2299,9 @@ impl AccountsApi {
         .fetch_all(&*data.pool)
         .await;
 
-        match result {
-            Ok(subs) => {
-                let subs: Vec<MapNotifySubscription> = subs.into_iter().map(|s| s.into()).collect();
-                response!(ok subs)
-            }
-            Err(e) => {
-                tracing::error!("Failed to get map notify subscriptions: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let subs = or_ise!(result, e => "Failed to get map notify subscriptions: {}", e);
+        let subs: Vec<MapNotifySubscription> = subs.into_iter().map(|s| s.into()).collect();
+        response!(ok subs)
     }
 
     /// Cancel the signed-in user's map-notify subscription for a map.
@@ -2592,13 +2335,8 @@ impl AccountsApi {
             .await
         };
 
-        match result {
-            Ok(_) => response!(ok "Unsubscribed from map notification".to_string()),
-            Err(e) => {
-                tracing::error!("Failed to unsubscribe from map notification: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        or_ise!(result, e => "Failed to unsubscribe from map notification: {}", e);
+        response!(ok "Unsubscribed from map notification".to_string())
     }
 
     /// Whether the signed-in user has a pending map-notify subscription for a map, and whether
@@ -2659,9 +2397,7 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         Json(test_notif): Json<TestNotificationDto>,
     ) -> Response<NotificationSendResult> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let result = if let Some(target_user_id_str) = test_notif.user_id {
             let target_user_id = match target_user_id_str.parse::<i64>() {
@@ -2682,21 +2418,14 @@ impl AccountsApi {
             ).await
         };
 
-        match result {
-            Ok(send_result) => {
-                let api_result = NotificationSendResult {
-                    success: send_result.success,
-                    failed: send_result.failed,
-                    total: send_result.total,
-                    errors: send_result.errors,
-                };
-                response!(ok api_result)
-            }
-            Err(e) => {
-                tracing::error!("Failed to send test notification: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let send_result = or_ise!(result, e => "Failed to send test notification: {}", e);
+        let api_result = NotificationSendResult {
+            success: send_result.success,
+            failed: send_result.failed,
+            total: send_result.total,
+            errors: send_result.errors,
+        };
+        response!(ok api_result)
     }
 
     /// Paginated list of every push subscription across all users. Requires the `superuser`
@@ -2708,9 +2437,7 @@ impl AccountsApi {
         TokenBearer(user_token): TokenBearer,
         Query(page): Query<Option<i64>>,
     ) -> Response<PushSubscriptionsPaginated> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let page = page.unwrap_or(1).max(1);
         let limit = 50;
@@ -2738,20 +2465,13 @@ impl AccountsApi {
         .fetch_all(&*data.pool)
         .await;
 
-        match subscriptions {
-            Ok(subs) => {
-                let api_subs: Vec<PushSubscription> =
-                    subs.into_iter().map(|s| s.into()).collect();
-                response!(ok PushSubscriptionsPaginated {
-                    total,
-                    subscriptions: api_subs,
-                })
-            }
-            Err(e) => {
-                tracing::error!("Failed to get subscriptions: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let subs = or_ise!(subscriptions, e => "Failed to get subscriptions: {}", e);
+        let api_subs: Vec<PushSubscription> =
+            subs.into_iter().map(|s| s.into()).collect();
+        response!(ok PushSubscriptionsPaginated {
+            total,
+            subscriptions: api_subs,
+        })
     }
 
     /// Submit a community request to have a new server tracked.
@@ -2781,12 +2501,9 @@ impl AccountsApi {
             return response!(err "game_type must be 'cs2' or 'csgo'", ErrorCode::BadRequest);
         }
 
-        let servers_json = match serde_json::to_value(&dto.servers) {
-            Ok(v) => v,
-            Err(_) => return response!(internal_server_error),
-        };
+        let servers_json = or_ise!(serde_json::to_value(&dto.servers));
 
-        match sqlx::query!(
+        or_ise!(sqlx::query!(
             r#"
             INSERT INTO website.server_requests
                 (user_id, community_name, icon_url, servers, game_type, elaboration)
@@ -2800,14 +2517,8 @@ impl AccountsApi {
             dto.elaboration
         )
         .execute(&*data.pool)
-        .await
-        {
-            Ok(_) => response!(ok "OK".to_string()),
-            Err(e) => {
-                tracing::error!("Failed to insert server request: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        .await, e => "Failed to insert server request: {}", e);
+        response!(ok "OK".to_string())
     }
 
     /// Paginated list of community server requests. Requires the `superuser` role.
@@ -2821,16 +2532,14 @@ impl AccountsApi {
         Query(page): Query<Option<i64>>,
         Query(status): Query<Option<String>>,
     ) -> Response<ServerRequestsPaginated> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let page = page.unwrap_or(1).max(1);
         let limit = 20i64;
         let offset = (page - 1) * limit;
         let status_filter = status.as_deref();
 
-        let requests = match sqlx::query_as!(
+        let requests = or_ise!(sqlx::query_as!(
             DbServerRequest,
             r#"
             SELECT
@@ -2860,14 +2569,7 @@ impl AccountsApi {
             offset
         )
         .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to fetch server requests: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to fetch server requests: {}", e);
 
         let total = requests.first().and_then(|r| r.total_requests).unwrap_or(0);
 
@@ -2889,9 +2591,7 @@ impl AccountsApi {
         Path(request_id): Path<String>,
         Json(dto): Json<ServerRequestStatusDto>,
     ) -> Response<ServerRequestAdmin> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         if dto.status != "approved" && dto.status != "rejected" {
             return response!(err "status must be 'approved' or 'rejected'", ErrorCode::BadRequest);
@@ -2903,83 +2603,53 @@ impl AccountsApi {
         };
 
         if dto.status == "approved" {
-            let req = match sqlx::query!(
+            let Some(req) = or_ise!(sqlx::query!(
                 r#"SELECT community_name, icon_url, servers FROM website.server_requests WHERE id = $1"#,
                 request_id
             )
             .fetch_optional(&*data.pool)
-            .await
-            {
-                Ok(Some(r)) => r,
-                Ok(None) => return response!(err "Not found", ErrorCode::NotFound),
-                Err(e) => {
-                    tracing::error!("Failed to fetch server request for approval: {}", e);
-                    return response!(internal_server_error);
-                }
+            .await, e => "Failed to fetch server request for approval: {}", e) else {
+                return response!(err "Not found", ErrorCode::NotFound);
             };
 
-            let community_id = match sqlx::query_scalar!(
+            let community_id = or_ise!(sqlx::query_scalar!(
                 r#"INSERT INTO community (community_name, community_icon_url) VALUES ($1, $2) RETURNING community_id"#,
                 req.community_name,
                 req.icon_url
             )
             .fetch_one(&*data.pool)
-            .await
-            {
-                Ok(id) => id,
-                Err(e) => {
-                    tracing::error!("Failed to insert community on approval: {}", e);
-                    return response!(internal_server_error);
-                }
-            };
+            .await, e => "Failed to insert community on approval: {}", e);
 
-            let entries: Vec<ServerEntryDto> = match serde_json::from_value(req.servers) {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::error!("Failed to deserialize servers JSONB: {}", e);
-                    return response!(internal_server_error);
-                }
-            };
+            let entries: Vec<ServerEntryDto> = or_ise!(serde_json::from_value(req.servers), e => "Failed to deserialize servers JSONB: {}", e);
 
             for entry in entries {
                 let port = entry.port as i16;
-                if let Err(e) = sqlx::query!(
+                or_ise!(sqlx::query!(
                     r#"INSERT INTO server_browser (ip, port) VALUES ($1, $2) ON CONFLICT DO NOTHING"#,
                     entry.ip,
                     port
                 )
                 .execute(&*data.pool)
-                .await
-                {
-                    tracing::error!("Failed to insert server_browser entry: {}", e);
-                    return response!(internal_server_error);
-                }
+                .await, e => "Failed to insert server_browser entry: {}", e);
             }
 
             tracing::info!("Approved server request {}: new community_id={}", request_id, community_id);
         }
 
-        let rows_affected = match sqlx::query!(
+        let rows_affected = or_ise!(sqlx::query!(
             r#"UPDATE website.server_requests SET status = $1, reviewed_by = $2, reviewed_at = NOW() WHERE id = $3"#,
             dto.status,
             user_token.id,
             request_id
         )
         .execute(&*data.pool)
-        .await
-        {
-            Ok(r) => r.rows_affected(),
-            Err(e) => {
-                tracing::error!("Failed to update server request status: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to update server request status: {}", e).rows_affected();
 
         if rows_affected == 0 {
             return response!(err "Not found", ErrorCode::NotFound);
         }
 
-        let updated = match sqlx::query_as!(
+        let updated = or_ise!(sqlx::query_as!(
             DbServerRequest,
             r#"
             SELECT
@@ -2996,14 +2666,7 @@ impl AccountsApi {
             request_id
         )
         .fetch_one(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to fetch updated server request: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to fetch updated server request: {}", e);
 
         response!(ok updated.into())
     }
@@ -3023,7 +2686,7 @@ impl AccountsApi {
     ) -> Response<PlayerClaimState> {
         let viewer_id = user_token.as_ref().map(|u| u.id);
 
-        let row = match sqlx::query!(
+        let Some(row) = or_ise!(sqlx::query!(
             r#"
             SELECT
                 COALESCE(sm.source_by_id, FALSE) AS "by_id!",
@@ -3047,14 +2710,8 @@ impl AccountsApi {
             viewer_id,
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(r)) => r,
-            Ok(None) => return response!(err "Player not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to fetch claim state for {player_id}: {e}");
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to fetch claim state for {player_id}: {e}") else {
+            return response!(err "Player not found", ErrorCode::NotFound);
         };
 
         let claimable = !row.by_id
@@ -3090,7 +2747,7 @@ impl AccountsApi {
             return response!(err "This profile is already a Steam account", ErrorCode::BadRequest);
         }
 
-        let row = match sqlx::query!(
+        let Some(row) = or_ise!(sqlx::query!(
             r#"
             SELECT
                 COALESCE(sm.source_by_id, FALSE) AS "by_id!",
@@ -3108,22 +2765,14 @@ impl AccountsApi {
             dto.player_id,
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(r)) => r,
-            Ok(None) => return response!(err "Player not found on this server", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to validate claim for {}: {e}", dto.player_id);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to validate claim for {}: {e}", dto.player_id) else {
+            return response!(err "Player not found on this server", ErrorCode::NotFound);
         };
 
         if row.by_id {
             return response!(err "This server tracks players by Steam ID", ErrorCode::BadRequest);
         }
-        if !row.on_server {
-            return response!(err "Player not found on this server", ErrorCode::NotFound);
-        }
+        require!(row.on_server, "Player not found on this server", ErrorCode::NotFound);
         if row.associated_player_id.is_some() {
             return response!(err "This profile is already linked", ErrorCode::Conflict);
         }
@@ -3165,16 +2814,14 @@ impl AccountsApi {
         Query(page): Query<Option<i64>>,
         Query(status): Query<Option<String>>,
     ) -> Response<PlayerClaimsPaginated> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let page = page.unwrap_or(1).max(1);
         let limit = 20i64;
         let offset = (page - 1) * limit;
         let status_filter = status.as_deref();
 
-        let claims = match sqlx::query_as!(
+        let claims = or_ise!(sqlx::query_as!(
             DbPlayerClaim,
             r#"
             SELECT
@@ -3206,14 +2853,7 @@ impl AccountsApi {
             offset,
         )
         .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::error!("Failed to fetch player claims: {e}");
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to fetch player claims: {e}");
 
         let total = claims.first().and_then(|c| c.total_claims).unwrap_or(0);
 
@@ -3236,9 +2876,7 @@ impl AccountsApi {
         Path(claim_id): Path<String>,
         Json(dto): Json<PlayerClaimStatusDto>,
     ) -> Response<PlayerClaimAdmin> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         if !["approved", "rejected", "pending"].contains(&dto.status.as_str()) {
             return response!(err "status must be 'approved', 'rejected' or 'pending'", ErrorCode::BadRequest);
@@ -3249,19 +2887,13 @@ impl AccountsApi {
             Err(_) => return response!(err "Invalid claim ID", ErrorCode::BadRequest),
         };
 
-        let claim = match sqlx::query!(
+        let Some(claim) = or_ise!(sqlx::query!(
             r#"SELECT player_id, user_id FROM website.player_claiming WHERE id = $1"#,
             claim_id,
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(c)) => c,
-            Ok(None) => return response!(err "Claim not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to fetch claim {claim_id}: {e}");
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to fetch claim {claim_id}: {e}") else {
+            return response!(err "Claim not found", ErrorCode::NotFound);
         };
         let steam_id = claim.user_id.to_string();
 
@@ -3274,13 +2906,7 @@ impl AccountsApi {
             None
         };
 
-        let mut tx = match data.pool.begin().await {
-            Ok(tx) => tx,
-            Err(e) => {
-                tracing::error!("Failed to open transaction for claim {claim_id}: {e}");
-                return response!(internal_server_error);
-            }
-        };
+        let mut tx = or_ise!(data.pool.begin().await, e => "Failed to open transaction for claim {claim_id}: {e}");
 
         let mut link_change: Option<LinkChange> = None;
         if dto.status == "approved" {
@@ -3298,7 +2924,7 @@ impl AccountsApi {
             }
         }
 
-        if let Err(e) = sqlx::query!(
+        or_ise!(sqlx::query!(
             r#"UPDATE website.player_claiming
                SET status = $1, reviewed_by = $2, reviewed_at = NOW()
                WHERE id = $3"#,
@@ -3307,16 +2933,9 @@ impl AccountsApi {
             claim_id,
         )
         .execute(&mut *tx)
-        .await
-        {
-            tracing::error!("Failed to update claim {claim_id}: {e}");
-            return response!(internal_server_error);
-        }
+        .await, e => "Failed to update claim {claim_id}: {e}");
 
-        if let Err(e) = tx.commit().await {
-            tracing::error!("Failed to commit claim {claim_id}: {e}");
-            return response!(internal_server_error);
-        }
+        or_ise!(tx.commit().await, e => "Failed to commit claim {claim_id}: {e}");
 
         // The merged numbers live behind the worker cache and in
         // `website.player_global_playtime`; neither notices the new link on its own. Caches have
@@ -3351,9 +2970,7 @@ impl AccountsApi {
         Path(player_id): Path<String>,
         Json(dto): Json<AssociatePlayerDto>,
     ) -> Response<String> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let target = dto.associated_player_id.as_deref().map(str::trim).filter(|t| !t.is_empty());
 
@@ -3365,13 +2982,7 @@ impl AccountsApi {
             None => None,
         };
 
-        let mut tx = match data.pool.begin().await {
-            Ok(tx) => tx,
-            Err(e) => {
-                tracing::error!("Failed to open transaction for linking {player_id}: {e}");
-                return response!(internal_server_error);
-            }
-        };
+        let mut tx = or_ise!(data.pool.begin().await, e => "Failed to open transaction for linking {player_id}: {e}");
 
         let change = match set_associated_player(
             &mut tx, &player_id, target, Some(user_token.id), None, steam_name.as_ref(),
@@ -3381,10 +2992,7 @@ impl AccountsApi {
             Err(LinkError::Internal) => return response!(internal_server_error),
         };
 
-        if let Err(e) = tx.commit().await {
-            tracing::error!("Failed to commit link for {player_id}: {e}");
-            return response!(internal_server_error);
-        }
+        or_ise!(tx.commit().await, e => "Failed to commit link for {player_id}: {e}");
 
         tracing::info!(
             "Superuser {} set {player_id} -> {:?} ({} sessions)",
@@ -3420,15 +3028,9 @@ impl AccountsApi {
             Err(msg) => return response!(err &msg, ErrorCode::BadRequest),
         };
 
-        let mut tx = match data.pool.begin().await {
-            Ok(tx) => tx,
-            Err(e) => {
-                tracing::error!("Failed to open transaction for merging {canonical}: {e}");
-                return response!(internal_server_error);
-            }
-        };
+        let mut tx = or_ise!(data.pool.begin().await, e => "Failed to open transaction for merging {canonical}: {e}");
 
-        let fakes = match sqlx::query_scalar!(
+        let fakes = or_ise!(sqlx::query_scalar!(
             "SELECT p.player_id FROM player p
              WHERE p.associated_player_id = $1
                AND p.merged_at IS NULL
@@ -3442,14 +3044,7 @@ impl AccountsApi {
             dto.server_id,
         )
         .fetch_all(&mut *tx)
-        .await
-        {
-            Ok(f) => f,
-            Err(e) => {
-                tracing::error!("Failed to list mergeable profiles of {canonical}: {e}");
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to list mergeable profiles of {canonical}: {e}");
 
         let mut sessions_moved = 0;
         for fake in &fakes {
@@ -3462,10 +3057,7 @@ impl AccountsApi {
             }
         }
 
-        if let Err(e) = tx.commit().await {
-            tracing::error!("Failed to commit merge for {canonical}: {e}");
-            return response!(internal_server_error);
-        }
+        or_ise!(tx.commit().await, e => "Failed to commit merge for {canonical}: {e}");
 
         if !fakes.is_empty() {
             tracing::info!(
@@ -3482,50 +3074,5 @@ impl AccountsApi {
             merged_profiles: fakes.len() as i64,
             sessions_moved,
         })
-    }
-}
-impl UriPatternExt for AccountsApi{
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/accounts/create",
-            "/accounts/me",
-            "/accounts/me/communities",
-            "/accounts/me/anonymize",
-            "/accounts/me/merge",
-            "/accounts/{user_id}/anonymize",
-            "/players/{player_id}/profile",
-            "/players/{player_id}/sessions",
-            "/players/{player_id}/global-playtime",
-            "/players/{player_id}/communities_playtime",
-            "/players/{player_id}/playtime-heatmap",
-            "/admin/reports/music",
-            "/admin/reports/music/{report_id}/status",
-            "/admin/music/{music_id}/youtube",
-            "/admin/announcements",
-            "/admin/announcements/media",
-            "/admin/announcements/{id}",
-            "/accounts/me/push/subscriptions",
-            "/accounts/me/push/subscribe",
-            "/accounts/me/push/unsubscribe",
-            "/accounts/me/push/vapid-public-key",
-            "/accounts/me/push/preferences",
-            "/accounts/me/push/map-change",
-            "/accounts/me/push/map-change/subscribe",
-            "/accounts/me/push/map-change/{server_id}",
-            "/accounts/me/push/map-notify",
-            "/accounts/me/push/map-notify/subscribe",
-            "/accounts/me/push/map-notify/status",
-            "/accounts/me/push/map-notify/{map_name}",
-            "/admin/push/test",
-            "/admin/push/subscriptions",
-            "/accounts/server-requests",
-            "/admin/server-requests",
-            "/admin/server-requests/{request_id}/status",
-            "/accounts/player-claims",
-            "/accounts/player-claims/{server_id}/{player_id}",
-            "/admin/player-claims",
-            "/admin/player-claims/{claim_id}/status",
-            "/admin/players/{player_id}/associated",
-        ].iter_into()
     }
 }

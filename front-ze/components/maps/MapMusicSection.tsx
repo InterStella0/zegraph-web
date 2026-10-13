@@ -11,12 +11,7 @@ import { cn } from "../lib/utils";
 import {MapMusicTrack, ServerMapMusic} from "types/maps";
 import MapMusicDialog from "./MapMusicDialog";
 import {useTranslations} from 'next-intl';
-
-function formatDuration(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
+import {formatTrackDuration} from "utils/format";
 
 function shortenMapMusicBadgeUsage(text: string): string{
     return text.split(".").at(-1) ?? text
@@ -69,7 +64,7 @@ function TrackCard({
 
                 <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                     <Clock className="h-3 w-3" />
-                    <span>{formatDuration(track.duration)}</span>
+                    <span>{formatTrackDuration(track.duration)}</span>
                 </div>
             </div>
         </div>

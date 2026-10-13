@@ -1,4 +1,5 @@
 import { auth } from "auth.ts";
+import { BACKEND_DOMAIN } from "utils/generalUtils";
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 + 64 * 1024;
 
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
     return error("File is larger than 50 MB", 413);
   }
 
-  const backendUrl = `${process.env.BACKEND_URL || 'http://backend:3000'}/admin/announcements/media`
+  const backendUrl = `${BACKEND_DOMAIN}/admin/announcements/media`
   try {
     const response = await fetch(backendUrl, {
       method: 'POST',
