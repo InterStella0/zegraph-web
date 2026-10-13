@@ -1,9 +1,8 @@
 'use client'
-import { useEffect, useState } from "react"
+import { Suspense, use, useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { useServerData } from "../ServerDataProvider"
-import { fetchServerUrl } from "utils/generalUtils.ts"
 import { loadMapImage } from "lib/batchLoader"
 import { MapWithModels, Character3DModel } from "types/maps"
 import { Card, CardContent } from "components/ui/card"
@@ -95,64 +94,87 @@ function MapModelCard({ mapModel, serverId }: { mapModel: MapWithModels, serverI
     )
 }
 
-function GridSkeleton() {
+function ModelCardSkeleton({ lines }: { lines: number }) {
+    return (
+        <Card className="overflow-hidden flex flex-col">
+            <Skeleton className="h-32 rounded-none shrink-0" />
+            <CardContent className="p-4 flex flex-col gap-2 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                    <div className="text-sm"><Skeleton className="inline-block align-middle h-4 w-32" />{'\u200b'}</div>
+                    <Skeleton className="h-[22px] w-16 shrink-0" />
+                </div>
+                <div className="text-xs space-y-1">
+                    {Array.from({ length: lines }).map((_, i) => (
+                        <div key={i}><Skeleton className="inline-block align-middle h-3 w-28" />{'\u200b'}</div>
+                    ))}
+                </div>
+                <Skeleton className="mt-auto h-8 w-full" />
+            </CardContent>
+        </Card>
+    )
+}
+
+function GridSkeleton({ lines }: { lines: number }) {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-36 rounded-lg" />
+            {Array.from({ length: 8 }).map((_, i) => <ModelCardSkeleton key={i} lines={lines} />)}
+        </div>
+    )
+}
+
+function CharacterModels({ charactersPromise }: { charactersPromise: Promise<Character3DModel[]> }) {
+    const characterModels = use(charactersPromise)
+    const params = useParams()
+    const serverSlug = params.server_slug as string
+
+    if (characterModels.length === 0)
+        return <p className="text-muted-foreground text-sm">No character models available.</p>
+
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {characterModels.map(model => (
+                <CharacterModelCard key={model.id} model={model} serverSlug={serverSlug} />
             ))}
         </div>
     )
 }
 
-export default function ModelsPageContent({ characterModels }: { characterModels: Character3DModel[] }) {
+function MapModels({ mapModelsPromise }: { mapModelsPromise: Promise<MapWithModels[]> }) {
+    const mapModels = use(mapModelsPromise)
     const { server } = useServerData()
-    const params = useParams()
-    const serverSlug = params.server_slug as string
-    const [mapModels, setMapModels] = useState<MapWithModels[]>([])
-    const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
-        if (!server) return
-        fetchServerUrl(server.id, '/maps/3d').then((maps) => {
-            setMapModels(
-                (maps ?? []).filter(
-                    (m: MapWithModels) => m.low_res_model || m.high_res_model
-                )
-            )
-        }).catch(() => {}).finally(() => setLoading(false))
-    }, [server?.id])
+    if (mapModels.length === 0)
+        return <p className="text-muted-foreground text-sm">No map models available for this server.</p>
 
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {mapModels.map(m => (
+                <MapModelCard key={m.map_name} mapModel={m} serverId={server.id} />
+            ))}
+        </div>
+    )
+}
+
+export default function ModelsPageContent({ charactersPromise, mapModelsPromise }: {
+    charactersPromise: Promise<Character3DModel[]>,
+    mapModelsPromise: Promise<MapWithModels[]>,
+}) {
     return (
         <div className="container max-w-screen-xl py-6 mx-auto px-2 space-y-10">
             <h1 className="text-3xl font-bold">3D Models</h1>
 
             <section className="space-y-4">
                 <h2 className="text-xl font-semibold">Character Models</h2>
-                {characterModels.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">No character models available.</p>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {characterModels.map(model => (
-                            <CharacterModelCard key={model.id} model={model} serverSlug={serverSlug} />
-                        ))}
-                    </div>
-                )}
+                <Suspense fallback={<GridSkeleton lines={3} />}>
+                    <CharacterModels charactersPromise={charactersPromise} />
+                </Suspense>
             </section>
 
             <section className="space-y-4">
                 <h2 className="text-xl font-semibold">Map Models</h2>
-                {loading ? (
-                    <GridSkeleton />
-                ) : mapModels.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">No map models available for this server.</p>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {mapModels.map(m => (
-                            <MapModelCard key={m.map_name} mapModel={m} serverId={server.id} />
-                        ))}
-                    </div>
-                )}
+                <Suspense fallback={<GridSkeleton lines={2} />}>
+                    <MapModels mapModelsPromise={mapModelsPromise} />
+                </Suspense>
             </section>
         </div>
     )
