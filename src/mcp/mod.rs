@@ -19,8 +19,6 @@ use poem::endpoint::BoxEndpoint;
 use serde_json::{json, Map, Value};
 use url::Url;
 use crate::AppData;
-use crate::api_models::common::{RoutePattern, UriPatternExt};
-use crate::core::utils::IterConvert;
 use tools::{tools_from_spec, ParamKind, ParamLoc, ToolDef};
 
 /// Newest first; the first entry is what an unrecognised client version falls back to.
@@ -36,14 +34,6 @@ const INSTRUCTIONS: &str = "Read-only data from zegraph.xyz, which tracks CS Zom
     server's readable_link works too). Player and map tools are scoped to one server. Graph tools \
     return pre-bucketed series sized for charting. Players who anonymized themselves are hidden unless the request carries their own, or an admin's, bearer \
     token.";
-
-pub struct McpApi;
-
-impl UriPatternExt for McpApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec!["/mcp"].iter_into()
-    }
-}
 
 pub struct McpEndpoint {
     api: BoxEndpoint<'static>,

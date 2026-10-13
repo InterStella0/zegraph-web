@@ -2,7 +2,7 @@
 import {createContext, ReactNode, use, useContext, useState} from "react";
 import CommunitySelectorDisplay from "components/ui/CommunitySelector";
 import RequestServerDialog from "components/ui/RequestServerDialog";
-import {SteamProfile} from "../../next-auth-steam/steam.ts";
+import {SteamProfile} from "types/steam";
 
 type SidebarContextData = {
     setDisplayCommunity: (value: boolean) => void

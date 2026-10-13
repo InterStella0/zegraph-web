@@ -2,10 +2,8 @@
 import {useLocale, useTranslations} from "next-intl";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import {Info} from "lucide-react";
 import {Card, CardContent} from "components/ui/card";
-import {Button} from "components/ui/button";
-import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
+import InfoTooltip from "components/common/InfoTooltip";
 
 dayjs.extend(relativeTime);
 
@@ -27,16 +25,7 @@ export default function ServerTrackingSince({ trackingSince }: { trackingSince: 
                     <h3 className="text-sm md:text-base font-bold truncate">
                         {t('trackingSince')}
                     </h3>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Info className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{t('trackingSinceTooltip')}</p>
-                        </TooltipContent>
-                    </Tooltip>
+                    <InfoTooltip text={t('trackingSinceTooltip')} />
                 </div>
                 <p className="mt-2">{formatted}</p>
                 {/* fromNow() is time-of-render dependent, so server and client can disagree */}

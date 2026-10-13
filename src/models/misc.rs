@@ -1,9 +1,13 @@
+use serde_macros::DbInto;
 use time::OffsetDateTime;
 use uuid::Uuid;
 use crate::api_models::admins::{CommunityLinkResponse, SpecialThanksResponse};
-use crate::core::utils::db_to_utc;
+use crate::core::utils::TimeToChrono;
 
+#[derive(DbInto)]
+#[db_into(CommunityLinkResponse)]
 pub struct DbCommunityLink {
+    #[method(to_string)]
     pub id: Uuid,
     pub name: String,
     pub url: String,
@@ -12,32 +16,12 @@ pub struct DbCommunityLink {
     pub created_at: OffsetDateTime,
 }
 
-impl From<DbCommunityLink> for CommunityLinkResponse {
-    fn from(l: DbCommunityLink) -> Self {
-        CommunityLinkResponse {
-            id: l.id.to_string(),
-            name: l.name,
-            url: l.url,
-            description: l.description,
-            sort_order: l.sort_order,
-            created_at: db_to_utc(l.created_at),
-        }
-    }
-}
-
+#[derive(DbInto)]
+#[db_into(SpecialThanksResponse)]
 pub struct DbSpecialThanks {
+    #[method(to_string)]
     pub id: Uuid,
     pub display_name: String,
     pub description: String,
-}
-
-impl From<DbSpecialThanks> for SpecialThanksResponse {
-    fn from(d: DbSpecialThanks) -> Self {
-        SpecialThanksResponse {
-            id: d.id.to_string(),
-            display_name: d.display_name,
-            description: d.description,
-        }
-    }
 }
 

@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::core::storage::image_ext_from_content_type;
 use crate::core::utils::*;
-use crate::{response, AppData};
+use crate::{or_ise, or_rollback, require, response, AppData};
 use crate::api_models::common::*;
 use crate::models::admins::*;
 use crate::api_models::admins::*;
@@ -27,9 +27,7 @@ impl AdminServersApi {
         Data(data): Data<&AppData>,
         TokenBearer(user_token): TokenBearer,
     ) -> Response<Vec<AdminCommunity>> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         struct DbRow {
             community_id: Uuid,
@@ -39,7 +37,7 @@ impl AdminServersApi {
             server_count: Option<i64>,
         }
 
-        let rows = match sqlx::query_as!(
+        let rows = or_ise!(sqlx::query_as!(
             DbRow,
             r#"
             SELECT c.community_id, c.community_name, c.community_shorten_name, c.community_icon_url,
@@ -51,14 +49,7 @@ impl AdminServersApi {
             "#
         )
         .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to list communities: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to list communities: {}", e);
 
         response!(ok rows.into_iter().map(|r| AdminCommunity {
             id: r.community_id.to_string(),
@@ -77,9 +68,7 @@ impl AdminServersApi {
         TokenBearer(user_token): TokenBearer,
         Json(payload): Json<CreateCommunityPayload>,
     ) -> Response<AdminCommunity> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
         if payload.name.trim().is_empty() {
             return response!(err "Name is required", ErrorCode::BadRequest);
         }
@@ -89,7 +78,7 @@ impl AdminServersApi {
             }
         }
 
-        let row = match sqlx::query!(
+        let row = or_ise!(sqlx::query!(
             r#"
             INSERT INTO community (community_name, community_shorten_name, community_icon_url)
             VALUES ($1, $2, $3)
@@ -100,14 +89,7 @@ impl AdminServersApi {
             payload.icon_url,
         )
         .fetch_one(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to create community: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to create community: {}", e);
 
         response!(ok AdminCommunity {
             id: row.community_id.to_string(),
@@ -127,9 +109,7 @@ impl AdminServersApi {
         Path(id): Path<String>,
         Json(payload): Json<UpdateCommunityPayload>,
     ) -> Response<AdminCommunity> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
         let id = match Uuid::parse_str(&id) {
             Ok(u) => u,
             Err(_) => return response!(err "Invalid community ID", ErrorCode::BadRequest),
@@ -147,7 +127,7 @@ impl AdminServersApi {
             community_icon_url: Option<String>,
         }
 
-        let row = match sqlx::query_as!(
+        let Some(row) = or_ise!(sqlx::query_as!(
             DbRow,
             r#"
             UPDATE community SET
@@ -165,14 +145,8 @@ impl AdminServersApi {
             payload.icon_url,
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(r)) => r,
-            Ok(None) => return response!(err "Community not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to update community: {}", e);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to update community: {}", e) else {
+            return response!(err "Community not found", ErrorCode::NotFound);
         };
 
         let server_count = sqlx::query_scalar!(
@@ -205,27 +179,19 @@ impl AdminServersApi {
         Path(id): Path<String>,
         multipart: poem::web::Multipart,
     ) -> Response<AdminCommunity> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
         let id = match Uuid::parse_str(&id) {
             Ok(u) => u,
             Err(_) => return response!(err "Invalid community ID", ErrorCode::BadRequest),
         };
 
-        let existing_icon_url = match sqlx::query_scalar!(
+        let Some(existing_icon_url) = or_ise!(sqlx::query_scalar!(
             "SELECT community_icon_url FROM community WHERE community_id = $1",
             id
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(icon)) => icon,
-            Ok(None) => return response!(err "Community not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to look up community: {}", e);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to look up community: {}", e) else {
+            return response!(err "Community not found", ErrorCode::NotFound);
         };
 
         let mut multipart = multipart;
@@ -253,13 +219,7 @@ impl AdminServersApi {
             return response!(err "Missing icon field", ErrorCode::BadRequest);
         };
 
-        let icon_url = match data.community_storage.store_icon(&id.to_string(), &ext, &icon_bytes).await {
-            Ok(url) => url,
-            Err(e) => {
-                tracing::error!("Failed to store community icon: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        let icon_url = or_ise!(data.community_storage.store_icon(&id.to_string(), &ext, &icon_bytes).await, e => "Failed to store community icon: {}", e);
 
         if let Some(old_icon) = existing_icon_url {
             match data.community_storage.delete_previous_icon(&id.to_string(), &old_icon, &ext).await {
@@ -276,7 +236,7 @@ impl AdminServersApi {
             community_icon_url: Option<String>,
         }
 
-        let row = match sqlx::query_as!(
+        let Some(row) = or_ise!(sqlx::query_as!(
             DbRow,
             r#"
             UPDATE community SET community_icon_url = $2
@@ -287,14 +247,8 @@ impl AdminServersApi {
             icon_url,
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(r)) => r,
-            Ok(None) => return response!(err "Community not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to update community icon: {}", e);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to update community icon: {}", e) else {
+            return response!(err "Community not found", ErrorCode::NotFound);
         };
 
         let server_count = sqlx::query_scalar!(
@@ -325,9 +279,7 @@ impl AdminServersApi {
         TokenBearer(user_token): TokenBearer,
         Path(id): Path<String>,
     ) -> Response<bool> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
         let id = match Uuid::parse_str(&id) {
             Ok(u) => u,
             Err(_) => return response!(err "Invalid community ID", ErrorCode::BadRequest),
@@ -347,16 +299,9 @@ impl AdminServersApi {
             }
         }
 
-        let result = match sqlx::query!("DELETE FROM community WHERE community_id = $1", id)
+        let result = or_ise!(sqlx::query!("DELETE FROM community WHERE community_id = $1", id)
             .execute(&*data.pool)
-            .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to delete community: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+            .await, e => "Failed to delete community: {}", e);
 
         if result.rows_affected() == 0 {
             return response!(err "Community not found", ErrorCode::NotFound);
@@ -374,22 +319,13 @@ impl AdminServersApi {
         Data(data): Data<&AppData>,
         TokenBearer(user_token): TokenBearer,
     ) -> Response<Vec<AdminServerBrowser>> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
-        let rows = match sqlx::query!(
+        let rows = or_ise!(sqlx::query!(
             "SELECT ip, port, tracking, cooldown_type FROM server_browser ORDER BY ip, port"
         )
         .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to list server_browsers: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to list server_browsers: {}", e);
 
         response!(ok rows.into_iter().map(|r| AdminServerBrowser {
             ip: r.ip,
@@ -410,9 +346,7 @@ impl AdminServersApi {
         TokenBearer(user_token): TokenBearer,
         Json(payload): Json<CreateServerBrowserPayload>,
     ) -> Response<AdminServerBrowser> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
         if payload.ip.trim().is_empty() {
             return response!(err "IP is required", ErrorCode::BadRequest);
         }
@@ -422,7 +356,7 @@ impl AdminServersApi {
         }
         let tracking = payload.tracking.unwrap_or(true);
 
-        let row = match sqlx::query!(
+        let row = or_ise!(sqlx::query!(
             r#"
             INSERT INTO server_browser (ip, port, tracking, cooldown_type)
             VALUES ($1, $2, $3, $4)
@@ -436,14 +370,7 @@ impl AdminServersApi {
             cooldown_type,
         )
         .fetch_one(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to create server_browser: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to create server_browser: {}", e);
 
         response!(ok AdminServerBrowser {
             ip: row.ip,
@@ -464,16 +391,14 @@ impl AdminServersApi {
         Query(port): Query<i16>,
         Json(payload): Json<UpdateServerBrowserPayload>,
     ) -> Response<AdminServerBrowser> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
         if let Some(ref ct) = payload.cooldown_type {
             if !VALID_COOLDOWN_TYPES.contains(&ct.as_str()) {
                 return response!(err "cooldown_type must be unknown, datetime, or map_count", ErrorCode::BadRequest);
             }
         }
 
-        let row = match sqlx::query!(
+        let Some(row) = or_ise!(sqlx::query!(
             r#"
             UPDATE server_browser SET
                 tracking     = COALESCE($3, tracking),
@@ -487,14 +412,8 @@ impl AdminServersApi {
             payload.cooldown_type,
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(r)) => r,
-            Ok(None) => return response!(err "Entry not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to update server_browser: {}", e);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to update server_browser: {}", e) else {
+            return response!(err "Entry not found", ErrorCode::NotFound);
         };
 
         response!(ok AdminServerBrowser {
@@ -515,24 +434,15 @@ impl AdminServersApi {
         Query(ip): Query<String>,
         Query(port): Query<i16>,
     ) -> Response<bool> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
-        let result = match sqlx::query!(
+        let result = or_ise!(sqlx::query!(
             "DELETE FROM server_browser WHERE ip = $1 AND port = $2",
             ip,
             port,
         )
         .execute(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to delete server_browser: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to delete server_browser: {}", e);
 
         if result.rows_affected() == 0 {
             return response!(err "Entry not found", ErrorCode::NotFound);
@@ -548,11 +458,9 @@ impl AdminServersApi {
         Data(data): Data<&AppData>,
         TokenBearer(user_token): TokenBearer,
     ) -> Response<Vec<AdminServer>> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
-        let rows = match sqlx::query_as!(
+        let rows = or_ise!(sqlx::query_as!(
             AdminServerRow,
             r#"
             SELECT s.server_id, s.server_name, s.server_fullname, s.server_ip, s.server_port,
@@ -565,16 +473,9 @@ impl AdminServersApi {
             "#
         )
         .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to list servers: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to list servers: {}", e);
 
-        response!(ok rows.into_iter().map(AdminServer::from).collect())
+        response!(ok rows.into_iter().map(Into::into).collect())
     }
 
     /// Rename a server or change its public readable link (used in vanity URLs).
@@ -588,9 +489,7 @@ impl AdminServersApi {
         Path(server_id): Path<String>,
         Json(payload): Json<UpdateServerPayload>,
     ) -> Response<AdminServer> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let readable_link = payload.readable_link.as_ref().map(|l| l.trim().to_string());
         if let Some(link) = &readable_link {
@@ -638,7 +537,7 @@ impl AdminServersApi {
             }
         };
 
-        response!(ok AdminServer::from(row))
+        response!(ok row.into())
     }
 
     /// Assign or clear a server's community. Requires the `superuser` role.
@@ -650,9 +549,7 @@ impl AdminServersApi {
         Path(server_id): Path<String>,
         Json(payload): Json<SetServerCommunityPayload>,
     ) -> Response<AdminServer> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
         let community_id: Option<Uuid> = match payload.community_id.as_deref() {
             Some(id) if !id.is_empty() => match Uuid::parse_str(id) {
@@ -662,7 +559,7 @@ impl AdminServersApi {
             _ => None,
         };
 
-        let row = match sqlx::query_as!(
+        let Some(row) = or_ise!(sqlx::query_as!(
             AdminServerRow,
             r#"
             WITH updated AS (
@@ -682,17 +579,11 @@ impl AdminServersApi {
             community_id,
         )
         .fetch_optional(&*data.pool)
-        .await
-        {
-            Ok(Some(r)) => r,
-            Ok(None) => return response!(err "Server not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to set server community: {}", e);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to set server community: {}", e) else {
+            return response!(err "Server not found", ErrorCode::NotFound);
         };
 
-        response!(ok AdminServer::from(row))
+        response!(ok row.into())
     }
 
     /// Update (or create, if absent) a server's metadata: website, Discord link, source, time
@@ -705,43 +596,27 @@ impl AdminServersApi {
         Path(server_id): Path<String>,
         Json(payload): Json<UpdateServerMetadataPayload>,
     ) -> Response<AdminServer> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
         if let Some(ref g) = payload.game {
             if !GAME_TYPES.contains(&g.as_str()) {
                 return response!(err "Invalid game type", ErrorCode::BadRequest);
             }
         }
 
-        let mut tx = match data.pool.begin().await {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::error!("Failed to start transaction: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        let mut tx = or_ise!(data.pool.begin().await, e => "Failed to start transaction: {}", e);
 
-        let exists = match sqlx::query_scalar!(
+        let exists = or_rollback!(tx, sqlx::query_scalar!(
             "SELECT 1 FROM server WHERE server_id = $1",
             server_id,
         )
         .fetch_optional(&mut *tx)
-        .await
-        {
-            Ok(r) => r.is_some(),
-            Err(e) => {
-                tracing::error!("Failed to check server existence: {}", e);
-                let _ = tx.rollback().await;
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to check server existence: {}", e).is_some();
         if !exists {
             let _ = tx.rollback().await;
             return response!(err "Server not found", ErrorCode::NotFound);
         }
 
-        let updated = match sqlx::query!(
+        let updated = or_rollback!(tx, sqlx::query!(
             r#"
             UPDATE server_metadata SET
                 server_website      = CASE WHEN $2 THEN $3 ELSE server_website END,
@@ -765,18 +640,10 @@ impl AdminServersApi {
             payload.source_by_id,
         )
         .execute(&mut *tx)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to update server_metadata: {}", e);
-                let _ = tx.rollback().await;
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to update server_metadata: {}", e);
 
         if updated.rows_affected() == 0 {
-            if let Err(e) = sqlx::query!(
+            or_rollback!(tx, sqlx::query!(
                 r#"
                 INSERT INTO server_metadata
                     (server_id, server_website, server_discord_link, server_source,
@@ -792,15 +659,10 @@ impl AdminServersApi {
                 payload.source_by_id,
             )
             .execute(&mut *tx)
-            .await
-            {
-                tracing::error!("Failed to insert server_metadata: {}", e);
-                let _ = tx.rollback().await;
-                return response!(internal_server_error);
-            }
+            .await, e => "Failed to insert server_metadata: {}", e);
         }
 
-        let row = match sqlx::query_as!(
+        let row = or_rollback!(tx, sqlx::query_as!(
             AdminServerRow,
             r#"
             SELECT s.server_id, s.server_name, s.server_fullname, s.server_ip, s.server_port,
@@ -814,22 +676,11 @@ impl AdminServersApi {
             server_id,
         )
         .fetch_one(&mut *tx)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to reload server: {}", e);
-                let _ = tx.rollback().await;
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to reload server: {}", e);
 
-        if let Err(e) = tx.commit().await {
-            tracing::error!("Failed to commit metadata update: {}", e);
-            return response!(internal_server_error);
-        }
+        or_ise!(tx.commit().await, e => "Failed to commit metadata update: {}", e);
 
-        response!(ok AdminServer::from(row))
+        response!(ok row.into())
     }
 
     /// Permanently delete a server and its data. Requires the `superuser` role.
@@ -843,40 +694,15 @@ impl AdminServersApi {
         TokenBearer(user_token): TokenBearer,
         Path(server_id): Path<String>,
     ) -> Response<bool> {
-        if !check_superuser(data, user_token.id).await {
-            return response!(err "Unauthorized", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
-        let result = match sqlx::query!("DELETE FROM server WHERE server_id = $1", server_id)
+        let result = or_ise!(sqlx::query!("DELETE FROM server WHERE server_id = $1", server_id)
             .execute(&*data.pool)
-            .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to delete server: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+            .await, e => "Failed to delete server: {}", e);
 
         if result.rows_affected() == 0 {
             return response!(err "Server not found", ErrorCode::NotFound);
         }
         response!(ok true)
-    }
-}
-
-impl UriPatternExt for AdminServersApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/admin/communities",
-            "/admin/communities/{id}",
-            "/admin/communities/{id}/icon",
-            "/admin/server-browsers",
-            "/admin/servers-list",
-            "/admin/servers-list/{server_id}",
-            "/admin/servers-list/{server_id}/community",
-            "/admin/servers-list/{server_id}/metadata",
-        ]
-        .iter_into()
     }
 }

@@ -1,23 +1,23 @@
 'use client'
-import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
-import {fetchServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils.ts";
+import {use, useMemo} from "react";
+import {fetchServerUrl, secondsToHours} from "utils/generalUtils.ts";
 import {LazyDoughnutChart as Doughnut} from 'components/graphs/LazyCharts';
 import { Chart as ChartJS, ArcElement, Legend } from 'chart.js';
-import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
-import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
+import {useResource} from "lib/hooks/useResource";
 import {MapPlayerTypeTime} from "types/players.ts";
 import { Card } from "components/ui/card";
-import { Button } from "components/ui/button";
 import { Skeleton } from "components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
-import { Info, AlertCircle } from "lucide-react";
-import { useTheme } from "next-themes";
+import { TooltipProvider } from "components/ui/tooltip";
+import { AlertCircle } from "lucide-react";
+import {useChartTheme} from "lib/chartTheme";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizePlayerTypes } from "utils/chartSeoUtils.tsx";
 import {useTranslations, useLocale} from 'next-intl';
+import InfoTooltip from "components/common/InfoTooltip";
+import {withMapSuspense} from "components/common/withErrorCatch";
 
 ChartJS.register(ArcElement, Legend);
 
@@ -31,45 +31,18 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
     const { period } = usePeriod();
     const { server } = useServerData();
     const server_id = server.id
-    const { resolvedTheme } = useTheme();
-    const isDark = resolvedTheme === 'dark';
+    const theme = useChartTheme();
     const initialData = initialDataPromise ? use(initialDataPromise) : null
-    const [loading, setLoading] = useState<boolean>(initialData === null);
-    const [error, setError] = useState<Error | null>(null);
-    const [playerTypes, setPlayerTypes] = useState<MapPlayerTypeTime[]>(initialData ?? []);
-    const isFirstRun = useRef(initialData !== null)
-    const [retryTick, setRetryTick] = useState(0)
-    const notReady = error instanceof StillCalculate
-    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
-
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false
-            return
-        }
-        if (!name) return
-        setLoading(true);
-        setError(null);
-        setPlayerTypes([]);
-
-        fetchServerUrl(server_id, `/maps/${name}/player_types`, period ? { params: { period } } : {})
-            .then(data => {
-                setPlayerTypes(data)
-            })
-            .catch(err => {
-                if (!(err instanceof StillCalculate)) {
-                    console.error('Error fetching player types data:', err);
-                }
-                setError(err);
-            })
-            .finally(() => setLoading(false));
-    }, [server_id, name, period, retryTick]);
+    const { data: fetched, loading, error } = useResource<MapPlayerTypeTime[]>(() => name
+        ? fetchServerUrl(server_id, `/maps/${name}/player_types`, period ? { params: { period } } : {})
+        : null, [server_id, name, period], { initial: initialData ?? undefined, retryNotReady: true, errorLog: 'Error fetching player types data:' });
+    const playerTypes = fetched ?? [];
 
     const totalSeconds = playerTypes.reduce((sum, p) => sum + p.time_spent, 0);
     const categoryColors = {
-        'mixed': isDark ? 'hsl(217.2 91.2% 59.8%)' : 'hsl(221.2 83.2% 53.3%)',
-        'casual': isDark ? 'hsl(142.1 76.2% 36.3%)' : 'hsl(142.1 70.6% 45.3%)',
-        'tryhard': isDark ? 'hsl(0 84.2% 60.2%)' : 'hsl(0 72.2% 50.6%)'
+        'mixed': theme.primary,
+        'casual': theme.success,
+        'tryhard': theme.destructive
     };
 
     const data = {
@@ -78,10 +51,10 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
             {
                 label: t('playerHours'),
                 data: playerTypes.map(p => p.time_spent),
-                backgroundColor: playerTypes.map(p => categoryColors[p.category] || (isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)')),
+                backgroundColor: playerTypes.map(p => categoryColors[p.category] || (theme.muted)),
                 hoverOffset: 10,
                 borderWidth: 2,
-                borderColor: isDark ? 'hsl(222.2 84% 4.9%)' : 'hsl(0 0% 100%)',
+                borderColor: theme.background,
             },
         ],
     };
@@ -90,11 +63,7 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
         maintainAspectRatio: true,
         plugins: {
             tooltip: {
-                backgroundColor: isDark ? 'rgba(50, 50, 50, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-                titleColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
-                bodyColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
-                borderColor: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
-                borderWidth: 1,
+                ...theme.tooltip,
                 callbacks: {
                     label: (context: any) => {
                         const count = context.raw;
@@ -107,7 +76,7 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
             legend: {
                 position: 'bottom',
                 labels: {
-                    color: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
+                    color: theme.foreground,
                 },
             },
         },
@@ -137,16 +106,7 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
                     <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
                     <PeriodChip />
                 </div>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Info className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{t('tooltip')}</p>
-                    </TooltipContent>
-                </Tooltip>
+                <InfoTooltip text={t('tooltip')} />
             </div>
 
             {!error && !loading && (
@@ -175,11 +135,4 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
     </Card>
     );
 }
-export default function MapPlayerType({ initialDataPromise }: MapPlayerTypeProps){
-    const t = useTranslations('maps.playerType');
-    return <ErrorCatch message={t('loadError')}>
-        <Suspense fallback={<EmptyMapContext><MapPlayerTypeDisplay /></EmptyMapContext>}>
-            <MapPlayerTypeDisplay initialDataPromise={initialDataPromise} />
-        </Suspense>
-    </ErrorCatch>
-}
+export default withMapSuspense(MapPlayerTypeDisplay, t => t('maps.playerType.loadError'))

@@ -24,7 +24,7 @@ import { toast } from 'sonner';
 import { Plus, X } from 'lucide-react';
 import LoginDialog from 'components/ui/LoginDialog';
 import { fetchApiUrl } from 'utils/generalUtils';
-import { SteamProfile } from '../../next-auth-steam/steam.ts';
+import { SteamProfile } from 'types/steam';
 
 interface ServerEntry {
     ipPort: string;

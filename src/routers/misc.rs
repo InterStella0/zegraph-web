@@ -18,7 +18,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast::{self, error::RecvError};
 use tokio::sync::{OwnedSemaphorePermit, RwLock, Semaphore};
 use tokio::time::{interval, timeout};
-use crate::{response, AppData, FastCache};
+use crate::{or_ise, response, AppData, FastCache};
 use crate::core::utils::*;
 use crate::api_models::common::*;
 use crate::api_models::misc::Announcement;
@@ -681,13 +681,11 @@ impl MiscApi {
     /// All URLs needed to generate the site's XML sitemaps.
     #[oai(path = "/sitemap-data", method = "get")]
     async fn sitemap_data(&self, data: Data<&AppData>) -> Response<SitemapData> {
-        let Ok(servers) = sqlx::query_as!(DbServerSitemap, "
+        let servers = or_ise!(sqlx::query_as!(DbServerSitemap, "
             SELECT server_id, readable_link
             FROM server",
-        ).fetch_all(&*data.pool.clone()).await else {
-            return response!(internal_server_error)
-        };
-        let Ok(players) = sqlx::query_as!(DbPlayerSitemap, "
+        ).fetch_all(&*data.pool.clone()).await);
+        let players = or_ise!(sqlx::query_as!(DbPlayerSitemap, "
             SELECT server_id, server_readable_link, player_id, recent_online
             FROM (
                 SELECT pss.server_id,
@@ -704,17 +702,13 @@ impl MiscApi {
                 GROUP BY pss.server_id, s.readable_link, pss.player_id
             ) ranked
             WHERE rn <= 20",
-        ).fetch_all(&*data.pool.clone()).await else {
-            return response!(internal_server_error)
-        };
-        let Ok(maps) = sqlx::query_as!(DbMapSitemap, "
+        ).fetch_all(&*data.pool.clone()).await);
+        let maps = or_ise!(sqlx::query_as!(DbMapSitemap, "
             SELECT s.server_id, s.readable_link AS server_readable_link, map AS map_name, MAX(started_at) last_played
             FROM server_map_played smp
             JOIN server s ON smp.server_id=s.server_id
             GROUP BY smp.map, s.server_id, s.readable_link",
-        ).fetch_all(&*data.pool.clone()).await else {
-            return response!(internal_server_error)
-        };
+        ).fetch_all(&*data.pool.clone()).await);
 
         let servers: Vec<SitemapServer> = servers.into_iter().filter_map(|s| {
             Some(SitemapServer {
@@ -830,9 +824,7 @@ impl MiscApi {
             ORDER BY created_at DESC
         ").fetch_all(pool);
 
-        let Ok(value) = cached_response(ANNOUNCEMENTS_CACHE_KEY, &app.cache, HOUR, func).await else {
-            return response!(internal_server_error)
-        } ;
+        let value = or_ise!(cached_response(ANNOUNCEMENTS_CACHE_KEY, &app.cache, HOUR, func).await) ;
         let now = OffsetDateTime::now_utc();
         let live: Vec<DbAnnouncement> = value.result
             .into_iter()
@@ -1275,17 +1267,5 @@ mod traffic_tests {
         assert_eq!(GRAPH_REFRESH_INTERVAL, Duration::from_secs(60));
 
         task.abort();
-    }
-}
-
-impl UriPatternExt for MiscApi{
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/thumbnails/{thumbnail_type}/{filename}",
-            "/health",
-            "/events/data-updates",
-            "/sitemap-data",
-            "/announcements",
-        ].iter_into()
     }
 }

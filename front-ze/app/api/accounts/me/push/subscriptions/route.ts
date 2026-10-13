@@ -1,6 +1,3 @@
-import {proxyToBackend} from "lib/apiProxy";
+import { proxyGet } from "lib/apiProxy";
 
-// GET /api/accounts/me/push/subscription
-export async function GET(_req: Request) {
-    return await proxyToBackend("/accounts/me/push/subscriptions");
-}
+export const GET = proxyGet("/accounts/me/push/subscriptions", { query: false });

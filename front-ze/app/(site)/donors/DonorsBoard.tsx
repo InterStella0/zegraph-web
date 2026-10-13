@@ -3,9 +3,9 @@ import { use } from 'react';
 import { useTranslations } from 'next-intl';
 import { Clock, Trophy, Sparkles } from 'lucide-react';
 import { Skeleton } from 'components/ui/skeleton';
-import ErrorCatch from 'components/ui/ErrorMessage.tsx';
 import { ExpandableText } from './ExpandableText';
 import type { TopSupporter, RecentSupporter } from 'utils/supporters';
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 export interface SpecialThanks {
   id: string;
@@ -174,16 +174,4 @@ function DonorsBoardDisplay({
   );
 }
 
-export default function DonorsBoard(props: {
-  topPromise: Promise<TopSupporter[]>;
-  recentPromise: Promise<RecentSupporter[]>;
-  specialThanksPromise: Promise<SpecialThanks[]>;
-  locale: string;
-}) {
-  const t = useTranslations('donors');
-  return (
-    <ErrorCatch message={t('noDonors')}>
-      <DonorsBoardDisplay {...props} />
-    </ErrorCatch>
-  );
-}
+export default withErrorCatch(DonorsBoardDisplay, t => t('donors.noDonors'))

@@ -2,6 +2,7 @@ import {useMap} from "react-leaflet";
 import {useEffect} from "react";
 import L from "leaflet";
 import { useTranslations } from 'next-intl';
+import {createControlContainer, createIcon, onControlClick} from "./leafletControls";
 
 export default function HomeButton() {
     const t = useTranslations('radar');
@@ -16,16 +17,7 @@ export default function HomeButton() {
             },
 
             onAdd: function() {
-                const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-                L.DomEvent.disableClickPropagation(container);
-                L.DomEvent.disableScrollPropagation(container);
-                L.DomEvent.on(container, 'wheel', L.DomEvent.stopPropagation);
-                L.DomEvent.on(container, 'dblclick', L.DomEvent.stopPropagation);
-                L.DomEvent.on(container, 'mousedown', L.DomEvent.stopPropagation);
-                L.DomEvent.on(container, 'touchstart', L.DomEvent.stopPropagation);
-                L.DomEvent.on(container, 'pointerdown', L.DomEvent.stopPropagation);
-                L.DomEvent.on(container, 'contextmenu', L.DomEvent.stopPropagation);
-                container.style.backgroundColor = 'var(--background)';
+                const container = createControlContainer();
                 container.style.padding = '0';
                 container.style.overflow = 'hidden';
 
@@ -47,17 +39,7 @@ export default function HomeButton() {
                     homeIconElement.style.height = '100%';
                     reactContainer.appendChild(homeIconElement);
 
-                    // Create SVG home icon using Material UI style
-                    const homeIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    homeIcon.setAttribute('style', 'width: 20px; height: 20px;');
-                    homeIcon.setAttribute('viewBox', '0 0 24 24');
-                    homeIcon.setAttribute('fill', 'var(--foreground)');
-
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z');
-                    homeIcon.appendChild(path);
-
-                    homeIconElement.appendChild(homeIcon);
+                    homeIconElement.appendChild(createIcon('M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z'));
                 } catch (error) {
                     reactContainer.innerHTML = '⌂';
                     reactContainer.style.fontSize = '20px';
@@ -65,12 +47,9 @@ export default function HomeButton() {
                     reactContainer.style.lineHeight = '34px';
                 }
 
-                // Add event handler
-                L.DomEvent
-                    .on(reactContainer, 'click', L.DomEvent.preventDefault)
-                    .on(reactContainer, 'click', () => {
-                        map.setView([0, 0], 2);
-                    });
+                onControlClick(reactContainer, () => {
+                    map.setView([0, 0], 2);
+                });
 
                 return container;
             }

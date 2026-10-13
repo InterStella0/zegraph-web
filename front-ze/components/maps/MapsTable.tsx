@@ -14,7 +14,7 @@ import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import MapNotifyButton from "components/maps/MapNotifyButton";
-import {SteamProfile} from "../../next-auth-steam/steam";
+import {SteamProfile} from "types/steam";
 import {Server} from "types/community.ts";
 import {MapPlayed, MapPlayedPaginated} from "types/maps.ts";
 import CategoryChip from "components/ui/CategoryChip.tsx";

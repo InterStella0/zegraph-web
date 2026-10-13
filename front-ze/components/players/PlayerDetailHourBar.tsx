@@ -10,13 +10,37 @@ import {
     SelectValue,
 } from "components/ui/select";
 import PlayTimeHeatmap from "./PlayTimeHeatmap";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import { Server } from "types/community.ts";
 import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import type { PlayerSessionTime } from "./PlayTimeHeatmap";
 import { PeriodChip, splitPeriod, splitRange, usePlayerPeriod } from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 import { PlayerStatSuspense } from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
+
+function LabeledSelect({ label, value, onValueChange, options }: {
+    label: string, value: string, onValueChange: (value: string) => void, options: [string, ReactNode][],
+}) {
+    return (
+        <div className="flex gap-0 rounded-md border overflow-hidden">
+            <div className="border-r bg-background p-1 px-3">
+                {label}
+            </div>
+            <Select value={value} onValueChange={onValueChange}>
+                <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    {options.map(([optionValue, optionLabel]) => (
+                        <SelectItem key={optionValue} value={optionValue}>
+                            {optionLabel}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
+    );
+}
 
 export default function PlayerDetailHourBar({ player, server }: { server: Server, player: PlayerInfo }) {
     const t = useTranslations('players.hourBar');
@@ -54,6 +78,11 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
     }
 
     const monthNames = Array.from({length: 12}, (_, i) => dayjs().month(i).format('MMM'))
+    const translatedOptions = (...keys: string[]): [string, ReactNode][] => keys.map(key => [key, t(key)])
+    const yearSelect = availableYears.length > 0 && (
+        <LabeledSelect label={t('year')} value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}
+            options={availableYears.map(year => [year.toString(), year])} />
+    )
 
     return (
         <Card className="overflow-hidden border-0">
@@ -66,159 +95,29 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                 </div>
 
                 {scope && scope.month === null && (
-                    <div className="flex gap-0 rounded-md border overflow-hidden">
-                        <div className="border-r bg-background p-1 px-3">
-                            {t('groupBy')}
-                        </div>
-                        <Select value={periodGroup} onValueChange={(v) => setPeriodGroup(v as "daily" | "monthly")}>
-                            <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="daily">{t('daily')}</SelectItem>
-                                <SelectItem value="monthly">{t('monthly')}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <LabeledSelect label={t('groupBy')} value={periodGroup} onValueChange={(v) => setPeriodGroup(v as "daily" | "monthly")}
+                        options={translatedOptions('daily', 'monthly')} />
                 )}
 
                 {!period && <div className="flex gap-2 flex-wrap justify-end">
-                    {/* Group By selector */}
-                    <div className="flex gap-0 rounded-md border overflow-hidden">
-                        <div className="border-r bg-background p-1 px-3">
-                            {t('groupBy')}
-                        </div>
-                        <Select value={groupByTime} onValueChange={handleGroupChange}>
-                            <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="daily">{t('daily')}</SelectItem>
-                                <SelectItem value="monthly">{t('monthly')}</SelectItem>
-                                <SelectItem value="yearly">{t('yearly')}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <LabeledSelect label={t('groupBy')} value={groupByTime} onValueChange={handleGroupChange}
+                        options={translatedOptions('daily', 'monthly', 'yearly')} />
 
-                    {/* Year selector for daily view */}
-                    {groupByTime === 'daily' && availableYears.length > 0 && (
-                        <div className="flex gap-0 rounded-md border overflow-hidden">
-                            <div className="border-r bg-background p-1 px-3">
-                                {t('year')}
-                            </div>
-                            <Select
-                                value={selectedYear.toString()}
-                                onValueChange={(v) => setSelectedYear(parseInt(v))}
-                            >
-                                <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableYears.map(year => (
-                                        <SelectItem key={year} value={year.toString()}>
-                                            {year}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
+                    {groupByTime === 'daily' && yearSelect}
 
-                    {/* Month + Year selectors for monthly view */}
                     {groupByTime === 'monthly' && (
                         <>
-                            <div className="flex gap-0 rounded-md border overflow-hidden">
-                                <div className="border-r bg-background p-1 px-3">
-                                    {t('month')}
-                                </div>
-                                <Select
-                                    value={selectedMonth.toString()}
-                                    onValueChange={(v) => setSelectedMonth(parseInt(v))}
-                                >
-                                    <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {monthNames.map((month, idx) => (
-                                            <SelectItem key={idx} value={idx.toString()}>
-                                                {month}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {availableYears.length > 0 && (
-                                <div className="flex gap-0 rounded-md border overflow-hidden">
-                                    <div className="border-r bg-background p-1 px-3">
-                                        {t('year')}
-                                    </div>
-                                    <Select
-                                        value={selectedYear.toString()}
-                                        onValueChange={(v) => setSelectedYear(parseInt(v))}
-                                    >
-                                        <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableYears.map(year => (
-                                                <SelectItem key={year} value={year.toString()}>
-                                                    {year}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
+                            <LabeledSelect label={t('month')} value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(parseInt(v))}
+                                options={monthNames.map((month, idx) => [idx.toString(), month])} />
+                            {yearSelect}
                         </>
                     )}
 
                     {groupByTime === 'yearly'&& (
                         <>
-                            <div className="flex gap-0 rounded-md border overflow-hidden">
-                                <div className="border-r bg-background p-1 px-3">
-                                    {t('sum')}
-                                </div>
-                                <Select
-                                    value={sumMethodYearly}
-                                    onValueChange={(v) => setSumMethodYearly(v as "monthly" | "yearly")}
-                                >
-                                    <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="monthly">
-                                            {t('monthly')}
-                                        </SelectItem>
-                                        <SelectItem value="yearly">
-                                            {t('yearly')}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {availableYears.length > 0 && sumMethodYearly !== "yearly" && (
-                                <div className="flex gap-0 rounded-md border overflow-hidden">
-                                    <div className="border-r bg-background p-1 px-3">
-                                        {t('year')}
-                                    </div>
-                                    <Select
-                                        value={selectedYear.toString()}
-                                        onValueChange={(v) => setSelectedYear(parseInt(v))}
-                                    >
-                                        <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableYears.map(year => (
-                                                <SelectItem key={year} value={year.toString()}>
-                                                    {year}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
+                            <LabeledSelect label={t('sum')} value={sumMethodYearly} onValueChange={(v) => setSumMethodYearly(v as "monthly" | "yearly")}
+                                options={translatedOptions('monthly', 'yearly')} />
+                            {sumMethodYearly !== "yearly" && yearSelect}
                         </>
                     )}
                 </div>}

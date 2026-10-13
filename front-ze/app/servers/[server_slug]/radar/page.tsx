@@ -1,32 +1,22 @@
 import {Metadata} from "next";
-import {getServerSlugOrNotFound} from "../util.ts";
-import {fetchServerUrl, formatTitle} from "utils/generalUtils.ts";
+import {serverMetadata} from "../serverMetadata";
+import {fetchServerUrl} from "utils/generalUtils.ts";
 import {ServerPlayersStatistic} from "types/players.ts";
 import RadarLayers from "./RadarLayers.tsx";
-import { getTranslations } from 'next-intl/server';
 
 export async function generateMetadata({ params}: {
     params: Promise<{ server_slug: string }>
 }): Promise<Metadata> {
-    const { server_slug } = await params
+    return serverMetadata(params, async (server, t) => {
+        let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
+        try{
+            const stats: ServerPlayersStatistic = await fetchServerUrl(server.id, '/players/stats', {});
+            const allTime = stats.all_time
+            description += ' ' + t('uniquePlayers', {players: allTime.total_players, countries: allTime.countries});
+        }catch(e){}
 
-    const server = await getServerSlugOrNotFound(server_slug)
-
-    const t = await getTranslations('metadata');
-    let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
-    try{
-        const stats: ServerPlayersStatistic = await fetchServerUrl(server.id, '/players/stats', {});
-        const allTime = stats.all_time
-        description += ' ' + t('uniquePlayers', {players: allTime.total_players, countries: allTime.countries});
-    }catch(e){}
-
-    return {
-        title: formatTitle(t('radarTitle', {name: server.community_name})),
-        description: description,
-        alternates: {
-            canonical: `/servers/${server.gotoLink}/radar`
-        }
-    }
+        return {title: t('radarTitle', {name: server.community_name}), description, path: '/radar'}
+    })
 }
 
 export default async function Page() {

@@ -1,9 +1,7 @@
-import { proxyToBackend, proxyToBackendChange } from "lib/apiProxy";
+import { proxyGet, proxyToBackendChange } from "lib/apiProxy";
 import { NextResponse } from "next/server";
 
-export async function GET(req: Request) {
-  return await proxyToBackend("/admin/maps/metadata", req);
-}
+export const GET = proxyGet("/admin/maps/metadata");
 
 export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);

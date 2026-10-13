@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from 'components/ui/button'
 import { Input } from 'components/ui/input'
 import { Label } from 'components/ui/label'
 import { Badge } from 'components/ui/badge'
 import { Switch } from 'components/ui/switch'
 import { Skeleton } from 'components/ui/skeleton'
-import { Progress } from 'components/ui/progress'
 import { Checkbox } from 'components/ui/checkbox'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -20,13 +19,16 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from 'components/ui/dropdown-menu'
 import {
-  ChevronLeft, ChevronRight, Search, Settings, Box, Database,
+  Search, Settings, Box, Database,
   ImageOff, Upload, Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { fetchApiUrl, getMapImage } from 'utils/generalUtils'
+import { sendJson } from 'lib/sendJson'
 import { MapAuditHistory } from '../components/MapAuditHistory'
-import { uploadFileChunked, CHUNKED_UPLOAD_THRESHOLD, UploadProgress } from 'utils/uploadUtils'
+import { AdminPagination, Field, useAdminData, useResetForm, useSearchPaging } from '../components/AdminUI'
+import { uploadFileChunked } from 'utils/uploadUtils'
+import { GlbUploadFields, useGlbUpload } from '../components/GlbUpload'
 import type { MapWithModels } from 'types/maps'
 import type {
   AdminMapEntry,
@@ -49,6 +51,64 @@ function triToBool(v: TriState): boolean | null {
   return null
 }
 
+const TRI_LABELS: Record<TriState, string> = { true: 'Yes', false: 'No', null: 'unset' }
+
+function useFlashSave(failure: string) {
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const run = async (request: () => Promise<unknown>, onDone: () => void) => {
+    setSaving(true)
+    try {
+      await request()
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      onDone()
+    } catch (e) {
+      console.error(failure, e)
+    } finally {
+      setSaving(false)
+    }
+  }
+  return { saving, saved, run }
+}
+
+function TriSelect({ label, value, onChange, globalValue }: {
+  label: string
+  value: TriState
+  onChange: (value: TriState) => void
+  globalValue: boolean | null
+}) {
+  return (
+    <Field label={label} className="space-y-1.5">
+      <Select value={value} onValueChange={(v) => onChange(v as TriState)}>
+        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="null">— inherit global ({TRI_LABELS[boolToTri(globalValue)]})</SelectItem>
+          <SelectItem value="true">Yes</SelectItem>
+          <SelectItem value="false">No</SelectItem>
+        </SelectContent>
+      </Select>
+    </Field>
+  )
+}
+
+function SwitchRow({ label, hint, checked, onChange }: {
+  label: string
+  hint: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+      <div>
+        <Label className="text-sm font-medium">{label}</Label>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  )
+}
+
 function ManageModelsDialog({
   open,
   onOpenChange,
@@ -63,78 +123,29 @@ function ManageModelsDialog({
   onDelete: (mapName: string, resType: 'low' | 'high') => void
 }) {
   const [resType, setResType] = useState<'low' | 'high'>('low')
-  const [file, setFile] = useState<File | null>(null)
-  const [credit, setCredit] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
-  const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const upload = useGlbUpload()
 
   const currentModel = resType === 'low' ? map.low_res_model : map.high_res_model
 
   useEffect(() => {
-    if (open) {
-      setFile(null)
-      setCredit(currentModel?.credit || '')
-      setUploadProgress(null)
-      setAbortController(null)
-    }
+    if (open) upload.reset(currentModel?.credit || '')
   }, [open, resType, currentModel])
 
-  const handleSubmit = async () => {
-    if (!file) {
-      toast.error('Please select a file')
-      return
-    }
-    if (!file.name.endsWith('.glb')) {
-      toast.error('File must be a .glb file')
-      return
-    }
-    setUploading(true)
-    setUploadProgress(null)
-    try {
-      if (file.size > CHUNKED_UPLOAD_THRESHOLD) {
-        const controller = new AbortController()
-        setAbortController(controller)
-        await uploadFileChunked({
-          mapName: map.map_name,
-          file,
-          resType,
-          credit: credit.trim() || undefined,
-          signal: controller.signal,
-          onProgress: (progress) => setUploadProgress(progress),
-          onError: (error, chunkIndex) => {
-            console.error(`Upload error${chunkIndex !== undefined ? ` at chunk ${chunkIndex}` : ''}:`, error)
-          },
-        })
-      } else {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('res_type', resType)
-        if (credit.trim()) formData.append('credit', credit.trim())
-        await fetchApiUrl(`/maps/${map.map_name}/3d/upload`, {
-          method: 'POST',
-          body: formData,
-        })
-      }
-      toast.success(`${resType}-res model uploaded successfully`)
-      onSuccess()
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        toast.info('Upload cancelled')
-      } else {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        toast.error(`Failed to upload model: ${errorMessage}`)
-      }
-    } finally {
-      setUploading(false)
-      setUploadProgress(null)
-      setAbortController(null)
-    }
-  }
-
-  const handleCancelUpload = () => {
-    if (abortController) abortController.abort()
-  }
+  const handleSubmit = () => upload.submit({
+    chunked: (options) => uploadFileChunked({ ...options, mapName: map.map_name, resType }),
+    direct: (file, credit) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('res_type', resType)
+      if (credit) formData.append('credit', credit)
+      return fetchApiUrl(`/maps/${map.map_name}/3d/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+    },
+    successMessage: `${resType}-res model uploaded successfully`,
+    onSuccess,
+  })
 
   const handleDeleteModel = async () => {
     if (!currentModel) return
@@ -190,59 +201,13 @@ function ManageModelsDialog({
             </div>
           )}
 
-          <div>
-            <label className="text-sm font-medium">
-              Upload New .glb File {currentModel && '(will replace existing)'}
-            </label>
-            <Input
-              type="file"
-              accept=".glb"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="mt-1"
-            />
-            {file && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Selected: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Credit (Optional)</label>
-            <Input
-              value={credit}
-              onChange={(e) => setCredit(e.target.value)}
-              placeholder="Author or source credit"
-              className="mt-1"
-            />
-          </div>
-
-          {uploading && uploadProgress && (
-            <div className="space-y-2 p-3 border rounded-md bg-muted/50">
-              <div className="flex justify-between text-sm">
-                <span>Uploading chunk {uploadProgress.currentChunk + 1} of {uploadProgress.totalChunks}</span>
-                <span>{uploadProgress.percentage.toFixed(1)}%</span>
-              </div>
-              <Progress value={uploadProgress.percentage} />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>
-                  {(uploadProgress.bytesUploaded / (1024 * 1024)).toFixed(1)} MB / {(uploadProgress.totalBytes / (1024 * 1024)).toFixed(1)} MB
-                </span>
-                <Button variant="ghost" size="sm" onClick={handleCancelUpload} className="h-6 px-2">
-                  Cancel Upload
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={uploading || !file}>
-              {uploading ? 'Uploading...' : currentModel ? 'Replace' : 'Upload'}
-            </Button>
-          </div>
+          <GlbUploadFields
+            upload={upload}
+            fileLabel="Upload New .glb File"
+            replacing={!!currentModel}
+            onCancel={() => onOpenChange(false)}
+            onSubmit={handleSubmit}
+          />
         </div>
       </DialogContent>
     </Dialog>
@@ -261,56 +226,32 @@ function ServerEditor({
   const [selectedId, setSelectedId] = useState<string>(map.servers[0]?.server_id ?? '')
   const entry = map.servers.find((s) => s.server_id === selectedId) ?? null
 
-  const [isTryhard, setIsTryhard] = useState<TriState>('null')
-  const [isCasual, setIsCasual] = useState<TriState>('null')
-  const [workshopId, setWorkshopId] = useState('')
-  const [resolvedWorkshopId, setResolvedWorkshopId] = useState('')
-  const [noNoms, setNoNoms] = useState(false)
-  const [minPlayers, setMinPlayers] = useState('')
-  const [maxPlayers, setMaxPlayers] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [form, set] = useResetForm(true, entry, () => ({
+    isTryhard: entry ? boolToTri(entry.is_tryhard) : 'null' as TriState,
+    isCasual: entry ? boolToTri(entry.is_casual) : 'null' as TriState,
+    workshopId: entry?.workshop_id?.toString() ?? '',
+    resolvedWorkshopId: entry?.resolved_workshop_id?.toString() ?? '',
+    noNoms: entry ? entry.no_noms : false,
+    minPlayers: entry?.min_players?.toString() ?? '',
+    maxPlayers: entry?.max_players?.toString() ?? '',
+  }))
+  const { isTryhard, isCasual, workshopId, resolvedWorkshopId, noNoms, minPlayers, maxPlayers } = form
+  const { saving, saved, run } = useFlashSave('Failed to save server map metadata:')
 
-  useEffect(() => {
-    if (entry) {
-      setIsTryhard(boolToTri(entry.is_tryhard))
-      setIsCasual(boolToTri(entry.is_casual))
-      setWorkshopId(entry.workshop_id?.toString() ?? '')
-      setResolvedWorkshopId(entry.resolved_workshop_id?.toString() ?? '')
-      setNoNoms(entry.no_noms)
-      setMinPlayers(entry.min_players?.toString() ?? '')
-      setMaxPlayers(entry.max_players?.toString() ?? '')
-    }
-  }, [entry])
-
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!entry) return
-    setSaving(true)
-    try {
-      const dto: UpdateServerMapMetadataDto = {
-        server_id: entry.server_id,
-        map_name: map.map_name,
-        is_tryhard: triToBool(isTryhard),
-        is_casual: triToBool(isCasual),
-        workshop_id: workshopId ? Number(workshopId) : null,
-        resolved_workshop_id: resolvedWorkshopId ? Number(resolvedWorkshopId) : null,
-        no_noms: noNoms,
-        min_players: minPlayers ? Number(minPlayers) : null,
-        max_players: maxPlayers ? Number(maxPlayers) : null,
-      }
-      await fetchApiUrl('/admin/map-metadata/server', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-      })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-      onSaved()
-    } catch (e) {
-      console.error('Failed to save server map metadata:', e)
-    } finally {
-      setSaving(false)
+    const dto: UpdateServerMapMetadataDto = {
+      server_id: entry.server_id,
+      map_name: map.map_name,
+      is_tryhard: triToBool(isTryhard),
+      is_casual: triToBool(isCasual),
+      workshop_id: workshopId ? Number(workshopId) : null,
+      resolved_workshop_id: resolvedWorkshopId ? Number(resolvedWorkshopId) : null,
+      no_noms: noNoms,
+      min_players: minPlayers ? Number(minPlayers) : null,
+      max_players: maxPlayers ? Number(maxPlayers) : null,
     }
+    return run(() => sendJson('/admin/map-metadata/server', 'PUT', dto), onSaved)
   }
 
   if (map.servers.length === 0) {
@@ -321,13 +262,9 @@ function ServerEditor({
     )
   }
 
-  const globalTryhardLabel = map.global_is_tryhard === true ? 'Yes' : map.global_is_tryhard === false ? 'No' : 'unset'
-  const globalCasualLabel = map.global_is_casual === true ? 'Yes' : map.global_is_casual === false ? 'No' : 'unset'
-
   return (
     <div className="space-y-4 pt-2">
-      <div className="space-y-1.5">
-        <Label>Server</Label>
+      <Field label="Server" className="space-y-1.5">
         <Select value={selectedId} onValueChange={setSelectedId}>
           <SelectTrigger>
             <SelectValue placeholder="Select a server" />
@@ -340,83 +277,58 @@ function ServerEditor({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </Field>
 
       {entry && (
         <>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Tryhard Override</Label>
-              <Select value={isTryhard} onValueChange={(v) => setIsTryhard(v as TriState)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="null">— inherit global ({globalTryhardLabel})</SelectItem>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <TriSelect label="Tryhard Override" value={isTryhard} onChange={set('isTryhard')} globalValue={map.global_is_tryhard} />
+            <TriSelect label="Casual Override" value={isCasual} onChange={set('isCasual')} globalValue={map.global_is_casual} />
 
-            <div className="space-y-1.5">
-              <Label>Casual Override</Label>
-              <Select value={isCasual} onValueChange={(v) => setIsCasual(v as TriState)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="null">— inherit global ({globalCasualLabel})</SelectItem>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Workshop ID Override</Label>
+            <Field label="Workshop ID Override" className="space-y-1.5">
               <Input
                 type="number"
                 placeholder={map.global_workshop_id?.toString() ?? '(global)'}
                 value={workshopId}
-                onChange={(e) => setWorkshopId(e.target.value)}
+                onChange={(e) => set('workshopId')(e.target.value)}
               />
-            </div>
+            </Field>
 
-            <div className="space-y-1.5">
-              <Label>Resolved Workshop ID Override</Label>
+            <Field label="Resolved Workshop ID Override" className="space-y-1.5">
               <Input
                 type="number"
                 placeholder={map.global_resolved_workshop_id?.toString() ?? '(global)'}
                 value={resolvedWorkshopId}
-                onChange={(e) => setResolvedWorkshopId(e.target.value)}
+                onChange={(e) => set('resolvedWorkshopId')(e.target.value)}
               />
-            </div>
+            </Field>
 
-            <div className="space-y-1.5">
-              <Label>Min Players</Label>
+            <Field label="Min Players" className="space-y-1.5">
               <Input
                 type="number"
                 min={0}
                 placeholder="0"
                 value={minPlayers}
-                onChange={(e) => setMinPlayers(e.target.value)}
+                onChange={(e) => set('minPlayers')(e.target.value)}
               />
-            </div>
+            </Field>
 
-            <div className="space-y-1.5">
-              <Label>Max Players</Label>
+            <Field label="Max Players" className="space-y-1.5">
               <Input
                 type="number"
                 min={0}
                 placeholder="no limit"
                 value={maxPlayers}
-                onChange={(e) => setMaxPlayers(e.target.value)}
+                onChange={(e) => set('maxPlayers')(e.target.value)}
               />
-            </div>
+            </Field>
           </div>
 
           <div className="flex items-center gap-2">
             <Checkbox
               id="no-noms"
               checked={noNoms}
-              onCheckedChange={(v) => setNoNoms(Boolean(v))}
+              onCheckedChange={(v) => set('noNoms')(Boolean(v))}
             />
             <Label htmlFor="no-noms" className="cursor-pointer">No Nominations</Label>
           </div>
@@ -445,51 +357,31 @@ function EditMapDialog({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [globalIsTryhard, setGlobalIsTryhard] = useState(false)
-  const [globalIsCasual, setGlobalIsCasual] = useState(false)
-  const [globalHasLasers, setGlobalHasLasers] = useState(false)
-  const [globalWorkshopId, setGlobalWorkshopId] = useState('')
-  const [globalResolvedWorkshopId, setGlobalResolvedWorkshopId] = useState('')
-  const [savingGlobal, setSavingGlobal] = useState(false)
-  const [savedGlobal, setSavedGlobal] = useState(false)
+  const [form, set] = useResetForm(true, map, () => ({
+    globalIsTryhard: map?.global_is_tryhard ?? false,
+    globalIsCasual: map?.global_is_casual ?? false,
+    globalHasLasers: map?.global_has_lasers ?? false,
+    globalWorkshopId: map?.global_workshop_id?.toString() ?? '',
+    globalResolvedWorkshopId: map?.global_resolved_workshop_id?.toString() ?? '',
+  }))
+  const { globalIsTryhard, globalIsCasual, globalHasLasers, globalWorkshopId, globalResolvedWorkshopId } = form
+  const { saving: savingGlobal, saved: savedGlobal, run } = useFlashSave('Failed to save global map metadata:')
   const [historyKey, setHistoryKey] = useState(0)
 
-  useEffect(() => {
-    if (map) {
-      setGlobalIsTryhard(map.global_is_tryhard ?? false)
-      setGlobalIsCasual(map.global_is_casual ?? false)
-      setGlobalHasLasers(map.global_has_lasers ?? false)
-      setGlobalWorkshopId(map.global_workshop_id?.toString() ?? '')
-      setGlobalResolvedWorkshopId(map.global_resolved_workshop_id?.toString() ?? '')
-    }
-  }, [map])
-
-  const handleSaveGlobal = async () => {
+  const handleSaveGlobal = () => {
     if (!map) return
-    setSavingGlobal(true)
-    try {
-      const dto: UpdateGlobalMapMetadataDto = {
-        map_name: map.map_name,
-        is_tryhard: globalIsTryhard,
-        is_casual: globalIsCasual,
-        has_lasers: globalHasLasers,
-        workshop_id: globalWorkshopId ? Number(globalWorkshopId) : null,
-        resolved_workshop_id: globalResolvedWorkshopId ? Number(globalResolvedWorkshopId) : null,
-      }
-      await fetchApiUrl('/admin/map-metadata/global', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-      })
-      setSavedGlobal(true)
-      setTimeout(() => setSavedGlobal(false), 2000)
+    const dto: UpdateGlobalMapMetadataDto = {
+      map_name: map.map_name,
+      is_tryhard: globalIsTryhard,
+      is_casual: globalIsCasual,
+      has_lasers: globalHasLasers,
+      workshop_id: globalWorkshopId ? Number(globalWorkshopId) : null,
+      resolved_workshop_id: globalResolvedWorkshopId ? Number(globalResolvedWorkshopId) : null,
+    }
+    return run(() => sendJson('/admin/map-metadata/global', 'PUT', dto), () => {
       setHistoryKey((k) => k + 1)
       onSaved()
-    } catch (e) {
-      console.error('Failed to save global map metadata:', e)
-    } finally {
-      setSavingGlobal(false)
-    }
+    })
   }
 
   if (!map) return null
@@ -514,51 +406,29 @@ function EditMapDialog({
           <TabsContent value="global" className="flex-1 overflow-auto">
             <div className="space-y-5 pt-2">
               <div className="grid grid-cols-2 gap-6">
-                <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-                  <div>
-                    <Label className="text-sm font-medium">Tryhard</Label>
-                    <p className="text-xs text-muted-foreground">Mark as tryhard map</p>
-                  </div>
-                  <Switch checked={globalIsTryhard} onCheckedChange={setGlobalIsTryhard} />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-                  <div>
-                    <Label className="text-sm font-medium">Casual</Label>
-                    <p className="text-xs text-muted-foreground">Mark as casual map</p>
-                  </div>
-                  <Switch checked={globalIsCasual} onCheckedChange={setGlobalIsCasual} />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-                  <div>
-                    <Label className="text-sm font-medium">Has Lasers</Label>
-                    <p className="text-xs text-muted-foreground">Map contains killable lasers</p>
-                  </div>
-                  <Switch checked={globalHasLasers} onCheckedChange={setGlobalHasLasers} />
-                </div>
+                <SwitchRow label="Tryhard" hint="Mark as tryhard map" checked={globalIsTryhard} onChange={set('globalIsTryhard')} />
+                <SwitchRow label="Casual" hint="Mark as casual map" checked={globalIsCasual} onChange={set('globalIsCasual')} />
+                <SwitchRow label="Has Lasers" hint="Map contains killable lasers" checked={globalHasLasers} onChange={set('globalHasLasers')} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Workshop ID</Label>
+                <Field label="Workshop ID" className="space-y-1.5">
                   <Input
                     type="number"
                     placeholder="Steam Workshop ID"
                     value={globalWorkshopId}
-                    onChange={(e) => setGlobalWorkshopId(e.target.value)}
+                    onChange={(e) => set('globalWorkshopId')(e.target.value)}
                   />
-                </div>
+                </Field>
 
-                <div className="space-y-1.5">
-                  <Label>Resolved Workshop ID</Label>
+                <Field label="Resolved Workshop ID" className="space-y-1.5">
                   <Input
                     type="number"
                     placeholder="Resolved Workshop ID"
                     value={globalResolvedWorkshopId}
-                    onChange={(e) => setGlobalResolvedWorkshopId(e.target.value)}
+                    onChange={(e) => set('globalResolvedWorkshopId')(e.target.value)}
                   />
-                </div>
+                </Field>
               </div>
 
               <p className="text-xs text-muted-foreground">
@@ -740,35 +610,24 @@ type ActiveDialog =
 const PAGE_SIZE = 50
 
 export default function MapManagementPage() {
-  const [maps, setMaps] = useState<AdminMapEntry[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [loadingMeta, setLoadingMeta] = useState(true)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { page, setPage, search, debouncedSearch, handleSearchChange } = useSearchPaging()
 
   const [modelsMap, setModelsMap] = useState<Map<string, MapWithModels>>(new Map())
 
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
 
-  const fetchMetadata = useCallback(async () => {
-    setLoadingMeta(true)
-    try {
-      const params: Record<string, string> = {
-        page: page.toString(),
-        limit: PAGE_SIZE.toString(),
-      }
-      if (debouncedSearch) params.search = debouncedSearch
-      const data = await fetchApiUrl('/admin/map-metadata', { params }) as AdminMapMetadataResponse
-      setMaps(data.maps ?? [])
-      setTotal(data.total ?? 0)
-    } catch (e) {
-      console.error('Failed to fetch map metadata:', e)
-    } finally {
-      setLoadingMeta(false)
-    }
-  }, [page, debouncedSearch])
+  const params: Record<string, string> = {
+    page: page.toString(),
+    limit: PAGE_SIZE.toString(),
+  }
+  if (debouncedSearch) params.search = debouncedSearch
+  const { data: { maps, total }, loading: loadingMeta, reload: fetchMetadata } = useAdminData(
+    '/admin/map-metadata',
+    (data) => ({ maps: (data as AdminMapMetadataResponse).maps ?? [], total: (data as AdminMapMetadataResponse).total ?? 0 }),
+    { maps: [] as AdminMapEntry[], total: 0 },
+    'map metadata',
+    params,
+  )
 
   const fetchModels = useCallback(async () => {
     try {
@@ -780,18 +639,6 @@ export default function MapManagementPage() {
   }, [])
 
   useEffect(() => { fetchModels() }, [fetchModels])
-  useEffect(() => { fetchMetadata() }, [fetchMetadata])
-
-  const handleSearchChange = (value: string) => {
-    setSearch(value)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      setDebouncedSearch(value)
-      setPage(1)
-    }, 350)
-  }
-
-  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const refreshCurrentMap = useCallback(async () => {
     if (activeDialog?.type !== 'metadata') return
@@ -889,35 +736,7 @@ export default function MapManagementPage() {
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} maps
-          </span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="px-2">{page} / {totalPages}</span>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <AdminPagination page={page} setPage={setPage} total={total} pageSize={PAGE_SIZE} noun="maps" />
 
       {/* Dialogs */}
       <EditMapDialog

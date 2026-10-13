@@ -49,12 +49,13 @@ interface ChunkUploadResponse {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function uploadChunkWithRetry(
-  mapName: string,
+  basePath: string,
   sessionId: string,
   chunkIndex: number,
   chunkData: Blob,
-  maxRetries: number = 3,
-  signal?: AbortSignal
+  maxRetries: number,
+  signal: AbortSignal | undefined,
+  quiet: boolean
 ): Promise<ChunkUploadResponse> {
   let lastError: Error | null = null;
 
@@ -69,181 +70,7 @@ async function uploadChunkWithRetry(
       formData.append('chunk_data', chunkData);
 
       const response = await fetchApiUrl(
-        `/maps/${mapName}/3d/upload/chunk/${sessionId}`,
-        {
-          method: 'POST',
-          body: formData,
-          signal,
-        }
-      );
-
-      return response as ChunkUploadResponse;
-    } catch (error) {
-      lastError = error as Error;
-
-      // Don't retry if aborted
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        throw error;
-      }
-
-      // Don't retry on client errors (400-499)
-      if (error instanceof Error && 'status' in error) {
-        const status = (error as any).status;
-        if (status >= 400 && status < 500) {
-          throw error;
-        }
-      }
-
-      // Exponential backoff: 1s, 2s, 3s
-      if (attempt < maxRetries - 1) {
-        const delay = (attempt + 1) * 1000;
-        console.warn(
-          `Chunk ${chunkIndex} upload failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms...`,
-          error
-        );
-        await sleep(delay);
-      }
-    }
-  }
-
-  throw lastError || new Error(`Failed to upload chunk ${chunkIndex} after ${maxRetries} attempts`);
-}
-
-export async function uploadFileChunked(
-  options: ChunkedUploadOptions
-): Promise<Map3DModel> {
-  const { mapName, file, resType, credit, onProgress, onError, signal } = options;
-
-  try {
-    // Step 1: Initiate upload session
-    const initiateResponse = await fetchApiUrl(
-      `/maps/${mapName}/3d/upload/initiate`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          res_type: resType,
-          credit: credit || undefined,
-          file_size: file.size,
-          file_name: file.name,
-        }),
-        signal,
-      }
-    ) as InitiateUploadResponse;
-
-    const { session_id, total_chunks } = initiateResponse;
-
-    // Step 2: Upload chunks sequentially
-    for (let chunkIndex = 0; chunkIndex < total_chunks; chunkIndex++) {
-      if (signal?.aborted) {
-        // Cancel the upload session
-        try {
-          await fetchApiUrl(
-            `/maps/${mapName}/3d/upload/cancel/${session_id}`,
-            {
-              method: 'DELETE',
-              signal: undefined, // Don't pass abort signal to cancel request
-            }
-          );
-        } catch (cancelError) {
-          console.error('Failed to cancel upload session:', cancelError);
-        }
-        throw new DOMException('Upload cancelled', 'AbortError');
-      }
-
-      const start = chunkIndex * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
-      const chunkData = file.slice(start, end);
-
-      try {
-        await uploadChunkWithRetry(
-          mapName,
-          session_id,
-          chunkIndex,
-          chunkData,
-          3,
-          signal
-        );
-
-        // Update progress
-        const bytesUploaded = end;
-        const progress: UploadProgress = {
-          totalChunks: total_chunks,
-          uploadedChunks: chunkIndex + 1,
-          percentage: (bytesUploaded / file.size) * 100,
-          currentChunk: chunkIndex,
-          bytesUploaded,
-          totalBytes: file.size,
-        };
-
-        onProgress?.(progress);
-      } catch (error) {
-        const err = error as Error;
-        onError?.(err, chunkIndex);
-
-        // Try to cancel the session on error
-        try {
-          await fetchApiUrl(
-            `/maps/${mapName}/3d/upload/cancel/${session_id}`,
-            {
-              method: 'DELETE',
-              signal: undefined,
-            }
-          );
-        } catch (cancelError) {
-          console.error('Failed to cancel upload session after error:', cancelError);
-        }
-
-        throw err;
-      }
-    }
-
-    // Step 3: Complete upload
-    const result = await fetchApiUrl(
-      `/maps/${mapName}/3d/upload/complete/${session_id}`,
-      {
-        method: 'POST',
-        signal,
-      }
-    ) as Map3DModel;
-
-    return result;
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw error;
-    }
-
-    const err = error as Error;
-    onError?.(err);
-    throw err;
-  }
-}
-
-async function uploadCharacterChunkWithRetry(
-  serverId: string,
-  modelId: string,
-  sessionId: string,
-  chunkIndex: number,
-  chunkData: Blob,
-  maxRetries: number = 3,
-  signal?: AbortSignal
-): Promise<ChunkUploadResponse> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    if (signal?.aborted) {
-      throw new DOMException('Upload cancelled', 'AbortError');
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append('chunk_index', chunkIndex.toString());
-      formData.append('chunk_data', chunkData);
-
-      const response = await fetchApiUrl(
-        `/servers/${serverId}/characters/${modelId}/3d/upload/chunk/${sessionId}`,
+        `${basePath}/chunk/${sessionId}`,
         { method: 'POST', body: formData, signal }
       );
 
@@ -255,13 +82,22 @@ async function uploadCharacterChunkWithRetry(
         throw error;
       }
 
+      // Don't retry on client errors (400-499)
       if (error instanceof Error && 'status' in error) {
         const status = (error as any).status;
         if (status >= 400 && status < 500) throw error;
       }
 
+      // Exponential backoff: 1s, 2s, 3s
       if (attempt < maxRetries - 1) {
-        await sleep((attempt + 1) * 1000);
+        const delay = (attempt + 1) * 1000;
+        if (!quiet) {
+          console.warn(
+            `Chunk ${chunkIndex} upload failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms...`,
+            error
+          );
+        }
+        await sleep(delay);
       }
     }
   }
@@ -269,18 +105,27 @@ async function uploadCharacterChunkWithRetry(
   throw lastError || new Error(`Failed to upload chunk ${chunkIndex} after ${maxRetries} attempts`);
 }
 
-export async function uploadCharacterFileChunked(
-  options: CharacterChunkedUploadOptions
-): Promise<Character3DModel> {
-  const { modelId, name, serverId, file, credit, onProgress, onError, signal } = options;
+async function uploadChunked<T>(
+  basePath: string,
+  initBody: Record<string, unknown>,
+  { file, onProgress, onError, signal }: Pick<ChunkedUploadOptions, 'file' | 'onProgress' | 'onError' | 'signal'>,
+  quiet: boolean
+): Promise<T> {
+  const cancelSession = async (sessionId: string, failureMessage: string) => {
+    try {
+      await fetchApiUrl(`${basePath}/cancel/${sessionId}`, { method: 'DELETE', signal: undefined });
+    } catch (cancelError) {
+      if (!quiet) console.error(failureMessage, cancelError);
+    }
+  };
 
   try {
     const initiateResponse = await fetchApiUrl(
-      `/servers/${serverId}/characters/${modelId}/3d/upload/initiate`,
+      `${basePath}/initiate`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name || undefined, credit: credit || undefined, file_size: file.size, file_name: file.name }),
+        body: JSON.stringify({ ...initBody, file_size: file.size, file_name: file.name }),
         signal,
       }
     ) as InitiateUploadResponse;
@@ -289,9 +134,7 @@ export async function uploadCharacterFileChunked(
 
     for (let chunkIndex = 0; chunkIndex < total_chunks; chunkIndex++) {
       if (signal?.aborted) {
-        try {
-          await fetchApiUrl(`/servers/${serverId}/characters/${modelId}/3d/upload/cancel/${session_id}`, { method: 'DELETE' });
-        } catch {}
+        await cancelSession(session_id, 'Failed to cancel upload session:');
         throw new DOMException('Upload cancelled', 'AbortError');
       }
 
@@ -300,7 +143,7 @@ export async function uploadCharacterFileChunked(
       const chunkData = file.slice(start, end);
 
       try {
-        await uploadCharacterChunkWithRetry(serverId, modelId, session_id, chunkIndex, chunkData, 3, signal);
+        await uploadChunkWithRetry(basePath, session_id, chunkIndex, chunkData, 3, signal, quiet);
 
         const bytesUploaded = end;
         onProgress?.({
@@ -314,25 +157,42 @@ export async function uploadCharacterFileChunked(
       } catch (error) {
         const err = error as Error;
         onError?.(err, chunkIndex);
-        try {
-          await fetchApiUrl(`/servers/${serverId}/characters/${modelId}/3d/upload/cancel/${session_id}`, { method: 'DELETE' });
-        } catch {}
+        await cancelSession(session_id, 'Failed to cancel upload session after error:');
         throw err;
       }
     }
 
-    const result = await fetchApiUrl(
-      `/servers/${serverId}/characters/${modelId}/3d/upload/complete/${session_id}`,
+    return await fetchApiUrl(
+      `${basePath}/complete/${session_id}`,
       { method: 'POST', signal }
-    ) as Character3DModel;
-
-    return result;
+    ) as T;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;
     }
+
     const err = error as Error;
     onError?.(err);
     throw err;
   }
+}
+
+export async function uploadFileChunked(options: ChunkedUploadOptions): Promise<Map3DModel> {
+  const { mapName, resType, credit } = options;
+  return uploadChunked<Map3DModel>(
+    `/maps/${mapName}/3d/upload`,
+    { res_type: resType, credit: credit || undefined },
+    options,
+    false
+  );
+}
+
+export async function uploadCharacterFileChunked(options: CharacterChunkedUploadOptions): Promise<Character3DModel> {
+  const { modelId, name, serverId, credit } = options;
+  return uploadChunked<Character3DModel>(
+    `/servers/${serverId}/characters/${modelId}/3d/upload`,
+    { name: name || undefined, credit: credit || undefined },
+    options,
+    true
+  );
 }
