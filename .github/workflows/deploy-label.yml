@@ -1,9 +1,9 @@
 name: Deploy Label
 
-# Decides whether merging this PR needs a production deploy, and records the verdict as the
-# `documentation` label. deployment.yml reads that label at merge time and skips the deploy when
-# it is present. Kept separate from claude-code-review.yml so a failure here does not take the
-# review down with it.
+# Decides whether merging this PR needs a production deploy, and records the verdict as exactly one
+# of the `deploy` / `not deploy` labels. deployment.yml reads that label at merge time and skips the
+# deploy only on `not deploy`. Kept separate from claude-code-review.yml so a failure here does not
+# take the review down with it.
 
 on:
   pull_request:
@@ -20,6 +20,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      issues: write
       id-token: write
     env:
       # The action authenticates gh itself, but setting this at job level guarantees the Bash
@@ -30,6 +31,12 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 1
+
+      - name: Ensure the labels exist
+        shell: bash
+        run: |
+          gh label create "deploy" --color 0e8a16 --description "Merging this PR deploys to production" --force
+          gh label create "not deploy" --color cfd3d7 --description "Merging this PR skips the production deploy" --force
 
       - name: Judge whether this PR needs a deploy
         uses: anthropics/claude-code-action@v1
@@ -43,14 +50,14 @@ jobs:
             You are deciding one thing about PR #${{ github.event.pull_request.number }} in
             ${{ github.repository }}: does merging it require a production deploy?
 
-            The answer is recorded as the `documentation` label. Label present means "no deploy
-            needed". Do not post comments, do not review the code, do not edit any files. Changing
-            labels is the only action you may take.
+            The answer is recorded as exactly one of two labels: `deploy` or `not deploy`. Do not
+            post comments, do not review the code, do not edit any files. Changing those two labels
+            is the only action you may take.
 
             STEP 1 — check whether a human has already overruled this decision. Run:
 
               gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/timeline" \
-                --paginate --jq '.[] | select((.event=="labeled" or .event=="unlabeled") and .label.name=="documentation") | .actor.login'
+                --paginate --jq '.[] | select((.event=="labeled" or .event=="unlabeled") and (.label.name=="deploy" or .label.name=="not deploy")) | .actor.login'
 
             If any returned login does NOT end in `[bot]`, a human has made this call deliberately.
             Say so in one line and stop immediately, changing nothing. This check comes first and
@@ -73,12 +80,14 @@ jobs:
             edits anywhere — including inside src/. That last case is the judgment call a plain
             path filter cannot make, so actually read the hunks rather than just the file list.
 
-            When a diff mixes both, it needs a deploy.
+            When a diff mixes both, or you are unsure, it needs a deploy.
 
-            STEP 3 — make the labels match your verdict, and only if they do not already:
+            STEP 3 — make the labels match your verdict. Use
+            `gh pr view ${{ github.event.pull_request.number }} --json labels` to see the current
+            state first, then run the one command for your verdict if the labels do not already
+            match it:
 
-              needs no deploy  ->  gh pr edit ${{ github.event.pull_request.number }} --add-label documentation
-              needs a deploy   ->  gh pr edit ${{ github.event.pull_request.number }} --remove-label documentation
+              needs a deploy     ->  gh pr edit ${{ github.event.pull_request.number }} --add-label "deploy" --remove-label "not deploy"
+              needs no deploy    ->  gh pr edit ${{ github.event.pull_request.number }} --add-label "not deploy" --remove-label "deploy"
 
-            Use `gh pr view ${{ github.event.pull_request.number }} --json labels` to see the
-            current state first. Finish by stating your verdict and reasoning in one line.
+            Finish by stating your verdict and reasoning in one line.
