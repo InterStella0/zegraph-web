@@ -2,7 +2,6 @@
 import { BarController, BarElement, CategoryScale, Chart as ChartJS, LinearScale, TimeScale, Title, Tooltip as TooltipChart } from 'chart.js';
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import { LazyBarChart, LazyMatrixChart } from "components/graphs/LazyCharts";
-import { color } from "chart.js/helpers";
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import weekOfYear from "dayjs/plugin/weekOfYear";
@@ -19,19 +18,13 @@ import { useTranslations } from "next-intl";
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
+import {CalendarCell, calendarCells, calendarMatrixDataset, calendarMatrixOptions, heatCellColors} from "lib/calendarHeatmap";
 
 dayjs.extend(weekOfYear)
 dayjs.extend(isoWeek)
 dayjs.extend(utc)
 
 ChartJS.register(MatrixController, MatrixElement, BarController, BarElement, TimeScale, TooltipChart, CategoryScale, LinearScale, Title);
-
-type HeatmapData = {
-    x: string,
-    y: string,
-    d: string,
-    v: number,
-}
 
 export type PlayerSessionTime = {
     bucket_time: string,
@@ -70,7 +63,7 @@ export default function PlayTimeHeatmap({
     const t = useTranslations('players.heatmap')
     const playerId = player.id
     const server_id = server.id
-    const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([])
+    const [heatmapData, setHeatmapData] = useState<CalendarCell[]>([])
     const [chartBarData, setChartBarData] = useState<{time: string, hours: number}[]>([])
 
     const { data: sessionData, loading } = usePlayerStat<PlayerSessionTime[]>(
@@ -130,7 +123,7 @@ export default function PlayTimeHeatmap({
             return
         }
 
-        const transformed: HeatmapData[] = []
+        const transformed: CalendarCell[] = []
 
         if (groupBy === 'daily') {
             // GitHub-style calendar heatmap: x=date, y=day-of-week
@@ -141,21 +134,9 @@ export default function PlayTimeHeatmap({
                 dataMap.set(iso, e.hours)
             })
 
-            // Generate all days for the selected year, or the selected range
             const startOfYear = rangeFrom ? dayjs.utc(rangeFrom) : dayjs(`${selectedYear}-01-01`)
             const endOfYear = rangeTo ? dayjs.utc(rangeTo) : dayjs(`${selectedYear}-12-31`)
-            let currentDate = startOfYear
-
-            while (currentDate.isBefore(endOfYear) || currentDate.isSame(endOfYear, 'day')) {
-                const iso = currentDate.format("YYYY-MM-DD")
-                transformed.push({
-                    x: iso,
-                    y: currentDate.locale('en').format('ddd'), // stable English key: Mon, Tue, etc
-                    d: currentDate.format('MMM DD, YYYY'),
-                    v: dataMap.get(iso) || 0  // Use 0 for days without data
-                })
-                currentDate = currentDate.add(1, 'day')
-            }
+            transformed.push(...calendarCells(startOfYear, endOfYear, dataMap))
         } else if (groupBy === 'monthly') {
             // Show daily breakdown for selected month
             // Create a map of existing data for quick lookup
@@ -221,148 +202,16 @@ export default function PlayTimeHeatmap({
         return Math.max(...heatmapData.map(d => d.v), 1)
     }, [heatmapData])
 
-    // Get Y-axis labels based on groupBy
-    const getYAxisLabels = () => {
-        switch (groupBy) {
-            case 'daily':
-                return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-            case 'monthly':
-                return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-            case 'yearly':
-                return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-            default:
-                return []
-        }
-    }
+    const isRange = !!rangeFrom && !!rangeTo
+    const cols = isRange ? Math.ceil((dayjs.utc(rangeTo).diff(dayjs.utc(rangeFrom), 'day') + 1) / 7) + 1 : 53
+    const chartWidth = isRange ? `${cols * 19 + 40}px` : '1025px'
 
-    // Get dimensions based on groupBy
-    const getDimensions = () => {
-        switch (groupBy) {
-            case 'daily': {
-                if (!rangeFrom || !rangeTo) return { width: '1025px', cols: 53, rows: 7 }
-                const cols = Math.ceil((dayjs.utc(rangeTo).diff(dayjs.utc(rangeFrom), 'day') + 1) / 7) + 1
-                return { width: `${cols * 19 + 40}px`, cols, rows: 7 }
-            }
-            case 'monthly':
-                return { width: '800px', cols: 31, rows: 7 }  // Days in month
-            case 'yearly':
-                return { width: '100%', cols: 5, rows: 10 }
-            default:
-                return { width: '1025px', cols: 53, rows: 7 }
-        }
-    }
+    const options = useMemo(() => calendarMatrixOptions(colors, dayNames,
+        v => [v.d, t('hoursPlayedValue', {hours: v.v.toFixed(2)})]), [colors, t, dayNames])
 
-    const dimensions = getDimensions()
-
-    // Chart options
-    const options = useMemo(() => ({
-        responsive: false,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: false,
-            tooltip: {
-                displayColors: false,
-                ...heatmapTooltip(colors),
-                callbacks: {
-                    title() {
-                        return '';
-                    },
-                    label(context: any) {
-                        const v = context.dataset.data[context.dataIndex];
-                        return [v.d, t('hoursPlayedValue', {hours: v.v.toFixed(2)})];
-                    }
-                }
-            },
-        },
-        scales: {
-            y: {
-                type: 'category',
-                labels: getYAxisLabels(),
-                offset: true,
-                reverse: false,
-                position: 'right',
-                ticks: {
-                    maxRotation: 0,
-                    autoSkip: true,
-                    padding: 1,
-                    color: colors.foreground,
-                    font: {
-                        size: 9
-                    },
-                    callback(this: any, value: any) {
-                        const label = this.getLabelForValue(value);
-                        return dayNames[label] ?? label;
-                    }
-                },
-                grid: {
-                    display: false,
-                    drawBorder: false,
-                    tickLength: 0
-                }
-            },
-            x: {
-                type: groupBy === 'yearly' ? 'category' : 'time',
-                position: 'bottom',
-                offset: true,
-                time: groupBy !== 'yearly' ? {
-                    unit: groupBy === 'monthly' ? 'day' : 'week',
-                    round: groupBy === 'monthly' ? 'day' : 'week',
-                    isoWeekday: 1,
-                    displayFormats: {
-                        day: 'D',        // Show day number (1-31)
-                        week: 'MMM YY',
-                        year: 'YYYY'
-                    }
-                } : undefined,
-                ticks: {
-                    maxRotation: 0,
-                    color: colors.foreground,
-                    font: {
-                        weight: 'bold',
-                        size: 9
-                    }
-                },
-                grid: {
-                    display: false,
-                    drawBorder: false,
-                    tickLength: 5,
-                }
-            }
-        },
-        layout: {
-            padding: {
-                top: 10
-            }
-        }
-    }), [groupBy, colors, heatmapData, t, dayNames])
-
-    // Chart data
     const data = useMemo(() => ({
-        datasets: [{
-            type: 'matrix',
-            data: heatmapData,
-            backgroundColor(c: any) {
-                const value = c.dataset.data[c.dataIndex].v
-                const alpha = Math.min((0.1 + value) / Math.max(3, maxHours), 1)
-                return color(colors.heat).alpha(alpha).rgbString()
-            },
-            borderColor(c: any) {
-                const value = c.dataset.data[c.dataIndex].v
-                const alpha = Math.min((0.2 + value) / Math.max(4, maxHours), 1)
-                return color(colors.heat).alpha(alpha).rgbString()
-            },
-            borderWidth: 1,
-            hoverBorderColor: 'grey',
-            width(c: any) {
-                const a = c.chart.chartArea
-                return (a.right - a.left) / dimensions.cols - 1
-            },
-            height(c: any) {
-                const a = c.chart.chartArea
-                return (a.bottom - a.top) / dimensions.rows - 1
-            }
-        }]
-    }), [heatmapData, maxHours, colors, dimensions])
+        datasets: [calendarMatrixDataset(heatmapData, cols, ...heatCellColors(colors.heat, maxHours))]
+    }), [heatmapData, maxHours, colors, cols])
 
     // Generate SEO summaries at top level (not inside conditionals)
     const yearlySummary = useMemo(() => {
@@ -496,7 +345,7 @@ export default function PlayTimeHeatmap({
                 <LazyMatrixChart
                     data={data}
                     options={options}
-                    width={dimensions.width}
+                    width={chartWidth}
                 />
             </div>
             <ScrollBar orientation="horizontal" />

@@ -22,6 +22,7 @@ import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import {useTranslations, useLocale} from 'next-intl';
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
+import {calendarMatrixDataset, calendarMatrixOptions, weekdayKey} from "lib/calendarHeatmap";
 
 dayjs.extend(utc);
 
@@ -41,7 +42,7 @@ function toHeatRegionData(resp: DailyMapRegion[]): HeatRegionData[] {
         const iso = dt.format("YYYY-MM-DD")
         return {
             x: iso,
-            y: dt.locale('en').format('ddd'),
+            y: weekdayKey(dt),
             d: iso,
             v: e
         }
@@ -73,93 +74,13 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
     const isRange = !!range
     const weeks = range ? Math.ceil(rangeDays(range) / 7) + 1 : 53
 
-    const options = useMemo(() => ({
-        responsive: false,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: false,
-            tooltip: {
-                displayColors: false,
-                ...heatmapTooltip(colors),
-                callbacks: {
-                    title() {
-                        return '';
-                    },
-                    label(context: any) {
-                        const v = context.dataset.data[context.dataIndex];
-                        return [v.d, ...v.v.regions.map((e: MapRegion) => `${e.region_name}: ${(e.total_play_duration / 60).toFixed(2)}mins`)];
-                    }
-                }
-            },
-        },
-        scales: {
-            y: {
-                type: 'category',
-                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                offset: true,
-                reverse: false,
-                position: 'right',
-                ticks: {
-                    maxRotation: 0,
-                    autoSkip: true,
-                    padding: 1,
-                    color: colors.foreground,
-                    font: {
-                        size: 9
-                    },
-                    callback(this: any, value: any) {
-                        const label = this.getLabelForValue(value);
-                        return dayNames[label] ?? label;
-                    }
-                },
-                grid: {
-                    display: false,
-                    drawBorder: false,
-                    tickLength: 0
-                }
-            },
-            x: {
-                type: 'time',
-                position: 'bottom',
-                offset: true,
-                time: {
-                    unit: 'week',
-                    round: 'week',
-                    isoWeekday: 1,
-                    displayFormats: {
-                        week: 'MMM YY'
-                    }
-                },
-                ticks: {
-                    maxRotation: 0,
-                    color: colors.foreground,
-                    font: {
-                        weight: 'bold',
-                        size: 9
-                    }
-                },
-                grid: {
-                    display: false,
-                    drawBorder: false,
-                    tickLength: 5,
-                }
-            }
-        },
-        layout: {
-            padding: {
-                top: 10
-            }
-        }
-    }), [regions, colors, dayNames])
+    const options = useMemo(() => calendarMatrixOptions(colors, dayNames,
+        v => [v.d, ...v.v.regions.map((e: MapRegion) => `${e.region_name}: ${(e.total_play_duration / 60).toFixed(2)}mins`)]
+    ), [regions, colors, dayNames])
 
     const data = useMemo(() => ({
-        datasets: [{
-            type: 'matrix',
-            data: regions.map(region => ({
-                ...region,
-                y: region.y
-            })),
-            backgroundColor(c: any) {
+        datasets: [calendarMatrixDataset(regions.map(region => ({...region, y: region.y})), weeks,
+            (c: any) => {
                 const value = c.dataset.data[c.dataIndex].v;
                 const valueObj = value.regions
                 let hours = valueObj.reduce((a: number, b: MapRegion) => a + b.total_play_duration, 0) / 3600
@@ -168,24 +89,13 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
                 // @ts-ignore
                 return color(REGION_COLORS[valueObj[0]?.region_name] ?? 'grey').alpha(alpha).rgbString();
             },
-            borderColor(c: any) {
+            (c: any) => {
                 const value = c.dataset.data[c.dataIndex].v;
                 let hours = value.regions.reduce((a: number, b: MapRegion) => a + b.total_play_duration, 0) / 3600
                 const alpha = (1 + hours) / 4;
                 // @ts-ignore
                 return color(REGION_COLORS[value.regions[0]?.region_name] ?? 'grey').alpha(alpha).rgbString();
-            },
-            borderWidth: 1,
-            hoverBorderColor: 'grey',
-            width(c: any) {
-                const a = c.chart.chartArea;
-                return (a.right - a.left) / weeks - 1;
-            },
-            height(c: any) {
-                const a = c.chart.chartArea;
-                return (a.bottom - a.top) / 7 - 1;
-            }
-        }]
+            })]
     }), [regions, weeks])
 
     const barData = useMemo(() => {
