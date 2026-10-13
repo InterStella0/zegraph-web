@@ -1,3 +1,6 @@
-import { proxyPut } from "lib/apiProxy";
+import { proxyToBackendChange } from "lib/apiProxy";
 
-export const PUT = proxyPut("/admin/maps/metadata/server");
+export async function PUT(req: Request) {
+  const body = await req.json();
+  return await proxyToBackendChange("/admin/maps/metadata/server", body, "PUT");
+}

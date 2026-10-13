@@ -14,7 +14,7 @@ import LoginDialog from 'components/ui/LoginDialog';
 import { usePushNotifications } from 'lib/hooks/usePushNotifications';
 import { fetchApiUrl } from 'utils/generalUtils';
 import { toast } from 'sonner';
-import { SteamProfile } from 'types/steam';
+import { SteamProfile } from '../../next-auth-steam/steam';
 import {useTranslations} from 'next-intl';
 
 interface MapNotifyButtonProps {

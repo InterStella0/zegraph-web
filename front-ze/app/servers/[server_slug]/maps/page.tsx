@@ -1,7 +1,6 @@
 import CurrentMatch, {CurrentMatchSkeleton} from "components/maps/CurrentMatch";
-import {fetchApiServerUrl, fetchServerUrl} from "utils/generalUtils";
+import {fetchApiServerUrl, fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils";
 import {getServerSlugOrNotFound, threeMinutes} from "../util";
-import {serverMetadata} from "../serverMetadata";
 import MapsSearchIndex from "./MapsSearchIndex";
 import getServerUser from "../../../getServerUser";
 import {Metadata} from "next";
@@ -11,22 +10,34 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import {Suspense} from "react";
 import {getContinentStatsNow, getMatchNow} from "./util.ts";
 import {AdSpot} from "components/ui/AdSpot";
+import { getTranslations } from 'next-intl/server';
 dayjs.extend(relativeTime)
 
 export async function generateMetadata({ params}: {
     params: Promise<{ server_slug: string }>
 }): Promise<Metadata> {
-    return serverMetadata(params, async (server, t) => {
-        let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
-        try{
-            const parameters = { page: 0, sorted_by: 'LastPlayed' }
-            const data: MapPlayedPaginated = await fetchServerUrl(server.id, '/maps/last/sessions', { params: parameters, next: {revalidate: threeMinutes} });
-            const latestMap = data.maps[0]
-            description += ' ' + t('mapsPlayedLast', {count: data.total_maps, map: latestMap.map, time: dayjs(latestMap.last_played).fromNow()});
-        }catch(e){}
+    const { server_slug } = await params
 
-        return {title: t('mapsTitle', {name: server.community_name}), description, path: '/maps', social: {}}
-    })
+    const server = await getServerSlugOrNotFound(server_slug)
+    const t = await getTranslations('metadata');
+
+    let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
+    try{
+        const parameters = { page: 0, sorted_by: 'LastPlayed' }
+        const data: MapPlayedPaginated = await fetchServerUrl(server.id, '/maps/last/sessions', { params: parameters, next: {revalidate: threeMinutes} });
+        const latestMap = data.maps[0]
+        description += ' ' + t('mapsPlayedLast', {count: data.total_maps, map: latestMap.map, time: dayjs(latestMap.last_played).fromNow()});
+    }catch(e){}
+
+    const title = formatTitle(t('mapsTitle', {name: server.community_name}))
+    return {
+        title,
+        description,
+        alternates: {
+            canonical: `/servers/${server.gotoLink}/maps`
+        },
+        ...socialMeta({title, description})
+    }
 }
 
 export default async function Page({ params }){

@@ -64,6 +64,12 @@ export class RendererError extends APIError{
     }
 }
 
+class RateLimited extends APIError{
+    constructor(message: string){
+        super(`We're being ratelimited for method ${message}`, 429)
+    }
+}
+
 export class StillCalculate extends APIError{
     public method: string
     constructor(method: string){
@@ -196,6 +202,12 @@ export async function fetchUrl(endpoint: string, options: any = {}, errorOnStill
         } catch (err) {
             if (err instanceof StillCalculate && !errorOnStillCalculate){
                 return err
+            }
+            if (err instanceof RateLimited) {
+                const retry = backoffBaseMs * (2 ** rateLimitAttempts);
+                await sleep(retry);
+                rateLimitAttempts++;
+                continue;
             }
             if (err instanceof UserError){
                 throw err;

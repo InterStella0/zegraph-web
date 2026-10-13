@@ -1,17 +1,15 @@
 'use client'
-import {use, useEffect, useState} from 'react';
+import {use, useEffect, useRef, useState} from 'react';
 import {useTranslations} from 'next-intl';
-import {Users} from 'lucide-react';
+import {Search, Users} from 'lucide-react';
 import {fetchUrl, simpleRandom} from "utils/generalUtils";
 import {GlobalBriefPlayers} from "types/players";
 import {Card, CardContent, CardHeader} from "components/ui/card";
+import {Input} from "components/ui/input";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
+import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import GlobalPlayerRow from "./GlobalPlayerRow.tsx";
-import {useDebounced} from "lib/hooks/useDebounced";
-import {useResource} from "lib/hooks/useResource";
-import {SearchField} from "./OnlinePlayers";
-import {withErrorCatch} from "components/common/withErrorCatch";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -68,7 +66,10 @@ export function GlobalPlayerListLoading() {
                 </div>
             </CardHeader>
             <CardContent className="pt-0">
-                <SearchField placeholder={t('searchPlaceholder')} disabled/>
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+                    <Input placeholder={t('searchPlaceholder')} disabled className="pl-10"/>
+                </div>
                 <GlobalPlayerListSkeleton/>
             </CardContent>
         </Card>
@@ -79,20 +80,52 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
     const t = useTranslations('players.global');
     const initialData = use(initialDataPromise);
     const [searchInput, setSearchInput] = useState<string>('');
+    const [debouncedSearch, setDebouncedSearch] = useState<string>('');
     const [page, setPage] = useState<number>(0);
+    const [data, setData] = useState<GlobalBriefPlayers | null>(initialData);
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+    const isFirstRun = useRef(true);
+    const totalPages = Math.max(1, Math.ceil((data?.total_players || 0) / PAGE_SIZE));
 
-    const debouncedSearch = useDebounced(searchInput.trim(), SEARCH_DEBOUNCE_MS);
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchInput.trim());
+        }, SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
 
     useEffect(() => {
         setPage(0);
     }, [debouncedSearch]);
 
-    const { data, loading, error: fetchError } = useResource<GlobalBriefPlayers>(signal => fetchUrl('/communities/all/players', {
-        params: { page, ...(debouncedSearch && {search: debouncedSearch}) },
-        signal,
-    }), [page, debouncedSearch], { initial: initialData, keepData: true, errorLog: 'Error fetching global players:' });
-    const error = fetchError?.message;
-    const totalPages = Math.max(1, Math.ceil((data?.total_players || 0) / PAGE_SIZE));
+    useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
+        const controller = new AbortController();
+        const signal = controller.signal;
+        setLoading(true);
+        setError(null);
+        const params = {
+            page,
+            ...(debouncedSearch && {search: debouncedSearch})
+        };
+        fetchUrl('/communities/all/players', {params, signal})
+            .then((result: GlobalBriefPlayers) => setData(result))
+            .catch(error => {
+                if (signal.aborted) return;
+                console.error('Error fetching global players:', error);
+                setError(error.message);
+            })
+            .finally(() => {
+                if (!signal.aborted) setLoading(false);
+            });
+        return () => {
+            controller.abort("Changed");
+        };
+    }, [page, debouncedSearch]);
 
     return (
         <Card className="border-border/40 bg-card/50 backdrop-blur-xl">
@@ -114,7 +147,15 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
                 </div>
             </CardHeader>
             <CardContent className="pt-0">
-                <SearchField placeholder={t('searchPlaceholder')} value={searchInput} onChange={(e) => setSearchInput(e.target.value)}/>
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+                    <Input
+                        placeholder={t('searchPlaceholder')}
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        className="pl-10"
+                    />
+                </div>
 
                 {loading ? (
                     <GlobalPlayerListSkeleton/>
@@ -149,4 +190,11 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
     );
 }
 
-export default withErrorCatch(GlobalPlayerListDisplay, t => t('players.global.loadError'))
+export default function GlobalPlayerList({ initialDataPromise }: { initialDataPromise: Promise<GlobalBriefPlayers> }) {
+    const t = useTranslations('players.global');
+    return (
+        <ErrorCatch message={t('loadError')}>
+            <GlobalPlayerListDisplay initialDataPromise={initialDataPromise}/>
+        </ErrorCatch>
+    );
+}

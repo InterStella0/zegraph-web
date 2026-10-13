@@ -5,7 +5,7 @@ import NavDrawerButton from "./NavDrawerButton";
 import PagesNavigation from "./PagesNavigation";
 import ServerIndicator from "./ServerIndicator";
 import {use} from "react";
-import {SteamProfile} from "types/steam";
+import {SteamProfile} from "../../next-auth-steam/steam.ts";
 import LanguageToggle from "./LanguageToggle";
 import Link from "./Link";
 import {Logo} from "./CommunitySelector";

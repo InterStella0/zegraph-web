@@ -14,7 +14,7 @@ import {LogOut, User, Shield, Cog} from "lucide-react";
 import LoginDialog from "./LoginDialog.tsx";
 import {signOut} from "next-auth/react";
 import {useRouter} from "next/navigation";
-import {SteamProfile} from "types/steam";
+import {SteamProfile} from "../../next-auth-steam/steam.ts";
 import {useTranslations} from "next-intl";
 
 function UserMenu({ user }: { user: SteamProfile | null }) {

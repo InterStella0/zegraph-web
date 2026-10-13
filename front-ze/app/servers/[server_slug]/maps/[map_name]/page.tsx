@@ -5,6 +5,7 @@ import {
     formatHours,
     formatTitle,
     getMapImage,
+    socialMeta,
     StillCalculate
 } from "utils/generalUtils";
 import { Card } from "components/ui/card";
@@ -18,7 +19,6 @@ import MapAverageSessionDistribution from "components/maps/MapAverageSessionDist
 import MapPlayerType from "components/maps/MapPlayerType.tsx";
 import MapMusicSection from "components/maps/MapMusicSection.tsx";
 import {getServerSlugOrNotFound} from "../../util";
-import {metadataFallback, serverMetadata} from "../../serverMetadata";
 import {
     DailyMapRegion,
     MapRegion,
@@ -39,6 +39,7 @@ import {
     PlayerBrief,
     Region,
 } from "types/players.ts";
+import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 async function getMapInfoDetails(serverId: string, mapName: string): Promise<ServerMapDetail>{
@@ -65,40 +66,60 @@ async function getMapInfoDetails(serverId: string, mapName: string): Promise<Ser
 export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string, map_name: string }>
 }): Promise<Metadata> {
-    return serverMetadata(params, async (server, t, { map_name }) => {
-        let mapInfo: ServerMapDetail | null = null
-        const title = t('mapOnServer', {map: map_name, name: server.community_name})
-        try{
-            mapInfo = await getMapInfoDetails(server.id, map_name)
-        }catch(error){
-            return metadataFallback(error, "map", formatTitle(title), server, t)
+    const { server_slug, map_name } = await params;
+    const server = await getServerSlugOrNotFound(server_slug);
+    const t = await getTranslations('metadata');
+    let mapInfo: ServerMapDetail | null = null
+    const title = formatTitle(t('mapOnServer', {map: map_name, name: server.community_name}))
+    try{
+        mapInfo = await getMapInfoDetails(server.id, map_name)
+    }catch(error){
+        if (error.code === 202){
+            return {
+                title,
+                description: t('mapCalculating'),
+            }
+        }else if (error.code === 404){
+            return {
+                title: "ZE Graph",
+                description: t('viewMapActivities', {name: server.community_name})
+            };
+        }else{
+            return {}
         }
-        const creators = mapInfo?.info?.creators? t('createdBy', {creators: mapInfo.info.creators}) + ' ': ''
-        let description = creators
-        if (mapInfo.analyze){
-            description += t('mapCumulative', {hours: formatHours(mapInfo.analyze.cum_player_hours), name: server.community_name, players: mapInfo.analyze.unique_players});
-        }
-        if (mapInfo.info?.removed){
-            description += t('mapRemoved', {name: server.community_name})
-        }
-        try{
-            const regions: MapRegion[] = await fetchServerUrl(server.id, `/maps/${map_name}/regions`)
-            const regionMap = regions.sort((a, b) => b.total_play_duration - a.total_play_duration)
-            const region = regionMap[0]
-            description += ' ' + t('mainlyPlayed', {region: region.region_name, hours: formatHours(region.total_play_duration)})
-        }catch (error){
+    }
+    const creators = mapInfo?.info?.creators? t('createdBy', {creators: mapInfo.info.creators}) + ' ': ''
+    let description = creators
+    if (mapInfo.analyze){
+        description += t('mapCumulative', {hours: formatHours(mapInfo.analyze.cum_player_hours), name: server.community_name, players: mapInfo.analyze.unique_players});
+    }
+    if (mapInfo.info?.removed){
+        description += t('mapRemoved', {name: server.community_name})
+    }
+    try{
+        const regions: MapRegion[] = await fetchServerUrl(server.id, `/maps/${map_name}/regions`)
+        const regionMap = regions.sort((a, b) => b.total_play_duration - a.total_play_duration)
+        const region = regionMap[0]
+        description += ' ' + t('mainlyPlayed', {region: region.region_name, hours: formatHours(region.total_play_duration)})
+    }catch (error){
 
-        }
-        try{
-            const totalPlayers: PlayerBrief[] = await fetchServerUrl(server.id, `/maps/${map_name}/top_players`)
-            const players = totalPlayers.sort((a, b) => b.total_playtime - a.total_playtime)
-            const firstPlayer = players[0]
-            description += ' ' + t('mostActivePlayer', {name: firstPlayer.name, hours: formatHours(firstPlayer.total_playtime)})
-        }catch (e){}
+    }
+    try{
+        const totalPlayers: PlayerBrief[] = await fetchServerUrl(server.id, `/maps/${map_name}/top_players`)
+        const players = totalPlayers.sort((a, b) => b.total_playtime - a.total_playtime)
+        const firstPlayer = players[0]
+        description += ' ' + t('mostActivePlayer', {name: firstPlayer.name, hours: formatHours(firstPlayer.total_playtime)})
+    }catch (e){}
 
-        const image = await getMapImage(server.id, map_name).then(resp => resp?.large || null)
-        return {title, description, path: `/maps/${map_name}`, social: {images: [image]}}
-    })
+    const image = await getMapImage(server.id, map_name).then(resp => resp?.large || null)
+    return {
+        title,
+        description: description,
+        ...socialMeta({title, description, images: [image]}),
+        alternates: {
+            canonical: `/servers/${server.gotoLink}/maps/${map_name}`,
+        },
+    }
 }
 
 export default async function Page({ params, searchParams }){

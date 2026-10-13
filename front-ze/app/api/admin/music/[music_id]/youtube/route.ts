@@ -1,3 +1,10 @@
-import { proxyPut } from "lib/apiProxy";
+import { proxyToBackendChange } from "lib/apiProxy";
 
-export const PUT = proxyPut(p => `/admin/music/${p.music_id}/youtube`);
+export async function PUT(
+    req: Request,
+    context: { params: Promise<{ music_id: string }> }
+) {
+    const { music_id } = await context.params;
+    const body = await req.json();
+    return proxyToBackendChange(`/admin/music/${music_id}/youtube`, body, "PUT");
+}

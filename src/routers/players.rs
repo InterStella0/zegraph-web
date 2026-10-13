@@ -11,7 +11,7 @@ use poem::http::StatusCode;
 use poem_openapi::types::{ParseFromJSON, ToJSON};
 use sqlx::{Pool, Postgres};
 use tokio::task;
-use crate::{or_ise, require, response, AppData, FastCache};
+use crate::{response, AppData, FastCache};
 use crate::api_models::common::*;
 use crate::api_models::players::*;
 use crate::api_models::radars::CountryStatistic;
@@ -527,7 +527,9 @@ impl PlayerApi{
                     .await
             }
         };
-        let resulted = or_ise!(result);
+        let Ok(resulted) = result else {
+            return response!(internal_server_error)
+        };
         let total_player_count = resulted
             .first()
             .and_then(|e| e.total_players)
@@ -597,7 +599,9 @@ impl PlayerApi{
         "#, server_id).fetch_all(pool);
 
         let key = format!("players-playing:{server_id}");
-        let rows = or_ise!(cached_response(&key, cache, 20, func).await);
+        let Ok(rows) = cached_response(&key, cache, 20, func).await else {
+            return response!(internal_server_error)
+        };
 
         let mut players: Vec<PlayerDetailSession> = rows.result.iter_into();
         let anonymizer = BriefAnonymizer::new(app, &server.server_id, user_token.as_ref().map(|t| t.id)).await;
@@ -628,7 +632,9 @@ impl PlayerApi{
         ", server_id, player_id).fetch_one(pool);
 
         let key = format!("player-playing:{server_id}:{player_id}");
-        let result = or_ise!(cached_response(&key, redis_pool, 2 * 60, func).await);
+        let Ok(result) = cached_response(&key, redis_pool, 2 * 60, func).await else {
+            return response!(internal_server_error)
+        };
 
         response!(ok result.result.into())
     }
@@ -747,7 +753,9 @@ impl PlayerApi{
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Path(session_id): Path<String>,
         OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
     ) -> Response<Vec<PlayerSessionMapPlayed>>{
-        require!(is_session_id(&session_id), "This session does not exist.", ErrorCode::NotFound);
+        if !is_session_id(&session_id) {
+            return response!(err "This session does not exist.", ErrorCode::NotFound);
+        }
         let map_played = match sqlx::query_as!(DbPlayerSessionMapPlayed,
             "WITH data_session AS (
                 SELECT player_id, server_id, started_at, COALESCE(ended_at,current_timestamp) ended_at
@@ -838,7 +846,9 @@ impl PlayerApi{
                     to_timestamp((payload->>'created')::double precision::bigint) AS infraction_time
             ", extract.player.associated_player_id.clone().unwrap_or(extract.player.player_id.clone()), extract.server.server_id).fetch_all(pool).await
         };
-        let result = or_ise!(rows);
+        let Ok(result) = rows else {
+            return response!(internal_server_error)
+        };
 
         let mut tasks = vec![];
         for infraction in result {
@@ -909,7 +919,9 @@ impl PlayerApi{
                 ORDER BY infraction_time DESC
             ", extract.player.associated_player_id.clone().unwrap_or(extract.player.player_id.clone()), extract.server.server_id).fetch_all(pool).await
         };
-        let result = or_ise!(sql);
+        let Ok(result) = sql else {
+            return response!(internal_server_error)
+        };
         response!(ok result.iter_into())
     }
     /// Full profile for a player on a server: playtime, rank and related stats in one call.
@@ -954,7 +966,9 @@ impl PlayerApi{
         ", server_id, player_id).fetch_all(pool);
 
         let key = format!("player-periods:{server_id}:{player_id}:{}", extract.key.current);
-        let result = or_ise!(cached_response(&key, &app.cache, DAY, func).await);
+        let Ok(result) = cached_response(&key, &app.cache, DAY, func).await else {
+            return response!(internal_server_error)
+        };
         response!(ok group_periods(result.result))
     }
     /// A player's Steam profile picture, in full and medium sizes.
@@ -1017,10 +1031,12 @@ impl PlayerApi{
             }
         }
         if !unresolved.is_empty() {
-            let rows = or_ise!(sqlx::query!(
+            let Ok(rows) = sqlx::query!(
                 "SELECT player_id, associated_player_id FROM player WHERE player_id = ANY($1)",
                 &unresolved[..]
-            ).fetch_all(&*app.pool).await);
+            ).fetch_all(&*app.pool).await else {
+                return response!(internal_server_error)
+            };
             for row in rows {
                 if let Some(steam_id) = row.associated_player_id.and_then(|p| p.parse::<i64>().ok()) {
                     steam_ids.push((row.player_id, steam_id));
@@ -1142,3 +1158,34 @@ impl PlayerApi{
     }
 }
 const PFP_BULK_TIMEOUT: Duration = Duration::from_millis(500);
+
+impl UriPatternExt for PlayerApi{
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
+        vec![
+            "/servers/{server_id}/players/{player_id}/playing",
+            "/servers/{server_id}/players/playing",
+            "/servers/{server_id}/players/autocomplete",
+            "/servers/{server_id}/players/stats",
+            "/servers/{server_id}/players/countries",
+            "/servers/{server_id}/players/table",
+            "/servers/{server_id}/players/{player_id}/graph/sessions",
+            "/servers/{server_id}/players/{player_id}/sessions",
+            "/servers/{server_id}/players/{player_id}/sessions/{session_id}/info",
+            "/servers/{server_id}/players/{player_id}/sessions/{session_id}/maps",
+            "/servers/{server_id}/players/{player_id}/sessions/{session_id}/might_friends",
+            "/servers/{server_id}/players/{player_id}/might_friends",
+            "/servers/{server_id}/players/{player_id}/might_friends/calculate",
+            "/servers/{server_id}/players/{player_id}/infraction_update",
+            "/servers/{server_id}/players/{player_id}/infractions",
+            "/servers/{server_id}/players/{player_id}/detail",
+            "/servers/{server_id}/players/{player_id}/periods",
+            "/players/{player_id}/pfp",
+            "/players/pfps",
+            "/servers/{server_id}/players/{player_id}/most_played_maps",
+            "/servers/{server_id}/players/{player_id}/regions",
+            "/servers/{server_id}/players/{player_id}/legacy_stats",
+            "/servers/{server_id}/players/{player_id}/hours_of_day",
+            "/servers/{server_id}/players/{player_id}/online_heatmap",
+        ].iter_into()
+    }
+}

@@ -1,3 +1,5 @@
-import { proxyGet } from "lib/apiProxy";
+import { proxyToBackend } from "lib/apiProxy"
 
-export const GET = proxyGet("/maps/all/3d");
+export async function GET(req: Request) {
+  return await proxyToBackend("/maps/all/3d", req)
+}

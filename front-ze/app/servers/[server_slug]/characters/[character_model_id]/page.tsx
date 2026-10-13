@@ -2,22 +2,25 @@ import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { getServerSlugOrNotFound } from "../../util"
-import { serverMetadata } from "../../serverMetadata"
-import { fetchServerUrl } from "utils/generalUtils"
+import { formatTitle, fetchServerUrl } from "utils/generalUtils"
 import { Character3DModel } from "types/maps"
 import { Badge } from "components/ui/badge"
 import { Button } from "components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import CharacterViewerRenderer from "./CharacterViewerRenderer"
+import { getTranslations } from 'next-intl/server';
 
 export async function generateMetadata({ params }: {
     params: Promise<{ server_slug: string, character_model_id: string }>
 }): Promise<Metadata> {
-    return serverMetadata(params, (server, t, { character_model_id }) => ({
-        title: t('characterTitle', {id: character_model_id}),
+    const { server_slug, character_model_id } = await params
+    const server = await getServerSlugOrNotFound(server_slug)
+    const t = await getTranslations('metadata');
+    return {
+        title: formatTitle(t('characterTitle', {id: character_model_id})),
         description: t('characterDescription', {id: character_model_id, name: server.community_name}),
-        path: `/characters/${character_model_id}`,
-    }))
+        alternates: { canonical: `/servers/${server.gotoLink}/characters/${character_model_id}` },
+    }
 }
 
 export default async function Page({ params }: {

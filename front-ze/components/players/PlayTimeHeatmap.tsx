@@ -2,6 +2,7 @@
 import { BarController, BarElement, CategoryScale, Chart as ChartJS, LinearScale, TimeScale, Title, Tooltip as TooltipChart } from 'chart.js';
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import { LazyBarChart, LazyMatrixChart } from "components/graphs/LazyCharts";
+import { color } from "chart.js/helpers";
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import weekOfYear from "dayjs/plugin/weekOfYear";
@@ -17,14 +18,19 @@ import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { useTranslations } from "next-intl";
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
-import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
-import {CalendarCell, calendarCells, calendarMatrixDataset, calendarMatrixOptions, heatCellColors} from "lib/calendarHeatmap";
 
 dayjs.extend(weekOfYear)
 dayjs.extend(isoWeek)
 dayjs.extend(utc)
 
 ChartJS.register(MatrixController, MatrixElement, BarController, BarElement, TimeScale, TooltipChart, CategoryScale, LinearScale, Title);
+
+type HeatmapData = {
+    x: string,
+    y: string,
+    d: string,
+    v: number,
+}
 
 export type PlayerSessionTime = {
     bucket_time: string,
@@ -63,7 +69,7 @@ export default function PlayTimeHeatmap({
     const t = useTranslations('players.heatmap')
     const playerId = player.id
     const server_id = server.id
-    const [heatmapData, setHeatmapData] = useState<CalendarCell[]>([])
+    const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([])
     const [chartBarData, setChartBarData] = useState<{time: string, hours: number}[]>([])
 
     const { data: sessionData, loading } = usePlayerStat<PlayerSessionTime[]>(
@@ -123,7 +129,7 @@ export default function PlayTimeHeatmap({
             return
         }
 
-        const transformed: CalendarCell[] = []
+        const transformed: HeatmapData[] = []
 
         if (groupBy === 'daily') {
             // GitHub-style calendar heatmap: x=date, y=day-of-week
@@ -134,9 +140,21 @@ export default function PlayTimeHeatmap({
                 dataMap.set(iso, e.hours)
             })
 
+            // Generate all days for the selected year, or the selected range
             const startOfYear = rangeFrom ? dayjs.utc(rangeFrom) : dayjs(`${selectedYear}-01-01`)
             const endOfYear = rangeTo ? dayjs.utc(rangeTo) : dayjs(`${selectedYear}-12-31`)
-            transformed.push(...calendarCells(startOfYear, endOfYear, dataMap))
+            let currentDate = startOfYear
+
+            while (currentDate.isBefore(endOfYear) || currentDate.isSame(endOfYear, 'day')) {
+                const iso = currentDate.format("YYYY-MM-DD")
+                transformed.push({
+                    x: iso,
+                    y: currentDate.locale('en').format('ddd'), // stable English key: Mon, Tue, etc
+                    d: currentDate.format('MMM DD, YYYY'),
+                    v: dataMap.get(iso) || 0  // Use 0 for days without data
+                })
+                currentDate = currentDate.add(1, 'day')
+            }
         } else if (groupBy === 'monthly') {
             // Show daily breakdown for selected month
             // Create a map of existing data for quick lookup
@@ -194,7 +212,24 @@ export default function PlayTimeHeatmap({
         setHeatmapData(transformed)
     }, [filteredData, groupBy, rawData, sumMethodYearly, rangeFrom, rangeTo])
 
-    const colors = useChartTheme();
+    const getChartColors = () => {
+        if (typeof window === 'undefined') return {
+            textColor: 'hsl(222.2 47.4% 11.2%)',
+            tooltipBg: 'hsl(0, 0%, 100%)',
+            gridColor: 'hsla(214.3, 31.8%, 91.4%, 0.3)',
+            primaryColor: 'rgb(235, 195, 218)' // Light pink
+        };
+
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            textColor: isDark ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 47.4%, 11.2%)',
+            tooltipBg: isDark ? 'hsl(222.2, 84%, 4.9%)' : 'hsl(0, 0%, 100%)',
+            gridColor: isDark ? 'hsla(217.2, 32.6%, 17.5%, 0.3)' : 'hsla(214.3, 31.8%, 91.4%, 0.3)',
+            primaryColor: isDark ? 'rgb(229, 82, 157)' : 'rgb(235, 195, 218)' // Dark: vibrant pink, Light: light pink
+        };
+    };
+
+    const colors = getChartColors();
     const dayNames = useWeekdayLabels();
 
     // Max hours for color scaling
@@ -202,16 +237,152 @@ export default function PlayTimeHeatmap({
         return Math.max(...heatmapData.map(d => d.v), 1)
     }, [heatmapData])
 
-    const isRange = !!rangeFrom && !!rangeTo
-    const cols = isRange ? Math.ceil((dayjs.utc(rangeTo).diff(dayjs.utc(rangeFrom), 'day') + 1) / 7) + 1 : 53
-    const chartWidth = isRange ? `${cols * 19 + 40}px` : '1025px'
+    // Get Y-axis labels based on groupBy
+    const getYAxisLabels = () => {
+        switch (groupBy) {
+            case 'daily':
+                return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            case 'monthly':
+                return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            case 'yearly':
+                return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+            default:
+                return []
+        }
+    }
 
-    const options = useMemo(() => calendarMatrixOptions(colors, dayNames,
-        v => [v.d, t('hoursPlayedValue', {hours: v.v.toFixed(2)})]), [colors, t, dayNames])
+    // Get dimensions based on groupBy
+    const getDimensions = () => {
+        switch (groupBy) {
+            case 'daily': {
+                if (!rangeFrom || !rangeTo) return { width: '1025px', cols: 53, rows: 7 }
+                const cols = Math.ceil((dayjs.utc(rangeTo).diff(dayjs.utc(rangeFrom), 'day') + 1) / 7) + 1
+                return { width: `${cols * 19 + 40}px`, cols, rows: 7 }
+            }
+            case 'monthly':
+                return { width: '800px', cols: 31, rows: 7 }  // Days in month
+            case 'yearly':
+                return { width: '100%', cols: 5, rows: 10 }
+            default:
+                return { width: '1025px', cols: 53, rows: 7 }
+        }
+    }
 
+    const dimensions = getDimensions()
+
+    // Chart options
+    const options = useMemo(() => ({
+        responsive: false,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: false,
+            tooltip: {
+                displayColors: false,
+                backgroundColor: colors.tooltipBg,
+                titleColor: colors.textColor,
+                bodyColor: colors.textColor,
+                borderColor: colors.gridColor,
+                borderWidth: 1,
+                callbacks: {
+                    title() {
+                        return '';
+                    },
+                    label(context: any) {
+                        const v = context.dataset.data[context.dataIndex];
+                        return [v.d, t('hoursPlayedValue', {hours: v.v.toFixed(2)})];
+                    }
+                }
+            },
+        },
+        scales: {
+            y: {
+                type: 'category',
+                labels: getYAxisLabels(),
+                offset: true,
+                reverse: false,
+                position: 'right',
+                ticks: {
+                    maxRotation: 0,
+                    autoSkip: true,
+                    padding: 1,
+                    color: colors.textColor,
+                    font: {
+                        size: 9
+                    },
+                    callback(this: any, value: any) {
+                        const label = this.getLabelForValue(value);
+                        return dayNames[label] ?? label;
+                    }
+                },
+                grid: {
+                    display: false,
+                    drawBorder: false,
+                    tickLength: 0
+                }
+            },
+            x: {
+                type: groupBy === 'yearly' ? 'category' : 'time',
+                position: 'bottom',
+                offset: true,
+                time: groupBy !== 'yearly' ? {
+                    unit: groupBy === 'monthly' ? 'day' : 'week',
+                    round: groupBy === 'monthly' ? 'day' : 'week',
+                    isoWeekday: 1,
+                    displayFormats: {
+                        day: 'D',        // Show day number (1-31)
+                        week: 'MMM YY',
+                        year: 'YYYY'
+                    }
+                } : undefined,
+                ticks: {
+                    maxRotation: 0,
+                    color: colors.textColor,
+                    font: {
+                        weight: 'bold',
+                        size: 9
+                    }
+                },
+                grid: {
+                    display: false,
+                    drawBorder: false,
+                    tickLength: 5,
+                }
+            }
+        },
+        layout: {
+            padding: {
+                top: 10
+            }
+        }
+    }), [groupBy, colors, heatmapData, t, dayNames])
+
+    // Chart data
     const data = useMemo(() => ({
-        datasets: [calendarMatrixDataset(heatmapData, cols, ...heatCellColors(colors.heat, maxHours))]
-    }), [heatmapData, maxHours, colors, cols])
+        datasets: [{
+            type: 'matrix',
+            data: heatmapData,
+            backgroundColor(c: any) {
+                const value = c.dataset.data[c.dataIndex].v
+                const alpha = Math.min((0.1 + value) / Math.max(3, maxHours), 1)
+                return color(colors.primaryColor).alpha(alpha).rgbString()
+            },
+            borderColor(c: any) {
+                const value = c.dataset.data[c.dataIndex].v
+                const alpha = Math.min((0.2 + value) / Math.max(4, maxHours), 1)
+                return color(colors.primaryColor).alpha(alpha).rgbString()
+            },
+            borderWidth: 1,
+            hoverBorderColor: 'grey',
+            width(c: any) {
+                const a = c.chart.chartArea
+                return (a.right - a.left) / dimensions.cols - 1
+            },
+            height(c: any) {
+                const a = c.chart.chartArea
+                return (a.bottom - a.top) / dimensions.rows - 1
+            }
+        }]
+    }), [heatmapData, maxHours, colors, dimensions])
 
     // Generate SEO summaries at top level (not inside conditionals)
     const yearlySummary = useMemo(() => {
@@ -272,8 +443,8 @@ export default function PlayTimeHeatmap({
             datasets: [{
                 label: t('hoursPlayed'),
                 data: chartBarData.map(d => d.hours),
-                backgroundColor: colors.heat,
-                borderColor: colors.heat,
+                backgroundColor: colors.primaryColor,
+                borderColor: colors.primaryColor,
                 borderWidth: 1,
             }]
         }
@@ -284,7 +455,11 @@ export default function PlayTimeHeatmap({
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    ...heatmapTooltip(colors),
+                    backgroundColor: colors.tooltipBg,
+                    titleColor: colors.textColor,
+                    bodyColor: colors.textColor,
+                    borderColor: colors.gridColor,
+                    borderWidth: 1,
                     callbacks: {
                         label: (context: any) => t('hoursPlayedValue', {hours: context.parsed.y.toFixed(2)})
                     }
@@ -293,14 +468,14 @@ export default function PlayTimeHeatmap({
             scales: {
                 x: {
                     type: 'category' as const,
-                    ticks: { color: colors.foreground },
-                    grid: { color: colors.faintGrid }
+                    ticks: { color: colors.textColor },
+                    grid: { color: colors.gridColor }
                 },
                 y: {
                     type: 'linear' as const,
-                    title: { display: true, text: t('hoursPlayed'), color: colors.foreground },
-                    ticks: { color: colors.foreground },
-                    grid: { color: colors.faintGrid }
+                    title: { display: true, text: t('hoursPlayed'), color: colors.textColor },
+                    ticks: { color: colors.textColor },
+                    grid: { color: colors.gridColor }
                 }
             }
         }
@@ -345,7 +520,7 @@ export default function PlayTimeHeatmap({
                 <LazyMatrixChart
                     data={data}
                     options={options}
-                    width={chartWidth}
+                    width={dimensions.width}
                 />
             </div>
             <ScrollBar orientation="horizontal" />

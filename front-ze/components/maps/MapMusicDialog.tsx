@@ -14,7 +14,12 @@ import { fetchApiUrl } from "utils/generalUtils";
 import {PlayerAvatar} from "components/players/PlayerAvatar.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {useTranslations} from 'next-intl';
-import {formatTrackDuration} from "utils/format";
+
+function formatDuration(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
 interface MapMusicDialogProps {
     open: boolean;
@@ -158,7 +163,7 @@ export default function MapMusicDialog({
                                 </Badge>)}
 
                                 <span className="text-xs sm:text-sm text-muted-foreground">
-                                    {formatTrackDuration(currentTrack.duration)}
+                                    {formatDuration(currentTrack.duration)}
                                 </span>
 
                                 <Badge variant="outline" className="text-xs flex items-center gap-1">
@@ -252,7 +257,7 @@ export default function MapMusicDialog({
                                                 )}
                                             </div>
                                             <span className="text-xs text-muted-foreground shrink-0">
-                                                {formatTrackDuration(track.duration)}
+                                                {formatDuration(track.duration)}
                                             </span>
                                         </div>
                                     </Button>

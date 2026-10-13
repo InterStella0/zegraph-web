@@ -1,4 +1,8 @@
 use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use crate::api_models::common::UriPatternExt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Segment {
@@ -23,10 +27,20 @@ fn split_segments(path: &str) -> impl Iterator<Item = &str> {
 }
 
 /// A single route pattern, e.g. `/servers/{server_id}/maps/{map_name}/info`.
+///
+/// Holds `&'static str` rather than a lifetime parameter because every pattern in the codebase is a
+/// string literal in a [`UriPatternExt::get_all_patterns`] impl. That is what lets [`PatternTable`]
+/// build the whole set once at startup instead of per request.
 #[derive(Debug, Clone)]
 pub struct RoutePattern {
     uri: &'static str,
     segments: Vec<Segment>,
+}
+
+impl From<&'static str> for RoutePattern {
+    fn from(uri: &'static str) -> Self {
+        Self::new(uri)
+    }
 }
 
 impl RoutePattern {
@@ -58,7 +72,8 @@ impl RoutePattern {
         }
     }
 
-    /// The pattern as written, e.g. `/communities/{community_id}/unique_players`.
+    /// The pattern as written, e.g. `/communities/{community_id}/unique_players`. Same syntax the
+    /// OpenAPI spec uses for path keys, which is what lets `route_tests` compare the two directly.
     pub fn uri(&self) -> &'static str {
         self.uri
     }
@@ -99,15 +114,13 @@ pub struct PatternTable {
 }
 
 impl PatternTable {
-    pub fn from_spec(spec: &str, extra: &[&'static str]) -> Self {
-        let spec: serde_json::Value = serde_json::from_str(spec).expect("poem-openapi emits valid JSON");
-        let mut patterns: Vec<RoutePattern> = spec["paths"]
-            .as_object()
-            .into_iter()
-            .flat_map(|paths| paths.keys())
-            .map(|path| RoutePattern::new(path.clone().leak()))
-            .chain(extra.iter().map(|path| RoutePattern::new(path)))
+    pub fn new(routers: &[Arc<dyn UriPatternExt + Send + Sync>]) -> Self {
+        let mut patterns: Vec<RoutePattern> = routers
+            .iter()
+            .flat_map(|api| api.get_all_patterns())
             .collect();
+
+        warn_on_duplicates(&patterns);
 
         // Descending, so `find` returns the most specific match and can stop there.
         patterns.sort_by(|a, b| b.cmp(a));
@@ -117,6 +130,21 @@ impl PatternTable {
     /// The most specific registered pattern serving `path`, or `None` if no route matches.
     pub fn find(&self, path: &str) -> Option<&RoutePattern> {
         self.patterns.iter().find(|pattern| pattern.is_match(path))
+    }
+}
+
+/// A pattern listed twice is dead weight the drift test in `route_tests` cannot see: it compares
+/// the declared set against the spec as sets, so duplicates cancel out. Cheap enough to check once
+/// at startup.
+fn warn_on_duplicates(patterns: &[RoutePattern]) {
+    let mut seen: HashMap<&str, usize> = HashMap::new();
+    for pattern in patterns {
+        *seen.entry(pattern.uri()).or_insert(0) += 1;
+    }
+    for (uri, count) in seen {
+        if count > 1 {
+            tracing::warn!("Route pattern {uri} is registered {count} times in get_all_patterns()");
+        }
     }
 }
 

@@ -5,7 +5,7 @@ use poem_openapi::param::Path;
 use uuid::Uuid;
 
 use crate::core::utils::*;
-use crate::{or_ise, require, response, AppData};
+use crate::{response, AppData};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::models::misc::*;
@@ -27,7 +27,7 @@ impl ZeCommunityLinksApi {
         &self,
         Data(data): Data<&AppData>,
     ) -> Response<Vec<CommunityLinkResponse>> {
-        let links = or_ise!(sqlx::query_as!(
+        let links = match sqlx::query_as!(
             DbCommunityLink,
             r#"
             SELECT id, name, url, description, sort_order, created_at
@@ -36,7 +36,14 @@ impl ZeCommunityLinksApi {
             "#
         )
         .fetch_all(&*data.pool)
-        .await, e => "Failed to fetch community links: {}", e);
+        .await
+        {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::error!("Failed to fetch community links: {}", e);
+                return response!(internal_server_error);
+            }
+        };
 
         response!(ok links.into_iter().map(Into::into).collect())
     }
@@ -49,7 +56,9 @@ impl ZeCommunityLinksApi {
         TokenBearer(user_token): TokenBearer,
         Json(payload): Json<CreateCommunityLinkPayload>,
     ) -> Response<CommunityLinkResponse> {
-        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
 
         if payload.name.trim().is_empty() {
             return response!(err "Name cannot be empty", ErrorCode::BadRequest);
@@ -57,12 +66,14 @@ impl ZeCommunityLinksApi {
         if payload.name.len() > 100 {
             return response!(err "Name must be 100 characters or fewer", ErrorCode::BadRequest);
         }
-        require!(is_valid_url(&payload.url), "URL must start with http:// or https://", ErrorCode::BadRequest);
+        if !is_valid_url(&payload.url) {
+            return response!(err "URL must start with http:// or https://", ErrorCode::BadRequest);
+        }
         if payload.url.len() > 500 {
             return response!(err "URL must be 500 characters or fewer", ErrorCode::BadRequest);
         }
 
-        let link = or_ise!(sqlx::query_as!(
+        let link = match sqlx::query_as!(
             DbCommunityLink,
             r#"
             INSERT INTO website.ze_community_links (name, url, description, sort_order)
@@ -75,7 +86,14 @@ impl ZeCommunityLinksApi {
             payload.sort_order,
         )
         .fetch_one(&*data.pool)
-        .await, e => "Failed to create community link: {}", e);
+        .await
+        {
+            Ok(row) => row,
+            Err(e) => {
+                tracing::error!("Failed to create community link: {}", e);
+                return response!(internal_server_error);
+            }
+        };
 
         response!(ok link.into())
     }
@@ -93,7 +111,9 @@ impl ZeCommunityLinksApi {
             Ok(u) => u,
             Err(_) => return response!(err "Invalid id", ErrorCode::BadRequest),
         };
-        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
 
         if let Some(ref name) = payload.name {
             if name.trim().is_empty() {
@@ -104,13 +124,15 @@ impl ZeCommunityLinksApi {
             }
         }
         if let Some(ref url) = payload.url {
-            require!(is_valid_url(url), "URL must start with http:// or https://", ErrorCode::BadRequest);
+            if !is_valid_url(url) {
+                return response!(err "URL must start with http:// or https://", ErrorCode::BadRequest);
+            }
             if url.len() > 500 {
                 return response!(err "URL must be 500 characters or fewer", ErrorCode::BadRequest);
             }
         }
 
-        let Some(link) = or_ise!(sqlx::query_as!(
+        let link = match sqlx::query_as!(
             DbCommunityLink,
             r#"
             UPDATE website.ze_community_links
@@ -130,8 +152,14 @@ impl ZeCommunityLinksApi {
             payload.sort_order,
         )
         .fetch_optional(&*data.pool)
-        .await, e => "Failed to update community link: {}", e) else {
-            return response!(err "Community link not found", ErrorCode::NotFound);
+        .await
+        {
+            Ok(Some(row)) => row,
+            Ok(None) => return response!(err "Community link not found", ErrorCode::NotFound),
+            Err(e) => {
+                tracing::error!("Failed to update community link: {}", e);
+                return response!(internal_server_error);
+            }
         };
 
         response!(ok link.into())
@@ -149,19 +177,37 @@ impl ZeCommunityLinksApi {
             Ok(u) => u,
             Err(_) => return response!(err "Invalid id", ErrorCode::BadRequest),
         };
-        require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
+        if !check_superuser(data, user_token.id).await {
+            return response!(err "Unauthorized", ErrorCode::Forbidden);
+        }
 
-        let result = or_ise!(sqlx::query!(
+        let result = match sqlx::query!(
             "DELETE FROM website.ze_community_links WHERE id = $1",
             id,
         )
         .execute(&*data.pool)
-        .await, e => "Failed to delete community link: {}", e);
+        .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!("Failed to delete community link: {}", e);
+                return response!(internal_server_error);
+            }
+        };
 
         if result.rows_affected() == 0 {
             return response!(err "Community link not found", ErrorCode::NotFound);
         }
 
         response!(ok true)
+    }
+}
+
+impl UriPatternExt for ZeCommunityLinksApi {
+    fn get_all_patterns(&self) -> Vec<RoutePattern> {
+        vec![
+            "/community-links",
+            "/community-links/{id}",
+        ].iter_into()
     }
 }

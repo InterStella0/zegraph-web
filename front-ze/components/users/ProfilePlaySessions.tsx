@@ -4,17 +4,21 @@ import { ReactElement, useEffect, useState } from "react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { fetchApiUrl, simpleRandom } from "utils/generalUtils";
 import { formatDuration } from "utils/sessionUtils";
 import { GlobalPlayerSession, GlobalPlayerSessionPage } from "types/players.ts";
 import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 import { Badge } from "components/ui/badge";
+import { Button } from "components/ui/button";
+import { Calendar } from "components/ui/calendar";
 import { Card, CardContent } from "components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Skeleton } from "components/ui/skeleton";
 import { getServerAvatarText } from "components/ui/CommunitySelector.tsx";
+import { cn } from "components/lib/utils";
 import PaginationPage from "components/ui/PaginationPage.tsx";
-import SessionDateFilter from "components/players/SessionDateFilter";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -94,6 +98,7 @@ export default function ProfilePlaySessions({ userId }: { userId: string }): Rea
     const [page, setPage] = useState<number>(0);
     const [totalPages, setTotalPages] = useState<number>(1);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+    const [datePickerOpen, setDatePickerOpen] = useState(false);
 
     useEffect(() => {
         setLoading(true);
@@ -123,6 +128,19 @@ export default function ProfilePlaySessions({ userId }: { userId: string }): Rea
     const handleDateChange = (newDate: Date | undefined) => {
         setSelectedDate(newDate);
         setPage(0);
+        setDatePickerOpen(false);
+    };
+    const handlePreviousDay = () => {
+        if (selectedDate) {
+            setSelectedDate(dayjs(selectedDate).subtract(1, 'day').toDate());
+            setPage(0);
+        }
+    };
+    const handleNextDay = () => {
+        if (selectedDate) {
+            setSelectedDate(dayjs(selectedDate).add(1, 'day').toDate());
+            setPage(0);
+        }
     };
 
     return (
@@ -130,7 +148,48 @@ export default function ProfilePlaySessions({ userId }: { userId: string }): Rea
             <CardContent className="px-1 max-sm:px-1">
                 <div className="mb-2 space-y-2">
                     <h2 className="text-base font-semibold">{t('title')}</h2>
-                    <SessionDateFilter selectedDate={selectedDate} onSelectDate={handleDateChange} compact />
+                    <div className="flex gap-1 items-center">
+                        {selectedDate && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handlePreviousDay}>
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                        )}
+                        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                        "h-8 min-w-0 flex-1 justify-start text-left text-xs font-normal",
+                                        !selectedDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">
+                                        {selectedDate ? dayjs(selectedDate).format('MMM DD, YYYY') : t('filterByDate')}
+                                    </span>
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={selectedDate} onSelect={handleDateChange} />
+                            </PopoverContent>
+                        </Popover>
+                        {selectedDate && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleNextDay}>
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        )}
+                        {selectedDate && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 shrink-0 px-2 text-xs"
+                                onClick={() => { setSelectedDate(undefined); setPage(0); }}
+                            >
+                                {t('clear')}
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="max-h-[525px] overflow-y-auto mb-2 pr-1">

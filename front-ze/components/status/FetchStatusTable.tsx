@@ -14,7 +14,7 @@ import {
 } from "types/fetchStatus";
 import {fetchUrl} from "utils/generalUtils.ts";
 import { useTranslations } from 'next-intl';
-import {withErrorCatch} from "components/common/withErrorCatch";
+import ErrorCatch from "components/ui/ErrorMessage.tsx";
 
 dayjs.extend(relativeTime);
 
@@ -317,4 +317,10 @@ function FetchStatusTableDisplay({ initialDataPromise }: { initialDataPromise: P
     );
 }
 
-export default withErrorCatch(FetchStatusTableDisplay, () => "Fetch status couldn't be loaded.")
+export default function FetchStatusTable({ initialDataPromise }: { initialDataPromise: Promise<FetchStatusCommunityGroupTruncated[]> }) {
+    return (
+        <ErrorCatch message="Fetch status couldn't be loaded.">
+            <FetchStatusTableDisplay initialDataPromise={initialDataPromise} />
+        </ErrorCatch>
+    );
+}

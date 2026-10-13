@@ -3,32 +3,64 @@ import { auth } from "../auth";
 import { BACKEND_DOMAIN } from "utils/generalUtils";
 import { CACHE_HEADERS, withCacheHeaders } from './cacheHeaders';
 
-type CachePreset = keyof typeof CACHE_HEADERS;
-type RouteParams = Record<string, string>;
-type RouteContext = { params: Promise<RouteParams> };
-type RoutePath = string | ((params: RouteParams) => string);
-
-const resolvePath = async (path: RoutePath, context?: RouteContext) =>
-    typeof path === 'string' ? path : path(await context.params);
-
-async function callBackend(
+export async function proxyToBackend(
     endpoint: string,
-    backendUrl: URL,
-    init: RequestInit,
-    timeoutMs: number,
-    wrap: (response: NextResponse, data?: any) => Response = response => response
+    req?: Request,
+    addParams?: Record<string, string>,
+    cachePreset?: keyof typeof CACHE_HEADERS,
+    timeoutMs: number = 55_000
 ) {
+    const session = await auth();
+
+    const backendUrl = new URL(BACKEND_DOMAIN + endpoint);
+
+    if (req) {
+        const url = new URL(req.url);
+        url.searchParams.forEach((value, key) => {
+            backendUrl.searchParams.set(key, value);
+        });
+    }
+    if (addParams){
+        for(const [key, value] of Object.entries(addParams)){
+            backendUrl.searchParams.set(key, value)
+        }
+    }
+
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    // @ts-ignore
+    if (session?.backendJwt) {
+        // @ts-ignore
+        headers["Authorization"] = `Bearer ${session.backendJwt}`;
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-        const backendResponse = await fetch(backendUrl.toString(), { ...init, signal: controller.signal });
+        const backendResponse = await fetch(backendUrl.toString(), {
+            headers,
+            signal: controller.signal,
+        });
+
+        let response: Response;
+        let code: number | undefined;
+        let isStale = false;
         if (backendResponse.ok){
             const data = await backendResponse.json();
-            return wrap(NextResponse.json(data, { status: backendResponse.status }), data);
+            code = data?.code;
+            isStale = data?.data?.is_stale === true;
+            response = NextResponse.json(data, { status: backendResponse.status });
+        }else{
+            const data = await backendResponse.text();
+            response = NextResponse.json(data, { status: backendResponse.status });
         }
-        const data = await backendResponse.text();
-        return wrap(NextResponse.json(data, { status: backendResponse.status }));
+
+        if (cachePreset) {
+            const cacheable = code === 0 && !isStale;
+            return withCacheHeaders(response, cacheable ? cachePreset : 'NO_CACHE');
+        }
+
+        return response;
     } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
             console.error("Backend request timed out:", endpoint);
@@ -47,34 +79,6 @@ async function callBackend(
     }
 }
 
-export async function proxyToBackend(
-    endpoint: string,
-    req?: Request,
-    addParams?: Record<string, string>,
-    cachePreset?: CachePreset,
-    timeoutMs: number = 55_000
-) {
-    const session = await auth();
-
-    const backendUrl = new URL(BACKEND_DOMAIN + endpoint);
-    if (req) {
-        new URL(req.url).searchParams.forEach((value, key) => backendUrl.searchParams.set(key, value));
-    }
-    for (const [key, value] of Object.entries(addParams ?? {})) {
-        backendUrl.searchParams.set(key, value);
-    }
-
-    const headers: HeadersInit = { "Content-Type": "application/json" };
-    if (session?.backendJwt) {
-        headers["Authorization"] = `Bearer ${session.backendJwt}`;
-    }
-
-    return callBackend(endpoint, backendUrl, { headers }, timeoutMs, (response, data) => {
-        if (!cachePreset) return response;
-        const cacheable = data?.code === 0 && data?.data?.is_stale !== true;
-        return withCacheHeaders(response, cacheable ? cachePreset : 'NO_CACHE');
-    });
-}
 
 export async function proxyToBackendChange<T>(
     endpoint: string, payload?: T | null, method: "POST" | "PUT" | "DELETE" = "POST",
@@ -85,64 +89,42 @@ export async function proxyToBackendChange<T>(
     const backendUrl = new URL(BACKEND_DOMAIN + endpoint + addition)
     const headers = {"Content-Type": "application/json"}
     if(session){
+        // @ts-ignore
         headers['Authorization'] = `Bearer ${session?.backendJwt}`
     }
-    const body = payload && JSON.stringify(payload)
-    return callBackend(endpoint, backendUrl, { method, headers, cache: "no-store", body }, timeoutMs);
-}
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-export const proxyGet = (path: RoutePath, { cache, query = true }: { cache?: CachePreset, query?: boolean } = {}) =>
-    async (req: Request, context: RouteContext) =>
-        proxyToBackend(await resolvePath(path, context), query ? req : undefined, {}, cache);
-
-const proxyChange = (method: "POST" | "PUT" | "DELETE") =>
-    (path: RoutePath, { body = method !== "DELETE" }: { body?: boolean } = {}) =>
-        async (req: Request, context: RouteContext) => {
-            const endpoint = await resolvePath(path, context);
-            return proxyToBackendChange(endpoint, body ? await req.json() : null, method);
-        };
-
-export const proxyPost = proxyChange("POST");
-export const proxyPut = proxyChange("PUT");
-export const proxyDelete = proxyChange("DELETE");
-
-export const forwardRaw = (method: "POST" | "DELETE", path: RoutePath, body: 'form' | 'text' | 'none' = 'none') =>
-    async (req: Request, context: RouteContext) => {
-        const endpoint = await resolvePath(path, context);
-        const session = await auth();
-        const headers: Record<string, string> = { Authorization: `Bearer ${session.backendJwt}` };
-        let payload: BodyInit | undefined;
-        if (body === 'form') {
-            payload = await req.formData();
-        } else if (body === 'text') {
-            payload = await req.text();
-            headers["Content-Type"] = "application/json";
-        }
-
-        const response = await fetch(`${process.env.BACKEND_URL || 'http://backend:3000'}${endpoint}`, {
+    let body = payload && JSON.stringify(payload)
+    try {
+        const backendResponse = await fetch(backendUrl.toString(), {
             method,
             headers,
-            body: payload,
+            cache: "no-store",
+            body,
+            signal: controller.signal,
         });
-
-        return new Response(await response.text(), {
-            status: response.status,
-            headers: { 'Content-Type': 'application/json' },
-        });
-    };
-
-export async function postToBackendJson(endpoint: string, body?: unknown) {
-    const backendUrl = new URL(BACKEND_DOMAIN + endpoint)
-    const session = await auth()
-    const headers = {"Content-Type": "application/json"}
-    if(session){
-        headers['Authorization'] = `Bearer ${session?.backendJwt}`
+        if (backendResponse.ok){
+            const data = await backendResponse.json();
+            return NextResponse.json(data, { status: backendResponse.status });
+        }else{
+            const data = await backendResponse.text();
+            return NextResponse.json(data, { status: backendResponse.status });
+        }
+    } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+            console.error("Backend request timed out:", endpoint);
+            return NextResponse.json(
+                { msg: "Backend request timed out", code: 504 },
+                { status: 504 }
+            );
+        }
+        console.error("Error calling backend endpoint:", error);
+        return NextResponse.json(
+            { msg: "Internal server error", code: 500 },
+            { status: 500 }
+        );
+    } finally {
+        clearTimeout(timeoutId);
     }
-    const backendResponse = await fetch(backendUrl.toString(), {
-        method: "POST",
-        headers,
-        cache: "no-store",
-        body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    return NextResponse.json(await backendResponse.json(), { status: backendResponse.status });
 }

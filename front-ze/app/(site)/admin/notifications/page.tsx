@@ -6,9 +6,8 @@ import { Button } from 'components/ui/button';
 import { Input } from 'components/ui/input';
 import { Textarea } from 'components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'components/ui/card';
-import { sendJson } from 'lib/sendJson';
+import {fetchApiUrl} from 'utils/generalUtils';
 import { toast } from 'sonner';
-import { AdminHeader } from '../components/AdminUI';
 
 interface SendResult {
   success: number;
@@ -35,7 +34,12 @@ export default function AdminNotificationsPage() {
         user_id: userId ,
       };
 
-      const data: SendResult = await sendJson('/admin/push/test', 'POST', payload, { credentials: 'include' });
+      const data: SendResult = await fetchApiUrl('/admin/push/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
       setResult(data);
       toast.success(`Sent to ${data.success} users`);
     } catch (error) {
@@ -48,10 +52,12 @@ export default function AdminNotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <AdminHeader
-        title="Test Push Notifications"
-        description="Send test notifications to users to verify the push notification system"
-      />
+      <div>
+        <h1 className="text-3xl font-bold mb-2">Test Push Notifications</h1>
+        <p className="text-muted-foreground">
+          Send test notifications to users to verify the push notification system
+        </p>
+      </div>
 
       <Card>
         <CardHeader>

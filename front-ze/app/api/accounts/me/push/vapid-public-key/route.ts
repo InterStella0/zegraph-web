@@ -1,3 +1,6 @@
-import { proxyGet } from "lib/apiProxy";
+import {proxyToBackend} from "lib/apiProxy";
 
-export const GET = proxyGet("/accounts/me/push/vapid-public-key", { query: false });
+// GET /api/accounts/me/push/vapid-public-key
+export async function GET(_req: Request) {
+    return await proxyToBackend("/accounts/me/push/vapid-public-key");
+}

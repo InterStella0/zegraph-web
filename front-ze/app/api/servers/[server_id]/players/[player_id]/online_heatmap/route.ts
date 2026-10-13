@@ -1,3 +1,9 @@
-import { proxyGet } from "lib/apiProxy";
+import { proxyToBackend } from "lib/apiProxy";
 
-export const GET = proxyGet(p => `/servers/${p.server_id}/players/${p.player_id}/online_heatmap`);
+export async function GET(
+    req: Request,
+    { params }: { params: Promise<{ server_id: string; player_id: string }> }
+) {
+    const { server_id, player_id } = await params;
+    return await proxyToBackend(`/servers/${server_id}/players/${player_id}/online_heatmap`, req);
+}

@@ -8,35 +8,6 @@ use async_trait::async_trait;
 use crate::core::utils::*;
 use crate::FastCache;
 use crate::core::period::TimePeriod;
-use sqlx::types::time::OffsetDateTime;
-
-macro_rules! worker_query {
-    (@impl [$($a:tt)*] $q:ident<$t:ty> => $kind:ident, $s:ident, $ctx:ident, $key:expr, $ttl:expr, $prio:expr, $body:block) => {
-        $($a)*
-        #[async_trait::async_trait]
-        impl $crate::workers::WorkerQuery<$t> for $q<$t> {
-            type Error = sqlx::Error;
-
-            #[allow(unused_variables)]
-            async fn execute(&$s) -> Result<$t, Self::Error> {
-                let $ctx = &$s.context;
-                $body
-            }
-            #[allow(unused_variables)]
-            fn cache_key_pattern(&$s) -> String { let $ctx = &$s.context; $key }
-            fn ttl(&$s) -> u64 { $ttl }
-            fn priority(&$s) -> $crate::workers::QueryPriority { $prio }
-            fn job_kind(&$s) -> $crate::workers::JobKind { $crate::workers::JobKind::$kind($s.context.data.clone()) }
-        }
-    };
-    ($(#[$a:meta])* $q:ident<$t:ty> => $kind:ident, period $label:literal, $prio:ident, |$s:ident, $ctx:ident| $body:block) => {
-        worker_query!(@impl [$(#[$a])*] $q<$t> => $kind, $s, $ctx, $s.period_key($label), $s.period_ttl(),
-            $s.period_priority($crate::workers::QueryPriority::$prio), $body);
-    };
-    ($(#[$a:meta])* $q:ident<$t:ty> => $kind:ident, $ttl:expr, $prio:ident, |$s:ident, $ctx:ident| $key:expr, $body:block) => {
-        worker_query!(@impl [$(#[$a])*] $q<$t> => $kind, $s, $ctx, $key, $ttl, $crate::workers::QueryPriority::$prio, $body);
-    };
-}
 
 pub mod consumer;
 pub mod job;
@@ -52,9 +23,6 @@ use crate::models::players::DbPlayer;
 use crate::models::servers::DbServer;
 
 const JOB_INFLIGHT_TTL: i64 = 300;
-
-pub trait Cacheable: Serialize + DeserializeOwned + Send + Sync + Clone + 'static {}
-impl<T: Serialize + DeserializeOwned + Send + Sync + Clone + 'static> Cacheable for T {}
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum QueryPriority {
@@ -82,13 +50,14 @@ impl BackgroundWorker {
         Self { cache }
     }
 
-    pub async fn execute_with_session_fallback<T: Cacheable, Q>(
+    pub async fn execute_with_session_fallback<T, Q>(
         &self,
         query: Q,
         current_session: &str,
         previous_session: Option<&str>,
     ) -> WorkResult<CachedResult<T>>
     where
+        T: Serialize + for<'de> Deserialize<'de> + Send + Sync + Clone + 'static,
         Q: WorkerQuery<T> + Send + Sync + Clone + 'static,
         Q::Error: Send + 'static + std::fmt::Display,
     {
@@ -97,8 +66,9 @@ impl BackgroundWorker {
 
         self.get_with_fallback(&current_key, fallback_key.as_deref(), job).await
     }
-    pub async fn execute_queued<T: Cacheable, Q>(&self, query: Q) -> WorkResult<CachedResult<T>>
+    pub async fn execute_queued<T, Q>(&self, query: Q) -> WorkResult<CachedResult<T>>
     where
+        T: Serialize + for<'de> Deserialize<'de> + Send + Sync + Clone + 'static,
         Q: WorkerQuery<T> + Send + Sync + Clone + 'static,
         Q::Error: Send + 'static + std::fmt::Display,
     {
@@ -106,12 +76,13 @@ impl BackgroundWorker {
         let cache_key = job.cache_key.clone();
         self.get_with_fallback(&cache_key, None, job).await
     }
-    pub async fn execute_get<T: Cacheable, Q>(
+    pub async fn execute_get<T, Q>(
         &self,
         query: Q,
         current_session: &str,
     ) -> WorkResult<CachedResult<T>>
     where
+        T: Serialize + for<'de> Deserialize<'de> + Send + Sync + Clone + 'static,
         Q: WorkerQuery<T> + Send + Sync + Clone + 'static,
         Q::Error: Send + 'static + std::fmt::Display,
         WorkError: From<Q::Error>,
@@ -128,13 +99,14 @@ impl BackgroundWorker {
             },
         ).await
     }
-    pub async fn execute<T: Cacheable, E, F, Fut>(
+    pub async fn execute<T, E, F, Fut>(
         &self,
         current_key: &str,
         ttl: u64,
         query_fn: F,
     ) -> WorkResult<CachedResult<T>>
     where
+        T: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
         E: Send + 'static + std::fmt::Display,
         F: Fn() -> Fut + Send + Clone + 'static,
         WorkError: From<E>,
@@ -151,12 +123,15 @@ impl BackgroundWorker {
         self.cache_result(&current_key, &result, ttl).await;
         Ok(CachedResult::new_data(result))
     }
-    pub async fn get_with_fallback<T: Cacheable>(
+    pub async fn get_with_fallback<T>(
         &self,
         current_key: &str,
         fallback_key: Option<&str>,
         job: RefreshJob,
-    ) -> WorkResult<CachedResult<T>> {
+    ) -> WorkResult<CachedResult<T>>
+    where
+        T: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
+    {
         if let Ok(result) = self.try_cache_lookup(current_key).await {
             tracing::debug!("FOUND FIRST CACHE");
             return Ok(CachedResult::current_data(result));
@@ -376,82 +351,6 @@ pub struct Query<T>{
     pub pool: Arc<Pool<Postgres>>,
     pub cache: Arc<FastCache>,
     pub data: T
-}
-
-#[derive(Clone)]
-pub struct WorkerQ<D, T> {
-    pub context: Query<D>,
-    _phantom: std::marker::PhantomData<T>,
-}
-impl<D, T> WorkerQ<D, T> {
-    /// Rebuilds the query straight from its data, with no context to hand — the path a worker
-    /// process takes after deserializing a job.
-    pub(crate) fn raw(context: Query<D>) -> Self {
-        Self { context, _phantom: std::marker::PhantomData }
-    }
-}
-
-pub const PERIOD_CLOSED_TTL: u64 = 7 * DAY;
-pub const PERIOD_OPEN_TTL: u64 = DAY;
-pub const PERIOD_RANGE_TTL: u64 = HOUR;
-
-pub const LIGHT_RANGE_DAYS: i64 = 31;
-
-pub trait PeriodData {
-    const PREFIX: &'static str;
-    fn scope(&self) -> (&str, &str, TimePeriod, bool);
-}
-impl PeriodData for PlayerPeriodData {
-    const PREFIX: &'static str = "player";
-    fn scope(&self) -> (&str, &str, TimePeriod, bool) { (&self.server_id, &self.player_id, self.period, self.closed) }
-}
-impl PeriodData for MapPeriodData {
-    const PREFIX: &'static str = "map";
-    fn scope(&self) -> (&str, &str, TimePeriod, bool) { (&self.server_id, &self.map_name, self.period, self.closed) }
-}
-
-/// Queries over one calendar period only read, so the result lives in the cache alone. A closed
-/// period cannot change, so its key carries no `{session}`; an open one is recalculated per
-/// completed session.
-impl<D: PeriodData, T> WorkerQ<D, T> {
-    fn period_key(&self, kind: &str) -> String {
-        let (server_id, subject, period, closed) = self.context.data.scope();
-        let key = format!("{}-period-{kind}:{server_id}:{subject}:{}", D::PREFIX, period.label());
-        if closed { key } else { format!("{key}:{{session}}") }
-    }
-
-    fn period_ttl(&self) -> u64 {
-        let (_, _, period, closed) = self.context.data.scope();
-        if period.range_days().is_some() {
-            PERIOD_RANGE_TTL
-        } else if closed {
-            PERIOD_CLOSED_TTL
-        } else {
-            PERIOD_OPEN_TTL
-        }
-    }
-
-    fn period_priority(&self, priority: QueryPriority) -> QueryPriority {
-        match self.context.data.scope().2.range_days() {
-            Some(days) if days <= LIGHT_RANGE_DAYS => QueryPriority::Light,
-            _ => priority,
-        }
-    }
-
-    fn bounds(&self) -> (OffsetDateTime, OffsetDateTime) {
-        let period = self.context.data.scope().2;
-        (period.start().to_db_time(), period.end().to_db_time())
-    }
-
-    /// The keys a period query reads: its current key and, for an open period only, the previous
-    /// session's key. A closed period's key has no session in it, so there is nothing to fall back to.
-    fn period_keys(&self, cache_key: &CacheKey) -> (RefreshJob, String, Option<String>)
-    where
-        Self: WorkerQuery<T>,
-    {
-        let previous = cache_key.previous.as_deref().filter(|_| !self.context.data.scope().3);
-        RefreshJob::for_session(self, &cache_key.current, previous)
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

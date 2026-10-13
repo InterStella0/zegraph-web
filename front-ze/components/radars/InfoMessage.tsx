@@ -7,7 +7,6 @@ import { Button } from 'components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from 'components/ui/tooltip';
 import { Info, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import {isolateEvents} from "./leafletControls";
 
 
 function RenderedInfoMessage({ message, showInfoLabel }){
@@ -81,7 +80,14 @@ const InfoControl = L.Control.extend({
     },
     onAdd: function () {
         const container = L.DomUtil.create('div');
-        isolateEvents(container);
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.disableScrollPropagation(container);
+        L.DomEvent.on(container, 'wheel', L.DomEvent.stopPropagation);
+        L.DomEvent.on(container, 'dblclick', L.DomEvent.stopPropagation);
+        L.DomEvent.on(container, 'mousedown', L.DomEvent.stopPropagation);
+        L.DomEvent.on(container, 'touchstart', L.DomEvent.stopPropagation);
+        L.DomEvent.on(container, 'pointerdown', L.DomEvent.stopPropagation);
+        L.DomEvent.on(container, 'contextmenu', L.DomEvent.stopPropagation);
         this._reactRoot = ReactDOM.createRoot(container);
         this._reactRoot.render(<RenderedInfoMessage message={this.message} showInfoLabel={this.showInfoLabel} />)
         return container;

@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'compo
 import { Skeleton } from 'components/ui/skeleton';
 import { usePushNotifications } from 'lib/hooks/usePushNotifications';
 import {fetchApiUrl} from 'utils/generalUtils';
-import { sendJson } from 'lib/sendJson';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -47,7 +46,12 @@ export default function NotificationSettingsPage() {
 
     setSavingPreferences(true);
     try {
-      const updated = await sendJson('/accounts/me/push/preferences', 'PUT', { [key]: value }, { credentials: 'include' });
+      const updated = await fetchApiUrl('/accounts/me/push/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ [key]: value }),
+      });
       setPreferences(updated);
       toast.success(t('preferencesUpdated'));
     } catch (error) {

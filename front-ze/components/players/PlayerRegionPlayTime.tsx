@@ -17,7 +17,7 @@ import ErrorCatch from "../ui/ErrorMessage.tsx";
 import { AlertCircle } from "lucide-react";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PlayerRegionTime} from "types/players.ts";
-import {useChartTheme} from "lib/chartTheme";
+import { useTheme } from "next-themes";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeRegionData } from "utils/chartSeoUtils.tsx";
 import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
@@ -36,8 +36,8 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
     const t = useTranslations('players.region');
     const { server, player } = use(serverPlayerPromise);
     const playerId = !(player instanceof StillCalculate)? player.id: null
-    const theme = useChartTheme();
-    const isDark = theme.isDark;
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === 'dark';
     const server_id = server.id
 
     const { data: regionData, loading, error } =
@@ -52,25 +52,29 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
         scales: {
             r: {
                 ticks: {
-                    color: theme.muted,
-                    backdropColor: theme.background,
+                    color: isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)',
+                    backdropColor: isDark ? 'hsl(222.2 84% 4.9%)' : 'hsl(0 0% 100%)',
                 },
                 grid: {
-                    color: theme.border,
+                    color: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
                 },
                 pointLabels: {
-                    color: theme.foreground,
+                    color: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
                 }
             }
         },
         plugins: {
             legend: {
                 labels: {
-                    color: theme.foreground,
+                    color: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
                 }
             },
             tooltip: {
-                ...theme.tooltip,
+                backgroundColor: isDark ? 'rgba(50, 50, 50, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                titleColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
+                bodyColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
+                borderColor: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
+                borderWidth: 1,
             }
         }
     }

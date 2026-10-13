@@ -1,3 +1,5 @@
-import { proxyGet } from "lib/apiProxy";
+import {proxyToBackend} from "lib/apiProxy.ts";
 
-export const GET = proxyGet("/accounts/me/communities");
+export async function GET(req: Request) {
+    return await proxyToBackend("/accounts/me/communities", req);
+}
