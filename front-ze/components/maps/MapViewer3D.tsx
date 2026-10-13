@@ -14,12 +14,9 @@ import { traverseSceneChunked } from 'utils/sceneProcessing'
 import { getCachedModelData, cacheModelData } from 'utils/modelCache'
 import { Map3DModel } from 'types/maps'
 import { useTranslations } from 'next-intl'
+import { formatFileSize } from 'utils/format'
 
 const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('firefox')
-const formatFileSize = (bytes: number): string => {
-  const mb = bytes / (1024 * 1024)
-  return `${mb.toFixed(1)} MB`
-}
 
 interface MapViewer3DProps {
   mapName: string

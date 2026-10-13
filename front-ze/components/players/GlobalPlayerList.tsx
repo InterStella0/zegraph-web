@@ -10,6 +10,7 @@ import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import GlobalPlayerRow from "./GlobalPlayerRow.tsx";
+import {useDebounced} from "lib/hooks/useDebounced";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -80,7 +81,6 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
     const t = useTranslations('players.global');
     const initialData = use(initialDataPromise);
     const [searchInput, setSearchInput] = useState<string>('');
-    const [debouncedSearch, setDebouncedSearch] = useState<string>('');
     const [page, setPage] = useState<number>(0);
     const [data, setData] = useState<GlobalBriefPlayers | null>(initialData);
     const [loading, setLoading] = useState<boolean>(false);
@@ -88,12 +88,7 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
     const isFirstRun = useRef(true);
     const totalPages = Math.max(1, Math.ceil((data?.total_players || 0) / PAGE_SIZE));
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchInput.trim());
-        }, SEARCH_DEBOUNCE_MS);
-        return () => clearTimeout(timer);
-    }, [searchInput]);
+    const debouncedSearch = useDebounced(searchInput.trim(), SEARCH_DEBOUNCE_MS);
 
     useEffect(() => {
         setPage(0);

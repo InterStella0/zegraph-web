@@ -18,6 +18,7 @@ import {MightFriendsCalculateStatus, PlayerMightFriendsPage, PlayerSeen} from "t
 import {Server} from "types/community.ts";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {useDebounced} from "lib/hooks/useDebounced";
 
 dayjs.extend(relativeTime);
 
@@ -28,15 +29,6 @@ const POLL_INTERVAL_MS = 5000;
 // The job takes well under a second even for the heaviest players; this only bounds a stuck queue.
 const MAX_POLLS = 60;
 const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
-
-function useDebounced<T>(value: T, delayMs: number): T {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const timer = setTimeout(() => setDebounced(value), delayMs);
-        return () => clearTimeout(timer);
-    }, [value, delayMs]);
-    return debounced;
-}
 
 function PlayedWithRow({ player, server }: { player: PlayerSeen, server: Server }) {
     const t = useTranslations('players.playedWith');
