@@ -1,12 +1,4 @@
-import { proxyToBackendChange } from "lib/apiProxy";
+import { proxyDelete, proxyPut } from "lib/apiProxy";
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const body = await req.json();
-  return await proxyToBackendChange(`/admin/communities/${id}`, body, "PUT");
-}
-
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return await proxyToBackendChange(`/admin/communities/${id}`, null, "DELETE");
-}
+export const PUT = proxyPut(p => `/admin/communities/${p.id}`);
+export const DELETE = proxyDelete(p => `/admin/communities/${p.id}`);

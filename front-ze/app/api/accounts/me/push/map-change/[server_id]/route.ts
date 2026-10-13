@@ -1,7 +1,3 @@
+import { proxyDelete } from "lib/apiProxy";
 
-import {proxyToBackendChange} from "lib/apiProxy.ts";
-
-export async function DELETE(_req: Request, context: { params: Promise<{ server_id: string }> }) {
-    const { server_id } = await context.params
-    return await proxyToBackendChange(`/accounts/me/push/map-change/${server_id}`, null, "DELETE");
-}
+export const DELETE = proxyDelete(p => `/accounts/me/push/map-change/${p.server_id}`);
