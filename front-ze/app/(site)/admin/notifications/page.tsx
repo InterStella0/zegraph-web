@@ -8,6 +8,7 @@ import { Textarea } from 'components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'components/ui/card';
 import {fetchApiUrl} from 'utils/generalUtils';
 import { toast } from 'sonner';
+import { AdminHeader } from '../components/AdminUI';
 
 interface SendResult {
   success: number;
@@ -52,12 +53,10 @@ export default function AdminNotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Test Push Notifications</h1>
-        <p className="text-muted-foreground">
-          Send test notifications to users to verify the push notification system
-        </p>
-      </div>
+      <AdminHeader
+        title="Test Push Notifications"
+        description="Send test notifications to users to verify the push notification system"
+      />
 
       <Card>
         <CardHeader>

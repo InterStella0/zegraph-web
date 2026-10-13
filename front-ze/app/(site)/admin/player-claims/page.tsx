@@ -1,51 +1,27 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from 'components/ui/table';
-import { Button } from 'components/ui/button';
-import { Badge } from 'components/ui/badge';
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from 'components/ui/dropdown-menu';
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from 'components/ui/select';
-import { MoreVertical, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../components/utils';
+import { AdminHeader, AdminSpinner, EmptyRow, useAdminData } from '../components/AdminUI';
+import { ReviewActions, ReviewBadge, REVIEW_STATUSES } from '../components/ReviewActions';
+import { StatusFilter } from '../components/StatusFilter';
 import { fetchApiUrl } from 'utils/generalUtils';
-import type { PlayerClaimAdmin, PlayerClaimsPaginated, PlayerClaimStatus } from 'types/admin';
-
-const STATUS_BADGE: Record<PlayerClaimStatus, { variant: "default" | "secondary" | "outline" | "destructive"; label: string }> = {
-    pending: { variant: 'default', label: 'Pending' },
-    approved: { variant: 'secondary', label: 'Approved' },
-    rejected: { variant: 'outline', label: 'Rejected' },
-};
+import type { PlayerClaimAdmin, PlayerClaimsPaginated } from 'types/admin';
 
 export default function PlayerClaimsPage() {
-    const [claims, setClaims] = useState<PlayerClaimAdmin[]>([]);
-    const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<string>('pending');
-
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const params = statusFilter && statusFilter !== 'all' ? { status: statusFilter } : {};
-            const data = await fetchApiUrl('/admin/player-claims', { params });
-            setClaims((data as PlayerClaimsPaginated).claims || []);
-        } catch (error) {
-            console.error('Failed to fetch player claims:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [statusFilter]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    const { data: claims, loading, reload: fetchData } = useAdminData<PlayerClaimAdmin[]>(
+        '/admin/player-claims',
+        (data) => (data as PlayerClaimsPaginated).claims || [],
+        [],
+        'player claims',
+        statusFilter && statusFilter !== 'all' ? { status: statusFilter } : {},
+    );
 
     const updateStatus = async (claimId: string, status: 'approved' | 'rejected') => {
         try {
@@ -64,37 +40,22 @@ export default function PlayerClaimsPage() {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            </div>
-        );
-    }
+    if (loading) return <AdminSpinner />;
 
     return (
         <div>
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold mb-2">Profile Claims</h1>
-                <p className="text-muted-foreground">
+            <AdminHeader
+                className="mb-6"
+                title="Profile Claims"
+                description={<>
                     Players asking to have a name-tracked profile linked to their Steam account.
                     Approving moves the profile&apos;s sessions onto the Steam account and renames it
                     to <span className="font-mono">[merged_&lt;uuid&gt;] &lt;name&gt;</span>.
-                </p>
-            </div>
+                </>}
+            />
 
             <div className="mb-4">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="rejected">Rejected</SelectItem>
-                    </SelectContent>
-                </Select>
+                <StatusFilter value={statusFilter} onChange={setStatusFilter} options={REVIEW_STATUSES} />
             </div>
 
             <Table>
@@ -111,83 +72,57 @@ export default function PlayerClaimsPage() {
                 </TableHeader>
                 <TableBody>
                     {claims.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground">
-                                No profile claims found
-                            </TableCell>
-                        </TableRow>
+                        <EmptyRow colSpan={7}>No profile claims found</EmptyRow>
                     ) : (
-                        claims.map((claim) => {
-                            const badge = STATUS_BADGE[claim.status];
-                            return (
-                                <TableRow key={claim.id}>
-                                    <TableCell className="text-sm">
-                                        <div className="font-medium">{claim.claimer_name || 'Unknown'}</div>
-                                        <a
-                                            href={`https://steamcommunity.com/profiles/${claim.user_id}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-xs text-muted-foreground font-mono hover:underline"
-                                        >
-                                            {claim.user_id}
-                                        </a>
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        <div className="font-medium">{claim.player_name || 'Unknown'}</div>
-                                        <Link
-                                            href={`/servers/${claim.server_id}/players/${claim.player_id}`}
-                                            className="text-xs text-muted-foreground font-mono hover:underline"
-                                        >
-                                            {claim.player_id}
-                                        </Link>
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {claim.server_name || claim.server_id}
-                                    </TableCell>
-                                    <TableCell>
-                                        {claim.note ? (
-                                            <p className="text-sm text-muted-foreground max-w-[240px] truncate" title={claim.note}>
-                                                {claim.note}
-                                            </p>
-                                        ) : (
-                                            <span className="text-muted-foreground text-sm">—</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">
-                                        {formatDate(claim.created_at)}
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem
-                                                    onClick={() => updateStatus(claim.id, 'approved')}
-                                                    disabled={claim.status === 'approved'}
-                                                >
-                                                    <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                                                    Approve &amp; merge
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onClick={() => updateStatus(claim.id, 'rejected')}
-                                                    disabled={claim.status === 'rejected'}
-                                                    className="text-destructive focus:text-destructive"
-                                                >
-                                                    <XCircle className="mr-2 h-4 w-4" />
-                                                    Reject
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })
+                        claims.map((claim) => (
+                            <TableRow key={claim.id}>
+                                <TableCell className="text-sm">
+                                    <div className="font-medium">{claim.claimer_name || 'Unknown'}</div>
+                                    <a
+                                        href={`https://steamcommunity.com/profiles/${claim.user_id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-muted-foreground font-mono hover:underline"
+                                    >
+                                        {claim.user_id}
+                                    </a>
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                    <div className="font-medium">{claim.player_name || 'Unknown'}</div>
+                                    <Link
+                                        href={`/servers/${claim.server_id}/players/${claim.player_id}`}
+                                        className="text-xs text-muted-foreground font-mono hover:underline"
+                                    >
+                                        {claim.player_id}
+                                    </Link>
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                    {claim.server_name || claim.server_id}
+                                </TableCell>
+                                <TableCell>
+                                    {claim.note ? (
+                                        <p className="text-sm text-muted-foreground max-w-[240px] truncate" title={claim.note}>
+                                            {claim.note}
+                                        </p>
+                                    ) : (
+                                        <span className="text-muted-foreground text-sm">—</span>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    <ReviewBadge status={claim.status} />
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                    {formatDate(claim.created_at)}
+                                </TableCell>
+                                <TableCell>
+                                    <ReviewActions
+                                        status={claim.status}
+                                        onUpdate={(status) => updateStatus(claim.id, status)}
+                                        approveLabel="Approve & merge"
+                                    />
+                                </TableCell>
+                            </TableRow>
+                        ))
                     )}
                 </TableBody>
             </Table>
