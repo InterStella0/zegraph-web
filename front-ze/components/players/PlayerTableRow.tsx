@@ -3,7 +3,7 @@
 import {useLocale, useTranslations} from "next-intl";
 import { PlayerAvatar } from "./PlayerAvatar.tsx";
 import dayjs from "dayjs";
-import {fetchServerUrl, secondsToHours, secondsToMins, simpleRandom} from "utils/generalUtils.ts";
+import {secondsToHours, secondsToMins, simpleRandom} from "utils/generalUtils.ts";
 import { ErrorBoundary } from "react-error-boundary";
 import {useEffect, useState} from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -25,16 +25,9 @@ function PlayerInformation(
     const locale = useLocale();
     const { resolvedTheme } = useTheme();
     const isDarkMode = resolvedTheme === 'dark';
-    const server_id = player.server_id
     const { server } = useServerData()
-    const [ playerStatus, setPlayerStatus ] = useState(null)
 
-    useEffect(() => {
-        fetchServerUrl(player.server_id, `/players/${player.id}/playing`)
-            .then(setPlayerStatus)
-    }, [server_id, player.id])
-
-    let isOnline = playerStatus? playerStatus.ended_at == null: !!player.online_since;
+    const isOnline = !!player.online_since;
 
     const timeTaken = {
         h: (value: number) => `${secondsToHours(value)}h`,
@@ -43,18 +36,9 @@ function PlayerInformation(
 
     const playtime = timeTaken[timeUnit](player.total_playtime);
 
-    let statusText: string
-    if (playerStatus){
-        statusText = isOnline? t('playingSince', {ago: dayjs(playerStatus.started_at).fromNow()})
-            : t('lastOnline', {
-                ago: dayjs(playerStatus.started_at).fromNow(),
-                hours: dayjs(playerStatus.ended_at).diff(dayjs(playerStatus.started_at), 'h', true).toFixed(2)
-            })
-    }else{
-        statusText = isOnline
-            ? t('playingSince', {ago: dayjs(player.online_since).fromNow()})
-            : t('lastOnline', {ago: dayjs(player.last_played_ended ?? player.last_played).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
-    }
+    const statusText = isOnline
+        ? t('playingSince', {ago: dayjs(player.online_since).fromNow()})
+        : t('lastOnline', {ago: dayjs(player.last_played_ended ?? player.last_played).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
 
     return (
         <TableRow
