@@ -1,4 +1,5 @@
 import getServerUser from "../../getServerUser";
+import getBasicAnnouncements from "../../getBasicAnnouncements";
 import ServerDataProvider from "./ServerDataProvider";
 import {ReactNode, Suspense} from "react";
 import 'leaflet/dist/leaflet.css';
@@ -17,10 +18,11 @@ export default async function ServerLayout({
     const server = await getServerSlugOrNotFound(server_slug)
     const serverPromise = Promise.resolve(server)
     const user = getServerUser();
+    const announcements = getBasicAnnouncements();
 
     return <>
         <ServerDataProvider slugPromise={serverPromise}>
-            <ResponsiveAppSelector serverPromise={serverPromise} user={user}>
+            <ResponsiveAppSelector serverPromise={serverPromise} user={user} announcementsPromise={announcements}>
                 <Suspense fallback={<Loading />}>
                     {children}
                 </Suspense>

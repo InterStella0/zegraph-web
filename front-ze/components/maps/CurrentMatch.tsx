@@ -92,6 +92,76 @@ export default function CurrentMatch({ serverPromise, mapCurrentPromise, playerC
     return <CurrentMatchDisplay server={server} mapImage={mapImage} currentMatch={currentMatch ?? serverSideCurrentMatch} continentData={continentData ?? playerContinents} user={user} />
 }
 
+export function CurrentMatchSkeleton() {
+    const t = useTranslations('servers.currentMatch');
+    return (
+        <div className="mb-6 border border-border rounded-lg bg-gradient-to-br from-primary/5 via-secondary/5 to-background p-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                <div className="md:col-span-4">
+                    <Skeleton className="w-full h-40 rounded-lg" />
+                </div>
+                <div className="md:col-span-5">
+                    <span className="text-xs uppercase tracking-widest font-bold text-primary">
+                        🎮 {t('currentlyPlaying')}
+                    </span>
+                    <div className="text-2xl md:text-4xl mb-2 font-bold">
+                        <Skeleton className="inline-block align-middle h-6 md:h-8 w-56 max-w-full" />{'\u200b'}
+                    </div>
+                    <div className="text-sm">
+                        <Skeleton className="inline-block align-middle h-3.5 w-64 max-w-full" />{'\u200b'}
+                    </div>
+                    <div className="flex gap-2 mt-2 mb-4">
+                        <Skeleton className="inline-flex border border-transparent px-2 py-0.5 text-xs rounded-full w-10">{'\u200b'}</Skeleton>
+                    </div>
+                    <div className="flex flex-row gap-2 flex-wrap">
+                        {[
+                            [Info, t('mapInfo')],
+                            [Activity, t('matchInfo')],
+                            [Play, t('join')],
+                        ].map(([Icon, label]: [typeof Info, string]) => (
+                            <Skeleton key={label} className="inline-flex items-center h-8 rounded-md px-3 text-sm font-medium">
+                                <span className="invisible inline-flex items-center">
+                                    <Icon className="mr-2 h-4 w-4" />
+                                    {label}
+                                </span>
+                            </Skeleton>
+                        ))}
+                    </div>
+                </div>
+                <div className="md:col-span-3">
+                    <div className="flex flex-col gap-4">
+                        <div className="text-center">
+                            <div className="text-5xl font-bold">
+                                <Skeleton className="inline-block align-middle h-10 w-16" />{'\u200b'}
+                            </div>
+                            <span className="text-xs text-muted-foreground font-medium">
+                                {t('playersUpper')}
+                            </span>
+                        </div>
+                        <div className="mt-2">
+                            <div className="space-y-3">
+                                {Array.from({length: 3}).map((_, i) => (
+                                    <div key={i}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-sm font-medium">
+                                                <Skeleton className="inline-block align-middle h-3.5 w-24" />{'\u200b'}
+                                            </span>
+                                            <span className="text-sm font-semibold">
+                                                <Skeleton className="inline-block align-middle h-3.5 w-12" />{'\u200b'}
+                                            </span>
+                                        </div>
+                                        <Skeleton className="h-2 w-full rounded-full" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, user }: {
     server: Server, mapImage: string | null, currentMatch: ServerMapMatch, continentData: ContinentStatistics, user: SteamProfile | null
 }) {

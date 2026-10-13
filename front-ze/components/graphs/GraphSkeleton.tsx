@@ -1,6 +1,5 @@
 import { Skeleton } from "components/ui/skeleton";
 import { cn } from "components/lib/utils";
-import { simpleRandom } from "utils/generalUtils.ts";
 
 export default function GraphSkeleton({
     height = 200,
@@ -25,7 +24,7 @@ export default function GraphSkeleton({
                     <Skeleton
                         key={index}
                         className="w-2"
-                        style={{ height: simpleRandom(min, max) }}
+                        style={{ height: min + (index * 37) % (max - min) }}
                     />
                 ))}
             </div>

@@ -1,40 +1,30 @@
 'use client'
 import Link from 'next/link';
 import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { getAllSupporters, getRecentSupporters, RecentSupporter } from 'utils/supporters';
+import { use, useEffect, useState } from 'react';
+import { DONOR_BANNER_DISMISSED, DonorBannerData } from 'utils/supporters';
 
-const LS_KEY = 'donor_banner_dismissed';
+function saveDismissal(latestId: string) {
+  document.cookie = `${DONOR_BANNER_DISMISSED}=${encodeURIComponent(latestId)}; path=/; max-age=31536000; SameSite=Lax`;
+}
 
-export function DonorBanner() {
-  const [donors, setDonors] = useState<RecentSupporter[] | null>(null);
-  const [totalSupporters, setTotalSupporters] = useState(0);
+export function DonorBanner({ bannerPromise }: { bannerPromise: Promise<DonorBannerData | null> }) {
+  const banner = use(bannerPromise);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    getRecentSupporters(10).then(setDonors);
-    getAllSupporters().then((all) => {
-      if (all) setTotalSupporters(all.names.length + all.anonymous);
-    });
-  }, []);
+    if (!banner || localStorage.getItem(DONOR_BANNER_DISMISSED) !== banner.latestId) return;
+    localStorage.removeItem(DONOR_BANNER_DISMISSED);
+    saveDismissal(banner.latestId);
+    setDismissed(true);
+  }, [banner]);
 
-  useEffect(() => {
-    if (!donors || donors.length === 0) return;
-    setDismissed(localStorage.getItem(LS_KEY) === donors[0].created_at);
-  }, [donors]);
+  if (!banner || dismissed) return null;
 
-  if (!donors || donors.length === 0 || dismissed) return null;
-
-  // Already newest first; the same supporter can appear more than once.
-  const uniqueNames = [...new Set(donors.map((d) => d.name))];
-  const latestId = donors[0].created_at;
-  const shown = uniqueNames.slice(0, 3);
-  const remaining = Math.max(totalSupporters, uniqueNames.length) - shown.length;
-  const names = shown.join(', ');
-  const suffix = remaining > 0 ? ` +${remaining} more` : '';
+  const suffix = banner.remaining > 0 ? ` +${banner.remaining} more` : '';
 
   const handleDismiss = () => {
-    localStorage.setItem(LS_KEY, latestId);
+    saveDismissal(banner.latestId);
     setDismissed(true);
   };
 
@@ -42,7 +32,7 @@ export function DonorBanner() {
     <div className="w-full bg-muted/50 border-b border-border/30 py-1.5 px-4 text-center text-xs text-muted-foreground relative">
       <span>
         {'❤ Thanks to our supporters: '}
-        <span className="font-medium text-foreground/80">{names}{suffix}</span>
+        <span className="font-medium text-foreground/80">{banner.names}{suffix}</span>
         {' — '}
         <Link
           href="/donors"

@@ -31,7 +31,7 @@ function RegionDistribution() {
     const { name } = useMapContext();
     const { period } = usePeriod();
     const [detail, setDetail] = useState<MapRegion[] | null>(null);
-    const [ regions, setRegions ] = useState<Region[]>([])
+    const [ regions, setRegions ] = useState<Region[] | null>(null)
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [notReady, setNotReady] = useState<boolean>(false);
@@ -41,6 +41,10 @@ function RegionDistribution() {
     useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
+        fetchUrl(`/graph/${server_id}/get_regions`)
+            .then(setRegions)
+            .catch(() => setRegions(r => r ?? []))
+        if (!name) return
         setLoading(true);
         setError(null);
         setNotReady(false);
@@ -59,8 +63,6 @@ function RegionDistribution() {
                 setError(err.message || t('loadFailed'));
             })
             .finally(() => setLoading(false))
-        fetchUrl(`/graph/${server_id}/get_regions`)
-            .then(setRegions)
     }, [server_id, name, period, retryTick]);
 
     // Get theme-aware colors
@@ -216,7 +218,22 @@ function RegionDistribution() {
                         <div className="max-h-[140px] overflow-y-auto">
                             <Table>
                                 <TableBody>
-                                    {regions.map(region => {
+                                    {regions === null && Array.from({length: 4}).map((_, i) => (
+                                        <TableRow key={i} className="last:border-0">
+                                            <TableCell className="w-5 py-1.5 px-1.5">
+                                                <Skeleton className="w-3 h-3 rounded-sm" />
+                                            </TableCell>
+                                            <TableCell className="py-1.5">
+                                                <div className="text-sm font-medium">
+                                                    <Skeleton className="inline-block align-middle h-3.5 w-20" />{'\u200b'}
+                                                </div>
+                                                <div className="text-xs">
+                                                    <Skeleton className="inline-block align-middle h-3 w-28" />{'\u200b'}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {regions?.map(region => {
                                         return <TableRow key={region.region_id} className="last:border-0">
                                             <TableCell className="w-5 py-1.5 px-1.5">
                                                 <div

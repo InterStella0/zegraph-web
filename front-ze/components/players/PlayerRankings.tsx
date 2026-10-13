@@ -2,7 +2,7 @@
 import {useTranslations} from 'next-intl';
 import {useState, useEffect, useRef, use} from 'react';
 import { Search, Trophy, Loader2 } from 'lucide-react';
-import {fetchApiServerUrl, simpleRandom} from "utils/generalUtils";
+import {fetchApiServerUrl} from "utils/generalUtils";
 import PlayerListItem from "./PlayerListItem";
 import {PlayersTableRanked, RankingMode, SearchPlayer} from "types/players";
 import {ServerSlugPromise} from "../../app/servers/[server_slug]/util.ts";
@@ -16,39 +16,38 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "c
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {PlayerName} from "./PlayerName";
 
-const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => {
-    const [isClient, setIsClient] = useState(false)
-
-    useEffect(() => {
-        setIsClient(true)
-    }, [])
-    return <>
+const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => (
+    <>
         {showMatchedSkeleton && (
             <div className="p-4 bg-accent/50 rounded-md mb-4">
                 <Skeleton className="w-2/5 h-5"/>
             </div>
         )}
-        <div className="space-y-2">
+        <div>
             {Array.from({length: count}).map((_, index) => (
                 <div
                     key={index}
-                    className="rounded-md mb-2 border border-border p-3 min-h-[74px] flex items-center gap-3"
+                    className="flex items-center gap-3 rounded-md mb-2 border border-border p-3"
                 >
-                    <Skeleton className="w-10 h-10 rounded-full flex-shrink-0"/>
-                    <div className="flex flex-row justify-between w-full">
-                        <div>
-                            <Skeleton className="h-6 mb-1" style={{width: isClient? `${simpleRandom(3, 13)}rem`: '0rem'}}/>
-                            <Skeleton className="w-20 h-5 mt-1"/>
+                    <Skeleton className="w-[40px] h-[40px] rounded-full flex-shrink-0"/>
+                    <div className="flex-1 min-w-0">
+                        <div className="font-medium">
+                            <Skeleton className="inline-block align-middle h-4" style={{width: `${5 + (index * 3) % 8}rem`}}/>{'\u200b'}
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Skeleton className="w-15 h-8"/>
+                        <div className="text-sm max-sm:text-xs">
+                            <Skeleton className="inline-block align-middle h-3 w-20"/>{'\u200b'}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="text-xl max-sm:text-sm">
+                            <Skeleton className="inline-block align-middle h-4 w-14"/>{'\u200b'}
                         </div>
                     </div>
                 </div>
             ))}
         </div>
     </>
-};
+);
 const SUGGESTION_MIN_CHARS = 3;
 const SUGGESTION_DEBOUNCE_MS = 300;
 const COMMIT_DEBOUNCE_MS = 3000; // preserves existing 3s tuning for the /players/table query
@@ -324,7 +323,19 @@ export function PlayerRankingsLoading() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
                     <Input placeholder={t('searchPlaceholder')} disabled className="pl-10"/>
                 </div>
+                <Tabs value="0" className="mb-4">
+                    <TabsList className="grid w-full grid-cols-3">
+                        {rankingModes.map((mode, index) => (
+                            <TabsTrigger key={mode.id} value={index.toString()} disabled>
+                                {t(mode.labelKey)}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
                 <PlayerListSkeleton/>
+                <div className="flex justify-center mt-4">
+                    <Skeleton className="h-9 w-64"/>
+                </div>
             </CardContent>
         </Card>
     );

@@ -1,6 +1,6 @@
 'use client'
 
-import {useEffect, useState} from "react";
+import {Suspense, use, useMemo, useState} from "react";
 import { Music, Play, Clock, MoreHorizontal } from "lucide-react";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -10,9 +10,6 @@ import ErrorCatch from "../ui/ErrorMessage";
 import { cn } from "../lib/utils";
 import {MapMusicTrack, ServerMapMusic} from "types/maps";
 import MapMusicDialog from "./MapMusicDialog";
-import {fetchServerUrl} from "utils/generalUtils.ts";
-import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider.tsx";
-import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext.tsx";
 import {useTranslations} from 'next-intl';
 
 function formatDuration(seconds: number): string {
@@ -106,49 +103,39 @@ function MoreTracksCard({
 }
 
 const TRUNCATE_MUSIC = 3
-function MapMusicSectionDisplay() {
+function MapMusicSectionDisplay({ musics }: { musics: ServerMapMusic[] }) {
     const t = useTranslations('maps.music');
-    const { name } = useMapContext()
-    const {server} = useServerData()
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
 
-    const [tracks, setTracks] = useState<MapMusicTrack[]>([]);
+    const tracks = useMemo<MapMusicTrack[]>(() => musics.map(music => {
+        // Parse artist and title from "Artist - Title" format
+        const separatorMatch = music.name.match(/\s+[-–—]\s+/);
+        let artist: string | undefined;
+        let title: string;
 
-    useEffect(() => {
-        fetchServerUrl(server.id, `/maps/${name}/musics`)
-            .then((musics: ServerMapMusic[]) => {
-                return musics.map(music => {
-                    // Parse artist and title from "Artist - Title" format
-                    const separatorMatch = music.name.match(/\s+[-–—]\s+/);
-                    let artist: string | undefined;
-                    let title: string;
+        if (separatorMatch && separatorMatch.index !== undefined) {
+            artist = music.name.substring(0, separatorMatch.index).trim();
+            title = music.name.substring(separatorMatch.index + separatorMatch[0].length).trim();
+        } else {
+            // No separator - treat entire name as title
+            title = music.name.trim();
+            artist = undefined;
+        }
 
-                    if (separatorMatch && separatorMatch.index !== undefined) {
-                        artist = music.name.substring(0, separatorMatch.index).trim();
-                        title = music.name.substring(separatorMatch.index + separatorMatch[0].length).trim();
-                    } else {
-                        // No separator - treat entire name as title
-                        title = music.name.trim();
-                        artist = undefined;
-                    }
-
-                    return {
-                        id: music.id,
-                        title: title || t('unknownTrack'),
-                        artist,
-                        duration: music.duration,
-                        contexts: music.tags,
-                        youtubeVideoId: music.youtube_music,
-                        otherMaps: music.other_maps,
-                        source: music.source,
-                        yt_source: music.yt_source,
-                        yt_source_name: music.yt_source_name
-                    }
-                })
-            })
-            .then(setTracks)
-    }, [server.id, name]);
+        return {
+            id: music.id,
+            title: title || t('unknownTrack'),
+            artist,
+            duration: music.duration,
+            contexts: music.tags,
+            youtubeVideoId: music.youtube_music,
+            otherMaps: music.other_maps,
+            source: music.source,
+            yt_source: music.yt_source,
+            yt_source_name: music.yt_source_name
+        }
+    }), [musics, t]);
 
     if (tracks.length === 0) {
         return null;
@@ -210,11 +197,18 @@ function MapMusicSectionDisplay() {
     );
 }
 
-export default function MapMusicSection() {
+function MapMusicSectionResolved({ musicsPromise }: { musicsPromise: Promise<ServerMapMusic[]> }) {
+    const musics = use(musicsPromise);
+    return <MapMusicSectionDisplay musics={musics} />;
+}
+
+export default function MapMusicSection({ musicsPromise }: { musicsPromise: Promise<ServerMapMusic[]> }) {
     const t = useTranslations('maps.music');
     return (
         <ErrorCatch message={t('loadError')}>
-            <MapMusicSectionDisplay />
+            <Suspense fallback={null}>
+                <MapMusicSectionResolved musicsPromise={musicsPromise} />
+            </Suspense>
         </ErrorCatch>
     );
 }

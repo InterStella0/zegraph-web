@@ -1,32 +1,28 @@
 'use client'
-import {useEffect, useState} from "react";
-import {fetchUrl} from "utils/generalUtils";
+import {use, useEffect, useState} from "react";
 import dayjs from "dayjs";
 import {AnnouncementBanner} from "components/announcements/AnnouncementBanner";
+import {ANNOUNCEMENT_DISMISSED} from "components/announcements/announcementDismissal";
 import type {Announcement as AnnouncementData} from "types/announcements";
 
-const ANNOUNCEMENT_STORAGE_KEY = "dismissed_announcement_created_at";
 const ROTATION_INTERVAL_MS = 7000;
 
-export default function Announcement() {
-    const [announcements, setAnnouncements] = useState<AnnouncementData[]>([]);
+function saveDismissal(createdAt: string) {
+    document.cookie = `${ANNOUNCEMENT_DISMISSED}=${encodeURIComponent(createdAt)}; path=/; max-age=31536000; SameSite=Lax`;
+}
+
+export default function Announcement({ announcementsPromise }: { announcementsPromise: Promise<AnnouncementData[]> }) {
+    const [announcements, setAnnouncements] = useState<AnnouncementData[]>(use(announcementsPromise));
     const [currentIndex, setCurrentIndex] = useState(0);
     const [paused, setPaused] = useState(false);
 
     useEffect(() => {
-        fetchUrl("/announcements")
-            .then((data: AnnouncementData[]) => data.filter(a => a.type === 'Basic'))
-            .then((data) => {
-                const storedAt = localStorage.getItem(ANNOUNCEMENT_STORAGE_KEY);
-                const dismissedAt = storedAt ? dayjs(storedAt) : null;
-
-                const visible = data
-                    .sort((a, b) => dayjs(b.created_at).diff(dayjs(a.created_at)))
-                    .filter(a => !dismissedAt || dayjs(a.created_at).isAfter(dismissedAt));
-
-                setAnnouncements(visible);
-            })
-            .catch(error => console.error('Failed to fetch announcements:', error));
+        const storedAt = localStorage.getItem(ANNOUNCEMENT_DISMISSED);
+        if (!storedAt) return;
+        localStorage.removeItem(ANNOUNCEMENT_DISMISSED);
+        saveDismissal(storedAt);
+        const dismissedAt = dayjs(storedAt);
+        setAnnouncements(prev => prev.filter(a => dayjs(a.created_at).isAfter(dismissedAt)));
     }, []);
 
     useEffect(() => {
@@ -46,7 +42,7 @@ export default function Announcement() {
     const handleClose = () => {
         const newest = announcements.reduce((latest, a) =>
             dayjs(a.created_at).isAfter(dayjs(latest)) ? a.created_at : latest, current.created_at);
-        localStorage.setItem(ANNOUNCEMENT_STORAGE_KEY, newest);
+        saveDismissal(newest);
         setAnnouncements([]);
     };
 

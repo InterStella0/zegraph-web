@@ -415,11 +415,7 @@ export default function PlayTimeHeatmap({
     }, [heatmapData, t]);
 
     if (loading) {
-        return (
-            <div className="flex justify-center items-center p-4">
-                <Skeleton className="w-full h-[200px]" />
-            </div>
-        )
+        return <Skeleton className="w-full h-[150px]" />
     }
 
     // Remove empty state check for daily/monthly - we now show all days with 0 hours
@@ -504,7 +500,7 @@ export default function PlayTimeHeatmap({
     // Matrix chart rendering for daily/monthly views
     if (heatmapData.length === 0) {
         return (
-            <div className="flex justify-center items-center p-4 h-[200px] text-muted-foreground">
+            <div className="flex justify-center items-center p-4 h-[150px] text-muted-foreground">
                 {t('noDataShort')}
             </div>
         )

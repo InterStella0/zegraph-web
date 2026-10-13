@@ -129,6 +129,8 @@ const LegendControlExtends = L.Control.extend({
     },
     onAdd: function(_map) {
         this._container = DomUtil.create('div', 'leaflet-control leaflet-bar');
+        const container = this._container;
+        container.style.display = 'none';
 
         L.DomEvent.disableClickPropagation(this._container);
         L.DomEvent.disableScrollPropagation(this._container);
@@ -137,6 +139,7 @@ const LegendControlExtends = L.Control.extend({
         reactRoot.render(<LegendWrapper setUpdateFn={(fn) => {
             this._setReactDataFn = fn;
             fn({theme: this.options.theme, legendLabel: this.options.legendLabel, errorLabel: this.options.errorLabel, nightLabel: this.options.nightLabel})
+            container.style.display = '';
         }} />);
         return this._container;
     },

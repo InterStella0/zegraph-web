@@ -1,6 +1,6 @@
 'use client';
 import dynamic from 'next/dynamic';
-import {useEffect, useState} from 'react';
+import {use, useEffect, useState} from 'react';
 import {Card, CardContent} from 'components/ui/card';
 import {Badge} from 'components/ui/badge';
 import {Skeleton} from 'components/ui/skeleton';
@@ -14,9 +14,9 @@ const WorldRadarMap = dynamic(() => import('./WorldRadarMap'), {
     loading: () => <Skeleton className="h-full w-full rounded-md" />,
 });
 
-export default function WherePlayersMap() {
+export default function WherePlayersMap({continentsPromise}: {continentsPromise: Promise<ContinentStatistics | null>}) {
     const t = useTranslations('home');
-    const [geo, setGeo] = useState<ContinentStatistics | null>(null);
+    const [geo, setGeo] = useState<ContinentStatistics | null>(use(continentsPromise));
     const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
@@ -27,7 +27,6 @@ export default function WherePlayersMap() {
                 setGeo(data);
             });
         };
-        load();
         const interval = setInterval(() => {
             load();
             setRefreshKey(k => k + 1);

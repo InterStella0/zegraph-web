@@ -57,6 +57,7 @@ function MapTopPlayerListDisplay(): ReactElement{
     }, [server_id, name, period])
 
     useEffect(() => {
+        if (!name) return
         const abortController = new AbortController()
         const signal = abortController.signal
         setLoading(true)

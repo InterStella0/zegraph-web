@@ -39,6 +39,7 @@ function MapPlayerTypeDisplay() {
     useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
+        if (!name) return
         setLoading(true);
         setError(null);
         setPlayerTypes([]);
@@ -152,7 +153,7 @@ function MapPlayerTypeDisplay() {
                 aria-label={t('title')}
                 aria-describedby="player-type-summary"
             >
-                {!error && loading && <div className="p-12"><Skeleton className="w-[250px] h-[250px] rounded-full" /></div>}
+                {!error && loading && <div className="w-[300px] h-[300px] flex items-center justify-center"><Skeleton className="w-[250px] h-[250px] rounded-full" /></div>}
                 {error &&
                     <div className="flex gap-4 min-h-[300px] items-center">
                         <AlertCircle className="w-5 h-5" />

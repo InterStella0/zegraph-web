@@ -2,8 +2,9 @@
 import {useState} from 'react';
 import PopulationChartLoader from 'components/home/PopulationChartLoader';
 import WherePlayersMap from 'components/home/WherePlayersMap';
+import {ContinentStatistics} from 'types/players';
 
-export default function HomePopulationRadar() {
+export default function HomePopulationRadar({continentsPromise}: {continentsPromise: Promise<ContinentStatistics | null>}) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
@@ -15,7 +16,7 @@ export default function HomePopulationRadar() {
                 />
             </div>
             <div className={isExpanded ? 'lg:col-span-2' : undefined}>
-                <WherePlayersMap />
+                <WherePlayersMap continentsPromise={continentsPromise} />
             </div>
         </div>
     );

@@ -5,6 +5,8 @@ import { ServerPlayersStatistic } from "types/players.ts";
 import {ServerSlugPromise} from "../../app/servers/[server_slug]/util.ts";
 import { Card, CardContent } from "components/ui/card";
 import { getTranslations, getLocale } from "next-intl/server";
+import { useTranslations } from "next-intl";
+import { Skeleton } from "components/ui/skeleton";
 
 const getStatsCards = (stats: ServerPlayersStatistic, t: (key: string) => string, locale: string) => {
     if (!stats) return [];
@@ -76,3 +78,45 @@ export default async function StatsCards({ serverPromise }: {serverPromise: Serv
             ))}
     </div>
 };
+
+export function StatsCardsLoading() {
+    const t = useTranslations('players.statsCards');
+    const cards = [
+        { label: t('totalPlayers'), icon: <User className="w-7 h-7" /> },
+        { label: t('cumulativeHours'), icon: <Clock className="w-7 h-7" /> },
+        { label: t('countries'), icon: <Globe className="w-7 h-7" /> },
+    ];
+
+    return <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {cards.map((stat, index) => (
+                <Card key={index} className="h-full">
+                    <CardContent className="text-center py-4 px-4">
+                        <div className="text-primary mb-2 flex justify-center">
+                            {stat.icon}
+                        </div>
+                        <h3 className="text-lg font-semibold mb-3">
+                            {stat.label}
+                        </h3>
+                        <div className="flex justify-around mt-4">
+                            <div>
+                                <div className="text-xl font-bold">
+                                    <Skeleton className="inline-block align-middle h-5 w-16" />{'\u200b'}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {t('thisWeek')}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xl font-bold">
+                                    <Skeleton className="inline-block align-middle h-5 w-16" />{'\u200b'}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {t('allTime')}
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            ))}
+    </div>
+}

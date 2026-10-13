@@ -20,9 +20,13 @@ const CountriesSkeleton = () => (
                 <div className="flex items-center w-full justify-between">
                     <div className="flex items-center gap-2">
                         <Skeleton className="w-6 h-4" />
-                        <Skeleton className="w-30 h-5" />
+                        <div>
+                            <Skeleton className="inline-block align-middle h-4" style={{ width: `${5 + (index * 3) % 5}rem` }} />{'\u200b'}
+                        </div>
                     </div>
-                    <Skeleton className="w-10 h-5" />
+                    <div className="font-semibold">
+                        <Skeleton className="inline-block align-middle h-4 w-10" />{'\u200b'}
+                    </div>
                 </div>
             </div>
         ))}
@@ -154,6 +158,9 @@ export function PlayerByCountriesLoading() {
             </CardHeader>
             <CardContent className="pt-0">
                 <CountriesSkeleton/>
+                <div className="flex justify-center pt-4">
+                    <Skeleton className="h-9 w-64"/>
+                </div>
             </CardContent>
         </Card>
     );

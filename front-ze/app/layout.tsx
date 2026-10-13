@@ -1,4 +1,5 @@
 import * as React from "react";
+import {Suspense} from "react";
 import {Metadata} from "next";
 import {ThemeProvider} from "components/providers/theme-provider";
 import {CommunityServerProvider} from "components/ui/ServerProvider";
@@ -13,6 +14,7 @@ import {AnnouncementsContainer} from "components/announcements/AnnouncementsCont
 import {NotificationBannerLoader} from "components/notifications/NotificationBannerLoader";
 import {DonorBanner} from "components/ui/DonorBanner";
 import getServerUser from "./getServerUser";
+import getDonorBanner from "./getDonorBanner";
 import NextTopLoader from "nextjs-toploader";
 import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getTranslations} from "next-intl/server";
@@ -73,6 +75,7 @@ export default async function RootLayout({
 }) {
     const communities = getCommunity();
     const user = getServerUser();
+    const donorBanner = getDonorBanner();
     const locale = await getLocale();
     // AdSpot renders an <amp-ad> element, which needs the AMP runtime. Only pull in that
     // third-party script when AdSpot will actually render one.
@@ -104,7 +107,9 @@ export default async function RootLayout({
                             <div id="root">
                                 <div className="body-before-footer">
                                     <AnnouncementsContainer />
-                                    <DonorBanner />
+                                    <Suspense fallback={null}>
+                                        <DonorBanner bannerPromise={donorBanner} />
+                                    </Suspense>
                                     {children}
                                 </div>
                             </div>

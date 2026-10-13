@@ -18,7 +18,7 @@ import MapAverageSessionDistribution from "components/maps/MapAverageSessionDist
 import MapPlayerType from "components/maps/MapPlayerType.tsx";
 import MapMusicSection from "components/maps/MapMusicSection.tsx";
 import {getServerSlugOrNotFound} from "../../util";
-import { MapRegion, ServerMapDetail} from "types/maps";
+import { MapRegion, ServerMapDetail, ServerMapMusic} from "types/maps";
 import {MapContextProvider} from "./MapContext";
 import {MapPeriodProvider} from "./MapPeriod";
 import PeriodSelector from "components/period/PeriodSelector";
@@ -119,6 +119,7 @@ export async function generateMetadata({ params }: {
 export default async function Page({ params }){
     const { map_name, server_slug } = await params
     const server = await getServerSlugOrNotFound(server_slug);
+    const musicsPromise: Promise<ServerMapMusic[]> = fetchServerUrl(server.id, `/maps/${map_name}/musics`).catch(() => [])
     let mapInfo: ServerMapDetail
     try{
         mapInfo = await getMapInfoDetails(server.id, map_name);
@@ -187,7 +188,7 @@ export default async function Page({ params }){
                             <MapAnalyzeAttributes />
                         </div>
                         <div className="col-span-12">
-                            <MapMusicSection />
+                            <MapMusicSection musicsPromise={musicsPromise} />
                         </div>
                         <div className="col-span-12">
                             <AdSpot />

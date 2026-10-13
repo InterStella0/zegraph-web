@@ -1,4 +1,5 @@
 export const SUPPORTERS_ROOT = 'https://queeniemella.cc/api/supporters';
+export const DONOR_BANNER_DISMISSED = 'donor_banner_dismissed';
 
 export interface TopSupporter {
   rank: number;
@@ -15,6 +16,12 @@ export interface RecentSupporter {
 export interface AllSupporters {
   names: string[];
   anonymous: number;
+}
+
+export interface DonorBannerData {
+  latestId: string;
+  names: string;
+  remaining: number;
 }
 
 async function fetchSupporters<T>(url: string): Promise<T[]> {

@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { getServerSlugOrNotFound } from "../util.ts"
-import { formatTitle } from "utils/generalUtils.ts"
+import { fetchServerUrl, formatTitle } from "utils/generalUtils.ts"
+import { Character3DModel } from "types/maps"
 import ModelsPageContent from "./ModelsPageContent"
 import { getTranslations } from 'next-intl/server';
 
@@ -17,6 +18,11 @@ export async function generateMetadata({ params }: {
     }
 }
 
-export default function Page() {
-    return <ModelsPageContent />
+export default async function Page({ params }: {
+    params: Promise<{ server_slug: string }>
+}) {
+    const { server_slug } = await params
+    const server = await getServerSlugOrNotFound(server_slug)
+    const characterModels: Character3DModel[] | null = await fetchServerUrl(server.id, '/characters').catch(() => null)
+    return <ModelsPageContent characterModels={characterModels ?? []} />
 }

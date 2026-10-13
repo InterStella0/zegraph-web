@@ -175,7 +175,7 @@ export default function ServerContent({ server, description }: {server: Server, 
                     "col-span-12",
                     showPlayers ? "md:col-span-12 xl:col-span-9" : "md:col-span-12"
                 )}>
-                    <Card className="min-h-[516px]">
+                    <Card className="min-h-[516px] min-[501px]:min-h-[682px] sm:min-h-[650px]">
                         <ServerGraph setLoading={setGraphLoading} setShowPlayers={setShowPlayers} />
                         {graphLoading && <Progress value={undefined} className="h-1" />}
                     </Card>

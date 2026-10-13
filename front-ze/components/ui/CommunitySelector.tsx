@@ -271,7 +271,7 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
         </div>
     );
 
-    const drawerContent = (
+    const renderDrawerContent = (isCollapsed: boolean) => (
         <div className="h-full flex flex-col bg-background">
             <div className={`flex items-center ${
                 isCollapsed ? 'justify-center px-4' : 'justify-between px-6'
@@ -301,7 +301,7 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                 )}
 
                 <ScrollArea className="max-h-[calc(100vh-80px)]">
-                <div className={`${isCollapsed ? "py-3" : "py-2"}`}  style={{ width: drawerWidth }}>
+                <div className={`${isCollapsed ? "py-3" : "py-2"}`}  style={{ width: isCollapsed ? 72 : 320 }}>
                     {communities.map((community) => {
                         const isCommunitySelected = communitySelected === community.id;
 
@@ -390,20 +390,29 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                 setDisplayCommunity(data)
             }}>
                 <SheetContent side="left" className="w-[320px] p-0">
-                    {drawerContent}
+                    {renderDrawerContent(false)}
                 </SheetContent>
             </Sheet>
+        );
+    }
+
+    if (!isClient && userPreference !== true) {
+        return (
+            <aside className="flex-shrink-0 h-screen overflow-hidden border-r border-border/40 max-[751px]:hidden sticky top-0 left-0 w-[72px] min-[1510px]:w-[320px]">
+                <div className="h-full min-[1510px]:hidden">{renderDrawerContent(true)}</div>
+                <div className="h-full hidden min-[1510px]:block">{renderDrawerContent(false)}</div>
+            </aside>
         );
     }
 
     return (
         <aside
             className={`flex-shrink-0 h-screen overflow-hidden border-r border-border/40 ${
-                isClient ? 'transition-all duration-300 ease-in-out' : 'max-[1199px]:hidden'
+                isClient ? 'transition-all duration-300 ease-in-out' : 'max-[751px]:hidden'
             } sticky top-0 left-0`}
             style={{ width: drawerWidth }}
         >
-            {drawerContent}
+            {renderDrawerContent(isCollapsed)}
         </aside>
     );
 }

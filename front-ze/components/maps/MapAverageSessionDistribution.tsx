@@ -32,6 +32,7 @@ function AverageSessionDistribution() {
     useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
+        if (!name) return
         setLoading(true)
         setDetail(null)
         setNotReady(false)
@@ -230,7 +231,11 @@ function AverageSessionDistribution() {
                 </ScreenReaderOnly>
             )}
 
-            {loading &&  <SkeletonBarGraph height={200} amount={5} barHeight={23} width={400} gap={'1.3rem'} />}
+            {loading && (
+                <div className="h-[300px] flex items-center overflow-hidden">
+                    <SkeletonBarGraph height={200} amount={5} barHeight={23} width={400} gap={'1.3rem'} />
+                </div>
+            )}
 
             {!loading && (
                 <div

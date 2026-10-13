@@ -452,7 +452,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     return (
         <div>
             {header}
-            {activeLoading ? <GraphSkeleton height={375} className="m-4" /> :
+            {activeLoading ? <GraphSkeleton height={metric === 'hour' ? 372 : 375} className="m-4" /> :
                 <>
                     <ScreenReaderOnly id="hour-of-day-summary">
                         {summary}

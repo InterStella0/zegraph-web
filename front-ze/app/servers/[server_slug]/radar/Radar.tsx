@@ -53,7 +53,7 @@ export default function Radar(): ReactElement {
     }, [isDarkMode, countryWMSRef])
 
     return <>
-        <div className="relative h-[calc(100vh-72px)] w-full [&_.leaflet-bottom.leaflet-left]:mb-[236px] md:[&_.leaflet-bottom.leaflet-left]:mb-[96px]">
+        <div className="relative h-[calc(100vh-72px)] w-full [&_.leaflet-top.leaflet-right]:left-0 [&_.leaflet-bottom.leaflet-left]:mb-[236px] md:[&_.leaflet-bottom.leaflet-left]:mb-[96px]">
         <TemporalContext value={{ data: temporal, set: setTemporal }}>
             <MapContainer
                 // @ts-ignore

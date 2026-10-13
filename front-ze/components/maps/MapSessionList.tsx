@@ -28,7 +28,7 @@ function AllSessions(){
     const [page, setPage] = useState<number>(0)
     const [ sessions, setSessions ] = useState<ServerMapPlayed[]>([])
     const [ totalSessions, setTotalSessions ] = useState(0)
-    const [ loading, setLoading ] = useState<boolean>(false)
+    const [ loading, setLoading ] = useState<boolean>(true)
     const [ error, setError ] = useState<string | null>(null)
     const [ notReady, setNotReady ] = useState<boolean>(false)
     const { server } = useServerData()
@@ -41,6 +41,7 @@ function AllSessions(){
     }, [server_id, name, period])
 
     useEffect(() => {
+        if (!name) return
         const abort = new AbortController()
         setLoading(true)
         fetchServerUrl(server_id, `/maps/${name}/sessions`, { params: { page, ...(period && { period }) }, signal: abort.signal })
@@ -103,7 +104,7 @@ function AllSessions(){
                     <div className="col-span-full">
                         {loading && (
                             <>
-                                {Array.from({length: 5}).map((_, index) => <SkeletonSessionGraph key={index} />)}
+                                {Array.from({length: 5}).map((_, index) => <SkeletonSessionGraph key={index} index={index} />)}
                             </>
                         )}
                         {!loading && sessionGraphs}
@@ -114,32 +115,29 @@ function AllSessions(){
     );
 }
 
-function SkeletonSessionGraph(){
+function SkeletonSessionGraph({ index }: { index: number }){
     const t = useTranslations('maps.sessionList');
     return (
         <div className="m-2">
-            <div className="grid grid-cols-2 gap-2">
-                <div className="col-span-1">
-                    <div className="flex flex-row">
-                        <p className="m-2 text-start">{t('sessionHash')}</p>
-                        <Skeleton className="w-8 h-8" />
+            <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-12 flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-0.5 m-2">
+                    <div className="text-sm sm:text-base">
+                        {t('sessionHash')}<Skeleton className="inline-block align-middle h-3.5 sm:h-4 w-14" />
                     </div>
-                </div>
-                <div className="col-span-1">
-                    <div className="flex flex-row justify-end gap-2 m-2">
-                        <Skeleton className="w-30 h-4" />
-                        <p>•</p>
-                        <Skeleton className="w-12 h-4" />
+                    <div className="flex flex-row items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                        <span><Skeleton className="inline-block align-middle h-3 sm:h-3.5 w-[5.9rem]" />{'\u200b'}</span>
+                        <span>•</span>
+                        <span><Skeleton className="inline-block align-middle h-3 sm:h-3.5 w-12" />{'\u200b'}</span>
                     </div>
                 </div>
                 <div className="col-span-full">
-                    <div className="m-2 overflow-hidden border border-border rounded-lg">
-                        <Skeleton className="w-full h-12" />
+                    <div className="m-2 border border-border rounded-lg">
+                        <Skeleton className="w-full h-[50px]" />
                     </div>
                 </div>
-                <div className="col-span-1">
-                    <div className="flex m-2 mt-0">
-                        <Skeleton className="w-27 h-8 rounded" />
+                <div className="col-span-full">
+                    <div className="flex items-center m-2 mt-0 justify-between">
+                        <Skeleton className="h-8 w-[7.7rem] rounded-md" />
                     </div>
                 </div>
             </div>

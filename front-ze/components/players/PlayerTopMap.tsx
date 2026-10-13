@@ -229,8 +229,6 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
         });
     }, [maps, t]);
 
-    const cardHeight = isMobile ? '280px' : '380px';
-
     const formatDuration = (seconds: number) => {
         const hrs = Math.floor(seconds / 3600);
         const mins = Math.floor((seconds % 3600) / 60);
@@ -253,7 +251,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
         <div className="p-4 h-full flex flex-col">
             <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-2">
-                    <h2 className={`font-bold ${isMobile ? 'text-base' : 'text-xl'}`}>
+                    <h2 className="font-bold text-base sm:text-xl">
                         {t('title')}
                     </h2>
                     <PeriodChip />
@@ -261,8 +259,8 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
 
                 <Tabs value={viewType} onValueChange={handleViewChange}>
                     <TabsList>
-                        <TabsTrigger value="chart" className={isMobile ? 'text-xs px-2 py-1' : ''}>{t('chart')}</TabsTrigger>
-                        <TabsTrigger value="table" className={isMobile ? 'text-xs px-2 py-1' : ''}>{t('table')}</TabsTrigger>
+                        <TabsTrigger value="chart" className="max-sm:text-xs max-sm:px-2 max-sm:py-1">{t('chart')}</TabsTrigger>
+                        <TabsTrigger value="table" className="max-sm:text-xs max-sm:px-2 max-sm:py-1">{t('table')}</TabsTrigger>
                     </TabsList>
                 </Tabs>
             </div>
@@ -282,8 +280,7 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
             )}
 
             <div
-                className={`flex flex-col ${viewType === "chart" ? 'items-center justify-center' : 'items-stretch justify-start'} pb-2 sm:pb-4`}
-                style={{ height: cardHeight }}
+                className={`flex flex-col h-[280px] sm:h-[380px] ${viewType === "chart" ? 'items-center justify-center' : 'items-stretch justify-start'} pb-2 sm:pb-4`}
             >
                 {loading && <SkeletonBarGraph sorted />}
                 {error && (error instanceof APIError && error.code === 202 ?
@@ -319,8 +316,8 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
                             </>
                         )}
                         {viewType === "table" && (
-                            <div className="flex flex-col" style={{ height: cardHeight }}>
-                                <div className="overflow-auto" style={{ height: cardHeight }}>
+                            <div className="flex flex-col h-[280px] sm:h-[380px]">
+                                <div className="overflow-auto h-[280px] sm:h-[380px]">
                                     <Table>
                                         <TableHeader className="sticky top-0 bg-background">
                                             <TableRow>
