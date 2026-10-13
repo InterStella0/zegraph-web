@@ -3,48 +3,43 @@ import PlayerRankings, {PlayerRankingsLoading} from "components/players/PlayerRa
 import TopPerformers, {TopPerformersLoading} from "components/players/TopPerformers";
 import PlayersOnline, {PlayersOnlineLoading} from "components/players/PlayersOnline.tsx";
 import PlayerByCountries, {PlayerByCountriesLoading} from "components/players/PlayerByCountries.tsx";
-import {getServerSlugOrNotFound, getServerSlug} from "../util";
+import {getServerSlug} from "../util";
+import {serverMetadata} from "../serverMetadata";
 import type {ServerPageProps} from "../page";
 import {Metadata} from "next";
 import {getTranslations} from "next-intl/server";
 import {BriefPlayers, ServerPlayersStatistic} from "types/players.ts";
-import {fetchApiServerUrl, fetchServerUrl, formatHours, formatTitle, socialMeta} from "utils/generalUtils.ts";
+import {fetchApiServerUrl, fetchServerUrl, formatHours} from "utils/generalUtils.ts";
 import {Suspense} from "react";
 import {getCachedPlayerStats, getCachedTopPlayers} from "lib/cachedFetches";
 import {AdSpot} from "components/ui/AdSpot";
 
 export async function generateMetadata({ params}: ServerPageProps): Promise<Metadata> {
-    const { server_slug } = await params
+    return serverMetadata(params, async (server, t) => {
+        let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
+        try{
+            const stats: ServerPlayersStatistic = await getCachedPlayerStats(server.id);
+            const allTime = stats.all_time
+            description += ' ' + t('uniquePlayers', {players: allTime.total_players, countries: allTime.countries});
+        }catch(e){}
 
-    const server = await getServerSlugOrNotFound(server_slug)
+        try{
+            const data: BriefPlayers = await getCachedTopPlayers(server.id, 'today');
+            const topPlayer = data.players[0]
+            if (topPlayer)
+                description += ' ' + t('topPlayerToday', {name: topPlayer.name, hours: formatHours(topPlayer.total_playtime)});
+        }catch(e){}
 
-    const t = await getTranslations('metadata');
-    let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
-    try{
-        const stats: ServerPlayersStatistic = await getCachedPlayerStats(server.id);
-        const allTime = stats.all_time
-        description += ' ' + t('uniquePlayers', {players: allTime.total_players, countries: allTime.countries});
-    }catch(e){}
-
-    try{
-        const data: BriefPlayers = await getCachedTopPlayers(server.id, 'today');
-        const topPlayer = data.players[0]
-        if (topPlayer)
-            description += ' ' + t('topPlayerToday', {name: topPlayer.name, hours: formatHours(topPlayer.total_playtime)});
-    }catch(e){}
-
-    if (server.players)
-        description += ' ' + t('playersOnline', {count: server.players});
-    const title = formatTitle(t('playersTitle', {name: server.community_name}))
-    const image = server.community_icon
-    return {
-        title: title,
-        description: description,
-        alternates: {
-            canonical: `/servers/${server.gotoLink}/players`
-        },
-        ...socialMeta({title, description, images: image? [image]: null, noTwitter: true})
-    }
+        if (server.players)
+            description += ' ' + t('playersOnline', {count: server.players});
+        const image = server.community_icon
+        return {
+            title: t('playersTitle', {name: server.community_name}),
+            description,
+            path: '/players',
+            social: {images: image? [image]: null, noTwitter: true},
+        }
+    })
 }
 
 export default async function Page({ params }: ServerPageProps){
