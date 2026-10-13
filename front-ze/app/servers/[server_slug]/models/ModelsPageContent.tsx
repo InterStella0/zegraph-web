@@ -51,6 +51,7 @@ function CharacterModelCard({ model, serverSlug }: { model: Character3DModel, se
 
 function MapModelCard({ mapModel, serverId }: { mapModel: MapWithModels, serverId: string }) {
     const { low_res_model, high_res_model } = mapModel
+    const { server } = useServerData()
     const [mapImage, setMapImage] = useState<string | null>(null)
     const [imageLoading, setImageLoading] = useState(true)
 
@@ -85,7 +86,7 @@ function MapModelCard({ mapModel, serverId }: { mapModel: MapWithModels, serverI
                     {high_res_model && <div>High res — {formatBytes(high_res_model.file_size)}</div>}
                 </div>
                 <Button asChild size="sm" variant="outline" className="mt-auto w-full">
-                    <Link href={`/maps/${mapModel.map_name}/3d`}>
+                    <Link href={`/maps/${mapModel.map_name}/3d?server_slug=${server.gotoLink}`}>
                         View
                     </Link>
                 </Button>

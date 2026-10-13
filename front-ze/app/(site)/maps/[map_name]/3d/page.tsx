@@ -30,7 +30,7 @@ export default async function Map3DPage({ params, searchParams }: {
   const { map_name } = await params
   const server_slug = (await searchParams).server_slug
 
-  const backUrl = `/servers/${server_slug}/maps/${map_name}`
+  const backUrl = server_slug ? `/servers/${server_slug}/maps/${map_name}` : null
 
   if (!map_name) {
     return null // Loading state while params resolve
@@ -48,14 +48,14 @@ export default async function Map3DPage({ params, searchParams }: {
   return (
     <div className="container max-w-screen-2xl mx-auto px-4 py-6">
       <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
+        {backUrl && <div className="flex items-center gap-4 mb-4">
           <Button variant="ghost" size="sm" asChild>
             <Link href={backUrl}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Map
             </Link>
           </Button>
-        </div>
+        </div>}
 
         <h1 className="text-3xl font-bold mb-2">{map_name} - 3D View</h1>
         <p className="text-muted-foreground">
