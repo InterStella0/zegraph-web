@@ -21,6 +21,7 @@ import {DailyMapRegion, MapRegion} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import {useTranslations, useLocale} from 'next-intl';
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
+import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 
 dayjs.extend(utc);
 
@@ -64,22 +65,7 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
         : null, [server_id, name, period], { initial: initialRegions, retryNotReady: true })
     const regions = fetched ?? []
 
-    const getChartColors = () => {
-        if (typeof window === 'undefined') return {
-            textColor: 'hsl(222.2 47.4% 11.2%)',
-            tooltipBg: 'hsl(222.2 47.4% 11.2%)',
-            gridColor: 'hsla(214.3, 31.8%, 91.4%, 0.3)'
-        };
-
-        const isDark = document.documentElement.classList.contains('dark');
-        return {
-            textColor: isDark ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 47.4%, 11.2%)',
-            tooltipBg: isDark ? 'hsl(222.2, 84%, 4.9%)' : 'hsl(0, 0%, 100%)',
-            gridColor: isDark ? 'hsla(217.2, 32.6%, 17.5%, 0.3)' : 'hsla(214.3, 31.8%, 91.4%, 0.3)'
-        };
-    };
-
-    const colors = getChartColors();
+    const colors = useChartTheme();
     const dayNames = useWeekdayLabels();
 
     const isShort = !!period && isShortPeriod(period)
@@ -94,11 +80,7 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
             legend: false,
             tooltip: {
                 displayColors: false,
-                backgroundColor: colors.tooltipBg,
-                titleColor: colors.textColor,
-                bodyColor: colors.textColor,
-                borderColor: colors.gridColor,
-                borderWidth: 1,
+                ...heatmapTooltip(colors),
                 callbacks: {
                     title() {
                         return '';
@@ -121,7 +103,7 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
                     maxRotation: 0,
                     autoSkip: true,
                     padding: 1,
-                    color: colors.textColor,
+                    color: colors.foreground,
                     font: {
                         size: 9
                     },
@@ -150,7 +132,7 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
                 },
                 ticks: {
                     maxRotation: 0,
-                    color: colors.textColor,
+                    color: colors.foreground,
                     font: {
                         weight: 'bold',
                         size: 9
@@ -237,7 +219,7 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
             x: {
                 stacked: true,
                 ticks: {
-                    color: colors.textColor,
+                    color: colors.foreground,
                     maxRotation: 0,
                     callback(this: any, value: any) {
                         return dayjs.utc(this.getLabelForValue(value)).format(isRange ? 'D MMM' : 'D');
@@ -253,13 +235,13 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
                 title: {
                     display: true,
                     text: tRegion('hours'),
-                    color: colors.textColor
+                    color: colors.foreground
                 },
                 ticks: {
-                    color: colors.textColor
+                    color: colors.foreground
                 },
                 grid: {
-                    color: colors.gridColor
+                    color: colors.faintGrid
                 }
             }
         },
@@ -267,15 +249,11 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
             legend: {
                 position: 'bottom',
                 labels: {
-                    color: colors.textColor
+                    color: colors.foreground
                 }
             },
             tooltip: {
-                backgroundColor: colors.tooltipBg,
-                titleColor: colors.textColor,
-                bodyColor: colors.textColor,
-                borderColor: colors.gridColor,
-                borderWidth: 1,
+                ...heatmapTooltip(colors),
                 callbacks: {
                     title(items: any[]) {
                         return items[0] ? dayjs.utc(items[0].label).locale(locale).format('ddd, D MMM YYYY') : '';

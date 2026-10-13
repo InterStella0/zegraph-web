@@ -18,6 +18,7 @@ import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { useTranslations } from "next-intl";
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
+import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 
 dayjs.extend(weekOfYear)
 dayjs.extend(isoWeek)
@@ -212,24 +213,7 @@ export default function PlayTimeHeatmap({
         setHeatmapData(transformed)
     }, [filteredData, groupBy, rawData, sumMethodYearly, rangeFrom, rangeTo])
 
-    const getChartColors = () => {
-        if (typeof window === 'undefined') return {
-            textColor: 'hsl(222.2 47.4% 11.2%)',
-            tooltipBg: 'hsl(0, 0%, 100%)',
-            gridColor: 'hsla(214.3, 31.8%, 91.4%, 0.3)',
-            primaryColor: 'rgb(235, 195, 218)' // Light pink
-        };
-
-        const isDark = document.documentElement.classList.contains('dark');
-        return {
-            textColor: isDark ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 47.4%, 11.2%)',
-            tooltipBg: isDark ? 'hsl(222.2, 84%, 4.9%)' : 'hsl(0, 0%, 100%)',
-            gridColor: isDark ? 'hsla(217.2, 32.6%, 17.5%, 0.3)' : 'hsla(214.3, 31.8%, 91.4%, 0.3)',
-            primaryColor: isDark ? 'rgb(229, 82, 157)' : 'rgb(235, 195, 218)' // Dark: vibrant pink, Light: light pink
-        };
-    };
-
-    const colors = getChartColors();
+    const colors = useChartTheme();
     const dayNames = useWeekdayLabels();
 
     // Max hours for color scaling
@@ -278,11 +262,7 @@ export default function PlayTimeHeatmap({
             legend: false,
             tooltip: {
                 displayColors: false,
-                backgroundColor: colors.tooltipBg,
-                titleColor: colors.textColor,
-                bodyColor: colors.textColor,
-                borderColor: colors.gridColor,
-                borderWidth: 1,
+                ...heatmapTooltip(colors),
                 callbacks: {
                     title() {
                         return '';
@@ -305,7 +285,7 @@ export default function PlayTimeHeatmap({
                     maxRotation: 0,
                     autoSkip: true,
                     padding: 1,
-                    color: colors.textColor,
+                    color: colors.foreground,
                     font: {
                         size: 9
                     },
@@ -336,7 +316,7 @@ export default function PlayTimeHeatmap({
                 } : undefined,
                 ticks: {
                     maxRotation: 0,
-                    color: colors.textColor,
+                    color: colors.foreground,
                     font: {
                         weight: 'bold',
                         size: 9
@@ -364,12 +344,12 @@ export default function PlayTimeHeatmap({
             backgroundColor(c: any) {
                 const value = c.dataset.data[c.dataIndex].v
                 const alpha = Math.min((0.1 + value) / Math.max(3, maxHours), 1)
-                return color(colors.primaryColor).alpha(alpha).rgbString()
+                return color(colors.heat).alpha(alpha).rgbString()
             },
             borderColor(c: any) {
                 const value = c.dataset.data[c.dataIndex].v
                 const alpha = Math.min((0.2 + value) / Math.max(4, maxHours), 1)
-                return color(colors.primaryColor).alpha(alpha).rgbString()
+                return color(colors.heat).alpha(alpha).rgbString()
             },
             borderWidth: 1,
             hoverBorderColor: 'grey',
@@ -443,8 +423,8 @@ export default function PlayTimeHeatmap({
             datasets: [{
                 label: t('hoursPlayed'),
                 data: chartBarData.map(d => d.hours),
-                backgroundColor: colors.primaryColor,
-                borderColor: colors.primaryColor,
+                backgroundColor: colors.heat,
+                borderColor: colors.heat,
                 borderWidth: 1,
             }]
         }
@@ -455,11 +435,7 @@ export default function PlayTimeHeatmap({
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: colors.tooltipBg,
-                    titleColor: colors.textColor,
-                    bodyColor: colors.textColor,
-                    borderColor: colors.gridColor,
-                    borderWidth: 1,
+                    ...heatmapTooltip(colors),
                     callbacks: {
                         label: (context: any) => t('hoursPlayedValue', {hours: context.parsed.y.toFixed(2)})
                     }
@@ -468,14 +444,14 @@ export default function PlayTimeHeatmap({
             scales: {
                 x: {
                     type: 'category' as const,
-                    ticks: { color: colors.textColor },
-                    grid: { color: colors.gridColor }
+                    ticks: { color: colors.foreground },
+                    grid: { color: colors.faintGrid }
                 },
                 y: {
                     type: 'linear' as const,
-                    title: { display: true, text: t('hoursPlayed'), color: colors.textColor },
-                    ticks: { color: colors.textColor },
-                    grid: { color: colors.gridColor }
+                    title: { display: true, text: t('hoursPlayed'), color: colors.foreground },
+                    ticks: { color: colors.foreground },
+                    grid: { color: colors.faintGrid }
                 }
             }
         }

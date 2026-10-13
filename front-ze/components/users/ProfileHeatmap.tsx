@@ -8,7 +8,6 @@ import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import utc from "dayjs/plugin/utc";
 import { useTranslations } from "next-intl";
-import { useTheme } from "next-themes";
 import { formatNumber } from "utils/generalUtils";
 import { PlayerSessionTime } from "types/community";
 import { ScrollArea, ScrollBar } from "components/ui/scroll-area";
@@ -22,6 +21,7 @@ import {
     SelectValue,
 } from "components/ui/select";
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
+import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 
 dayjs.extend(isoWeek)
@@ -39,15 +39,6 @@ type HeatmapData = {
     y: string,
     d: string,
     v: number,
-}
-
-function getChartColors(isDark: boolean) {
-    return {
-        textColor: isDark ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 47.4%, 11.2%)',
-        tooltipBg: isDark ? 'hsl(222.2, 84%, 4.9%)' : 'hsl(0, 0%, 100%)',
-        gridColor: isDark ? 'hsla(217.2, 32.6%, 17.5%, 0.3)' : 'hsla(214.3, 31.8%, 91.4%, 0.3)',
-        primaryColor: isDark ? 'rgb(229, 82, 157)' : 'rgb(235, 195, 218)'
-    };
 }
 
 export default function ProfileHeatmap({ rawData }: { rawData: PlayerSessionTime[] }) {
@@ -94,8 +85,7 @@ export default function ProfileHeatmap({ rawData }: { rawData: PlayerSessionTime
     const totalHours = useMemo(() => heatmapData.reduce((sum, d) => sum + d.v, 0), [heatmapData]);
     const maxHours = useMemo(() => Math.max(...heatmapData.map(d => d.v), 1), [heatmapData]);
 
-    const { resolvedTheme } = useTheme();
-    const colors = useMemo(() => getChartColors(resolvedTheme === 'dark'), [resolvedTheme]);
+    const colors = useChartTheme();
     const dayNames = useWeekdayLabels();
 
     const options = useMemo<any>(() => ({
@@ -105,11 +95,7 @@ export default function ProfileHeatmap({ rawData }: { rawData: PlayerSessionTime
             legend: { display: false },
             tooltip: {
                 displayColors: false,
-                backgroundColor: colors.tooltipBg,
-                titleColor: colors.textColor,
-                bodyColor: colors.textColor,
-                borderColor: colors.gridColor,
-                borderWidth: 1,
+                ...heatmapTooltip(colors),
                 callbacks: {
                     title() {
                         return '';
@@ -132,7 +118,7 @@ export default function ProfileHeatmap({ rawData }: { rawData: PlayerSessionTime
                     maxRotation: 0,
                     autoSkip: true,
                     padding: 1,
-                    color: colors.textColor,
+                    color: colors.foreground,
                     font: { size: 9 },
                     callback(this: any, value: any) {
                         const label = this.getLabelForValue(value);
@@ -159,7 +145,7 @@ export default function ProfileHeatmap({ rawData }: { rawData: PlayerSessionTime
                 },
                 ticks: {
                     maxRotation: 0,
-                    color: colors.textColor,
+                    color: colors.foreground,
                     font: {
                         weight: 'bold',
                         size: 9
@@ -184,12 +170,12 @@ export default function ProfileHeatmap({ rawData }: { rawData: PlayerSessionTime
             backgroundColor(c: any) {
                 const value = c.dataset.data[c.dataIndex].v
                 const alpha = Math.min((0.1 + value) / Math.max(3, maxHours), 1)
-                return color(colors.primaryColor).alpha(alpha).rgbString()
+                return color(colors.heat).alpha(alpha).rgbString()
             },
             borderColor(c: any) {
                 const value = c.dataset.data[c.dataIndex].v
                 const alpha = Math.min((0.2 + value) / Math.max(4, maxHours), 1)
-                return color(colors.primaryColor).alpha(alpha).rgbString()
+                return color(colors.heat).alpha(alpha).rgbString()
             },
             borderWidth: 1,
             hoverBorderColor: 'grey',

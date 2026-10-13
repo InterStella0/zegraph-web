@@ -14,7 +14,7 @@ import { Button } from "components/ui/button";
 import { Skeleton } from "components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
 import { Info, AlertCircle } from "lucide-react";
-import { useTheme } from "next-themes";
+import {useChartTheme} from "lib/chartTheme";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizePlayerTypes } from "utils/chartSeoUtils.tsx";
 import {useTranslations, useLocale} from 'next-intl';
@@ -31,8 +31,7 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
     const { period } = usePeriod();
     const { server } = useServerData();
     const server_id = server.id
-    const { resolvedTheme } = useTheme();
-    const isDark = resolvedTheme === 'dark';
+    const theme = useChartTheme();
     const initialData = initialDataPromise ? use(initialDataPromise) : null
     const { data: fetched, loading, error } = useResource<MapPlayerTypeTime[]>(() => name
         ? fetchServerUrl(server_id, `/maps/${name}/player_types`, period ? { params: { period } } : {})
@@ -41,9 +40,9 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
 
     const totalSeconds = playerTypes.reduce((sum, p) => sum + p.time_spent, 0);
     const categoryColors = {
-        'mixed': isDark ? 'hsl(217.2 91.2% 59.8%)' : 'hsl(221.2 83.2% 53.3%)',
-        'casual': isDark ? 'hsl(142.1 76.2% 36.3%)' : 'hsl(142.1 70.6% 45.3%)',
-        'tryhard': isDark ? 'hsl(0 84.2% 60.2%)' : 'hsl(0 72.2% 50.6%)'
+        'mixed': theme.primary,
+        'casual': theme.success,
+        'tryhard': theme.destructive
     };
 
     const data = {
@@ -52,10 +51,10 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
             {
                 label: t('playerHours'),
                 data: playerTypes.map(p => p.time_spent),
-                backgroundColor: playerTypes.map(p => categoryColors[p.category] || (isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)')),
+                backgroundColor: playerTypes.map(p => categoryColors[p.category] || (theme.muted)),
                 hoverOffset: 10,
                 borderWidth: 2,
-                borderColor: isDark ? 'hsl(222.2 84% 4.9%)' : 'hsl(0 0% 100%)',
+                borderColor: theme.background,
             },
         ],
     };
@@ -64,11 +63,7 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
         maintainAspectRatio: true,
         plugins: {
             tooltip: {
-                backgroundColor: isDark ? 'rgba(50, 50, 50, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-                titleColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
-                bodyColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
-                borderColor: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
-                borderWidth: 1,
+                ...theme.tooltip,
                 callbacks: {
                     label: (context: any) => {
                         const count = context.raw;
@@ -81,7 +76,7 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
             legend: {
                 position: 'bottom',
                 labels: {
-                    color: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
+                    color: theme.foreground,
                 },
             },
         },

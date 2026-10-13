@@ -29,7 +29,7 @@ import timezone from "dayjs/plugin/timezone";
 import { AlertCircle } from "lucide-react";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PlayerHourDay, PlayerOnlineHeatmap} from "types/players.ts";
-import { useTheme } from "next-themes";
+import {useChartTheme} from "lib/chartTheme";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
 import {PeriodChip} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
@@ -74,8 +74,8 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     const { server, player } = use(serverPlayerPromise);
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const server_id = server.id
-    const { resolvedTheme } = useTheme();
-    const isDark = resolvedTheme === 'dark';
+    const theme = useChartTheme();
+    const isDark = theme.isDark;
     const { data: hoursData, loading, error } =
         usePlayerStat<PlayerHourDay[]>(server_id, playerId, 'hours_of_day')
     const { data: heatData, loading: heatLoading, error: heatError } =
@@ -111,18 +111,14 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
         [online]
     )
 
-    const axisColor = isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)'
-    const gridColor = isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)'
-    const labelColor = isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)'
+    const axisColor = theme.muted
+    const gridColor = theme.border
+    const labelColor = theme.foreground
 
     const tooltipStyle = useMemo(() => ({
         position: 'nearest' as const,
-        backgroundColor: isDark ? 'rgba(50, 50, 50, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-        titleColor: labelColor,
-        bodyColor: labelColor,
-        borderColor: gridColor,
-        borderWidth: 1,
-    }), [isDark, labelColor, gridColor])
+        ...theme.tooltip,
+    }), [theme])
 
     const options = useMemo(() => ({
         responsive: true,
@@ -323,7 +319,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
             {
                 label: t('joinCount'),
                 data: join,
-                borderColor: isDark ? 'hsl(142.1 76.2% 36.3%)' : 'hsl(142.1 70.6% 45.3%)',
+                borderColor: theme.success,
                 backgroundColor: isDark ? 'hsla(142.1 76.2% 36.3% / 0.3)' : 'hsla(142.1 70.6% 45.3% / 0.2)',
                 borderWidth: 2,
                 pointRadius: 0
@@ -331,7 +327,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
             {
                 label: t('leaveCount'),
                 data: leave,
-                borderColor: isDark ? 'hsl(0 84.2% 60.2%)' : 'hsl(0 72.2% 50.6%)',
+                borderColor: theme.destructive,
                 backgroundColor: isDark ? 'hsla(0 84.2% 60.2% / 0.3)' : 'hsla(0 72.2% 50.6% / 0.2)',
                 borderWidth: 2,
                 pointRadius: 0

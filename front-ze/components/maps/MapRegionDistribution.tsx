@@ -17,6 +17,7 @@ import {Region} from "types/players.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeRegionData } from "utils/chartSeoUtils.tsx";
 import {useTranslations} from 'next-intl';
+import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 
 ChartJS.register(
     BarElement,
@@ -54,23 +55,7 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
     })
     const error = fetchError && (fetchError.message || t('loadFailed'))
 
-    // Get theme-aware colors
-    const getChartColors = () => {
-        if (typeof window === 'undefined') return {
-            textColor: 'hsl(222.2 47.4% 11.2%)',
-            gridColor: 'hsla(214.3, 31.8%, 91.4%, 0.3)',
-            tooltipBg: 'hsl(222.2 47.4% 11.2%)'
-        };
-
-        const isDark = document.documentElement.classList.contains('dark');
-        return {
-            textColor: isDark ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 47.4%, 11.2%)',
-            gridColor: isDark ? 'hsla(217.2, 32.6%, 17.5%, 0.3)' : 'hsla(214.3, 31.8%, 91.4%, 0.3)',
-            tooltipBg: isDark ? 'hsl(222.2, 84%, 4.9%)' : 'hsl(0, 0%, 100%)'
-        };
-    };
-
-    const colors = getChartColors();
+    const colors = useChartTheme();
 
     // Chart configuration
     const options = {
@@ -83,24 +68,24 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
                 title: {
                     display: true,
                     text: t('hours'),
-                    color: colors.textColor
+                    color: colors.foreground
                 },
                 ticks: {
                     beginAtZero: true,
-                    color: colors.textColor
+                    color: colors.foreground
                 },
                 grid: {
-                    color: colors.gridColor
+                    color: colors.faintGrid
                 },
                 max: detail?.reduce((a, e) => a + e.total_play_duration / 60 / 60, 0)
             },
             y: {
                 stacked: true,
                 ticks: {
-                    color: colors.textColor
+                    color: colors.foreground
                 },
                 grid: {
-                    color: colors.gridColor
+                    color: colors.faintGrid
                 }
             }
         },
@@ -108,15 +93,11 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
             legend: {
                 position: 'bottom',
                 labels: {
-                    color: colors.textColor
+                    color: colors.foreground
                 }
             },
             tooltip: {
-                backgroundColor: colors.tooltipBg,
-                titleColor: colors.textColor,
-                bodyColor: colors.textColor,
-                borderColor: colors.gridColor,
-                borderWidth: 1
+                ...heatmapTooltip(colors),
             }
         }
     }
