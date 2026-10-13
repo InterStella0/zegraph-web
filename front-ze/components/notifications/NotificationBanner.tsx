@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { Bell, X } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import { usePushNotifications } from 'lib/hooks/usePushNotifications';
-import { SteamProfile } from '../../next-auth-steam/steam';
+import { SteamProfile } from 'types/steam';
 
 interface NotificationBannerProps {
   userPromise: Promise<SteamProfile | null>;
