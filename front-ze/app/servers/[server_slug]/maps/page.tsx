@@ -23,7 +23,7 @@ export async function generateMetadata({ params}: {
 
     let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
     try{
-        const parameters = { page: 1, sorted_by: 'LastPlayed' }
+        const parameters = { page: 0, sorted_by: 'LastPlayed' }
         const data: MapPlayedPaginated = await fetchServerUrl(server.id, '/maps/last/sessions', { params: parameters, next: {revalidate: threeMinutes} });
         const latestMap = data.maps[0]
         description += ' ' + t('mapsPlayedLast', {count: data.total_maps, map: latestMap.map, time: dayjs(latestMap.last_played).fromNow()});
