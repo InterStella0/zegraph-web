@@ -8,7 +8,7 @@ import {use, useEffect, useRef, useState} from "react";
 import {fetchApiServerUrl, fetchServerUrl} from "utils/generalUtils";
 import {MapPlayedPaginated, ServerMap} from "types/maps.ts";
 import {ServerSlugPromise} from "../util.ts";
-import {SteamProfile} from "../../../../next-auth-steam/steam.ts";
+import {SteamProfile} from "types/steam";
 import {useMapNotifications} from "lib/hooks/useMapNotifications";
 
 import {useTranslations} from 'next-intl';

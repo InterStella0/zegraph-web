@@ -28,36 +28,3 @@ export const getCachedTopPlayers = unstable_cache(
     tags: ['top-players']
   }
 );
-
-export const getCachedMapInfo = unstable_cache(
-  async (serverId: string, mapName: string) => {
-    return fetchServerUrl(serverId, `/maps/${mapName}/info`);
-  },
-  ['map-info'],
-  {
-    revalidate: 3600, // 1 hour
-    tags: ['map-info']
-  }
-);
-
-export const getCachedPlayerDetail = unstable_cache(
-  async (serverId: string, playerId: string) => {
-    return fetchServerUrl(serverId, `/players/${playerId}/detail`);
-  },
-  ['player-detail'],
-  {
-    revalidate: 300,
-    tags: ['player-detail']
-  }
-);
-
-export const getCachedMapAnalyze = unstable_cache(
-  async (serverId: string, mapName: string) => {
-    return fetchServerUrl(serverId, `/maps/${mapName}/analyze`);
-  },
-  ['map-analyze'],
-  {
-    revalidate: 900, // 15 minutes - analyze data changes less frequently
-    tags: ['map-analyze']
-  }
-);
