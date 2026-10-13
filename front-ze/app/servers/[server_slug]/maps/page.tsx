@@ -1,4 +1,4 @@
-import CurrentMatch from "components/maps/CurrentMatch";
+import CurrentMatch, {CurrentMatchSkeleton} from "components/maps/CurrentMatch";
 import {fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils";
 import {getServerSlugOrNotFound, threeMinutes} from "../util";
 import MapsSearchIndex from "./MapsSearchIndex";
@@ -48,7 +48,7 @@ export default async function Page({ params }){
     const playerContinents = server.then(e => getContinentStatsNow(e.id))
 
     return <div className="container max-w-screen-xl py-6 max-sm:px-0.5 mx-auto px-2">
-        <Suspense fallback={null}>
+        <Suspense fallback={<CurrentMatchSkeleton />}>
             <CurrentMatch serverPromise={server} mapCurrentPromise={matchData} playerContinentsPromise={playerContinents} userPromise={user} />
         </Suspense>
         <AdSpot className="my-4" />

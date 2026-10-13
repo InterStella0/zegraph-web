@@ -69,6 +69,25 @@ function PlayedWithRow({ player, server }: { player: PlayerSeen, server: Server 
     );
 }
 
+function PlayedWithSkeletonRow({ index }: { index: number }) {
+    return (
+        <div className="flex items-center gap-3 px-2 py-2 rounded-md">
+            <Skeleton className="w-[40px] h-[40px] rounded-full flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+                <div className="font-medium">
+                    <Skeleton className="inline-block align-middle h-4" style={{width: `${5 + (index * 3) % 6}rem`}} />{'\u200b'}
+                </div>
+                <div className="text-xs">
+                    <Skeleton className="inline-block align-middle h-3 w-24" />{'\u200b'}
+                </div>
+            </div>
+            <div className="text-sm flex-shrink-0">
+                <Skeleton className="inline-block align-middle h-3.5 w-12" />{'\u200b'}
+            </div>
+        </div>
+    );
+}
+
 type PlayedWithProps = { serverPlayerPromise: Promise<ServerPlayerDetailed>, heading?: ReactNode };
 
 function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithProps) {
@@ -226,8 +245,8 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
                     )}
                     {/* Shorter than the sessions list by the search box and footer, so both tabs are the same height. */}
                     <div className="flex-1 max-h-[470px] overflow-y-auto">
-                        {loading && !data && Array.from({length: 6}).map((_, i) =>
-                            <Skeleton key={i} className="h-12 w-full my-1" />
+                        {loading && !data && Array.from({length: 20}).map((_, i) =>
+                            <PlayedWithSkeletonRow key={i} index={i} />
                         )}
                         {error && <p className="text-sm text-muted-foreground py-6 text-center">{t('loadError')}</p>}
                         {!error && data && data.rows.length === 0 && (
@@ -238,6 +257,16 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
                         )}
                     </div>
 
+                    {loading && !data && (
+                        <>
+                            <div className="mt-2">
+                                <Skeleton className="h-9 w-full" />
+                            </div>
+                            <div className="text-xs">
+                                <Skeleton className="inline-block align-middle h-3 w-40" />{'\u200b'}
+                            </div>
+                        </>
+                    )}
                     {data && data.total_pages > 1 && (
                         <div className="mt-2">
                             <PaginationPage totalPages={data.total_pages} page={page} setPage={setPage} compact />

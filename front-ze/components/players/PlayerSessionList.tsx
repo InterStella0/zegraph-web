@@ -1,7 +1,7 @@
 'use client'
 import {useTranslations} from 'next-intl';
 import {ReactElement, ReactNode, use, useEffect, useState} from "react";
-import {fetchApiServerUrl, simpleRandom, StillCalculate} from "utils/generalUtils";
+import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
 import { Card, CardContent } from "components/ui/card";
 import { Badge } from "components/ui/badge";
 import { Button } from "components/ui/button";
@@ -22,23 +22,19 @@ import {periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/pla
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-function SessionSkeleton() {
-    const [isClient, setIsClient] = useState<boolean>(false);
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
+function SessionSkeleton({ index }: { index: number }) {
     return (
         <Card className="my-1">
             <CardContent className="m-0">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                        <Skeleton className="h-[22px] w-24" style={{ width: simpleRandom(90, 105, isClient) }} />
+                        <Skeleton className="h-[22px]" style={{ width: 90 + (index * 7) % 15 }} />
                         <span className="hidden sm:block text-sm text-muted-foreground">
                             →
                         </span>
-                        <Skeleton className="h-[22px] w-24" style={{ width: isClient ? simpleRandom(90, 105) : 90 }} />
+                        <Skeleton className="h-[22px]" style={{ width: 90 + (index * 11) % 15 }} />
                     </div>
-                    <Skeleton className="h-[22px] rounded-full" style={{ width: simpleRandom(35, 75, isClient) }} />
+                    <Skeleton className="h-[22px] rounded-full" style={{ width: 35 + (index * 13) % 40 }} />
                 </div>
             </CardContent>
         </Card>
@@ -239,11 +235,11 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
                 </div>
             </div>
 
-            <div className="max-h-[525px] overflow-y-auto mb-3 pr-2">
+            <div className="h-[525px] overflow-y-auto mb-3 pr-2">
                 <div className="space-y-2">
                     {loading ? (
                         Array.from({ length: 10 }).map((_, index) => (
-                            <SessionSkeleton key={index} />
+                            <SessionSkeleton key={index} index={index} />
                         ))
                     ) : (
                         sessionList.map((session) => (
@@ -251,21 +247,20 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
                         ))
                     )}
                 </div>
+                {sessionList.length === 0 && !loading && (
+                    <div className="text-center py-8">
+                        <p className="text-muted-foreground">
+                            {t('noSessions')}
+                        </p>
+                    </div>
+                )}
             </div>
 
-            {sessionList.length === 0 && !loading && (
-                <div className="text-center py-8">
-                    <p className="text-muted-foreground">
-                        {t('noSessions')}
-                    </p>
-                </div>
-            )}
-
-            {totalPages > 1 && (
-                <div className="flex justify-center mt-3 px-2" >
+            <div className="flex justify-center mt-3 px-2 min-h-9">
+                {totalPages > 1 && (
                     <PaginationPage totalPages={totalPages} page={page} setPage={setPage} />
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }

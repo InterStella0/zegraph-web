@@ -1,5 +1,5 @@
 import {useState, useEffect, useContext, useRef, useDeferredValue} from 'react';
-import { ChevronDown, ChevronUp, Users, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { createControlComponent } from '@react-leaflet/core';
 import L, { Control, DomUtil } from 'leaflet';
 import { TemporalContext } from "./TemporalController.tsx";
@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "compon
 import { Button } from "components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
 import { cn } from "components/lib/utils";
+import { Skeleton } from "components/ui/skeleton";
 import {useTranslations} from 'next-intl';
 
 function CountryStatsWrapper({ setUpdateFn }) {
@@ -42,6 +43,8 @@ const CountryStatsControl = Control.extend({
     onAdd: function() {
         // Create container for the control
         this._container = DomUtil.create('div', 'leaflet-control leaflet-bar country-stats-control');
+        const container = this._container;
+        container.style.display = 'none';
 
         // Prevent map click events when interacting with the control
         L.DomEvent.disableClickPropagation(this._container);
@@ -51,6 +54,7 @@ const CountryStatsControl = Control.extend({
         reactRoot.render(<CountryStatsWrapper setUpdateFn={(fn) => {
             this._setReactDataFn = fn;
             fn({timeContext: this.options.timeContext, server_id: this.options.server_id, labels: this.options.labels})
+            container.style.display = '';
         }} />);
         return this._container;
     },
@@ -74,14 +78,14 @@ const CountryStatsList = ({ reactData }) => {
     const { timeContext, server_id, labels } = reactData || {}
     const [page, setPage] = useState(1);
     const [isExpanded, setIsExpanded] = useState(true);
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(true)
     const [data, setData] = useState({
         in_view_count: 0,
         total_count: 0,
         countries: []
     })
     const pageSize = 5;
-    const [isMobile, setIsMobile] = useState(false);
+    const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
     const startDate = timeContext?.data.cursor
     const interval = timeContext?.data.interval
     const isLive = timeContext?.data.isLive
@@ -175,9 +179,14 @@ const CountryStatsList = ({ reactData }) => {
 
                         {/* Country list */}
                         {loading ? (
-                            <div className="flex justify-center p-4">
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                            </div>
+                            <>
+                                <div className="space-y-2">
+                                    {Array.from({ length: pageSize }, (_, i) => (
+                                        <Skeleton key={i} className="h-[26px] w-full" />
+                                    ))}
+                                </div>
+                                <Skeleton className="h-6 w-full mt-2" />
+                            </>
                         ) : (
                             <>
                                 <ul className="space-y-2">

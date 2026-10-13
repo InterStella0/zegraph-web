@@ -25,7 +25,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
     // Period selection state
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
     const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth()) // 0-11
-    const [availableYears, setAvailableYears] = useState<number[]>([])
+    const [availableYears, setAvailableYears] = useState<number[]>(() => [new Date().getFullYear()])
     const [ totalPlayTime, setTotalPlayTime ] = useState<number>(0)
 
     const [ sumMethodYearly, setSumMethodYearly ] = useState<"monthly" | "yearly">("yearly")
@@ -57,7 +57,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
     return (
         <Card className="overflow-hidden border-0">
             <div className="flex justify-between items-center flex-col sm:flex-row gap-2 p-2 border-b">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-center gap-2">
                     <h2 className="text-base font-medium">
                         {t('title', {hours: totalPlayTime.toLocaleString()})}
                     </h2>

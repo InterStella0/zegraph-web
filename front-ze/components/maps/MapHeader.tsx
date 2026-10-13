@@ -46,18 +46,20 @@ function MapHeaderDisplay() {
     const mapLeft = info?.map_left ?? 0
 
     useEffect(() => {
+        if (!name) return
         setUrl(null)
         getMapImage(server_id, name).then(e => setUrl(e? e.extra_large: null))
     }, [server_id, name]);
 
     useEffect(() => {
+        if (!name) return
         checkModelExists(name).then(setModelAvailable)
     }, [name]);
 
     return (
         <TooltipProvider>
             <div className="relative overflow-hidden rounded-2xl h-full">
-                <div className="w-full h-full xl:max-h-110 max-sm:h-50 overflow-hidden relative">
+                <div className="w-full h-full aspect-[1051/550] xl:max-h-110 max-sm:h-50 overflow-hidden relative">
                     {url !== null ? (
                         <Image
                             unoptimized

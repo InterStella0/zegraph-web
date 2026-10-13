@@ -1,4 +1,5 @@
-import { formatTitle } from 'utils/generalUtils'
+import { fetchUrl, formatTitle } from 'utils/generalUtils'
+import { MapWithModels } from 'types/maps'
 import Link from 'next/link'
 import { Button } from 'components/ui/button'
 import { ArrowLeft} from 'lucide-react'
@@ -35,6 +36,15 @@ export default async function Map3DPage({ params, searchParams }: {
     return null // Loading state while params resolve
   }
 
+  let modelMetadata: MapWithModels | null = null
+  let error: string | null = null
+  try {
+    modelMetadata = await fetchUrl(`/maps/${map_name}/3d`)
+  } catch (err) {
+    console.error('Failed to fetch model metadata:', err)
+    error = err instanceof Error ? err.message : 'Failed to load model metadata'
+  }
+
   return (
     <div className="container max-w-screen-2xl mx-auto px-4 py-6">
       <div className="mb-6">
@@ -54,7 +64,7 @@ export default async function Map3DPage({ params, searchParams }: {
       </div>
 
       <div className="h-[calc(100vh-16rem)] border rounded-lg overflow-hidden bg-background flex items-center justify-center">
-        <MapViewerRenderer map_name={map_name} />
+        <MapViewerRenderer map_name={map_name} modelMetadata={modelMetadata} error={error} />
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 'use client'
 import { Ban, Clock, Heart} from 'lucide-react';
 import dayjs from 'dayjs';
-import {getMapImage, secondsToHours, simpleRandom} from "utils/generalUtils";
+import {getMapImage, secondsToHours} from "utils/generalUtils";
 import {useEffect, useState} from "react";
 import duration from "dayjs/plugin/duration";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -22,34 +22,48 @@ import {useTranslations, useLocale} from 'next-intl';
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
 
-const MapsRowSkeleton = () => {
-    const [isClient, setIsClient] = useState<boolean>(false)
-    useEffect(() => {
-        setIsClient(true)
-    }, []);
+const MapsRowSkeleton = ({ index, showNotify }: { index: number, showNotify: boolean }) => {
     return (
         <TableRow>
             <TableCell>
                 <div className="flex items-center gap-4">
-                    <Skeleton className="w-20 h-11" />
-                    <div className="w-36 lg:w-64 xl:w-72">
-                        <Skeleton className="h-4 mb-1" style={{width: `${simpleRandom(80, 140, isClient)}px`}} />
-                        <Skeleton className="h-3" style={{width: `${simpleRandom(40, 80, isClient)}px`}} />
+                    <Skeleton className="w-20 h-11 rounded" />
+                    <div>
+                        <div className="w-32 md:w-32 lg:w-60 xl:w-72 max-w-72">
+                            <div className="text-sm font-medium">
+                                <Skeleton className="inline-block align-middle h-3.5" style={{width: `${7 + (index * 5) % 6}rem`}} />{'\u200b'}
+                            </div>
+                        </div>
+                        <div className="flex gap-1 mt-1">
+                            <Skeleton className="inline-flex border border-transparent px-2 py-0.5 text-xs rounded-full w-14">{'\u200b'}</Skeleton>
+                        </div>
                     </div>
                 </div>
             </TableCell>
             <TableCell>
-                <div className="w-16 overflow-hidden">
-                    <Skeleton className="h-4" style={{width: `${simpleRandom(40, 60, isClient)}px`}} />
-                </div>
+                <Skeleton className="inline-flex border border-transparent px-2 py-0.5 text-xs rounded-full w-[5.75rem]">{'\u200b'}</Skeleton>
             </TableCell>
-            {Array.from({ length: 6 }).map((_, j) => (
-                <TableCell key={j}>
-                    <div className="flex justify-end">
-                        <Skeleton className="h-4" style={{width: `${simpleRandom(40, 60, isClient)}px`}} />
-                    </div>
-                </TableCell>
-            ))}
+            <TableCell align="right">
+                <span className="text-sm"><Skeleton className="inline-block align-middle h-3.5 w-16" /></span>
+            </TableCell>
+            <TableCell align="right">
+                <span className="text-sm"><Skeleton className="inline-block align-middle h-3.5 w-10" /></span>
+            </TableCell>
+            <TableCell align="right">
+                <Skeleton className="inline-block align-middle h-3.5 w-10" />
+            </TableCell>
+            <TableCell align="right">
+                <Skeleton className="inline-block align-middle h-3.5 w-6" />
+            </TableCell>
+            <TableCell align="center">
+                <span className="text-sm"><Skeleton className="inline-block align-middle h-3.5 w-32" /></span>
+            </TableCell>
+            <TableCell align="center">
+                {showNotify && <Skeleton className="inline-block align-middle size-9" />}
+            </TableCell>
+            <TableCell align="center">
+                <Skeleton className="inline-block align-middle size-9" />
+            </TableCell>
         </TableRow>
     );
 }
@@ -269,7 +283,7 @@ export default function MapsTable({
                         />
                     ))}
                     {loading && Array.from({ length: 25 }).map((_, i) =>
-                        <MapsRowSkeleton key={i} />
+                        <MapsRowSkeleton key={i} index={i} showNotify={!!user} />
                     )}
                 </TableBody>
             </Table>

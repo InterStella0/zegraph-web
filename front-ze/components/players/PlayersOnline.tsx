@@ -23,10 +23,16 @@ const PlayerListSkeleton = ({ count = 20 }) => (
     <div className="p-2 space-y-1">
         {Array.from({ length: count }).map((_, index) => (
             <div key={index} className="py-1 flex items-center gap-3">
-                <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
-                <div className="flex-1">
-                    <Skeleton className="w-3/5 h-5 mb-1" />
-                    <Skeleton className="w-4/5 h-4" />
+                <div className="relative flex-shrink-0">
+                    <Skeleton className="w-[40px] h-[40px] rounded-full" />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">
+                        <Skeleton className="inline-block align-middle h-3.5" style={{ width: `${5 + (index * 3) % 6}rem` }} />{'\u200b'}
+                    </div>
+                    <div className="text-xs">
+                        <Skeleton className="inline-block align-middle h-3 w-24" />{'\u200b'}
+                    </div>
                 </div>
             </div>
         ))}
@@ -197,8 +203,11 @@ export function PlayersOnlineLoading() {
             <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <div className="flex items-center gap-2">
                     <Gamepad2 className="w-5 h-5 text-primary" />
-                    <Skeleton className="h-6 w-32"/>
+                    <div className="text-lg max-sm:text-md font-semibold">
+                        <Skeleton className="inline-block align-middle h-5 w-32"/>{'\u200b'}
+                    </div>
                 </div>
+                <Skeleton className="h-8 w-8"/>
             </CardHeader>
             <CardContent className="pt-0">
                 <div className="relative mb-4">
@@ -206,6 +215,9 @@ export function PlayersOnlineLoading() {
                     <Input placeholder={t('searchPlayers')} disabled className="pl-10"/>
                 </div>
                 <PlayerListSkeleton count={20} />
+                <div className="flex justify-center pt-4">
+                    <Skeleton className="h-9 w-64"/>
+                </div>
             </CardContent>
         </Card>
     );

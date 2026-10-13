@@ -159,18 +159,26 @@ export function PlayerTableRowLoading({ showRank = false }: { showRank?: boolean
                             <Skeleton className="h-3 sm:h-4 w-5" />
                         </span>
                     )}
-                    <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
+                    <Skeleton className="w-[40px] h-[40px] rounded-full flex-shrink-0" />
                     <div className="ml-2 sm:ml-4 min-w-0">
-                        <Skeleton
-                            className="h-4 sm:h-5 mb-2 max-w-[6rem] sm:max-w-none"
-                            style={{ width: `${randomNameWidth}px` }}
-                        />
-                        <Skeleton className="h-3 sm:h-3.5 w-24 sm:w-40" />
+                        <span className="font-semibold tracking-wide mb-1 inline-block text-sm sm:text-base">
+                            <Skeleton
+                                className="inline-block align-middle h-4 sm:h-5 max-w-[6rem] sm:max-w-none"
+                                style={{ width: `${randomNameWidth}px` }}
+                            />{'\u200b'}
+                        </span>
+                        <div className="text-[10px] sm:text-xs flex items-center">
+                            <span>
+                                <Skeleton className="inline-block align-middle h-3 sm:h-3.5 w-24 sm:w-40" />{'\u200b'}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </TableCell>
-            <TableCell align="right" className="py-2 sm:py-3 pr-2 sm:pr-6">
-                <Skeleton className="h-7 sm:h-8 w-[60px] sm:w-[90px] rounded ml-auto" />
+            <TableCell align="right" className="py-2 sm:py-3 pr-2 sm:pr-6 align-middle">
+                <Skeleton className="inline-flex px-2 sm:px-3 py-1 sm:py-1.5 rounded min-w-[60px] sm:min-w-[90px] font-medium text-xs sm:text-sm">
+                    {'\u200b'}
+                </Skeleton>
             </TableCell>
         </TableRow>
     );

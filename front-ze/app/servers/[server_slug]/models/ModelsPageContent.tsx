@@ -104,21 +104,16 @@ function GridSkeleton() {
     )
 }
 
-export default function ModelsPageContent() {
+export default function ModelsPageContent({ characterModels }: { characterModels: Character3DModel[] }) {
     const { server } = useServerData()
     const params = useParams()
     const serverSlug = params.server_slug as string
-    const [characterModels, setCharacterModels] = useState<Character3DModel[]>([])
     const [mapModels, setMapModels] = useState<MapWithModels[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         if (!server) return
-        Promise.all([
-            fetchServerUrl(server.id, '/characters'),
-            fetchServerUrl(server.id, '/maps/3d'),
-        ]).then(([chars, maps]) => {
-            setCharacterModels(chars ?? [])
+        fetchServerUrl(server.id, '/maps/3d').then((maps) => {
             setMapModels(
                 (maps ?? []).filter(
                     (m: MapWithModels) => m.low_res_model || m.high_res_model
@@ -133,9 +128,7 @@ export default function ModelsPageContent() {
 
             <section className="space-y-4">
                 <h2 className="text-xl font-semibold">Character Models</h2>
-                {loading ? (
-                    <GridSkeleton />
-                ) : characterModels.length === 0 ? (
+                {characterModels.length === 0 ? (
                     <p className="text-muted-foreground text-sm">No character models available.</p>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

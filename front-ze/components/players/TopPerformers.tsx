@@ -20,14 +20,22 @@ const getPlayerStatus = (player) => {
 };
 
 const LeaderboardSkeleton = ({ count = 20 }) => (
-    <div className="space-y-2">
+    <div>
         {Array.from({ length: count }).map((_, index) => (
             <div key={index} className="py-2">
                 <div className="flex items-center w-full gap-4">
-                    <Skeleton className="w-[30px] h-6" />
-                    <Skeleton className="w-9 h-9 rounded-full" />
-                    <Skeleton className="flex-1 h-5" />
-                    <Skeleton className="w-15 h-5" />
+                    <div className="text-xl font-bold min-w-[30px] text-center">
+                        <Skeleton className="inline-block align-middle h-5 w-5" />{'\u200b'}
+                    </div>
+                    <div className="relative">
+                        <Skeleton className="w-[40px] h-[40px] rounded-full" />
+                    </div>
+                    <div className="flex-1 max-sm:max-w-[9rem] max-w-[10rem] max-sm:text-sm">
+                        <Skeleton className="inline-block align-middle h-4" style={{ width: `${4 + (index * 3) % 5}rem` }} />{'\u200b'}
+                    </div>
+                    <div className="font-semibold max-sm:text-sm ms-auto min-sm:pr-2.5">
+                        <Skeleton className="inline-block align-middle h-4 w-12" />{'\u200b'}
+                    </div>
                 </div>
             </div>
         ))}
@@ -159,6 +167,23 @@ export function TopPerformersLoading() {
                 <h2 className="text-lg max-sm:text-md font-semibold">{t('title')}</h2>
             </CardHeader>
             <CardContent className="pt-0">
+                <div className="sm:hidden flex flex-row items-center gap-2 pb-3">
+                    {t('within')}
+                    <Select disabled>
+                        <SelectTrigger>
+                            <SelectValue placeholder={t(timeFrames[0].labelKey)} />
+                        </SelectTrigger>
+                    </Select>
+                </div>
+                <Tabs className="hidden sm:block" value="0">
+                    <TabsList className="grid w-full grid-cols-6">
+                        {timeFrames.map((timeFrame, index) => (
+                            <TabsTrigger key={timeFrame.id} value={index.toString()} disabled>
+                                {t(timeFrame.labelKey)}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
                 <LeaderboardSkeleton />
             </CardContent>
         </Card>

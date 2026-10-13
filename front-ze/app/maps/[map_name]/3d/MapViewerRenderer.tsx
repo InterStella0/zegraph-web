@@ -1,58 +1,25 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import MapViewer3DWrapper from 'components/maps/MapViewer3DWrapper'
 import { Button } from 'components/ui/button'
 import { AlertTriangle, Boxes } from 'lucide-react'
 import { Card } from 'components/ui/card'
-import { fetchApiUrl } from 'utils/generalUtils'
 import { MapWithModels } from 'types/maps'
-import { Skeleton } from 'components/ui/skeleton'
 
 const formatFileSize = (bytes: number): string => {
   const mb = bytes / (1024 * 1024)
   return `${mb.toFixed(1)} MB`
 }
 
-export default function MapViewerRenderer({ map_name }: { map_name: string }) {
-  const [modelMetadata, setModelMetadata] = useState<MapWithModels | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export default function MapViewerRenderer({ map_name, modelMetadata, error }: {
+  map_name: string,
+  modelMetadata: MapWithModels | null,
+  error: string | null,
+}) {
   const [selectedRes, setSelectedRes] = useState<'high' | 'low' | null>(null)
-
-  // Fetch model metadata on mount
-  useEffect(() => {
-    const fetchMetadata = async () => {
-      try {
-        setIsLoading(true)
-        const data: MapWithModels = await fetchApiUrl(`/maps/${map_name}/3d`)
-        setModelMetadata(data)
-      } catch (err) {
-        console.error('Failed to fetch model metadata:', err)
-        setError(err instanceof Error ? err.message : 'Failed to load model metadata')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchMetadata().catch(e => console.error(e))
-  }, [map_name])
 
   const handleResolutionClick = (res: 'high' | 'low') => {
     setSelectedRes(res)
-  }
-
-  if (isLoading) {
-    return (
-      <Card className="max-w-md p-8 text-center">
-        <Skeleton className="w-16 h-16 mx-auto mb-4 rounded-lg" />
-        <Skeleton className="h-8 w-48 mx-auto mb-4" />
-        <Skeleton className="h-4 w-full mb-6" />
-        <div className="flex gap-2 justify-center">
-          <Skeleton className="h-10 w-40" />
-          <Skeleton className="h-10 w-40" />
-        </div>
-      </Card>
-    )
   }
 
   // Error state or no models available

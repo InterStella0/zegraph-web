@@ -34,7 +34,7 @@ function HoursSplitBar({ communities, loading }: { communities: PlayerCommunityP
                     {t('hoursSplit')}
                 </p>
                 <Skeleton className="h-2 w-full rounded-full"/>
-                <Skeleton className="h-3 w-32 mt-1.5"/>
+                <Skeleton className="h-4 w-32 mt-1.5"/>
             </div>
         );
     }
@@ -132,6 +132,9 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
                             isOnline ? "text-green-500" : "text-muted-foreground"
                         )}
                     >
+                        {communitiesLoading && player.last_community_id && (
+                            <Skeleton className="w-4 h-4 rounded-full flex-shrink-0"/>
+                        )}
                         {lastCommunity?.icon_url && (
                             <Avatar className="w-4 h-4 flex-shrink-0">
                                 <AvatarImage src={lastCommunity.icon_url} alt={lastCommunity.community_name}/>

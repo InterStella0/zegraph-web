@@ -62,7 +62,9 @@ function StatCard(
                         </div>
 
                         {loading ? (
-                            <Skeleton className="w-[60px] h-[25px]" />
+                            <div className="text-xl font-bold leading-tight">
+                                <Skeleton className="inline-block align-middle w-[60px] h-[1em]" />{'\u200b'}
+                            </div>
                         ) : (
                             <div className={`text-xl font-bold leading-tight ${colorClass}`}>
                                 {value}
@@ -102,7 +104,9 @@ function StatCard(
                 </div>
 
                 {loading ? (
-                    <Skeleton className="w-4/5 h-6" />
+                    <div className="text-lg font-bold">
+                        <Skeleton className="inline-block align-middle w-4/5 h-5" />{'\u200b'}
+                    </div>
                 ) : href ? (
                     <a
                         href={href}

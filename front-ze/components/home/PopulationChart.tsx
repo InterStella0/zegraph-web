@@ -298,7 +298,7 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 min-h-4">
                     {lines.map(l => (
                         <div key={l.id} className="flex flex-row items-center gap-1.5">
                             <span className="h-2 w-2 rounded-full" style={{backgroundColor: colors[l.id]}} />

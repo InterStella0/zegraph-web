@@ -1,6 +1,6 @@
 'use client'
 import {Heart} from 'lucide-react';
-import {getMapImage, secondsToHours, simpleRandom} from "utils/generalUtils";
+import {getMapImage, secondsToHours} from "utils/generalUtils";
 import {StatusChip} from "./MapsTable";
 import dayjs from "dayjs";
 import {Dispatch, useEffect, useState} from "react";
@@ -14,31 +14,32 @@ import {MapPlayedPaginated} from "types/maps.ts";
 import CategoryChip from "components/ui/CategoryChip.tsx";
 import {useTranslations, useLocale} from 'next-intl';
 
-export const MapsMobileViewSkeleton = () => {
-    const [isClient, setIsClient] = useState(false)
-
-    useEffect(() => {
-        setIsClient(true)
-    }, [])
+export const MapsMobileViewSkeleton = ({ index }: { index: number }) => {
+    const t = useTranslations('maps.table');
     return (
         <div className="border border-border rounded-lg bg-card p-4">
             <div className="flex justify-between items-start mb-4">
                 <div className="flex-1 mr-4">
-                    <Skeleton className="mb-2" style={{width: isClient? `${simpleRandom(40, 80)}%`: '40%', height: '24px'}} />
-                    <div className="flex gap-2 mb-2">
-                        <Skeleton className="w-15 h-5 rounded" />
-                        {isClient && Math.round(simpleRandom(0, 1)) !== 0 && <Skeleton className="w-17 h-5 rounded"/>}
+                    <div className="font-bold text-base leading-tight mb-2">
+                        <Skeleton className="inline-block align-middle h-4" style={{width: `${7 + (index * 5) % 5}rem`}} />{'\u200b'}
                     </div>
-                    <Skeleton className="w-12 h-6 rounded" />
+                    <div className="flex gap-1 flex-wrap mb-2">
+                        <Skeleton className="inline-flex border border-transparent px-2 py-0.5 text-xs rounded-full w-14">{'\u200b'}</Skeleton>
+                    </div>
+                    <Skeleton className="inline-flex border border-transparent px-2 py-0.5 text-xs rounded-full w-16">{'\u200b'}</Skeleton>
                 </div>
-                <Skeleton className="w-10 h-10 rounded-full" />
+                <Skeleton className="size-9 -mt-1 rounded-md" />
             </div>
             <Skeleton className="w-full h-30 rounded-lg mb-4" />
             <div className="grid grid-cols-2 gap-2">
-                {Array.from({ length: 4 }).map((_, j) => (
-                    <div key={j} className="text-center p-2 bg-muted/50 rounded">
-                        <Skeleton className="w-3/5 h-6 mx-auto mb-1" />
-                        <Skeleton className="w-4/5 h-4 mx-auto" />
+                {[t('cumulativeHours'), t('hours'), t('players'), t('sessions'), t('lastPlayed')].map((label, i) => (
+                    <div key={label} className={`text-center p-2 bg-muted/50 rounded${i === 0 ? ' col-span-full' : ''}`}>
+                        <div className="text-xl font-bold">
+                            <Skeleton className="inline-block align-middle h-5 w-16" />{'\u200b'}
+                        </div>
+                        <span className="text-xs text-muted-foreground font-medium">
+                            {label}
+                        </span>
                     </div>
                 ))}
             </div>
@@ -194,7 +195,7 @@ export default function MapsMobileView({
                     />
                 ))}
                 {loading && Array.from({ length: 25 }).map((_, index) => {
-                    return <MapsMobileViewSkeleton key={index} />
+                    return <MapsMobileViewSkeleton key={index} index={index} />
                 })}
             </div>
 

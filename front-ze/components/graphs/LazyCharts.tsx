@@ -1,5 +1,6 @@
 import dynamic from 'next/dynamic'
 import GraphSkeleton from "./GraphSkeleton"
+import { Skeleton } from "components/ui/skeleton"
 
 export const LazyBarChart = dynamic(
   () => import('react-chartjs-2').then(mod => ({ default: mod.Bar })),
@@ -37,6 +38,6 @@ export const LazyMatrixChart = dynamic(
   () => import('react-chartjs-2').then(mod => ({ default: mod.Chart })),
   {
     ssr: false,
-    loading: () => <GraphSkeleton />
+    loading: () => <Skeleton className="w-full h-[150px]" />
   }
 )

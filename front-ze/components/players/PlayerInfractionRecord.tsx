@@ -1,6 +1,7 @@
 'use client'
 import {useTranslations} from 'next-intl';
 import {use, useEffect, useMemo, useState} from "react";
+import {Skeleton} from "components/ui/skeleton";
 import {
     fetchApiServerUrl,
     formatFlagName,
@@ -66,6 +67,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const server_id = server.id;
     const [allInfractions, setInfractions] = useState([]);
+    const [loading, setLoading] = useState(playerId !== null);
     const [viewInfraction, setViewInfraction] = useState(null);
     const { period } = usePlayerPeriod();
     const infractions = useMemo(() => {
@@ -87,7 +89,8 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
                     e.flags = new InfractionInt(e.flags, e.source);
                 return e;
             }))
-            .then(e => setInfractions(e));
+            .then(e => setInfractions(e))
+            .finally(() => setLoading(false));
     }, [server_id, playerId]);
 
     useEffect(() => {
@@ -121,9 +124,19 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
         setViewInfraction(row);
     };
 
+    if (loading && updatedData === null) {
+        return (
+            <div className="h-[380px] overflow-hidden pt-2 space-y-3">
+                {Array.from({ length: 3 }, (_, i) => (
+                    <Skeleton key={i} className="h-[110px] w-full rounded-xl" />
+                ))}
+            </div>
+        );
+    }
+
     if (infractions.length === 0) {
         return (
-            <div className="flex justify-center items-center h-[250px] text-muted-foreground flex-col gap-2">
+            <div className="flex justify-center items-center h-[380px] text-muted-foreground flex-col gap-2">
                 <Ban className="w-8 h-8 opacity-50" />
                 <h3 className="text-xl font-semibold">
                     {t('noRecords')}
@@ -136,7 +149,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
         <>
             <ModalInfraction infraction={viewInfraction} onClose={() => setViewInfraction(null)} />
 
-            <div className="max-h-[380px] overflow-y-auto pt-2">
+            <div className="h-[380px] overflow-y-auto pt-2">
                 {infractions.map(row => {
                     const flag = row.flags;
                     const by = flag.hasFlag(InfractionFlags.SYSTEM) ? t('system') : row.by;

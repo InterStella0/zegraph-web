@@ -50,6 +50,7 @@ function MapHeatRegionDisplay(){
     useNotReadyRetry(!!notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
+        if (!name) return
         setLoading(true)
         setError(null)
         setRegions([])
@@ -375,7 +376,7 @@ function MapHeatRegionDisplay(){
                 aria-describedby="heat-region-summary"
             >
                 {ChartDisplay}
-                {loading && <Skeleton className="w-full h-[200px]" />}
+                {loading && <Skeleton className={isShort ? "w-full h-[260px]" : "w-full h-[150px]"} />}
             </div>
         </div>
     )
