@@ -24,7 +24,6 @@ import {
     TooltipTrigger,
 } from "components/ui/tooltip";
 import dayjs from "dayjs";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import { Ban, RefreshCw, Loader2 } from "lucide-react";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PlayerInfraction, PlayerInfractionUpdate} from "types/players.ts";
@@ -33,6 +32,7 @@ import {Server} from "types/community.ts";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import {PeriodChip, periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 function ModalInfraction({ infraction, onClose }){
     const t = useTranslations('players.infractions');
@@ -282,9 +282,4 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: { serverPlayerPr
         </Card>
     );
 }
-export default function PlayerInfractionRecord({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}){
-    const t = useTranslations('players.infractions');
-    return  <ErrorCatch message={t('loadError')}>
-        <PlayerInfractionRecordDisplay serverPlayerPromise={serverPlayerPromise}  />
-    </ErrorCatch>
-}
+export default withErrorCatch(PlayerInfractionRecordDisplay, t => t('players.infractions.loadError'))

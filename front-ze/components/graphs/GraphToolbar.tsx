@@ -4,7 +4,6 @@ import {Dispatch, ReactElement, SetStateAction, useEffect, useRef, useState} fro
 import dayjs, { Dayjs } from 'dayjs';
 import LocalizedFormat from 'dayjs/plugin/localizedFormat';
 import {debounce} from 'utils/generalUtils';
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {DateSources, useDateState} from './DateStateManager';
 import { TrendingUp, Calendar as CalendarIcon, Users, Circle } from 'lucide-react';
 import { Button } from "components/ui/button";
@@ -12,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "compon
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Calendar } from "components/ui/calendar";
 import { cn } from "components/lib/utils";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 dayjs.extend(LocalizedFormat);
 
@@ -221,11 +221,4 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
 }
 
 
-export default function GraphToolbar({ setShowPlayersAction }: { setShowPlayersAction: Dispatch<boolean>}): ReactElement {
-    const t = useTranslations('servers.toolbar');
-    return (
-        <ErrorCatch message={t('loadError')}>
-            <GraphToolbarControl setShowPlayersAction={setShowPlayersAction} />
-        </ErrorCatch>
-    );
-}
+export default withErrorCatch(GraphToolbarControl, t => t('servers.toolbar.loadError'))
