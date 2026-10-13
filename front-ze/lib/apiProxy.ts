@@ -132,11 +132,15 @@ export const forwardRaw = (method: "POST" | "DELETE", path: RoutePath, body: 'fo
         }
         const headers: Record<string, string> = { Authorization: `Bearer ${session.backendJwt}` };
         let payload: BodyInit | undefined;
-        if (body === 'form') {
-            payload = await req.formData();
-        } else if (body === 'text') {
-            payload = await req.text();
-            headers["Content-Type"] = "application/json";
+        try {
+            if (body === 'form') {
+                payload = await req.formData();
+            } else if (body === 'text') {
+                payload = await req.text();
+                headers["Content-Type"] = "application/json";
+            }
+        } catch {
+            return NextResponse.json({ msg: "Invalid request body", code: 400 }, { status: 400 });
         }
 
         return withTimeout(endpoint, timeoutMs, async signal => {

@@ -29,7 +29,7 @@ export function CrudPage<T extends { id: string }>({
   renderCells: (item: T) => ReactNode;
   renderDialog: (props: CrudDialogProps<T>) => ReactNode;
 }) {
-  const { data: items, loading, reload: fetchData } = useAdminData<T[]>(endpoint, (data) => (data as T[]) || [], [], label);
+  const { data: items, initialLoading, reload: fetchData } = useAdminData<T[]>(endpoint, (data) => (data as T[]) || [], [], label);
   const dialog = useDialogTarget<T>();
 
   const deleteItem = async (id: string) => {
@@ -42,7 +42,7 @@ export function CrudPage<T extends { id: string }>({
     }
   };
 
-  if (loading) return <AdminSpinner />;
+  if (initialLoading) return <AdminSpinner />;
 
   return (
     <div>

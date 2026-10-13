@@ -139,7 +139,7 @@ export function FormDialog({
 export function useResetForm<T extends object>(open: boolean, source: unknown, init: () => T) {
   const [form, setForm] = useState<T>(init);
   useEffect(() => {
-    setForm(init());
+    if (open) setForm(init());
   }, [source, open]);
   const set = <K extends keyof T>(key: K) => (value: T[K]) => setForm((f) => ({ ...f, [key]: value }));
   return [form, set] as const;
@@ -183,17 +183,23 @@ export function useAdminData<T>(
 ) {
   const [data, setData] = useState<T>(initial);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const requestId = useRef(0);
   const paramsKey = JSON.stringify(params);
 
   const reload = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
     try {
       const result = params ? await fetchApiUrl(endpoint, { params }) : await fetchApiUrl(endpoint);
-      setData(select(result));
+      if (id === requestId.current) setData(select(result));
     } catch (error) {
-      console.error(`Failed to fetch ${label}:`, error);
+      if (id === requestId.current) console.error(`Failed to fetch ${label}:`, error);
     } finally {
-      setLoading(false);
+      if (id === requestId.current) {
+        setLoading(false);
+        setInitialLoading(false);
+      }
     }
   }, [endpoint, paramsKey]);
 
@@ -201,7 +207,7 @@ export function useAdminData<T>(
     reload();
   }, [reload]);
 
-  return { data, setData, loading, reload };
+  return { data, setData, loading, initialLoading, reload };
 }
 
 export function useSearchPaging() {
