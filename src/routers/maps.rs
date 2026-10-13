@@ -7,7 +7,7 @@ use poem_openapi::param::{Path, Query};
 use poem_openapi::types::{ParseFromJSON, ToJSON};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use crate::{response, AppData, FastCache};
+use crate::{or_ise, require, response, AppData, FastCache};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::api_models::maps::*;
@@ -265,7 +265,7 @@ impl MapApi{
         let map_target = search_map.unwrap_or_default();
         let filtering = filter.map(|e| e.to_string()).unwrap_or("all".into());
         let user_id = user.map(|e| e.id);
-        let rows = match sqlx::query_as!(DbServerMap,
+        let rows = or_ise!(sqlx::query_as!(DbServerMap,
 			"SELECT
                 COUNT(*) OVER() total_maps,
                 sm.server_id,
@@ -341,13 +341,7 @@ impl MapApi{
                 map_target, map_target.trim() == "", filtering, user_id
         )
             .fetch_all(pool)
-            .await {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Error last session map: {e}");
-                return response!(internal_server_error)
-            }
-        };
+            .await, e => "Error last session map: {e}");
 
         let total_maps = rows
             .first()
@@ -369,7 +363,7 @@ impl MapApi{
         let pool = &*data.pool.clone();
         let pagination = 10;
         let offset = pagination * page.0 as i64;
-        let Ok(rows) = sqlx::query_as!(DbServerMapPlayed,
+        let rows = or_ise!(sqlx::query_as!(DbServerMapPlayed,
 			"SELECT *, COUNT(*) OVER()::integer total_sessions
              FROM server_map_played
              WHERE server_id=$1
@@ -378,9 +372,7 @@ impl MapApi{
              OFFSET $2",
 				server.server_id, offset, pagination)
             .fetch_all(pool)
-            .await else {
-            return response!(internal_server_error)
-        };
+            .await);
 
         let total_sessions = rows
             .first()
@@ -398,7 +390,7 @@ impl MapApi{
     async fn get_maps_all_musics(
         &self, data: Data<&AppData>, extract: MapExtractor) -> Response<Vec<ServerMapMusic>>{
         let pool = &*data.pool.clone();
-        let Ok(rows) = sqlx::query_as!(DbAssociatedMapMusic,
+        let rows = or_ise!(sqlx::query_as!(DbAssociatedMapMusic,
                 "WITH form_associated_maps AS (
                     SELECT
                         amm.map_name AS current_map,
@@ -434,9 +426,7 @@ impl MapApi{
                 ",
 				extract.map.map)
             .fetch_all(pool)
-            .await else {
-            return response!(internal_server_error)
-        };
+            .await);
 
         response!(ok rows.iter_into())
     }
@@ -925,9 +915,7 @@ impl MapApi{
         ", server_id, map_name).fetch_all(pool);
 
         let key = format!("map-periods:{server_id}:{map_name}:{}", extract.cache_key.current);
-        let Ok(result) = cached_response(&key, &app.cache, DAY, func).await else {
-            return response!(internal_server_error)
-        };
+        let result = or_ise!(cached_response(&key, &app.cache, DAY, func).await);
         response!(ok group_periods(result.result))
     }
     /// Top players on a map, ranked by playtime, with optional name search.
@@ -980,7 +968,7 @@ impl MapApi{
         let (rows, is_new) = match &player_name {
             Some(player_name) => {
                 let name_pattern = format!("%{player_name}%");
-                let rows = match sqlx::query_as!(DbPlayerBrief, "
+                let rows = or_ise!(sqlx::query_as!(DbPlayerBrief, "
                     WITH pages AS (
                         SELECT pmt.player_id, pmt.total_playtime, pmr.map_rank::int AS rank,
                                COUNT(*) OVER() AS total_players
@@ -1026,13 +1014,7 @@ impl MapApi{
                         LIMIT 1
                     ) op ON TRUE
                     ORDER BY pg.rank
-                ", server_id, map_name, pagination_size, offset, name_pattern).fetch_all(pool).await {
-                    Ok(rows) => rows,
-                    Err(e) => {
-                        tracing::error!("Failed to search map players for {server_id}:{map_name}:{player_name}: {e}");
-                        return response!(internal_server_error);
-                    }
-                };
+                ", server_id, map_name, pagination_size, offset, name_pattern).fetch_all(pool).await, e => "Failed to search map players for {server_id}:{map_name}:{player_name}: {e}");
                 (rows, true)
             },
             None => {
@@ -1083,13 +1065,7 @@ impl MapApi{
                     ORDER BY pg.rank
                 ", server_id, map_name, pagination_size, offset).fetch_all(pool);
                 let key = format!("map-players:{server_id}:{map_name}:{page}");
-                let result = match cached_response(&key, &app.cache, 10 * 60, sql_func).await {
-                    Ok(result) => result,
-                    Err(e) => {
-                        tracing::error!("Failed to fetch map players for {key}: {e}");
-                        return response!(internal_server_error);
-                    }
-                };
+                let result = or_ise!(cached_response(&key, &app.cache, 10 * 60, sql_func).await, e => "Failed to fetch map players for {key}: {e}");
                 (result.result, result.is_new)
             }
         };
@@ -1151,19 +1127,13 @@ impl MapApi{
         }
 
         // Get current youtube_music value for snapshot
-        let current_youtube_music = match sqlx::query_scalar!(
+        let Some(current_youtube_music) = or_ise!(sqlx::query_scalar!(
             "SELECT youtube_music FROM map_music WHERE id = $1",
             music_uuid
         )
         .fetch_optional(pool)
-        .await
-        {
-            Ok(Some(yt)) => yt,
-            Ok(None) => return response!(err "Music track not found", ErrorCode::NotFound),
-            Err(e) => {
-                tracing::error!("Failed to fetch music: {}", e);
-                return response!(internal_server_error);
-            }
+        .await, e => "Failed to fetch music: {}", e) else {
+            return response!(err "Music track not found", ErrorCode::NotFound);
         };
 
         // Insert report
@@ -1285,9 +1255,7 @@ impl MapApi{
         .fetch_all(&*app.pool)
         .await;
 
-        let Ok(maps) = maps_result else {
-            return response!(internal_server_error);
-        };
+        let maps = or_ise!(maps_result);
 
         // Get all 3D models
         let models_result = sqlx::query_as!(
@@ -1369,49 +1337,45 @@ impl MapApi{
         .fetch_all(&*app.pool)
         .await;
 
-        match models {
-            Ok(models) => {
-                let mut low_res = None;
-                let mut high_res = None;
+        let models = or_ise!(models);
+        let mut low_res = None;
+        let mut high_res = None;
 
-                for model in models {
-                    let uploader_name = if let Some(uploader_id) = model.uploaded_by {
-                        sqlx::query_scalar!(
-                            "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
-                            uploader_id
-                        )
-                        .fetch_optional(&*app.pool)
-                        .await
-                        .ok()
-                        .flatten()
-                    } else {
-                        None
-                    };
+        for model in models {
+            let uploader_name = if let Some(uploader_id) = model.uploaded_by {
+                sqlx::query_scalar!(
+                    "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
+                    uploader_id
+                )
+                .fetch_optional(&*app.pool)
+                .await
+                .ok()
+                .flatten()
+            } else {
+                None
+            };
 
 
-                    let mut api_model: Map3DModel = model.into();
-                    api_model.link_path = app.map_storage.normalize_link_path(
-                        &api_model.link_path,
-                        &api_model.map_name,
-                        &api_model.res_type,
-                    );
-                    api_model.uploader_name = uploader_name;
+            let mut api_model: Map3DModel = model.into();
+            api_model.link_path = app.map_storage.normalize_link_path(
+                &api_model.link_path,
+                &api_model.map_name,
+                &api_model.res_type,
+            );
+            api_model.uploader_name = uploader_name;
 
-                    if api_model.res_type == "low" {
-                        low_res = Some(api_model);
-                    } else if api_model.res_type == "high" {
-                        high_res = Some(api_model);
-                    }
-                }
-
-                response!(ok MapWithModels {
-                    map_name,
-                    low_res_model: low_res,
-                    high_res_model: high_res,
-                })
+            if api_model.res_type == "low" {
+                low_res = Some(api_model);
+            } else if api_model.res_type == "high" {
+                high_res = Some(api_model);
             }
-            Err(_) => response!(internal_server_error),
         }
+
+        response!(ok MapWithModels {
+            map_name,
+            low_res_model: low_res,
+            high_res_model: high_res,
+        })
     }
 
     /// Upload a map 3D model in one request (max 500MB).
@@ -1427,9 +1391,7 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
         multipart: poem::web::Multipart,
     ) -> Response<Map3DModel> {
-        if !check_superuser_or_map_manager(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let mut multipart = multipart;
         let mut file_data: Option<Vec<u8>> = None;
@@ -1473,16 +1435,9 @@ impl MapApi{
             return response!(err "File too large (max 500MB)", ErrorCode::BadRequest);
         }
 
-        let link_path = match app.map_storage
+        let link_path = or_ise!(app.map_storage
             .store_bytes(&map_name, res_type_val.as_str(), &file_bytes)
-            .await
-        {
-            Ok(path) => path,
-            Err(e) => {
-                tracing::error!("Failed to store 3D model: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+            .await, e => "Failed to store 3D model: {}", e);
 
         let result = sqlx::query_as!(
             DbMap3DModel,
@@ -1509,31 +1464,24 @@ impl MapApi{
         .fetch_one(&*app.pool)
         .await;
 
-        match result {
-            Ok(model) => {
-                let uploader_name = sqlx::query_scalar!(
-                    "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
-                    user_token.id
-                )
-                .fetch_optional(&*app.pool)
-                .await
-                .ok()
-                .flatten();
+        let model = or_ise!(result, e => "Database error: {}", e);
+        let uploader_name = sqlx::query_scalar!(
+            "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
+            user_token.id
+        )
+        .fetch_optional(&*app.pool)
+        .await
+        .ok()
+        .flatten();
 
-                let mut api_model: Map3DModel = model.into();
-                api_model.link_path = app.map_storage.normalize_link_path(
-                    &api_model.link_path,
-                    &api_model.map_name,
-                    &api_model.res_type,
-                );
-                api_model.uploader_name = uploader_name;
-                response!(ok api_model)
-            }
-            Err(e) => {
-                tracing::error!("Database error: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let mut api_model: Map3DModel = model.into();
+        api_model.link_path = app.map_storage.normalize_link_path(
+            &api_model.link_path,
+            &api_model.map_name,
+            &api_model.res_type,
+        );
+        api_model.uploader_name = uploader_name;
+        response!(ok api_model)
     }
 
     /// Start a chunked upload session for a large map 3D model.
@@ -1550,9 +1498,7 @@ impl MapApi{
         Json(req): Json<serde_json::Value>,
     ) -> Response<InitiateUploadResponse> {
         // Check superuser permission
-        if !check_superuser_or_map_manager(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         // Parse request
         let res_type = match req.get("res_type").and_then(|v| v.as_str()).and_then(ResType::parse) {
@@ -1638,9 +1584,7 @@ impl MapApi{
         upload: poem::web::Multipart,
     ) -> Response<ChunkUploadResponse> {
         // Check superuser permission
-        if !check_superuser_or_map_manager(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         // Retrieve session from Redis
         let session = match Self::get_upload_session(&app.cache, &session_id).await {
@@ -1745,9 +1689,7 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
     ) -> Response<Map3DModel> {
         // Check superuser permission
-        if !check_superuser_or_map_manager(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         // Retrieve session from Redis
         let session = match Self::get_upload_session(&app.cache, &session_id).await {
@@ -1899,9 +1841,7 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
     ) -> Response<String> {
         // Check superuser permission
-        if !check_superuser_or_map_manager(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         // Retrieve session from Redis
         let session = match Self::get_upload_session(&app.cache, &session_id).await {
@@ -2029,9 +1969,7 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
     ) -> Response<String> {
         // Check superuser permission
-        if !check_superuser_or_map_manager(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         // Validate res_type
         if res_type != "low" && res_type != "high" {
@@ -2067,13 +2005,8 @@ impl MapApi{
         .execute(&*app.pool)
         .await;
 
-        match result {
-            Ok(_) => response!(ok "3D model deleted successfully".to_string()),
-            Err(e) => {
-                tracing::error!("Database error: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        or_ise!(result, e => "Database error: {}", e);
+        response!(ok "3D model deleted successfully".to_string())
     }
 }
 

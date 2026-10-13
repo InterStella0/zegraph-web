@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use crate::core::audit::CATEGORY_MAP_METADATA;
 use crate::core::utils::*;
-use crate::{response, AppData};
+use crate::{or_ise, response, AppData};
 use crate::api_models::admins::*;
 use crate::api_models::common::*;
 use crate::models::admins::DbAuditLogRow;
@@ -64,7 +64,7 @@ impl AdminAuditApi {
         let limit = limit.unwrap_or(50).min(200).max(1);
         let offset = (page - 1) * limit;
 
-        let rows = match sqlx::query_as!(
+        let rows = or_ise!(sqlx::query_as!(
             DbAuditLogRow,
             r#"
             SELECT
@@ -96,14 +96,7 @@ impl AdminAuditApi {
             offset
         )
         .fetch_all(&*data.pool)
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("Failed to fetch audit logs: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        .await, e => "Failed to fetch audit logs: {}", e);
 
         let total = rows.first().and_then(|r| r.total).unwrap_or(0);
         let logs = rows

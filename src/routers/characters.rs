@@ -1,7 +1,7 @@
 use poem::web::{Data, Json};
 use poem_openapi::OpenApi;
 use poem_openapi::param::Path;
-use crate::{response, AppData, FastCache};
+use crate::{or_ise, require, response, AppData, FastCache};
 use crate::api_models::common::*;
 use crate::api_models::misc::*;
 use crate::core::storage::image_ext_from_content_type;
@@ -34,31 +34,27 @@ impl CharacterApi {
         .fetch_all(&*app.pool)
         .await;
 
-        match models {
-            Ok(rows) => {
-                let mut result: Vec<Character3DModel> = Vec::with_capacity(rows.len());
-                for row in rows {
-                    let uploader_name = if let Some(uid) = row.uploaded_by {
-                        sqlx::query_scalar!(
-                            "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
-                            uid
-                        )
-                        .fetch_optional(&*app.pool)
-                        .await
-                        .ok()
-                        .flatten()
-                    } else {
-                        None
-                    };
-                    let mut m: Character3DModel = row.into();
-                    m.link_path = app.character_storage.normalize_link_path(&m.link_path, &m.model_id);
-                    m.uploader_name = uploader_name;
-                    result.push(m);
-                }
-                response!(ok result)
-            }
-            Err(_) => response!(internal_server_error),
+        let rows = or_ise!(models);
+        let mut result: Vec<Character3DModel> = Vec::with_capacity(rows.len());
+        for row in rows {
+            let uploader_name = if let Some(uid) = row.uploaded_by {
+                sqlx::query_scalar!(
+                    "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
+                    uid
+                )
+                .fetch_optional(&*app.pool)
+                .await
+                .ok()
+                .flatten()
+            } else {
+                None
+            };
+            let mut m: Character3DModel = row.into();
+            m.link_path = app.character_storage.normalize_link_path(&m.link_path, &m.model_id);
+            m.uploader_name = uploader_name;
+            result.push(m);
         }
+        response!(ok result)
     }
 
     /// Get a single 3D character model by its model ID.
@@ -122,9 +118,7 @@ impl CharacterApi {
         multipart: poem::web::Multipart,
     ) -> Response<Character3DModel> {
         // Max 500MB per
-        if !check_superuser(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let mut multipart = multipart;
         let mut file_data: Option<Vec<u8>> = None;
@@ -166,13 +160,7 @@ impl CharacterApi {
             return response!(err "File too large (max 500MB)", ErrorCode::BadRequest);
         }
 
-        let link_path = match app.character_storage.store_bytes(&model_id, &file_bytes).await {
-            Ok(path) => path,
-            Err(e) => {
-                tracing::error!("Failed to store character 3D model: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        let link_path = or_ise!(app.character_storage.store_bytes(&model_id, &file_bytes).await, e => "Failed to store character 3D model: {}", e);
 
         let result = sqlx::query_as!(
             DbCharacter3DModel,
@@ -201,30 +189,23 @@ impl CharacterApi {
         .fetch_one(&*app.pool)
         .await;
 
-        match result {
-            Ok(model) => {
-                let uploader_name = sqlx::query_scalar!(
-                    "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
-                    user_token.id
-                )
-                .fetch_optional(&*app.pool)
-                .await
-                .ok()
-                .flatten();
+        let model = or_ise!(result, e => "Database error: {}", e);
+        let uploader_name = sqlx::query_scalar!(
+            "SELECT persona_name FROM website.steam_user WHERE user_id = $1",
+            user_token.id
+        )
+        .fetch_optional(&*app.pool)
+        .await
+        .ok()
+        .flatten();
 
-                let mut api_model: Character3DModel = model.into();
-                api_model.link_path = app.character_storage.normalize_link_path(
-                    &api_model.link_path,
-                    &api_model.model_id,
-                );
-                api_model.uploader_name = uploader_name;
-                response!(ok api_model)
-            }
-            Err(e) => {
-                tracing::error!("Database error: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        let mut api_model: Character3DModel = model.into();
+        api_model.link_path = app.character_storage.normalize_link_path(
+            &api_model.link_path,
+            &api_model.model_id,
+        );
+        api_model.uploader_name = uploader_name;
+        response!(ok api_model)
     }
 
     /// Start a chunked upload session for a large 3D character model.
@@ -241,9 +222,7 @@ impl CharacterApi {
         TokenBearer(user_token): TokenBearer,
         Json(req): Json<serde_json::Value>,
     ) -> Response<InitiateUploadResponse> {
-        if !check_superuser(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let credit = req.get("credit").and_then(|v| v.as_str()).map(|s| s.to_string());
         let display_name = req.get("name").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -320,9 +299,7 @@ impl CharacterApi {
         TokenBearer(user_token): TokenBearer,
         upload: poem::web::Multipart,
     ) -> Response<ChunkUploadResponse> {
-        if !check_superuser(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let session = match Self::get_char_upload_session(&app.cache, &session_id).await {
             Ok(s) => s,
@@ -422,9 +399,7 @@ impl CharacterApi {
         Path(session_id): Path<String>,
         TokenBearer(user_token): TokenBearer,
     ) -> Response<Character3DModel> {
-        if !check_superuser(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let session = match Self::get_char_upload_session(&app.cache, &session_id).await {
             Ok(s) => s,
@@ -571,9 +546,7 @@ impl CharacterApi {
         Path(session_id): Path<String>,
         TokenBearer(user_token): TokenBearer,
     ) -> Response<String> {
-        if !check_superuser(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let store_upload = std::env::var("CHARACTER_STORE_UPLOAD")
             .unwrap_or_else(|_| "./characters".to_string());
@@ -615,9 +588,7 @@ impl CharacterApi {
         Path(model_id): Path<String>,
         TokenBearer(user_token): TokenBearer,
     ) -> Response<String> {
-        if !check_superuser(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let model = sqlx::query_as!(
             DbCharacter3DModel,
@@ -650,13 +621,8 @@ impl CharacterApi {
         .execute(&*app.pool)
         .await;
 
-        match result {
-            Ok(_) => response!(ok "3D model deleted successfully".to_string()),
-            Err(e) => {
-                tracing::error!("Database error: {}", e);
-                response!(internal_server_error)
-            }
-        }
+        or_ise!(result, e => "Database error: {}", e);
+        response!(ok "3D model deleted successfully".to_string())
     }
 
     /// Upload or replace a 3D character model's thumbnail image.
@@ -672,9 +638,7 @@ impl CharacterApi {
         TokenBearer(user_token): TokenBearer,
         multipart: poem::web::Multipart,
     ) -> Response<Character3DModel> {
-        if !check_superuser(&app, user_token.id).await {
-            return response!(err "Forbidden", ErrorCode::Forbidden);
-        }
+        require!(check_superuser(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let mut multipart = multipart;
         let mut thumbnail_data: Option<(Vec<u8>, String)> = None;
@@ -712,13 +676,7 @@ impl CharacterApi {
         .flatten()
         .flatten();
 
-        let filename = match app.character_storage.store_thumbnail(&model_id, &ext, &thumb_bytes).await {
-            Ok(path) => path,
-            Err(e) => {
-                tracing::error!("Failed to store character thumbnail: {}", e);
-                return response!(internal_server_error);
-            }
-        };
+        let filename = or_ise!(app.character_storage.store_thumbnail(&model_id, &ext, &thumb_bytes).await, e => "Failed to store character thumbnail: {}", e);
 
         if let Some(previous) = previous_thumbnail {
             if let Err(e) = app.character_storage.delete_previous_thumbnail(&model_id, &previous, &ext).await {

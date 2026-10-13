@@ -134,6 +134,48 @@ macro_rules! response {
     }
 }
 
+#[macro_export]
+macro_rules! or_ise {
+    ($e:expr) => {
+        match $e {
+            Ok(v) => v,
+            Err(_) => return $crate::response!(internal_server_error),
+        }
+    };
+    ($e:expr, $err:ident => $($log:tt)+) => {
+        match $e {
+            Ok(v) => v,
+            Err($err) => {
+                tracing::error!($($log)+);
+                return $crate::response!(internal_server_error);
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! or_rollback {
+    ($tx:ident, $e:expr, $err:ident => $($log:tt)+) => {
+        match $e {
+            Ok(v) => v,
+            Err($err) => {
+                tracing::error!($($log)+);
+                let _ = $tx.rollback().await;
+                return $crate::response!(internal_server_error);
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! require {
+    ($cond:expr, $msg:expr, $code:expr) => {
+        if !$cond {
+            return $crate::response!(err $msg, $code);
+        }
+    };
+}
+
 pub type Response<T> = poem::Result<GenericResponse<T>>;
 
 pub struct ServerExtractor(pub DbServer);
