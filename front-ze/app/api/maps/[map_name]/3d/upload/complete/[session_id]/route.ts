@@ -1,27 +1,3 @@
-import {auth} from "../../../../../../../../auth.ts";
+import { forwardRaw } from "lib/apiProxy";
 
-export async function POST(
-  _req: Request,
-  { params }: { params: Promise<{ map_name: string; session_id: string }> }
-) {
-  const { map_name, session_id } = await params
-  const session = await auth();
-
-  const backendUrl = `${process.env.BACKEND_URL || 'http://backend:3000'}/maps/${map_name}/3d/upload/complete/${session_id}`
-  const headers: Record<string, string> = {}
-  headers["Authorization"] = `Bearer ${session.backendJwt}`;
-
-  const response = await fetch(backendUrl, {
-    method: 'POST',
-    headers,
-  })
-
-  const data = await response.text()
-
-  return new Response(data, {
-    status: response.status,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  })
-}
+export const POST = forwardRaw("POST", p => `/maps/${p.map_name}/3d/upload/complete/${p.session_id}`);

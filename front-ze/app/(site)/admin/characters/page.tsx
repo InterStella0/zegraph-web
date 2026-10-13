@@ -6,12 +6,13 @@ import { Button } from 'components/ui/button'
 import { Input } from 'components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from 'components/ui/dialog'
 import { Badge } from 'components/ui/badge'
-import { Progress } from 'components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from 'components/ui/select'
 import { toast } from 'sonner'
 import { Upload, Trash2, Search, Image } from 'lucide-react'
 import {fetchApiUrl, fetchUrl} from 'utils/generalUtils'
-import { uploadCharacterFileChunked, CHUNKED_UPLOAD_THRESHOLD, UploadProgress } from 'utils/uploadUtils'
+import { uploadCharacterFileChunked } from 'utils/uploadUtils'
+import { GlbUploadFields, useGlbUpload } from '../components/GlbUpload'
+import { AdminHeader, EmptyRow } from '../components/AdminUI'
 import { Character3DModel } from 'types/maps'
 import {getCommunity} from "app/getCommunity.ts";
 import {Community} from "types/community.ts";
@@ -95,12 +96,11 @@ export default function AdminCharactersPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Character 3D Model Management</h1>
-        <p className="text-muted-foreground">
-          Upload and manage 3D models (.glb files) for characters
-        </p>
-      </div>
+      <AdminHeader
+        className="mb-6"
+        title="Character 3D Model Management"
+        description="Upload and manage 3D models (.glb files) for characters"
+      />
 
       <div className="mb-4">
         <Select value={selectedServerId} onValueChange={setSelectedServerId}>
@@ -150,13 +150,9 @@ export default function AdminCharactersPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center">Loading...</TableCell>
-                  </TableRow>
+                  <EmptyRow colSpan={7} className="text-center">Loading...</EmptyRow>
                 ) : filteredModels.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center">No character models found</TableCell>
-                  </TableRow>
+                  <EmptyRow colSpan={7} className="text-center">No character models found</EmptyRow>
                 ) : (
                   filteredModels.map((model) => (
                     <TableRow key={model.id}>
@@ -269,79 +265,34 @@ function UploadDialog({
 }) {
   const [modelId, setModelId] = useState('')
   const [name, setName] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [credit, setCredit] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
-  const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const upload = useGlbUpload()
 
   useEffect(() => {
     if (open) {
       setModelId(existingModel?.model_id ?? '')
       setName(existingModel?.name ?? '')
-      setCredit(existingModel?.credit ?? '')
-      setFile(null)
-      setUploadProgress(null)
-      setAbortController(null)
+      upload.reset(existingModel?.credit ?? '')
     }
   }, [open, existingModel])
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const mid = modelId.trim()
-    if (!mid) {
-      toast.error('Model ID is required')
-      return
-    }
-    if (!file) {
-      toast.error('Please select a file')
-      return
-    }
-    if (!file.name.endsWith('.glb')) {
-      toast.error('File must be a .glb file')
-      return
-    }
-
-    setUploading(true)
-    setUploadProgress(null)
-
-    try {
-      if (file.size > CHUNKED_UPLOAD_THRESHOLD) {
-        const controller = new AbortController()
-        setAbortController(controller)
-        await uploadCharacterFileChunked({
-          modelId: mid,
-          name: name.trim() || undefined,
-          serverId,
-          file,
-          credit: credit.trim() || undefined,
-          signal: controller.signal,
-          onProgress: (progress) => setUploadProgress(progress),
-          onError: (error, chunkIndex) => {
-            console.error(`Upload error${chunkIndex !== undefined ? ` at chunk ${chunkIndex}` : ''}:`, error)
-          },
-        })
-      } else {
+    return upload.submit({
+      precheck: () => {
+        if (!mid) toast.error('Model ID is required')
+        return !!mid
+      },
+      chunked: (options) => uploadCharacterFileChunked({ ...options, modelId: mid, name: name.trim() || undefined, serverId }),
+      direct: (file, credit) => {
         const formData = new FormData()
         formData.append('file', file)
         if (name.trim()) formData.append('name', name.trim())
-        if (credit.trim()) formData.append('credit', credit.trim())
-        await fetchApiUrl(`/servers/${serverId}/characters/${mid}/3d/upload`, { method: 'POST', body: formData })
-      }
-
-      toast.success('Character model uploaded successfully')
-      onSuccess()
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        toast.info('Upload cancelled')
-      } else {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        toast.error(`Failed to upload model: ${errorMessage}`)
-      }
-    } finally {
-      setUploading(false)
-      setUploadProgress(null)
-      setAbortController(null)
-    }
+        if (credit) formData.append('credit', credit)
+        return fetchApiUrl(`/servers/${serverId}/characters/${mid}/3d/upload`, { method: 'POST', body: formData })
+      },
+      successMessage: 'Character model uploaded successfully',
+      onSuccess,
+    })
   }
 
   const isReplacing = !!existingModel
@@ -388,64 +339,13 @@ function UploadDialog({
             </div>
           )}
 
-          <div>
-            <label className="text-sm font-medium">
-              .glb File {isReplacing && '(will replace existing)'}
-            </label>
-            <Input
-              type="file"
-              accept=".glb"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="mt-1"
-            />
-            {file && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Selected: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Credit (Optional)</label>
-            <Input
-              value={credit}
-              onChange={(e) => setCredit(e.target.value)}
-              placeholder="Author or source credit"
-              className="mt-1"
-            />
-          </div>
-
-          {uploading && uploadProgress && (
-            <div className="space-y-2 p-3 border rounded-md bg-muted/50">
-              <div className="flex justify-between text-sm">
-                <span>Uploading chunk {uploadProgress.currentChunk + 1} of {uploadProgress.totalChunks}</span>
-                <span>{uploadProgress.percentage.toFixed(1)}%</span>
-              </div>
-              <Progress value={uploadProgress.percentage} />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>
-                  {(uploadProgress.bytesUploaded / (1024 * 1024)).toFixed(1)} MB / {(uploadProgress.totalBytes / (1024 * 1024)).toFixed(1)} MB
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => abortController?.abort()}
-                  className="h-6 px-2"
-                >
-                  Cancel Upload
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={uploading || !file}>
-              {uploading ? 'Uploading...' : isReplacing ? 'Replace' : 'Upload'}
-            </Button>
-          </div>
+          <GlbUploadFields
+            upload={upload}
+            fileLabel=".glb File"
+            replacing={isReplacing}
+            onCancel={() => onOpenChange(false)}
+            onSubmit={handleSubmit}
+          />
         </div>
       </DialogContent>
     </Dialog>

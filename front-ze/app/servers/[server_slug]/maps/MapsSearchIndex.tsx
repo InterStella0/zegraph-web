@@ -6,9 +6,10 @@ import MapsMobileView from "components/maps/MapsMobileView";
 import LoginDialog from "components/ui/LoginDialog.tsx";
 import {use, useEffect, useRef, useState} from "react";
 import {fetchApiServerUrl, fetchServerUrl} from "utils/generalUtils";
+import { sendJson } from 'lib/sendJson';
 import {MapPlayedPaginated, ServerMap} from "types/maps.ts";
 import {ServerSlugPromise} from "../util.ts";
-import {SteamProfile} from "../../../../next-auth-steam/steam.ts";
+import {SteamProfile} from "types/steam";
 import {useMapNotifications} from "lib/hooks/useMapNotifications";
 
 import {useTranslations} from 'next-intl';
@@ -151,15 +152,9 @@ export default function MapsSearchIndex({ serverPromise, userPromise, initialDat
                     return newSet;
                 });
             } else {
-                await fetchApiServerUrl(server_id, '/maps/set-favorite', {
-                    method: 'POST',
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
+                await sendJson(`/servers/${server_id}/maps/set-favorite`, 'POST', {
                         map_name: mapName,
                     })
-                })
                 setFavorites(prev => new Set([...prev, mapName]));
             }
         } catch (err) {

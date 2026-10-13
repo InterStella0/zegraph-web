@@ -17,7 +17,7 @@ import { Label } from 'components/ui/label';
 import { Textarea } from 'components/ui/textarea';
 import LoginDialog from 'components/ui/LoginDialog';
 import { fetchApiUrl } from 'utils/generalUtils';
-import { SteamProfile } from '../../next-auth-steam/steam';
+import { SteamProfile } from 'types/steam';
 import { PlayerClaimState } from 'types/players';
 
 const NOTE_MAX = 500;

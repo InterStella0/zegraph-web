@@ -1,51 +1,37 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'components/ui/table';
 import { Button } from 'components/ui/button';
 import { Input } from 'components/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from 'components/ui/dropdown-menu';
-import { MoreVertical, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { DropdownMenuItem } from 'components/ui/dropdown-menu';
+import { CheckCircle, XCircle, Eye } from 'lucide-react';
+import { AdminHeader, AdminSpinner, EmptyRow, RowActions, useAdminData } from '../../components/AdminUI';
 import { StatusBadge } from '../../components/StatusBadge';
 import { StatusFilter } from '../../components/StatusFilter';
 import { formatDate, formatReasonLabel } from '../../components/utils';
-import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import type { MapMusicReportAdmin, MapMusicReportsPaginated, ReportStatus } from 'types/admin';
 import type { UpdateMapMusicDto } from 'types/maps';
 
 export default function MusicReportsPage() {
-  const [reports, setReports] = useState<MapMusicReportAdmin[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('pending');
 
   // Music editing state
   const [editingMusicId, setEditingMusicId] = useState<string | null>(null);
   const [youtubeVideoId, setYoutubeVideoId] = useState<string>('');
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = statusFilter && statusFilter !== 'all' ? { status: statusFilter } : {};
-      const data = await fetchApiUrl('/admin/reports/music', { params });
-      setReports((data as MapMusicReportsPaginated).reports || []);
-    } catch (error) {
-      console.error('Failed to fetch music reports:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data: reports, loading, reload: fetchData } = useAdminData<MapMusicReportAdmin[]>(
+    '/admin/reports/music',
+    (data) => (data as MapMusicReportsPaginated).reports || [],
+    [],
+    'music reports',
+    statusFilter && statusFilter !== 'all' ? { status: statusFilter } : {},
+  );
 
   const updateStatus = async (reportId: string, status: ReportStatus) => {
     try {
-      await fetchApiUrl(`/admin/reports/music/${reportId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
+      await sendJson(`/admin/reports/music/${reportId}/status`, 'PUT', { status });
       fetchData();
     } catch (error) {
       console.error('Failed to update report status:', error);
@@ -54,11 +40,7 @@ export default function MusicReportsPage() {
 
   const updateMusicYoutube = async (musicId: string, youtubeId: string | null) => {
     try {
-      await fetchApiUrl(`/admin/music/${musicId}/youtube`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ youtube_music: youtubeId || null } as UpdateMapMusicDto),
-      });
+      await sendJson(`/admin/music/${musicId}/youtube`, 'PUT', { youtube_music: youtubeId || null } as UpdateMapMusicDto);
       setEditingMusicId(null);
       setYoutubeVideoId('');
       fetchData();
@@ -77,22 +59,15 @@ export default function MusicReportsPage() {
     setYoutubeVideoId('');
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  if (loading) return <AdminSpinner />;
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Music Reports</h1>
-        <p className="text-muted-foreground">
-          Manage reported music tracks and update YouTube video IDs.
-        </p>
-      </div>
+      <AdminHeader
+        className="mb-6"
+        title="Music Reports"
+        description="Manage reported music tracks and update YouTube video IDs."
+      />
 
       <div className="mb-4">
         <StatusFilter value={statusFilter} onChange={setStatusFilter} />
@@ -113,11 +88,7 @@ export default function MusicReportsPage() {
         </TableHeader>
         <TableBody>
           {reports.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={8} className="text-center text-muted-foreground">
-                No music reports found
-              </TableCell>
-            </TableRow>
+            <EmptyRow colSpan={8}>No music reports found</EmptyRow>
           ) : (
             reports.map((report) => (
               <TableRow key={report.id}>
@@ -211,31 +182,24 @@ export default function MusicReportsPage() {
                 </TableCell>
                 <TableCell>{formatDate(report.created_at)}</TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => updateStatus(report.id, 'resolved')}>
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Mark Resolved
+                  <RowActions>
+                    <DropdownMenuItem onClick={() => updateStatus(report.id, 'resolved')}>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Mark Resolved
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => updateStatus(report.id, 'dismissed')}>
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Dismiss
+                    </DropdownMenuItem>
+                    {report.suggested_youtube_url && (
+                      <DropdownMenuItem
+                        onClick={() => window.open(report.suggested_youtube_url!, '_blank')}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Open Suggested URL
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateStatus(report.id, 'dismissed')}>
-                        <XCircle className="mr-2 h-4 w-4" />
-                        Dismiss
-                      </DropdownMenuItem>
-                      {report.suggested_youtube_url && (
-                        <DropdownMenuItem
-                          onClick={() => window.open(report.suggested_youtube_url!, '_blank')}
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          Open Suggested URL
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    )}
+                  </RowActions>
                 </TableCell>
               </TableRow>
             ))

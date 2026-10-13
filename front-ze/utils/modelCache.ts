@@ -41,16 +41,3 @@ export async function cacheModelData(url: string, data: Omit<ModelCache, 'versio
     console.warn('Failed to cache model data:', e)
   }
 }
-
-export function clearModelCache(): void {
-  try {
-    const keys = Object.keys(localStorage)
-    keys.forEach(key => {
-      if (key.startsWith('model_cache_')) {
-        localStorage.removeItem(key)
-      }
-    })
-  } catch (e) {
-    console.warn('Failed to clear model cache:', e)
-  }
-}

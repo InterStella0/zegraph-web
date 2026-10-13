@@ -1,9 +1,4 @@
-import {proxyToBackend, proxyToBackendChange} from "lib/apiProxy";
+import { proxyGet, proxyPut } from "lib/apiProxy";
 
-export async function GET(req: Request) {
-    return await proxyToBackend("/accounts/me/push/preferences", req);
-}
-export async function PUT(req: Request) {
-    const body = await req.json()
-    return await proxyToBackendChange("/accounts/me/push/preferences", body, "PUT");
-}
+export const GET = proxyGet("/accounts/me/push/preferences");
+export const PUT = proxyPut("/accounts/me/push/preferences");

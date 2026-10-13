@@ -1,6 +1,3 @@
-import {proxyToBackendChange} from "lib/apiProxy";
+import { proxyPost } from "lib/apiProxy";
 
-export async function POST(req: Request) {
-    const body = await req.json()
-    return await proxyToBackendChange("/accounts/me/push/map-notify/subscribe", body)
-}
+export const POST = proxyPost("/accounts/me/push/map-notify/subscribe");

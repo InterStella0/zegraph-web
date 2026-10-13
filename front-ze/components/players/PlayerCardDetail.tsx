@@ -31,7 +31,7 @@ import {PlayerStatSuspense, usePatchedPlayer, usePlayerStat} from "../../app/ser
 import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod";
 import PlayerClaimButton from "./PlayerClaimButton";
 import AssociatePlayerDialog from "./AssociatePlayerDialog";
-import {SteamProfile} from "../../next-auth-steam/steam.ts";
+import {SteamProfile} from "types/steam";
 dayjs.extend(relativeTime)
 
 function AliasesDropdown({ aliases }) {

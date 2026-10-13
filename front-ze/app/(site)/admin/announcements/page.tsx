@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'components/ui/table';
 import { Button } from 'components/ui/button';
 import { Badge } from 'components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from 'components/ui/dropdown-menu';
-import { Eye, MoreVertical, Plus, Pencil, Trash2 } from 'lucide-react';
+import { DropdownMenuItem } from 'components/ui/dropdown-menu';
+import { Eye, Plus } from 'lucide-react';
 import { fetchApiUrl } from 'utils/generalUtils';
+import { AdminHeader, AdminSpinner, EditDeleteItems, EmptyRow, RowActions, useAdminData } from '../components/AdminUI';
 import { CreateEditAnnouncementDialog } from './CreateEditAnnouncementDialog';
 import { AnnouncementsDialog } from 'components/announcements/AnnouncementDialog';
 import { isVideoUrl } from 'components/announcements/AnnouncementMarkdown';
@@ -44,29 +45,18 @@ function MediaThumbnail({ url }: { url: string }) {
 }
 
 export default function AnnouncementsAdminPage() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<AnnouncementStatusFilter>('Active');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [previewing, setPreviewing] = useState<Announcement | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = statusFilter !== 'All' ? { status: statusFilter  } : {};
-      const data = await fetchApiUrl('/admin/announcements', { params });
-      setAnnouncements((data as AnnouncementsPaginated).announcements || []);
-    } catch (error) {
-      console.error('Failed to fetch announcements:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data: announcements, loading, reload: fetchData } = useAdminData<Announcement[]>(
+    '/admin/announcements',
+    (data) => (data as AnnouncementsPaginated).announcements || [],
+    [],
+    'announcements',
+    statusFilter !== 'All' ? { status: statusFilter } : {},
+  );
 
   const deleteAnnouncement = async (id: string) => {
     if (!confirm('Are you sure you want to delete this announcement?')) return;
@@ -100,28 +90,21 @@ export default function AnnouncementsAdminPage() {
     return dayjs(dateString).format('MMM D, YYYY HH:mm');
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  if (loading) return <AdminSpinner />;
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Announcements</h1>
-          <p className="text-muted-foreground">
-            Manage site-wide announcements and scheduled messages.
-          </p>
-        </div>
-        <Button onClick={() => { setEditingAnnouncement(null); setDialogOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Announcement
-        </Button>
-      </div>
+      <AdminHeader
+        className="mb-6"
+        title="Announcements"
+        description="Manage site-wide announcements and scheduled messages."
+        action={
+          <Button onClick={() => { setEditingAnnouncement(null); setDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Announcement
+          </Button>
+        }
+      />
 
       <div className="mb-4">
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as AnnouncementStatusFilter)}>
@@ -151,11 +134,7 @@ export default function AnnouncementsAdminPage() {
         </TableHeader>
         <TableBody>
           {announcements.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground">
-                No announcements found
-              </TableCell>
-            </TableRow>
+            <EmptyRow colSpan={6}>No announcements found</EmptyRow>
           ) : (
             announcements.map((announcement) => (
               <TableRow key={announcement.id}>
@@ -187,32 +166,18 @@ export default function AnnouncementsAdminPage() {
                 </TableCell>
                 <TableCell>{getStatusBadge(announcement)}</TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {announcement.type === 'Rich' && (
-                        <DropdownMenuItem onClick={() => setPreviewing(announcement)}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Preview
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => { setEditingAnnouncement(announcement); setDialogOpen(true); }}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit
+                  <RowActions>
+                    {announcement.type === 'Rich' && (
+                      <DropdownMenuItem onClick={() => setPreviewing(announcement)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Preview
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => deleteAnnouncement(announcement.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    )}
+                    <EditDeleteItems
+                      onEdit={() => { setEditingAnnouncement(announcement); setDialogOpen(true); }}
+                      onDelete={() => deleteAnnouncement(announcement.id)}
+                    />
+                  </RowActions>
                 </TableCell>
               </TableRow>
             ))

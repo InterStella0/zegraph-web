@@ -1,5 +1,3 @@
-import { proxyToBackend } from "lib/apiProxy";
+import { proxyGet } from "lib/apiProxy";
 
-export async function GET(req: Request) {
-    return proxyToBackend("/admin/reports/music", req);
-}
+export const GET = proxyGet("/admin/reports/music");
