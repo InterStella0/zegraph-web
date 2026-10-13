@@ -1,13 +1,12 @@
 'use client'
-import {Suspense, use, useEffect, useMemo, useState} from "react";
+import {use, useEffect, useMemo, useState} from "react";
 import dayjs from "dayjs";
 import {fetchServerUrl} from "utils/generalUtils.ts";
 import SessionPlayedGraph from "../graphs/SessionPlayedGraph.tsx";
 import PaginationPage from "../ui/PaginationPage.tsx";
 import {Users, Trophy, AlertTriangle} from "lucide-react";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
-import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useResource} from "lib/hooks/useResource";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -18,6 +17,7 @@ import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "componen
 import {Button} from "components/ui/button";
 import {useTranslations} from 'next-intl';
 import {Card} from "components/ui/card.tsx";
+import {withMapSuspense} from "components/common/withErrorCatch";
 
 dayjs.extend(relativeTime);
 
@@ -218,11 +218,4 @@ function MapSessionListDisplay({ initialDataPromise }: MapSessionListProps){
     );
 }
 
-export default function MapSessionList({ initialDataPromise }: MapSessionListProps){
-    const t = useTranslations('maps.sessionList');
-    return <ErrorCatch message={t('noSessionFound')}>
-        <Suspense fallback={<EmptyMapContext><MapSessionListDisplay /></EmptyMapContext>}>
-            <MapSessionListDisplay initialDataPromise={initialDataPromise} />
-        </Suspense>
-    </ErrorCatch>
-}
+export default withMapSuspense(MapSessionListDisplay, t => t('maps.sessionList.noSessionFound'))

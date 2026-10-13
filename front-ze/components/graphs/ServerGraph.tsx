@@ -24,7 +24,6 @@ import {Dispatch, useCallback, useEffect, useMemo, useReducer, useRef} from 'rea
 import {LazyMatrixChart as Chart} from 'components/graphs/LazyCharts';
 import {fetchUrl, REGION_COLORS, formatNumber} from 'utils/generalUtils'
 import GraphToolbar from './GraphToolbar';
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {DateSources, useDateState} from './DateStateManager';
 import {GraphServerState} from "types/graphServers";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
@@ -35,6 +34,7 @@ import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { calculateTimeSeriesStats, formatDateRange, generateSeoTable } from "utils/chartSeoUtils.tsx";
 import { useLocale, useTranslations } from "next-intl";
 import { humanizeDurationLocalized } from "utils/durationFormat.ts";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -525,11 +525,4 @@ function ServerGraphDisplay(
     );
 }
 
-export default function ServerGraph(props: ServerGraphProps) {
-    const t = useTranslations('servers.graph');
-    return (
-        <ErrorCatch message={t('loadError')}>
-            <ServerGraphDisplay {...props} />
-        </ErrorCatch>
-    );
-}
+export default withErrorCatch(ServerGraphDisplay, t => t('servers.graph.loadError'))

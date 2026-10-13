@@ -11,9 +11,9 @@ import {Avatar, AvatarFallback, AvatarImage} from "components/ui/avatar";
 import {Skeleton} from "components/ui/skeleton";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "components/ui/tooltip";
 import PaginationPage from "components/ui/PaginationPage.tsx";
-import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {useServerMap} from "components/ui/ServerProvider.tsx";
 import {OnlinePlayerRow, OnlinePlayersCard, SearchField} from "./OnlinePlayers";
+import {withErrorCatch} from "components/common/withErrorCatch";
 dayjs.extend(duration);
 
 const PLAYERS_PER_PAGE = 15;
@@ -196,11 +196,4 @@ function GlobalPlayersOnlineDisplay({ initialDataPromise }: { initialDataPromise
     );
 }
 
-export default function GlobalPlayersOnline({ initialDataPromise }: { initialDataPromise: Promise<PlayerDetailSessionCommunity[]> }) {
-    const t = useTranslations('players.globalOnline');
-    return (
-        <ErrorCatch message={t('loadError')}>
-            <GlobalPlayersOnlineDisplay initialDataPromise={initialDataPromise}/>
-        </ErrorCatch>
-    );
-}
+export default withErrorCatch(GlobalPlayersOnlineDisplay, t => t('players.globalOnline.loadError'))

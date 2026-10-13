@@ -1,15 +1,12 @@
 'use client'
-import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
+import {use, useEffect, useMemo, useRef, useState} from "react";
 import {fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import {LazyBarChart as Bar} from "components/graphs/LazyCharts";
-import { Info } from "lucide-react";
 import { Card } from "../ui/card";
-import { Button } from "../ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { TooltipProvider } from "../ui/tooltip";
 import { Skeleton } from "../ui/skeleton";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import SkeletonBarGraph from "../graphs/SkeletonBarGraph.tsx";
-import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
@@ -18,6 +15,8 @@ import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeSessionDistribution } from "utils/chartSeoUtils.tsx";
 import {useTranslations} from 'next-intl';
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
+import InfoTooltip from "components/common/InfoTooltip";
+import {withMapSuspense} from "components/common/withErrorCatch";
 
 const BAR_HUES = ['221.2, 83.2%, 53.3%', '262.1, 83.3%, 57.8%', '291.7, 66.7%, 64.7%', '24.6, 95%, 53.1%', '346.8, 77.2%, 49.8%'];
 const BAR_BACKGROUNDS = BAR_HUES.map(hue => `hsla(${hue}, 0.7)`);
@@ -165,16 +164,7 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
                     <PeriodChip />
                 </div>
                 <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Info className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{t('tooltip')}</p>
-                        </TooltipContent>
-                    </Tooltip>
+                    <InfoTooltip text={t('tooltip')} />
                 </TooltipProvider>
             </div>
 
@@ -218,11 +208,4 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
     );
 }
 
-export default function MapAverageSessionDistribution({ initialDataPromise }: MapAverageSessionDistributionProps){
-    const t = useTranslations('maps.sessionDistribution');
-    return <ErrorCatch message={t('loadError')}>
-        <Suspense fallback={<EmptyMapContext><AverageSessionDistribution /></EmptyMapContext>}>
-            <AverageSessionDistribution initialDataPromise={initialDataPromise} />
-        </Suspense>
-    </ErrorCatch>
-}
+export default withMapSuspense(AverageSessionDistribution, t => t('maps.sessionDistribution.loadError'))

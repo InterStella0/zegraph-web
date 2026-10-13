@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef, useCallback, createContext, useContext, SetStateAction, Dispatch} from 'react';
+import {useState, useEffect, useRef, useCallback, createContext, useContext, SetStateAction, Dispatch, ComponentProps, ReactNode} from 'react';
 import dayjs, {ManipulateType} from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -32,6 +32,62 @@ export type TemporalContextData = {
     set: Dispatch<SetStateAction<TemporalData>>
 }
 export const TemporalContext = createContext<TemporalContextData>({ data: null, set: () => {}})
+
+const MINUTE_MS = 60 * 1000;
+const STEP_MS: Record<string, number> = {
+    '10min': 10 * MINUTE_MS,
+    '30min': 30 * MINUTE_MS,
+    '1hour': 60 * MINUTE_MS,
+    '6hours': 6 * 60 * MINUTE_MS,
+    '12hours': 12 * 60 * MINUTE_MS,
+    '1day': 24 * 60 * MINUTE_MS,
+    '1week': 7 * 24 * 60 * MINUTE_MS,
+    '1month': 30 * 24 * 60 * MINUTE_MS,
+};
+const INTERVAL_STEPS: Record<string, [number, ManipulateType]> = {
+    '10min': [10, 'minute'], '30min': [30, 'minute'], '1hour': [1, 'hour'], '6hours': [6, 'hour'],
+    '12hours': [12, 'hour'], '1day': [1, 'day'], '1week': [1, 'week'], '1month': [1, 'month'],
+};
+const RANGE_SPANS: Record<string, [number, ManipulateType]> = {
+    '1year': [1, 'year'], '1month': [1, 'month'], '1week': [1, 'week'], '1day': [1, 'day'], '12hours': [12, 'hour'], '6hours': [6, 'hour'],
+};
+
+function TipButton({ tip, ...props }: ComponentProps<typeof Button> & { tip: ReactNode }) {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" {...props} />
+            </TooltipTrigger>
+            <TooltipContent className="z-1000">{tip}</TooltipContent>
+        </Tooltip>
+    );
+}
+
+function LabeledSelect({ label, value, onValueChange, options, disabled }: {
+    label: string, value: string, onValueChange: (value: string) => void, options: { label: string, value: string }[], disabled?: boolean,
+}) {
+    return (
+        <div className="flex-none">
+            <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {label}
+                </span>
+                <Select disabled={disabled} value={value} onValueChange={onValueChange}>
+                    <SelectTrigger size="sm" className="h-7 min-w-[80px] text-xs">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-5000">
+                        {options.map(option => (
+                            <SelectItem key={option.value} value={option.value} className="text-xs">
+                                {option.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+    );
+}
 
 export default function TemporalController({ wmsLayerRef, initialStartDate, initialEndDate,
                                                intervals = null
@@ -87,18 +143,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
     const getStepSizePercent = () => {
         const totalRange = endDate.diff(startDate);
 
-        const stepMap = {
-            '10min': 10 * 60 * 1000,
-            '30min': 30 * 60 * 1000,
-            '1hour': 60 * 60 * 1000,
-            '6hours': 6 * 60 * 60 * 1000,
-            '12hours': 12 * 60 * 60 * 1000,
-            '1day': 24 * 60 * 60 * 1000,
-            '1week': 7 * 24 * 60 * 60 * 1000,
-            '1month': 30 * 24 * 60 * 60 * 1000,
-        };
-
-        const stepMs = stepMap[selectedInterval] || 60 * 60 * 1000; // default to 1 hour
+        const stepMs = STEP_MS[selectedInterval] || 60 * MINUTE_MS; // default to 1 hour
 
         return (stepMs / totalRange) * 100;
     };
@@ -211,34 +256,10 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
 
     const updateDateRange = (rangeValue) => {
         const now = dayjs();
-        let newStartDate;
-        let newEndDate = now;
-
-        switch(rangeValue) {
-            case 'all':
-                newStartDate = dayjs(initialStartDate);
-                break;
-            case '1year':
-                newStartDate = now.subtract(1, 'year');
-                break;
-            case '1month':
-                newStartDate = now.subtract(1, 'month');
-                break;
-            case '1week':
-                newStartDate = now.subtract(1, 'week');
-                break;
-            case '1day':
-                newStartDate = now.subtract(1, 'day');
-                break;
-            case '12hours':
-                newStartDate = now.subtract(12, 'hour');
-                break;
-            case '6hours':
-                newStartDate = now.subtract(6, 'hour');
-                break;
-            default:
-                newStartDate = now.subtract(1, 'month'); // Default to 1 month
-        }
+        const newEndDate = now;
+        const newStartDate = rangeValue === 'all'
+            ? dayjs(initialStartDate)
+            : now.subtract(...(RANGE_SPANS[rangeValue] ?? [1, 'month'] as const));
 
         setStartDate(newStartDate);
         setEndDate(newEndDate);
@@ -349,6 +370,18 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
         updateWMSLayer(currentTime);
     };
 
+    const stepTo = (time: dayjs.Dayjs) => {
+        if (isLive) {
+            setIsLive(false);
+            clearInterval(liveUpdateTimerRef.current);
+        }
+        if (isPlaying) {
+            setIsPlaying(false);
+        }
+        setCurrentTime(time);
+        updateWMSLayer(time);
+    };
+
     // Toggle live mode - shows current time
     const toggleLiveMode = () => {
         setIsLive(!isLive);
@@ -374,187 +407,72 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
             <div className="flex flex-col md:flex-row items-center gap-2 flex-wrap">
                 <div className="flex-none">
                     <div className="flex items-center gap-1">
-                        {/* Step Backward Button */}
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={() => {
-                                        if (isLive) {
-                                            setIsLive(false);
-                                            clearInterval(liveUpdateTimerRef.current);
-                                        }
-
-                                        if (isPlaying) {
-                                            setIsPlaying(false);
-                                        }
-
-                                        const intervalMap = {
-                                            '10min': { amount: 10, unit: 'minute' },
-                                            '30min': { amount: 30, unit: 'minute' },
-                                            '1hour': { amount: 1, unit: 'hour' },
-                                            '6hours': { amount: 6, unit: 'hour' },
-                                            '12hours': { amount: 12, unit: 'hour' },
-                                            '1day': { amount: 1, unit: 'day' },
-                                            '1week': { amount: 1, unit: 'week' },
-                                            '1month': { amount: 1, unit: 'month' }
-                                        };
-
-                                        const { amount, unit } = intervalMap[selectedInterval] || { amount: 1, unit: 'hour' };
-                                        const prevTime = currentTime.subtract(amount, unit as ManipulateType);
-
-
-                                        // Don't go before start date
-                                        if (prevTime.isBefore(startDate)) {
-                                            setCurrentTime(startDate);
-                                            updateWMSLayer(startDate);
-                                        } else {
-                                            setCurrentTime(prevTime);
-                                            updateWMSLayer(prevTime);
-                                        }
-                                    }}
-                                    disabled={currentTime?.isSame(startDate) || isPlaying}
-                                    className="bg-accent/50 hover:bg-accent disabled:opacity-50"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="z-1000">{t('stepBackward')}</TooltipContent>
-                        </Tooltip>
-
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={() => setIsPlaying(!isPlaying)}
-                                    className="bg-accent/50 hover:bg-accent"
-                                >
-                                    {isPlaying ?
-                                        <Pause className="h-4 w-4" /> :
-                                        <Play className="h-4 w-4" />
-                                    }
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="z-1000">{isPlaying ? t('pause') : t('play')}</TooltipContent>
-                        </Tooltip>
-
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={() => {
-                                        if (isLive) {
-                                            setIsLive(false);
-                                            clearInterval(liveUpdateTimerRef.current);
-                                        }
-
-                                        if (isPlaying) {
-                                            setIsPlaying(false);
-                                        }
-
-                                        const nextTime = getTimeIncrement(currentTime);
-
-                                        if (nextTime.isAfter(endDate)) {
-                                            setCurrentTime(endDate);
-                                            updateWMSLayer(endDate);
-                                        } else {
-                                            setCurrentTime(nextTime);
-                                            updateWMSLayer(nextTime);
-                                        }
-                                    }}
-                                    disabled={currentTime?.isSame(endDate) || isPlaying}
-                                    className="bg-accent/50 hover:bg-accent disabled:opacity-50"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent  className="z-1000">{t('stepForward')}</TooltipContent>
-                        </Tooltip>
-                    </div>
-                </div>
-
-                <div className="flex-none">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {t('range')}
-                        </span>
-                        <Select
-                            value={selectedRange}
-                            onValueChange={(value) => {
-                                handleRangeChange({ target: { value } });
+                        <TipButton
+                            tip={t('stepBackward')}
+                            onClick={() => {
+                                const [amount, unit] = INTERVAL_STEPS[selectedInterval] ?? [1, 'hour'];
+                                const prevTime = currentTime.subtract(amount, unit);
+                                stepTo(prevTime.isBefore(startDate) ? startDate : prevTime);
                             }}
+                            disabled={currentTime?.isSame(startDate) || isPlaying}
+                            className="bg-accent/50 hover:bg-accent disabled:opacity-50"
                         >
-                            <SelectTrigger size="sm" className="h-7 min-w-[80px] text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="z-5000">
-                                {rangeOptions.map(range => (
-                                    <SelectItem key={range.value} value={range.value} className="text-xs">
-                                        {range.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div className="flex-none">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {t('interval')}
-                        </span>
-                        <Select
-                            disabled={isLive}
-                            value={selectedInterval}
-                            onValueChange={(value) => {
-                                handleIntervalChange({ target: { value } });
+                            <ChevronLeft className="h-4 w-4" />
+                        </TipButton>
+
+                        <TipButton
+                            tip={isPlaying ? t('pause') : t('play')}
+                            onClick={() => setIsPlaying(!isPlaying)}
+                            className="bg-accent/50 hover:bg-accent"
+                        >
+                            {isPlaying ?
+                                <Pause className="h-4 w-4" /> :
+                                <Play className="h-4 w-4" />
+                            }
+                        </TipButton>
+
+                        <TipButton
+                            tip={t('stepForward')}
+                            onClick={() => {
+                                const nextTime = getTimeIncrement(currentTime);
+                                stepTo(nextTime.isAfter(endDate) ? endDate : nextTime);
                             }}
+                            disabled={currentTime?.isSame(endDate) || isPlaying}
+                            className="bg-accent/50 hover:bg-accent disabled:opacity-50"
                         >
-                            <SelectTrigger size="sm" className="h-7 min-w-[80px] text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="z-5000">
-                                {availableIntervals.map(interval => (
-                                    <SelectItem key={interval.value} value={interval.value} className="text-xs">
-                                        {interval.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            <ChevronRight className="h-4 w-4" />
+                        </TipButton>
                     </div>
                 </div>
 
+                <LabeledSelect label={t('range')} value={selectedRange} options={rangeOptions}
+                    onValueChange={(value) => handleRangeChange({ target: { value } })} />
+                <LabeledSelect label={t('interval')} value={selectedInterval} options={availableIntervals} disabled={isLive}
+                    onValueChange={(value) => handleIntervalChange({ target: { value } })} />
+
                 <div className="flex-none">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={toggleLiveMode}
-                                className={cn(
-                                    "relative",
-                                    isLive
-                                        ? "bg-destructive/10 hover:bg-destructive/20"
-                                        : "bg-accent/50 hover:bg-accent border border-primary"
-                                )}
-                            >
-                                <div className={cn(
-                                    "absolute inset-0 flex items-center justify-center",
-                                    "text-[0.6rem] font-bold z-10",
-                                    isLive ? "text-transparent" : "text-primary"
-                                )}>
-                                    LIVE
-                                </div>
-                                <Circle className={cn(
-                                    "h-4 w-4",
-                                    isLive ? "text-destructive animate-pulse z-20" : "text-transparent z-0"
-                                )} />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="z-1000">{isLive ? t('exitLive') : t('switchLive')}</TooltipContent>
-                    </Tooltip>
+                    <TipButton
+                        tip={isLive ? t('exitLive') : t('switchLive')}
+                        onClick={toggleLiveMode}
+                        className={cn(
+                            "relative",
+                            isLive
+                                ? "bg-destructive/10 hover:bg-destructive/20"
+                                : "bg-accent/50 hover:bg-accent border border-primary"
+                        )}
+                    >
+                        <div className={cn(
+                            "absolute inset-0 flex items-center justify-center",
+                            "text-[0.6rem] font-bold z-10",
+                            isLive ? "text-transparent" : "text-primary"
+                        )}>
+                            LIVE
+                        </div>
+                        <Circle className={cn(
+                            "h-4 w-4",
+                            isLive ? "text-destructive animate-pulse z-20" : "text-transparent z-0"
+                        )} />
+                    </TipButton>
                 </div>
                 <div className="flex-1 w-full md:w-auto min-w-0 mt-2 md:mt-0">
                     <div className="relative h-[30px] w-full flex items-center mt-2">

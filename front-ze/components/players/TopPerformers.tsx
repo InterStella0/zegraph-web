@@ -11,8 +11,8 @@ import { Card, CardContent, CardHeader } from "components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
 import { Skeleton } from "components/ui/skeleton";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "components/ui/select.tsx";
-import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {useResource} from "lib/hooks/useResource";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 const getPlayerStatus = (player) => {
     if (player.online_since) return 'online';
@@ -167,12 +167,4 @@ export function TopPerformersLoading() {
     );
 }
 
-const TopPerformers = ({ serverPromise, initialDataPromise }: TopPerformersProps) => {
-    return (
-        <ErrorCatch message="Top performers couldn't be loaded.">
-            <TopPerformersDisplay serverPromise={serverPromise} initialDataPromise={initialDataPromise}/>
-        </ErrorCatch>
-    );
-};
-
-export default TopPerformers;
+export default withErrorCatch(TopPerformersDisplay, () => "Top performers couldn't be loaded.")

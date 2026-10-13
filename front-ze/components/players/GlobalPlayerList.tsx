@@ -7,11 +7,11 @@ import {GlobalBriefPlayers} from "types/players";
 import {Card, CardContent, CardHeader} from "components/ui/card";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
-import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import GlobalPlayerRow from "./GlobalPlayerRow.tsx";
 import {useDebounced} from "lib/hooks/useDebounced";
 import {useResource} from "lib/hooks/useResource";
 import {SearchField} from "./OnlinePlayers";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -149,11 +149,4 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
     );
 }
 
-export default function GlobalPlayerList({ initialDataPromise }: { initialDataPromise: Promise<GlobalBriefPlayers> }) {
-    const t = useTranslations('players.global');
-    return (
-        <ErrorCatch message={t('loadError')}>
-            <GlobalPlayerListDisplay initialDataPromise={initialDataPromise}/>
-        </ErrorCatch>
-    );
-}
+export default withErrorCatch(GlobalPlayerListDisplay, t => t('players.global.loadError'))

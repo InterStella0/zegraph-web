@@ -1,13 +1,13 @@
 'use client'
 import {ComponentProps, ReactNode} from "react";
-import {Circle, Gamepad2, Info, Search} from "lucide-react";
+import {Circle, Gamepad2, Search} from "lucide-react";
 import {Card, CardContent, CardHeader} from "components/ui/card";
 import {Input} from "components/ui/input";
-import {Button} from "components/ui/button";
-import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "components/ui/tooltip";
+import {TooltipProvider} from "components/ui/tooltip";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {PlayerAvatar} from "./PlayerAvatar.tsx";
 import {PlayerName} from "./PlayerName";
+import InfoTooltip from "components/common/InfoTooltip";
 
 export function SearchField(props: ComponentProps<typeof Input>) {
     return (
@@ -31,16 +31,7 @@ export function OnlinePlayersCard({ className, title, info, search, children }: 
                     </h2>
                 </div>
                 <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Info className="w-4 h-4"/>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{info}</p>
-                        </TooltipContent>
-                    </Tooltip>
+                    <InfoTooltip text={info} />
                 </TooltipProvider>
             </CardHeader>
             <CardContent className="pt-0">

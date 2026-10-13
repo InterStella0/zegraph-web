@@ -10,7 +10,6 @@ import {Input} from "components/ui/input";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {PlayerAvatar} from "./PlayerAvatar";
 import {PlayerName} from "./PlayerName";
 import {fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
@@ -19,6 +18,7 @@ import {Server} from "types/community.ts";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 import {useDebounced} from "lib/hooks/useDebounced";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 dayjs.extend(relativeTime);
 
@@ -280,9 +280,4 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
     );
 }
 
-export default function PlayerPlayedWith({ serverPlayerPromise, heading }: PlayedWithProps) {
-    const t = useTranslations('players.playedWith');
-    return <ErrorCatch message={t('loadError')}>
-        <PlayerPlayedWithDisplay serverPlayerPromise={serverPlayerPromise} heading={heading} />
-    </ErrorCatch>
-}
+export default withErrorCatch(PlayerPlayedWithDisplay, t => t('players.playedWith.loadError'))

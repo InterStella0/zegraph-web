@@ -10,9 +10,9 @@ import {PlayerDetailSession} from "types/players.ts";
 import { Card, CardContent, CardHeader } from "components/ui/card";
 import { Skeleton } from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
-import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {useResource} from "lib/hooks/useResource";
 import {OnlinePlayerRow, OnlinePlayersCard, SearchField} from "./OnlinePlayers";
+import {withErrorCatch} from "components/common/withErrorCatch";
 dayjs.extend(duration);
 
 const PlayerListSkeleton = ({ count = 20 }) => (
@@ -152,12 +152,5 @@ export function PlayersOnlineLoading() {
     );
 }
 
-const PlayersOnline = ({ initialDataPromise }: PlayersOnlineProps) => {
-    return (
-        <ErrorCatch message="Online players couldn't be loaded.">
-            <PlayersOnlineDisplay initialDataPromise={initialDataPromise}/>
-        </ErrorCatch>
-    );
-};
+export default withErrorCatch(PlayersOnlineDisplay, () => "Online players couldn't be loaded.")
 
-export default PlayersOnline;

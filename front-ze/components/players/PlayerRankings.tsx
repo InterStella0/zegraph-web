@@ -13,10 +13,10 @@ import { Skeleton } from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "components/ui/command";
-import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {PlayerName} from "./PlayerName";
 import {useResource} from "lib/hooks/useResource";
 import {SearchField} from "./OnlinePlayers";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => (
     <>
@@ -317,12 +317,4 @@ export function PlayerRankingsLoading() {
     );
 }
 
-const PlayerRankings = ({ serverPromise, initialDataPromise }: PlayerRankingsProps) => {
-    return (
-        <ErrorCatch message="Player rankings couldn't be loaded.">
-            <PlayerRankingsDisplay serverPromise={serverPromise} initialDataPromise={initialDataPromise}/>
-        </ErrorCatch>
-    );
-};
-
-export default PlayerRankings;
+export default withErrorCatch(PlayerRankingsDisplay, () => "Player rankings couldn't be loaded.")

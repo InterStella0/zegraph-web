@@ -2,13 +2,13 @@ import {useDeferredValue, useEffect, useState} from "react";
 import {useTranslations} from "next-intl";
 import { fetchUrl } from "utils/generalUtils.ts";
 import PlayerTableRow, {PlayerTableRowLoading} from "./PlayerTableRow.tsx";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {Dayjs} from "dayjs";
 import {BriefPlayers, ExtendedPlayerBrief} from "types/players.ts";
 import {Card} from "components/ui/card.tsx";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "components/ui/table.tsx";
 import PaginationPage from "components/ui/PaginationPage.tsx";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 
 function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
@@ -104,9 +104,4 @@ type StartEndDates = {
     end: Dayjs
 } | null
 
-export default function PlayerList({ dateDisplay }: { dateDisplay: StartEndDates }){
-    const t = useTranslations('players.list');
-    return <ErrorCatch message={t('loadError')}>
-        <PlayerListDisplay dateDisplay={dateDisplay} />
-    </ErrorCatch>
-}
+export default withErrorCatch(PlayerListDisplay, t => t('players.list.loadError'))

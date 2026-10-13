@@ -1,5 +1,5 @@
 'use client'
-import {Suspense, use, useMemo, useState} from "react";
+import {use, useMemo, useState} from "react";
 import dayjs from "dayjs";
 import {LazyBarChart} from "components/graphs/LazyCharts";
 import {BarController, BarElement, Chart as ChartJS, Legend, Tooltip} from "chart.js";
@@ -7,8 +7,7 @@ import { Alert, AlertDescription } from "../ui/alert";
 import { Skeleton } from "../ui/skeleton";
 import { Table, TableBody, TableCell, TableRow } from "../ui/table";
 import {fetchServerUrl, fetchUrl, REGION_COLORS} from "utils/generalUtils.ts";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useResource} from "lib/hooks/useResource";
@@ -18,6 +17,7 @@ import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeRegionData } from "utils/chartSeoUtils.tsx";
 import {useTranslations} from 'next-intl';
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
+import {withMapSuspense} from "components/common/withErrorCatch";
 
 ChartJS.register(
     BarElement,
@@ -230,11 +230,4 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
     );
 }
 
-export default function MapRegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDistributionProps){
-    const t = useTranslations('maps.regionDistribution');
-    return <ErrorCatch message={t('loadError')}>
-        <Suspense fallback={<EmptyMapContext><RegionDistribution /></EmptyMapContext>}>
-            <RegionDistribution initialDataPromise={initialDataPromise} regionsPromise={regionsPromise} />
-        </Suspense>
-    </ErrorCatch>
-}
+export default withMapSuspense(RegionDistribution, t => t('maps.regionDistribution.loadError'))

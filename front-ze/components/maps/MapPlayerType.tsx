@@ -1,23 +1,23 @@
 'use client'
-import {Suspense, use, useMemo} from "react";
+import {use, useMemo} from "react";
 import {fetchServerUrl, secondsToHours} from "utils/generalUtils.ts";
 import {LazyDoughnutChart as Doughnut} from 'components/graphs/LazyCharts';
 import { Chart as ChartJS, ArcElement, Legend } from 'chart.js';
-import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useResource} from "lib/hooks/useResource";
 import {MapPlayerTypeTime} from "types/players.ts";
 import { Card } from "components/ui/card";
-import { Button } from "components/ui/button";
 import { Skeleton } from "components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
-import { Info, AlertCircle } from "lucide-react";
+import { TooltipProvider } from "components/ui/tooltip";
+import { AlertCircle } from "lucide-react";
 import {useChartTheme} from "lib/chartTheme";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizePlayerTypes } from "utils/chartSeoUtils.tsx";
 import {useTranslations, useLocale} from 'next-intl';
+import InfoTooltip from "components/common/InfoTooltip";
+import {withMapSuspense} from "components/common/withErrorCatch";
 
 ChartJS.register(ArcElement, Legend);
 
@@ -106,16 +106,7 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
                     <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
                     <PeriodChip />
                 </div>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Info className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{t('tooltip')}</p>
-                    </TooltipContent>
-                </Tooltip>
+                <InfoTooltip text={t('tooltip')} />
             </div>
 
             {!error && !loading && (
@@ -144,11 +135,4 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
     </Card>
     );
 }
-export default function MapPlayerType({ initialDataPromise }: MapPlayerTypeProps){
-    const t = useTranslations('maps.playerType');
-    return <ErrorCatch message={t('loadError')}>
-        <Suspense fallback={<EmptyMapContext><MapPlayerTypeDisplay /></EmptyMapContext>}>
-            <MapPlayerTypeDisplay initialDataPromise={initialDataPromise} />
-        </Suspense>
-    </ErrorCatch>
-}
+export default withMapSuspense(MapPlayerTypeDisplay, t => t('maps.playerType.loadError'))

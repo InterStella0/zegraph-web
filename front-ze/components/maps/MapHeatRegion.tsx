@@ -3,16 +3,14 @@ import {BarController, BarElement, CategoryScale, Chart as ChartJS, Legend, Line
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import {LazyBarChart, LazyMatrixChart} from "components/graphs/LazyCharts";
 import {color} from "chart.js/helpers";
-import {Suspense, use, useMemo} from "react";
+import {use, useMemo} from "react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { Info, AlertTriangle } from "lucide-react";
-import { Button } from "../ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { AlertTriangle } from "lucide-react";
+import { TooltipProvider } from "../ui/tooltip";
 import { Skeleton } from "../ui/skeleton";
 import {fetchServerUrl, formatHours, formatNumber, REGION_COLORS} from "utils/generalUtils.ts";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {isShortPeriod, PeriodChip, rangeDays, splitRange, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useResource} from "lib/hooks/useResource";
@@ -23,6 +21,8 @@ import {useTranslations, useLocale} from 'next-intl';
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 import {calendarMatrixDataset, calendarMatrixOptions, weekdayKey} from "lib/calendarHeatmap";
+import InfoTooltip from "components/common/InfoTooltip";
+import {withMapSuspense} from "components/common/withErrorCatch";
 
 dayjs.extend(utc);
 
@@ -230,17 +230,7 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
                 </div>
                 <div>
                     <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    {error ? <AlertTriangle className="h-4 w-4" /> : <Info className="h-4 w-4" />}
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{error ? (notReady ? t('dataNotReady') : t('somethingWrong')) :
-                                    t('tooltip')}</p>
-                            </TooltipContent>
-                        </Tooltip>
+                        <InfoTooltip text={error ? (notReady ? t('dataNotReady') : t('somethingWrong')) : t('tooltip')} icon={error ? <AlertTriangle className="h-4 w-4" /> : undefined} />
                     </TooltipProvider>
                 </div>
             </div>
@@ -263,11 +253,4 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
         </div>
     )
 }
-export default function MapHeatRegion({ initialDataPromise }: MapHeatRegionProps){
-    const t = useTranslations('maps.heatRegion');
-    return <ErrorCatch message={t('loadError')}>
-        <Suspense fallback={<EmptyMapContext><MapHeatRegionDisplay /></EmptyMapContext>}>
-            <MapHeatRegionDisplay initialDataPromise={initialDataPromise} />
-        </Suspense>
-    </ErrorCatch>
-}
+export default withMapSuspense(MapHeatRegionDisplay, t => t('maps.heatRegion.loadError'))

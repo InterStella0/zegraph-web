@@ -11,8 +11,8 @@ import { Card, CardContent, CardHeader } from "components/ui/card";
 import { Button } from "components/ui/button";
 import { Skeleton } from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
-import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {useResource} from "lib/hooks/useResource";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 const CountriesSkeleton = () => (
     <div className="p-2 space-y-2">
@@ -146,10 +146,4 @@ export function PlayerByCountriesLoading() {
     );
 }
 
-export default function PlayerByCountries({ initialDataPromise }: PlayerByCountriesProps) {
-    return (
-        <ErrorCatch message="Countries couldn't be loaded.">
-            <PlayerByCountriesDisplay initialDataPromise={initialDataPromise}/>
-        </ErrorCatch>
-    );
-}
+export default withErrorCatch(PlayerByCountriesDisplay, () => "Countries couldn't be loaded.")
