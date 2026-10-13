@@ -32,6 +32,7 @@ export function useResource<T>(
     const [error, setError] = useState<Error | null>(null);
     const [retryTick, setRetryTick] = useState(0);
     const skipFirst = useRef(options.skipFirst ?? hasInitial);
+    const inFlight = useRef(false);
     const notReady = error instanceof StillCalculate;
     useNotReadyRetry(retryNotReady && notReady, () => setRetryTick(t => t + 1));
 
@@ -43,7 +44,15 @@ export function useResource<T>(
         const controller = new AbortController();
         const signal = controller.signal;
         const pending = fetcher(signal);
-        if (!pending) return;
+        if (!pending) {
+            if (inFlight.current) {
+                inFlight.current = false;
+                setLoading(false);
+                if (!keepData) setData(null);
+            }
+            return;
+        }
+        inFlight.current = true;
         setLoading(true);
         if (!keepError) setError(null);
         if (!keepData) setData(null);
@@ -59,7 +68,9 @@ export function useResource<T>(
                 setError(err);
             })
             .finally(() => {
-                if (!signal.aborted) setLoading(false);
+                if (signal.aborted) return;
+                inFlight.current = false;
+                setLoading(false);
             });
         return () => controller.abort("Changed");
         // eslint-disable-next-line react-hooks/exhaustive-deps

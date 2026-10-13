@@ -115,8 +115,8 @@ async fn update_session<S: ChunkedUpload>(cache: &FastCache, session: &S) -> Res
         .map_err(|_| "Failed to serialize session")?;
     let mut conn = cache.redis_pool.get().await
         .map_err(|_| "Failed to get Redis connection")?;
-    let _: redis::RedisResult<()> = conn.set_ex(&key, &json, 86400).await;
-    Ok(())
+    conn.set_ex::<_, _, ()>(&key, &json, 86400).await
+        .map_err(|_| "Failed to store session")
 }
 
 async fn cleanup_temp_dir(session_id: &str, store_upload: &str) -> Result<(), std::io::Error> {
@@ -183,20 +183,9 @@ pub async fn initiate<S: ChunkedUpload>(
     let total_chunks = ((file_size as f64) / (CHUNK_SIZE as f64)).ceil() as u32;
     let session = build(session_id.clone(), total_chunks, file_size);
 
-    let session_key = format!("{}{}", S::KEY_PREFIX, session_id);
-    match serde_json::to_string(&session) {
-        Ok(session_json) => {
-            if let Ok(mut conn) = cache.redis_pool.get().await {
-                let _: redis::RedisResult<()> = conn.set_ex(&session_key, &session_json, 86400).await;
-            } else {
-                tracing::error!("Failed to get Redis connection");
-                return response!(err "Failed to create upload session", ErrorCode::InternalServerError);
-            }
-        }
-        Err(e) => {
-            tracing::error!("Failed to serialize upload session: {}", e);
-            return response!(err "Failed to create upload session", ErrorCode::InternalServerError);
-        }
+    if let Err(e) = update_session(cache, &session).await {
+        tracing::error!("Failed to create upload session: {}", e);
+        return response!(err "Failed to create upload session", ErrorCode::InternalServerError);
     }
 
     let temp_dir = format!("{}/.tmp/{}", store_dir::<S>(), session_id);
@@ -226,19 +215,22 @@ pub async fn upload_chunk<S: ChunkedUpload>(
     let mut chunk_index: Option<u32> = None;
     let mut chunk_data: Option<Vec<u8>> = None;
 
-    while let Ok(Some(field)) = upload.next_field().await {
+    loop {
+        let field = match upload.next_field().await {
+            Ok(Some(field)) => field,
+            Ok(None) => break,
+            Err(_) => return response!(err "Malformed multipart body", ErrorCode::BadRequest),
+        };
         let name = field.name().map(|s| s.to_string());
         match name.as_deref() {
-            Some("chunk_index") => {
-                if let Ok(text) = field.text().await {
-                    chunk_index = text.parse::<u32>().ok();
-                }
-            }
-            Some("chunk_data") => {
-                if let Ok(bytes) = field.bytes().await {
-                    chunk_data = Some(bytes.to_vec());
-                }
-            }
+            Some("chunk_index") => match field.text().await {
+                Ok(text) => chunk_index = text.parse::<u32>().ok(),
+                Err(_) => return response!(err "Failed to read chunk_index", ErrorCode::BadRequest),
+            },
+            Some("chunk_data") => match field.bytes().await {
+                Ok(bytes) => chunk_data = Some(bytes.to_vec()),
+                Err(_) => return response!(err "Failed to read chunk_data", ErrorCode::BadRequest),
+            },
             _ => {}
         }
     }

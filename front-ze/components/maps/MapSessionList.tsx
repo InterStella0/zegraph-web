@@ -17,7 +17,7 @@ import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "componen
 import {Button} from "components/ui/button";
 import {useTranslations} from 'next-intl';
 import {Card} from "components/ui/card.tsx";
-import {withMapSuspense} from "components/common/withErrorCatch";
+import {withMapSuspense} from "components/maps/withMapSuspense";
 
 dayjs.extend(relativeTime);
 
