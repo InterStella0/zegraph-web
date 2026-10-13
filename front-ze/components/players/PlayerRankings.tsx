@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {useState, useEffect, useRef, use} from 'react';
+import {useState, useEffect, use} from 'react';
 import { Search, Trophy, Loader2 } from 'lucide-react';
 import {fetchApiServerUrl} from "utils/generalUtils";
 import PlayerListItem from "./PlayerListItem";
@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "components/ui/command";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {PlayerName} from "./PlayerName";
+import {useResource} from "lib/hooks/useResource";
 
 const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => (
     <>
@@ -68,11 +69,6 @@ const PlayerRankingsDisplay = ({ serverPromise, initialDataPromise }: PlayerRank
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
     const [rankingTab, setRankingTab] = useState<number>(0);
     const [rankingPage, setRankingPage] = useState<number>(0);
-    const [totalPages, setTotalPages] = useState<number>(Math.max(1, Math.ceil((initialData?.total_players || 0) / 5)));
-    const [playerRankings, setPlayerRankings] = useState<PlayersTableRanked | null>(initialData);
-    const [playerRankingsLoading, setPlayerRankingsLoading] = useState<boolean>(false);
-    const [playerRankingsError, setPlayerRankingsError] = useState<string | null>(null);
-    const isFirstRun = useRef(true);
     const [suggestions, setSuggestions] = useState<SearchPlayer[]>([]);
     const [suggestionsLoading, setSuggestionsLoading] = useState<boolean>(false);
     const [suggestionsOpen, setSuggestionsOpen] = useState<boolean>(false);
@@ -114,36 +110,18 @@ const PlayerRankingsDisplay = ({ serverPromise, initialDataPromise }: PlayerRank
         }
     };
 
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false;
-            return;
-        }
-        const controller = new AbortController()
-        const signal = controller.signal;
-        setPlayerRankingsLoading(true);
-        setPlayerRankingsError(null);
+    const { data: playerRankings, loading: playerRankingsLoading, error } = useResource<PlayersTableRanked>(signal => {
         const params = {
             page: rankingPage,
             mode: currentMode.value,
             ...(debouncedSearchTerm.trim() && {player_name: debouncedSearchTerm.trim()})
         };
-        fetchApiServerUrl(serverId, '/players/table', {params, signal})
-            .then(data => {
-                setPlayerRankings(data)
-                setTotalPages(Math.ceil((data?.total_players || 0) / 5))
-            })
-            .catch(error => {
-                if (signal.aborted) {
-                    return
-                }
-                console.error('Error fetching player rankings:', error)
-                setPlayerRankingsError(error.message)
-            }).finally(() => setPlayerRankingsLoading(false))
-            return () => {
-                controller.abort("Changed");
-            }
-    }, [serverId, rankingPage, debouncedSearchTerm, currentMode]);
+        return fetchApiServerUrl(serverId, '/players/table', {params, signal});
+    }, [serverId, rankingPage, debouncedSearchTerm, currentMode], { initial: initialData, keepData: true, errorLog: 'Error fetching player rankings:' });
+    const playerRankingsError = error?.message;
+    const totalPages = playerRankings === initialData
+        ? Math.max(1, Math.ceil((initialData?.total_players || 0) / 5))
+        : Math.ceil((playerRankings?.total_players || 0) / 5);
 
     useEffect(() => {
         setRankingPage(0);

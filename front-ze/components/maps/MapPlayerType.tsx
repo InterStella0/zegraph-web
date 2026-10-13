@@ -1,13 +1,13 @@
 'use client'
-import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
-import {fetchServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils.ts";
+import {Suspense, use, useMemo} from "react";
+import {fetchServerUrl, secondsToHours} from "utils/generalUtils.ts";
 import {LazyDoughnutChart as Doughnut} from 'components/graphs/LazyCharts';
 import { Chart as ChartJS, ArcElement, Legend } from 'chart.js';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
-import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
+import {useResource} from "lib/hooks/useResource";
 import {MapPlayerTypeTime} from "types/players.ts";
 import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
@@ -34,36 +34,10 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
     const initialData = initialDataPromise ? use(initialDataPromise) : null
-    const [loading, setLoading] = useState<boolean>(initialData === null);
-    const [error, setError] = useState<Error | null>(null);
-    const [playerTypes, setPlayerTypes] = useState<MapPlayerTypeTime[]>(initialData ?? []);
-    const isFirstRun = useRef(initialData !== null)
-    const [retryTick, setRetryTick] = useState(0)
-    const notReady = error instanceof StillCalculate
-    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
-
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false
-            return
-        }
-        if (!name) return
-        setLoading(true);
-        setError(null);
-        setPlayerTypes([]);
-
-        fetchServerUrl(server_id, `/maps/${name}/player_types`, period ? { params: { period } } : {})
-            .then(data => {
-                setPlayerTypes(data)
-            })
-            .catch(err => {
-                if (!(err instanceof StillCalculate)) {
-                    console.error('Error fetching player types data:', err);
-                }
-                setError(err);
-            })
-            .finally(() => setLoading(false));
-    }, [server_id, name, period, retryTick]);
+    const { data: fetched, loading, error } = useResource<MapPlayerTypeTime[]>(() => name
+        ? fetchServerUrl(server_id, `/maps/${name}/player_types`, period ? { params: { period } } : {})
+        : null, [server_id, name, period], { initial: initialData ?? undefined, retryNotReady: true, errorLog: 'Error fetching player types data:' });
+    const playerTypes = fetched ?? [];
 
     const totalSeconds = playerTypes.reduce((sum, p) => sum + p.time_spent, 0);
     const categoryColors = {

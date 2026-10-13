@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {useState, useEffect, useRef, use} from 'react';
+import {useState, use} from 'react';
 import { Clock } from 'lucide-react';
 import { fetchUrl, secondsToHours } from "utils/generalUtils";
 import LeaderboardItem from "./LeaderboardItem";
@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
 import { Skeleton } from "components/ui/skeleton";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "components/ui/select.tsx";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
+import {useResource} from "lib/hooks/useResource";
 
 const getPlayerStatus = (player) => {
     if (player.online_since) return 'online';
@@ -57,35 +58,11 @@ const TopPerformersDisplay = ({ serverPromise, initialDataPromise }: TopPerforme
     const server = use(serverPromise)
     const initialData = use(initialDataPromise);
     const [performanceTab, setPerformanceTab] = useState<number>(0);
-    const [topPlayers, setTopPlayers] = useState<BriefPlayers | null>(initialData);
-    const [topPlayersLoading, setTopPlayersLoading] = useState(false);
-    const [topPlayersError, setTopPlayersError] = useState(null);
     const serverId = server.id
-    const isFirstRun = useRef(true);
-
-    const fetchTopPlayers = async () => {
-        try {
-            setTopPlayersLoading(true);
-            setTopPlayersError(null);
-            const currentTimeFrame = timeFrames[performanceTab];
-            const params = {time_frame: currentTimeFrame.value};
-            const data: BriefPlayers = await fetchUrl(`/graph/${serverId}/top_players`, {params});
-            setTopPlayers(data);
-        } catch (error) {
-            console.error('Error fetching top players:', error);
-            setTopPlayersError(error.message);
-        } finally {
-            setTopPlayersLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false;
-            return;
-        }
-        fetchTopPlayers();
-    }, [serverId, performanceTab]);
+    const { data: topPlayers, loading: topPlayersLoading, error } = useResource<BriefPlayers>(
+        () => fetchUrl(`/graph/${serverId}/top_players`, {params: {time_frame: timeFrames[performanceTab].value}}),
+        [serverId, performanceTab], { initial: initialData, keepData: true, errorLog: 'Error fetching top players:' });
+    const topPlayersError = error?.message;
 
     return (
         <Card>

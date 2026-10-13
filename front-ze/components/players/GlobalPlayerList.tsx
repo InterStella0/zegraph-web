@@ -1,5 +1,5 @@
 'use client'
-import {use, useEffect, useRef, useState} from 'react';
+import {use, useEffect, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {Search, Users} from 'lucide-react';
 import {fetchUrl, simpleRandom} from "utils/generalUtils";
@@ -11,6 +11,7 @@ import PaginationPage from "components/ui/PaginationPage.tsx";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import GlobalPlayerRow from "./GlobalPlayerRow.tsx";
 import {useDebounced} from "lib/hooks/useDebounced";
+import {useResource} from "lib/hooks/useResource";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -82,11 +83,6 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
     const initialData = use(initialDataPromise);
     const [searchInput, setSearchInput] = useState<string>('');
     const [page, setPage] = useState<number>(0);
-    const [data, setData] = useState<GlobalBriefPlayers | null>(initialData);
-    const [loading, setLoading] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
-    const isFirstRun = useRef(true);
-    const totalPages = Math.max(1, Math.ceil((data?.total_players || 0) / PAGE_SIZE));
 
     const debouncedSearch = useDebounced(searchInput.trim(), SEARCH_DEBOUNCE_MS);
 
@@ -94,33 +90,12 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
         setPage(0);
     }, [debouncedSearch]);
 
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false;
-            return;
-        }
-        const controller = new AbortController();
-        const signal = controller.signal;
-        setLoading(true);
-        setError(null);
-        const params = {
-            page,
-            ...(debouncedSearch && {search: debouncedSearch})
-        };
-        fetchUrl('/communities/all/players', {params, signal})
-            .then((result: GlobalBriefPlayers) => setData(result))
-            .catch(error => {
-                if (signal.aborted) return;
-                console.error('Error fetching global players:', error);
-                setError(error.message);
-            })
-            .finally(() => {
-                if (!signal.aborted) setLoading(false);
-            });
-        return () => {
-            controller.abort("Changed");
-        };
-    }, [page, debouncedSearch]);
+    const { data, loading, error: fetchError } = useResource<GlobalBriefPlayers>(signal => fetchUrl('/communities/all/players', {
+        params: { page, ...(debouncedSearch && {search: debouncedSearch}) },
+        signal,
+    }), [page, debouncedSearch], { initial: initialData, keepData: true, errorLog: 'Error fetching global players:' });
+    const error = fetchError?.message;
+    const totalPages = Math.max(1, Math.ceil((data?.total_players || 0) / PAGE_SIZE));
 
     return (
         <Card className="border-border/40 bg-card/50 backdrop-blur-xl">

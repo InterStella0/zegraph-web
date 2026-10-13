@@ -3,19 +3,19 @@ import {BarController, BarElement, CategoryScale, Chart as ChartJS, Legend, Line
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import {LazyBarChart, LazyMatrixChart} from "components/graphs/LazyCharts";
 import {color} from "chart.js/helpers";
-import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
+import {Suspense, use, useMemo} from "react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { Info, AlertTriangle } from "lucide-react";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { Skeleton } from "../ui/skeleton";
-import {fetchServerUrl, formatHours, formatNumber, REGION_COLORS, StillCalculate} from "utils/generalUtils.ts";
+import {fetchServerUrl, formatHours, formatNumber, REGION_COLORS} from "utils/generalUtils.ts";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {isShortPeriod, PeriodChip, rangeDays, splitRange, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
-import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
+import {useResource} from "lib/hooks/useResource";
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import {DailyMapRegion, MapRegion} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
@@ -56,31 +56,13 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
     const { name } = useMapContext()
     const { period } = usePeriod()
     const initialData = initialDataPromise ? use(initialDataPromise) : null
-    const [ loading, setLoading ] = useState<boolean>(initialData === null)
-    const [ regions, setRegions ] = useState<HeatRegionData[]>(() => initialData ? toHeatRegionData(initialData) : [])
-    const isFirstRun = useRef(initialData !== null)
-    const [ error, setError ] = useState<Error | null>(null)
-    const notReady = error && error instanceof StillCalculate
     const {server} = useServerData()
     const server_id = server.id
-    const [retryTick, setRetryTick] = useState(0)
-    useNotReadyRetry(!!notReady, () => setRetryTick(t => t + 1))
-
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false
-            return
-        }
-        if (!name) return
-        setLoading(true)
-        setError(null)
-        setRegions([])
-        fetchServerUrl(server_id, `/maps/${name}/heat-regions`, period ? { params: { period } } : {})
-            .then(toHeatRegionData)
-            .then(setRegions)
-            .catch(setError)
-            .finally(() => setLoading(false))
-    }, [server_id, name, period, retryTick]);
+    const initialRegions = useMemo(() => initialData ? toHeatRegionData(initialData) : undefined, [initialData])
+    const { data: fetched, loading, error, notReady } = useResource<HeatRegionData[]>(() => name
+        ? fetchServerUrl(server_id, `/maps/${name}/heat-regions`, period ? { params: { period } } : {}).then(toHeatRegionData)
+        : null, [server_id, name, period], { initial: initialRegions, retryNotReady: true })
+    const regions = fetched ?? []
 
     const getChartColors = () => {
         if (typeof window === 'undefined') return {

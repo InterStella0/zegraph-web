@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {useState, useEffect, useMemo, useRef, use, ChangeEvent} from 'react';
+import {useState, useMemo, use, ChangeEvent} from 'react';
 import { Gamepad2, Info, Circle, Search } from 'lucide-react';
 import { fetchServerUrl } from "utils/generalUtils.ts";
 import { PlayerAvatar } from "./PlayerAvatar.tsx";
@@ -17,6 +17,7 @@ import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {PlayerName} from "./PlayerName";
+import {useResource} from "lib/hooks/useResource";
 dayjs.extend(duration);
 
 const PlayerListSkeleton = ({ count = 20 }) => (
@@ -44,14 +45,15 @@ type PlayersOnlineProps = { initialDataPromise: Promise<PlayerDetailSession[]> }
 const PlayersOnlineDisplay = ({ initialDataPromise }: PlayersOnlineProps) => {
     const t = useTranslations('players.online');
     const initialData = use(initialDataPromise);
-    const [onlinePlayers, setOnlinePlayers] = useState<PlayerDetailSession[]>(initialData || []);
-    const [onlinePlayersLoading, setOnlinePlayersLoading] = useState<boolean>(false);
-    const [onlinePlayersError, setOnlinePlayersError] = useState<string | null>(null);
     const [onlinePage, setOnlinePage] = useState<number>(0);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const { server } = useServerData()
     const serverId = server.id
-    const isFirstRun = useRef(true);
+    const { data, loading: onlinePlayersLoading, error } = useResource<PlayerDetailSession[]>(
+        () => fetchServerUrl(serverId, '/players/playing').then(data => data || []),
+        [serverId], { initial: initialData || [], keepData: true, errorLog: 'Error fetching online players:' });
+    const onlinePlayers = data ?? [];
+    const onlinePlayersError = error?.message;
 
     const PLAYERS_PER_PAGE = 20;
 
@@ -86,22 +88,6 @@ const PlayersOnlineDisplay = ({ initialDataPromise }: PlayersOnlineProps) => {
         setSearchQuery(e.target.value);
         setOnlinePage(0);
     }
-
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false;
-            return;
-        }
-        setOnlinePlayersLoading(true);
-        setOnlinePlayersError(null);
-        fetchServerUrl(serverId, '/players/playing')
-            .then(data => setOnlinePlayers(data || []))
-            .catch(error => {
-                console.error('Error fetching online players:', error);
-                setOnlinePlayersError(error.message);
-            })
-            .finally(() => setOnlinePlayersLoading(false))
-    }, [serverId]);
 
     return (
         <Card className="mb-6">
