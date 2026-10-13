@@ -1,7 +1,7 @@
 'use client'
 import { Avatar, AvatarFallback } from "components/ui/avatar";
 import { useEffect, useRef, useState } from "react";
-import { fetchUrl } from "utils/generalUtils";
+import { loadPlayerPfp } from "lib/batchLoader";
 import { ErrorBoundary } from "react-error-boundary";
 import { useServerData } from "../../app/servers/[server_slug]/ServerDataProvider";
 import Image from "next/image";
@@ -15,15 +15,7 @@ function PlayerAvatarDisplay({ uuid, name, width = 40, height = 40, anonymous = 
 
     useEffect(() => {
         if (!playerImage && !anonymous) {
-            fetchUrl(`/players/${uuid}/pfp`)
-                .then(image => {
-                    setPlayerImage(image);
-                })
-                .catch(error => {
-                    if (error.code !== 404)
-                        console.error(`Failed to fetch avatar for player ${uuid}:`, error);
-                    setPlayerImage(null);
-                });
+            loadPlayerPfp(uuid).then(setPlayerImage);
         }
     }, [server_id, uuid, playerImage, anonymous]);
 

@@ -96,16 +96,20 @@ const mapAttrs = ['small', 'medium', 'large', 'extra_large']
 
 export type GetMapImageReturn = MapImage | null
 
+export function withImageDomain(image: MapImage): MapImage {
+    const domain = process.env.NEXT_PUBLIC_DOMAIN ?? "";
+    for (const attr of mapAttrs) {
+        if (image[attr].startsWith("/")) {
+            image[attr] = domain + image[attr]
+        }
+    }
+    return image
+}
+
 export async function getMapImage(server_id: string, mapName: string): Promise<GetMapImageReturn> {
     try {
         const result = await fetchServerUrl(server_id, `/maps/${mapName}/images`, { next: { revalidate: 86400 } })
-        const domain = process.env.NEXT_PUBLIC_DOMAIN ?? "";
-        for (const attr of mapAttrs) {
-            if (result[attr].startsWith("/")) {
-                result[attr] = domain + result[attr]
-            }
-        }
-        return result
+        return withImageDomain(result)
     } catch {
         return null
     }

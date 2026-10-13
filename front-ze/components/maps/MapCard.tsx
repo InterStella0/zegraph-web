@@ -2,7 +2,7 @@
 import {useTranslations} from 'next-intl';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useEffect, useState} from "react";
-import {getMapImage} from "utils/generalUtils.ts";
+import {loadMapImage} from "lib/batchLoader";
 import dayjs from "dayjs";
 import Image from "next/image";
 import {ServerMapPlayed} from "types/maps.ts";
@@ -28,7 +28,7 @@ function MapCardDisplay({ detail, onClick, server }){
     const server_id = server.id
     const t = useTranslations('maps');
     useEffect(() => {
-        getMapImage(server_id, detail.map).then(e => setImage(e? e.small: null))
+        loadMapImage(detail.map, server_id).then(e => setImage(e? e.small: null))
     }, [server_id, detail])
     const startedAt = dayjs(detail.started_at)
     const endedAt = detail.ended_at != null? dayjs(detail.ended_at): dayjs()

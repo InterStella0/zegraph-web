@@ -3,7 +3,8 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { useServerData } from "../ServerDataProvider"
-import { fetchServerUrl, getMapImage } from "utils/generalUtils.ts"
+import { fetchServerUrl } from "utils/generalUtils.ts"
+import { loadMapImage } from "lib/batchLoader"
 import { MapWithModels, Character3DModel } from "types/maps"
 import { Card, CardContent } from "components/ui/card"
 import { Badge } from "components/ui/badge"
@@ -56,7 +57,7 @@ function MapModelCard({ mapModel, serverId }: { mapModel: MapWithModels, serverI
 
     useEffect(() => {
         setImageLoading(true)
-        getMapImage(serverId, mapModel.map_name)
+        loadMapImage(mapModel.map_name, serverId)
             .then(e => setMapImage(e ? e.small : null))
             .finally(() => setImageLoading(false))
     }, [serverId, mapModel.map_name])
