@@ -10,7 +10,7 @@ import { formatDate } from '../components/utils';
 import { AdminHeader, AdminSpinner, EmptyRow, useAdminData } from '../components/AdminUI';
 import { ReviewActions, ReviewBadge, REVIEW_STATUSES } from '../components/ReviewActions';
 import { StatusFilter } from '../components/StatusFilter';
-import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import type { PlayerClaimAdmin, PlayerClaimsPaginated } from 'types/admin';
 
 export default function PlayerClaimsPage() {
@@ -25,11 +25,7 @@ export default function PlayerClaimsPage() {
 
     const updateStatus = async (claimId: string, status: 'approved' | 'rejected') => {
         try {
-            await fetchApiUrl(`/admin/player-claims/${claimId}/status`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status }),
-            });
+            await sendJson(`/admin/player-claims/${claimId}/status`, 'PUT', { status });
             toast.success(status === 'approved' ? 'Claim approved and profile merged' : 'Claim rejected');
             fetchData();
         } catch (error: any) {

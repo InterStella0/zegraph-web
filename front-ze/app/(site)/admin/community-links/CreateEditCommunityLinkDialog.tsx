@@ -3,7 +3,7 @@
 import { Input } from 'components/ui/input';
 import { Textarea } from 'components/ui/textarea';
 import { toast } from 'sonner';
-import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import { Field, FormDialog, useResetForm, useSave } from '../components/AdminUI';
 import type { CrudDialogProps } from '../components/CrudPage';
 import type { CommunityLink } from './page';
@@ -41,15 +41,11 @@ export function CreateEditCommunityLinkDialog({
 
     const parsedSort = parseInt(sortOrder, 10);
 
-    return save(() => fetchApiUrl(isEdit ? `/admin/community-links/${link.id}` : '/admin/community-links', {
-      method: isEdit ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name,
-        url: trimmedUrl,
-        description: description || null,
-        sort_order: isNaN(parsedSort) ? (isEdit ? undefined : 0) : parsedSort,
-      }),
+    return save(() => sendJson(isEdit ? `/admin/community-links/${link.id}` : '/admin/community-links', isEdit ? 'PUT' : 'POST', {
+      name,
+      url: trimmedUrl,
+      description: description || null,
+      sort_order: isNaN(parsedSort) ? (isEdit ? undefined : 0) : parsedSort,
     }), isEdit ? 'Link updated successfully' : 'Link added successfully', (error) => {
       toast.error('Failed to save link');
       console.error(error);

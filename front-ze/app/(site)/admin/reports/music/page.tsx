@@ -10,7 +10,7 @@ import { AdminHeader, AdminSpinner, EmptyRow, RowActions, useAdminData } from '.
 import { StatusBadge } from '../../components/StatusBadge';
 import { StatusFilter } from '../../components/StatusFilter';
 import { formatDate, formatReasonLabel } from '../../components/utils';
-import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import type { MapMusicReportAdmin, MapMusicReportsPaginated, ReportStatus } from 'types/admin';
 import type { UpdateMapMusicDto } from 'types/maps';
 
@@ -31,11 +31,7 @@ export default function MusicReportsPage() {
 
   const updateStatus = async (reportId: string, status: ReportStatus) => {
     try {
-      await fetchApiUrl(`/admin/reports/music/${reportId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
+      await sendJson(`/admin/reports/music/${reportId}/status`, 'PUT', { status });
       fetchData();
     } catch (error) {
       console.error('Failed to update report status:', error);
@@ -44,11 +40,7 @@ export default function MusicReportsPage() {
 
   const updateMusicYoutube = async (musicId: string, youtubeId: string | null) => {
     try {
-      await fetchApiUrl(`/admin/music/${musicId}/youtube`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ youtube_music: youtubeId || null } as UpdateMapMusicDto),
-      });
+      await sendJson(`/admin/music/${musicId}/youtube`, 'PUT', { youtube_music: youtubeId || null } as UpdateMapMusicDto);
       setEditingMusicId(null);
       setYoutubeVideoId('');
       fetchData();

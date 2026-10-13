@@ -3,7 +3,7 @@
 import { Input } from 'components/ui/input';
 import { Textarea } from 'components/ui/textarea';
 import { toast } from 'sonner';
-import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import { Field, FormDialog, useResetForm, useSave } from '../components/AdminUI';
 import type { CrudDialogProps } from '../components/CrudPage';
 import type { SpecialThanks } from './page';
@@ -36,13 +36,9 @@ export function CreateEditSpecialThanksDialog({
       return;
     }
 
-    return save(() => fetchApiUrl(isEdit ? `/admin/special-thanks/${entry.id}` : '/admin/special-thanks', {
-      method: isEdit ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        display_name: displayName,
-        description,
-      }),
+    return save(() => sendJson(isEdit ? `/admin/special-thanks/${entry.id}` : '/admin/special-thanks', isEdit ? 'PUT' : 'POST', {
+      display_name: displayName,
+      description,
     }), isEdit ? 'Entry updated successfully' : 'Entry added successfully', (error) => {
       toast.error('Failed to save entry');
       console.error(error);

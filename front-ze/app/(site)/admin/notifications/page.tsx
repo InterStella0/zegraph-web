@@ -6,7 +6,7 @@ import { Button } from 'components/ui/button';
 import { Input } from 'components/ui/input';
 import { Textarea } from 'components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'components/ui/card';
-import {fetchApiUrl} from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import { toast } from 'sonner';
 import { AdminHeader } from '../components/AdminUI';
 
@@ -35,12 +35,7 @@ export default function AdminNotificationsPage() {
         user_id: userId ,
       };
 
-      const data: SendResult = await fetchApiUrl('/admin/push/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
+      const data: SendResult = await sendJson('/admin/push/test', 'POST', payload, { credentials: 'include' });
       setResult(data);
       toast.success(`Sent to ${data.success} users`);
     } catch (error) {

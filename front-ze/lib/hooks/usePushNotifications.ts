@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 
 interface PushSubscriptionInfo {
   id: string;
@@ -100,12 +101,7 @@ export function usePushNotifications(isLogged: boolean) {
       });
 
       const subscriptionData = subscription.toJSON();
-      const backendSubscription: { id: string; endpoint: string } = await fetchApiUrl('/accounts/me/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(subscriptionData),
-      });
+      const backendSubscription: { id: string; endpoint: string } = await sendJson('/accounts/me/push/subscribe', 'POST', subscriptionData, { credentials: 'include' });
 
       setState(prev => ({
         ...prev,
@@ -137,12 +133,7 @@ export function usePushNotifications(isLogged: boolean) {
       if (subscription) {
         const subscriptionData = subscription.toJSON();
         await subscription.unsubscribe();
-        await fetchApiUrl('/accounts/me/push/unsubscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(subscriptionData),
-        });
+        await sendJson('/accounts/me/push/unsubscribe', 'POST', subscriptionData, { credentials: 'include' });
       }
 
       setState(prev => ({ ...prev, isSubscribed: false, subscription: null, isLoading: false }));

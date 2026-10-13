@@ -9,7 +9,7 @@ import { formatDate } from '../components/utils';
 import { AdminHeader, AdminSpinner, EmptyRow, useAdminData } from '../components/AdminUI';
 import { ReviewActions, ReviewBadge, REVIEW_STATUSES } from '../components/ReviewActions';
 import { StatusFilter } from '../components/StatusFilter';
-import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import type { ServerRequestAdmin, ServerRequestsPaginated } from 'types/admin';
 
 export default function ServerRequestsPage() {
@@ -24,11 +24,7 @@ export default function ServerRequestsPage() {
 
     const updateStatus = async (requestId: string, status: 'approved' | 'rejected') => {
         try {
-            await fetchApiUrl(`/admin/server-requests/${requestId}/status`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status }),
-            });
+            await sendJson(`/admin/server-requests/${requestId}/status`, 'PUT', { status });
             fetchData();
         } catch (error) {
             console.error('Failed to update server request status:', error);

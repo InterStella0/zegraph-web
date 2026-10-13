@@ -15,6 +15,7 @@ import { DropdownMenuItem } from 'components/ui/dropdown-menu';
 import { Plus, Pencil, Trash2, Link2, Link2Off, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import { AdminHeader, AdminSpinner, EmptyRow, Field, FormDialog, RowActions, useDialogTarget, useResetForm, useSave } from '../components/AdminUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -86,13 +87,10 @@ function CommunityDialog({
   const handleSubmit = () => {
     if (!name.trim()) { toast.error('Name is required'); return; }
     if (shortenName.length > 20) { toast.error('Short name must be 20 chars or fewer'); return; }
-    return save(() => fetchApiUrl(isEdit ? `/admin/servers/communities/${community!.id}` : '/admin/servers/communities', {
-      method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: name.trim(),
-        shorten_name: shortenName || null,
-        icon_url: iconUrl || null,
-      }),
+    return save(() => sendJson(isEdit ? `/admin/servers/communities/${community!.id}` : '/admin/servers/communities', isEdit ? 'PUT' : 'POST', {
+      name: name.trim(),
+      shorten_name: shortenName || null,
+      icon_url: iconUrl || null,
     }), isEdit ? 'Community updated' : 'Community created', 'Failed to save community');
   };
 
@@ -189,14 +187,8 @@ function ServerBrowserDialog({
       return;
     }
     return save(() => isEdit
-      ? fetchApiUrl(`/admin/servers/browser?ip=${encodeURIComponent(entry!.ip)}&port=${entry!.port}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracking, cooldown_type: cooldownType }),
-      })
-      : fetchApiUrl('/admin/servers/browser', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip: ip.trim(), port: portNum, tracking, cooldown_type: cooldownType }),
-      }), isEdit ? 'Entry updated' : 'Entry added', 'Failed to save entry');
+      ? sendJson(`/admin/servers/browser?ip=${encodeURIComponent(entry!.ip)}&port=${entry!.port}`, 'PUT', { tracking, cooldown_type: cooldownType })
+      : sendJson('/admin/servers/browser', 'POST', { ip: ip.trim(), port: portNum, tracking, cooldown_type: cooldownType }), isEdit ? 'Entry updated' : 'Entry added', 'Failed to save entry');
   };
 
   return (
@@ -265,10 +257,7 @@ function EditServerNameDialog({
 
   const handleSubmit = () => {
     if (!server) return;
-    return save(() => fetchApiUrl(`/admin/servers/raw/${server.server_id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ server_name: name || null, readable_link: readableLink.trim() }),
-    }), 'Server updated', (err) => toast.error(err instanceof Error ? err.message : 'Failed to update server'));
+    return save(() => sendJson(`/admin/servers/raw/${server.server_id}`, 'PUT', { server_name: name || null, readable_link: readableLink.trim() }), 'Server updated', (err) => toast.error(err instanceof Error ? err.message : 'Failed to update server'));
   };
 
   return (
@@ -324,17 +313,14 @@ function EditMetadataDialog({
 
   const handleSubmit = () => {
     if (!server) return;
-    return save(() => fetchApiUrl(`/admin/servers/raw/${server.server_id}/metadata`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    return save(() => sendJson(`/admin/servers/raw/${server.server_id}/metadata`, 'PUT', {
         server_website: website.trim() || null,
         server_discord_link: discordLink.trim() || null,
         server_source: source.trim() || null,
         timezone: timezone.trim() || null,
         game,
         source_by_id: sourceById,
-      }),
-    }), 'Server metadata updated', 'Failed to update metadata');
+      }), 'Server metadata updated', 'Failed to update metadata');
   };
 
   return (
@@ -397,10 +383,7 @@ function SetCommunityDialog({
 
   const handleSubmit = () => {
     if (!server) return;
-    return save(() => fetchApiUrl(`/admin/servers/raw/${server.server_id}/community`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ community_id: communityId === '__none__' ? null : communityId }),
-    }), 'Community assignment updated', 'Failed to update community');
+    return save(() => sendJson(`/admin/servers/raw/${server.server_id}/community`, 'PUT', { community_id: communityId === '__none__' ? null : communityId }), 'Community assignment updated', 'Failed to update community');
   };
 
   return (

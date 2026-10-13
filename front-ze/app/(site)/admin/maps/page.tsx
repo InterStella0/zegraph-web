@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { fetchApiUrl, getMapImage } from 'utils/generalUtils'
+import { sendJson } from 'lib/sendJson'
 import { MapAuditHistory } from '../components/MapAuditHistory'
 import { AdminPagination, Field, useAdminData, useResetForm, useSearchPaging } from '../components/AdminUI'
 import { uploadFileChunked } from 'utils/uploadUtils'
@@ -250,11 +251,7 @@ function ServerEditor({
       min_players: minPlayers ? Number(minPlayers) : null,
       max_players: maxPlayers ? Number(maxPlayers) : null,
     }
-    return run(() => fetchApiUrl('/admin/map-metadata/server', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dto),
-    }), onSaved)
+    return run(() => sendJson('/admin/map-metadata/server', 'PUT', dto), onSaved)
   }
 
   if (map.servers.length === 0) {
@@ -381,11 +378,7 @@ function EditMapDialog({
       workshop_id: globalWorkshopId ? Number(globalWorkshopId) : null,
       resolved_workshop_id: globalResolvedWorkshopId ? Number(globalResolvedWorkshopId) : null,
     }
-    return run(() => fetchApiUrl('/admin/map-metadata/global', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dto),
-    }), () => {
+    return run(() => sendJson('/admin/map-metadata/global', 'PUT', dto), () => {
       setHistoryKey((k) => k + 1)
       onSaved()
     })
