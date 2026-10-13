@@ -6,6 +6,7 @@ import MapViewer3DWrapper from 'components/maps/MapViewer3DWrapper'
 import { Button } from 'components/ui/button'
 import { Card } from 'components/ui/card'
 import { AlertTriangle, Box } from 'lucide-react'
+import { formatFileSize } from 'utils/format'
 
 function toMap3DModel(model: Character3DModel): Map3DModel {
     return {
@@ -20,11 +21,6 @@ function toMap3DModel(model: Character3DModel): Map3DModel {
         created_at: model.created_at,
         updated_at: model.updated_at,
     }
-}
-
-const formatFileSize = (bytes: number): string => {
-    const mb = bytes / (1024 * 1024)
-    return `${mb.toFixed(1)} MB`
 }
 
 export default function CharacterViewerRenderer({ model }: { model: Character3DModel }) {

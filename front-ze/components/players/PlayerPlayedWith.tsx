@@ -10,7 +10,6 @@ import {Input} from "components/ui/input";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {PlayerAvatar} from "./PlayerAvatar";
 import {PlayerName} from "./PlayerName";
 import {fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
@@ -18,6 +17,8 @@ import {MightFriendsCalculateStatus, PlayerMightFriendsPage, PlayerSeen} from "t
 import {Server} from "types/community.ts";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {useDebounced} from "lib/hooks/useDebounced";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 dayjs.extend(relativeTime);
 
@@ -28,15 +29,6 @@ const POLL_INTERVAL_MS = 5000;
 // The job takes well under a second even for the heaviest players; this only bounds a stuck queue.
 const MAX_POLLS = 60;
 const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
-
-function useDebounced<T>(value: T, delayMs: number): T {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const timer = setTimeout(() => setDebounced(value), delayMs);
-        return () => clearTimeout(timer);
-    }, [value, delayMs]);
-    return debounced;
-}
 
 function PlayedWithRow({ player, server }: { player: PlayerSeen, server: Server }) {
     const t = useTranslations('players.playedWith');
@@ -288,9 +280,4 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
     );
 }
 
-export default function PlayerPlayedWith({ serverPlayerPromise, heading }: PlayedWithProps) {
-    const t = useTranslations('players.playedWith');
-    return <ErrorCatch message={t('loadError')}>
-        <PlayerPlayedWithDisplay serverPlayerPromise={serverPlayerPromise} heading={heading} />
-    </ErrorCatch>
-}
+export default withErrorCatch(PlayerPlayedWithDisplay, t => t('players.playedWith.loadError'))

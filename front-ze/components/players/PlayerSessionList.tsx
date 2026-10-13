@@ -4,18 +4,14 @@ import {ReactElement, ReactNode, use, useEffect, useRef, useState} from "react";
 import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
 import { Card, CardContent } from "components/ui/card";
 import { Badge } from "components/ui/badge";
-import { Button } from "components/ui/button";
 import { Skeleton } from "components/ui/skeleton";
-import { Calendar } from "components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page";
 import {PlayerSession, PlayerSessionPage} from "types/players.ts";
-import { cn } from "components/lib/utils";
 import PaginationPage from "components/ui/PaginationPage.tsx";
+import SessionDateFilter from "./SessionDateFilter";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
@@ -105,7 +101,6 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
     const [page, setPage] = useState<number>(0);
     const [totalPages, setTotalPages] = useState<number>(seed?.total_pages ?? 1);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-    const [datePickerOpen, setDatePickerOpen] = useState(false);
     const isFirstRun = useRef(seed !== null);
     const [shownPeriod, setShownPeriod] = useState(period);
     if (shownPeriod !== period) {
@@ -158,21 +153,6 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
     const handleDateChange = (newDate: Date | undefined) => {
         setSelectedDate(newDate);
         setPage(0);
-        setDatePickerOpen(false);
-    };
-
-    const handlePreviousDay = () => {
-        if (selectedDate) {
-            setSelectedDate(dayjs(selectedDate).subtract(1, 'day').toDate());
-            setPage(0);
-        }
-    };
-
-    const handleNextDay = () => {
-        if (selectedDate) {
-            setSelectedDate(dayjs(selectedDate).add(1, 'day').toDate());
-            setPage(0);
-        }
     };
 
     return (
@@ -181,65 +161,7 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
                 {heading ?? <h2 className="text-lg sm:text-xl font-semibold">
                     {t('title')}
                 </h2>}
-                <div className="flex gap-2 items-center">
-                    {selectedDate && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handlePreviousDay}
-                            disabled={!!firstDay && !dayjs(selectedDate).isAfter(firstDay, 'day')}
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                    )}
-                    <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className={cn(
-                                    "min-w-[140px] sm:min-w-[200px] justify-start text-left font-normal",
-                                    !selectedDate && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {selectedDate ? dayjs(selectedDate).format('MMM DD, YYYY') : t('filterByDate')}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
-                                mode="single"
-                                selected={selectedDate}
-                                onSelect={handleDateChange}
-                                defaultMonth={selectedDate ?? firstDay}
-                                startMonth={firstDay}
-                                endMonth={lastDay}
-                                disabled={firstDay ? [{ before: firstDay }, { after: lastDay }] : undefined}
-                            />
-                        </PopoverContent>
-                    </Popover>
-                    {selectedDate && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleNextDay}
-                            disabled={!!lastDay && !dayjs(selectedDate).isBefore(lastDay, 'day')}
-                        >
-                            <ChevronRight className="h-4 w-4" />
-                        </Button>
-                    )}
-                    {selectedDate && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                setSelectedDate(undefined);
-                                setPage(0);
-                            }}
-                        >
-                            {t('clear')}
-                        </Button>
-                    )}
-                </div>
+                <SessionDateFilter selectedDate={selectedDate} onSelectDate={handleDateChange} firstDay={firstDay} lastDay={lastDay} />
             </div>
 
             <div className="h-[525px] overflow-y-auto mb-3 pr-2">

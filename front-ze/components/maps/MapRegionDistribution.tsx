@@ -1,22 +1,23 @@
 'use client'
-import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
+import {use, useMemo, useState} from "react";
 import dayjs from "dayjs";
 import {LazyBarChart} from "components/graphs/LazyCharts";
 import {BarController, BarElement, Chart as ChartJS, Legend, Tooltip} from "chart.js";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Skeleton } from "../ui/skeleton";
 import { Table, TableBody, TableCell, TableRow } from "../ui/table";
-import {fetchServerUrl, fetchUrl, REGION_COLORS, StillCalculate} from "utils/generalUtils.ts";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {fetchServerUrl, fetchUrl, REGION_COLORS} from "utils/generalUtils.ts";
+import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
-import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
+import {useResource} from "lib/hooks/useResource";
 import {MapRegion} from "types/maps.ts";
 import {Region} from "types/players.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeRegionData } from "utils/chartSeoUtils.tsx";
 import {useTranslations} from 'next-intl';
+import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
+import {withMapSuspense} from "components/common/withErrorCatch";
 
 ChartJS.register(
     BarElement,
@@ -37,63 +38,24 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
     const { period } = usePeriod();
     const initialData = initialDataPromise ? use(initialDataPromise) : null
     const initialRegions = regionsPromise ? use(regionsPromise) : null
-    const [detail, setDetail] = useState<MapRegion[] | null>(initialData);
     const [ regions, setRegions ] = useState<Region[] | null>(initialRegions)
-    const [loading, setLoading] = useState<boolean>(initialData === null);
-    const isFirstRun = useRef(initialData !== null && initialRegions !== null)
-    const [error, setError] = useState<string | null>(null);
-    const [notReady, setNotReady] = useState<boolean>(false);
     const { server } = useServerData()
     const server_id = server.id
-    const [retryTick, setRetryTick] = useState(0)
-    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
-
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false
-            return
-        }
-        if (!name) return
+    const { data: detail, loading, error: fetchError } = useResource<MapRegion[]>(() => {
+        if (!name) return null
         fetchUrl(`/graph/${server_id}/get_regions`)
             .then(setRegions)
             .catch(() => setRegions(r => r ?? []))
-        setLoading(true);
-        setError(null);
-        setNotReady(false);
-        setDetail(null)
+        return fetchServerUrl(server_id, `/maps/${name}/regions`, period ? { params: { period } } : {})
+    }, [server_id, name, period], {
+        initial: initialData ?? undefined,
+        skipFirst: initialData !== null && initialRegions !== null,
+        retryNotReady: true,
+        errorLog: 'Error fetching region data:',
+    })
+    const error = fetchError && (fetchError.message || t('loadFailed'))
 
-        fetchServerUrl(server_id, `/maps/${name}/regions`, period ? { params: { period } } : {})
-            .then(data => {
-                setDetail(data)
-            })
-            .catch(err => {
-                if (!(err instanceof StillCalculate)){
-                    console.error('Error fetching region data:', err);
-                }
-
-                setNotReady(err instanceof StillCalculate)
-                setError(err.message || t('loadFailed'));
-            })
-            .finally(() => setLoading(false))
-    }, [server_id, name, period, retryTick]);
-
-    // Get theme-aware colors
-    const getChartColors = () => {
-        if (typeof window === 'undefined') return {
-            textColor: 'hsl(222.2 47.4% 11.2%)',
-            gridColor: 'hsla(214.3, 31.8%, 91.4%, 0.3)',
-            tooltipBg: 'hsl(222.2 47.4% 11.2%)'
-        };
-
-        const isDark = document.documentElement.classList.contains('dark');
-        return {
-            textColor: isDark ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 47.4%, 11.2%)',
-            gridColor: isDark ? 'hsla(217.2, 32.6%, 17.5%, 0.3)' : 'hsla(214.3, 31.8%, 91.4%, 0.3)',
-            tooltipBg: isDark ? 'hsl(222.2, 84%, 4.9%)' : 'hsl(0, 0%, 100%)'
-        };
-    };
-
-    const colors = getChartColors();
+    const colors = useChartTheme();
 
     // Chart configuration
     const options = {
@@ -106,24 +68,24 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
                 title: {
                     display: true,
                     text: t('hours'),
-                    color: colors.textColor
+                    color: colors.foreground
                 },
                 ticks: {
                     beginAtZero: true,
-                    color: colors.textColor
+                    color: colors.foreground
                 },
                 grid: {
-                    color: colors.gridColor
+                    color: colors.faintGrid
                 },
                 max: detail?.reduce((a, e) => a + e.total_play_duration / 60 / 60, 0)
             },
             y: {
                 stacked: true,
                 ticks: {
-                    color: colors.textColor
+                    color: colors.foreground
                 },
                 grid: {
-                    color: colors.gridColor
+                    color: colors.faintGrid
                 }
             }
         },
@@ -131,15 +93,11 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
             legend: {
                 position: 'bottom',
                 labels: {
-                    color: colors.textColor
+                    color: colors.foreground
                 }
             },
             tooltip: {
-                backgroundColor: colors.tooltipBg,
-                titleColor: colors.textColor,
-                bodyColor: colors.textColor,
-                borderColor: colors.gridColor,
-                borderWidth: 1
+                ...heatmapTooltip(colors),
             }
         }
     }
@@ -272,11 +230,4 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
     );
 }
 
-export default function MapRegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDistributionProps){
-    const t = useTranslations('maps.regionDistribution');
-    return <ErrorCatch message={t('loadError')}>
-        <Suspense fallback={<EmptyMapContext><RegionDistribution /></EmptyMapContext>}>
-            <RegionDistribution initialDataPromise={initialDataPromise} regionsPromise={regionsPromise} />
-        </Suspense>
-    </ErrorCatch>
-}
+export default withMapSuspense(RegionDistribution, t => t('maps.regionDistribution.loadError'))

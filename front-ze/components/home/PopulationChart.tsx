@@ -14,7 +14,7 @@ import zoomPlugin from 'chartjs-plugin-zoom';
 import dayjs from 'dayjs';
 import {Maximize2, Minimize2} from 'lucide-react';
 import {use, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {useTheme} from 'next-themes';
+import {useChartTheme} from "lib/chartTheme";
 import {LazyLineChart} from 'components/graphs/LazyCharts';
 import {Button} from 'components/ui/button';
 import {Card, CardContent} from 'components/ui/card';
@@ -67,8 +67,7 @@ type Props = {
 export default function PopulationChart({isExpanded, onToggleExpand, populationPromise}: Props) {
     const t = useTranslations('home');
     const communityData = useServerMap();
-    const {resolvedTheme} = useTheme();
-    const isDark = resolvedTheme === 'dark';
+    const theme = useChartTheme();
     const seed = use(populationPromise);
 
     const communities = communityData?.communities ?? [];
@@ -201,9 +200,6 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
 
     const hasData = lines.some(l => l.points.length > 0);
 
-    const axisColor = isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)';
-    const gridColor = isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)';
-
     const options = useMemo(() => ({
         animation: false,
         responsive: true,
@@ -223,24 +219,18 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
                         month: 'MMM YYYY',
                     },
                 },
-                ticks: {autoSkip: true, autoSkipPadding: 40, maxRotation: 0, color: axisColor},
+                ticks: {autoSkip: true, autoSkipPadding: 40, maxRotation: 0, color: theme.muted},
                 grid: {display: false},
             },
             y: {
                 min: 0,
-                ticks: {color: axisColor, precision: 0},
-                grid: {color: gridColor},
+                ticks: {color: theme.muted, precision: 0},
+                grid: {color: theme.border},
             },
         },
         plugins: {
             legend: {display: false},
-            tooltip: {
-                backgroundColor: isDark ? 'rgba(50, 50, 50, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-                titleColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
-                bodyColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
-                borderColor: gridColor,
-                borderWidth: 1,
-            },
+            tooltip: theme.tooltip,
             zoom: {
                 pan: {enabled: true, mode: 'x', onPanComplete: handlePanComplete},
                 zoom: {
@@ -255,7 +245,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
                 },
             },
         },
-    }), [axisColor, gridColor, isDark, handlePanComplete, handleZoomComplete, cursor, timeType]);
+    }), [theme, handlePanComplete, handleZoomComplete, cursor, timeType]);
 
     const data = useMemo(() => ({
         datasets: lines.map(l => ({

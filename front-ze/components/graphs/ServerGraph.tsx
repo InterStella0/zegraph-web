@@ -24,17 +24,17 @@ import {Dispatch, useCallback, useEffect, useMemo, useReducer, useRef} from 'rea
 import {LazyMatrixChart as Chart} from 'components/graphs/LazyCharts';
 import {fetchUrl, REGION_COLORS, formatNumber} from 'utils/generalUtils'
 import GraphToolbar from './GraphToolbar';
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {DateSources, useDateState} from './DateStateManager';
 import {GraphServerState} from "types/graphServers";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {ServerCountData} from "../../app/servers/[server_slug]/util.ts";
 import {ServerMapPlayed} from "types/maps.ts";
-import { useTheme } from "next-themes";
+import {useChartTheme} from "lib/chartTheme";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { calculateTimeSeriesStats, formatDateRange, generateSeoTable } from "utils/chartSeoUtils.tsx";
 import { useLocale, useTranslations } from "next-intl";
 import { humanizeDurationLocalized } from "utils/durationFormat.ts";
+import {withErrorCatch} from "components/common/withErrorCatch";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -160,8 +160,8 @@ function ServerGraphDisplay(
     const { start, end, setDates, source: lastSource, timestamp } = useDateState();
     const { server } = useServerData()
     const server_id = server.id
-    const { resolvedTheme } = useTheme();
-    const isDark = resolvedTheme === 'dark';
+    const theme = useChartTheme();
+    const isDark = theme.isDark;
     const [state, dispatch] = useReducer(graphReducer, initialState);
     const chartRef = useRef<ChartJS | null>(null);
     const abortControllerRef = useRef<AbortController | null>();
@@ -246,8 +246,8 @@ function ServerGraphDisplay(
                                     let delta = dayjs(e.ended_at).diff(dayjs(e.started_at));
                                     text += ` (${humanizeDurationLocalized(delta, locale, { units: ['h', 'm'], maxDecimalPoints: 2 })})`;
                                 }
-                                const mapBorderColor = isDark ? 'hsl(0 84.2% 60.2%)' : 'hsl(0 72.2% 50.6%)';
-                                const mapLabelColor = isDark ? 'hsl(217.2 91.2% 59.8%)' : 'hsl(221.2 83.2% 53.3%)';
+                                const mapBorderColor = theme.destructive;
+                                const mapLabelColor = theme.primary;
                                 return {
                                     type: 'line',
                                     xMin: e.started_at,
@@ -339,11 +339,7 @@ function ServerGraphDisplay(
         maintainAspectRatio: false,
         tooltip: {
             position: 'nearest',
-            backgroundColor: isDark ? 'rgba(50, 50, 50, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-            titleColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
-            bodyColor: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
-            borderColor: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
-            borderWidth: 1,
+            ...theme.tooltip,
         },
         interaction: { mode: 'x', intersect: false },
         onHover: function (e: any) {
@@ -367,26 +363,26 @@ function ServerGraphDisplay(
                     autoSkip: true,
                     autoSkipPadding: 50,
                     maxRotation: 0,
-                    color: isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)',
+                    color: theme.muted,
                 },
                 title: {
                     text: t('timeAxis'),
                     display: true,
-                    color: isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)',
+                    color: theme.muted,
                 },
                 grid: {
-                    color: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
+                    color: theme.border,
                 }
             },
             y: {
                 min: 0,
                 max: state.maxPlayers,
                 ticks: {
-                    color: isDark ? 'hsl(215 20.2% 65.1%)' : 'hsl(215.4 16.3% 46.9%)',
+                    color: theme.muted,
                 },
                 grid: {
                     display: true,
-                    color: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
+                    color: theme.border,
                 }
             }
         },
@@ -395,7 +391,7 @@ function ServerGraphDisplay(
             legend: {
                 position: 'top',
                 labels: {
-                    color: isDark ? 'hsl(210 40% 98%)' : 'hsl(222.2 47.4% 11.2%)',
+                    color: theme.foreground,
                 }
             },
             zoom: {
@@ -418,7 +414,7 @@ function ServerGraphDisplay(
             type: 'bar',
             label: t('joinCount'),
             data: state.data.joinCounts,
-            borderColor: isDark ? 'hsl(142.1 76.2% 36.3%)' : 'hsl(142.1 70.6% 45.3%)',
+            borderColor: theme.success,
             backgroundColor: isDark ? 'hsla(142.1 76.2% 36.3% / 0.6)' : 'hsla(142.1 70.6% 45.3% / 0.6)',
             fill: true,
             order: 3
@@ -430,7 +426,7 @@ function ServerGraphDisplay(
             type: 'bar',
             label: t('leaveCount'),
             data: state.data.leaveCounts,
-            borderColor: isDark ? 'hsl(0 84.2% 60.2%)' : 'hsl(0 72.2% 50.6%)',
+            borderColor: theme.destructive,
             backgroundColor: isDark ? 'hsla(0 84.2% 60.2% / 0.6)' : 'hsla(0 72.2% 50.6% / 0.6)',
             fill: true,
             order: 2
@@ -529,11 +525,4 @@ function ServerGraphDisplay(
     );
 }
 
-export default function ServerGraph(props: ServerGraphProps) {
-    const t = useTranslations('servers.graph');
-    return (
-        <ErrorCatch message={t('loadError')}>
-            <ServerGraphDisplay {...props} />
-        </ErrorCatch>
-    );
-}
+export default withErrorCatch(ServerGraphDisplay, t => t('servers.graph.loadError'))

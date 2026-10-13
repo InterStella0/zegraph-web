@@ -1,15 +1,12 @@
 'use client'
-import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
+import {use, useEffect, useMemo, useRef, useState} from "react";
 import {fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import {LazyBarChart as Bar} from "components/graphs/LazyCharts";
-import { Info } from "lucide-react";
 import { Card } from "../ui/card";
-import { Button } from "../ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { TooltipProvider } from "../ui/tooltip";
 import { Skeleton } from "../ui/skeleton";
-import ErrorCatch from "../ui/ErrorMessage.tsx";
 import SkeletonBarGraph from "../graphs/SkeletonBarGraph.tsx";
-import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
@@ -17,6 +14,13 @@ import {MapSessionDistribution} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeSessionDistribution } from "utils/chartSeoUtils.tsx";
 import {useTranslations} from 'next-intl';
+import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
+import InfoTooltip from "components/common/InfoTooltip";
+import {withMapSuspense} from "components/common/withErrorCatch";
+
+const BAR_HUES = ['221.2, 83.2%, 53.3%', '262.1, 83.3%, 57.8%', '291.7, 66.7%, 64.7%', '24.6, 95%, 53.1%', '346.8, 77.2%, 49.8%'];
+const BAR_BACKGROUNDS = BAR_HUES.map(hue => `hsla(${hue}, 0.7)`);
+const BAR_BORDERS = BAR_HUES.map(hue => `hsl(${hue})`);
 
 type MapAverageSessionDistributionProps = { initialDataPromise?: Promise<MapSessionDistribution[] | null> }
 
@@ -63,63 +67,7 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
         "Over 60": t('over60')
     };
 
-    // Get theme-aware colors
-    const getChartColors = () => {
-        if (typeof window === 'undefined') return {
-            backgroundColor: [
-                'hsl(221.2 83.2% 53.3%)',
-                'hsl(262.1 83.3% 57.8%)',
-                'hsl(291.7 66.7% 64.7%)',
-                'hsl(24.6 95% 53.1%)',
-                'hsl(346.8 77.2% 49.8%)'
-            ],
-            borderColor: [
-                'hsl(221.2 83.2% 53.3%)',
-                'hsl(262.1 83.3% 57.8%)',
-                'hsl(291.7 66.7% 64.7%)',
-                'hsl(24.6 95% 53.1%)',
-                'hsl(346.8 77.2% 49.8%)'
-            ],
-            gridColor: 'hsl(214.3 31.8% 91.4%)',
-            tooltipBg: 'hsl(222.2 47.4% 11.2%)',
-            textColor: 'hsl(222.2 47.4% 11.2%)'
-        };
-
-        const isDark = document.documentElement.classList.contains('dark');
-        return {
-            backgroundColor: isDark ? [
-                'hsla(221.2, 83.2%, 53.3%, 0.7)',
-                'hsla(262.1, 83.3%, 57.8%, 0.7)',
-                'hsla(291.7, 66.7%, 64.7%, 0.7)',
-                'hsla(24.6, 95%, 53.1%, 0.7)',
-                'hsla(346.8, 77.2%, 49.8%, 0.7)'
-            ] : [
-                'hsla(221.2, 83.2%, 53.3%, 0.7)',
-                'hsla(262.1, 83.3%, 57.8%, 0.7)',
-                'hsla(291.7, 66.7%, 64.7%, 0.7)',
-                'hsla(24.6, 95%, 53.1%, 0.7)',
-                'hsla(346.8, 77.2%, 49.8%, 0.7)'
-            ],
-            borderColor: isDark ? [
-                'hsl(221.2, 83.2%, 53.3%)',
-                'hsl(262.1, 83.3%, 57.8%)',
-                'hsl(291.7, 66.7%, 64.7%)',
-                'hsl(24.6, 95%, 53.1%)',
-                'hsl(346.8, 77.2%, 49.8%)'
-            ] : [
-                'hsl(221.2, 83.2%, 53.3%)',
-                'hsl(262.1, 83.3%, 57.8%)',
-                'hsl(291.7, 66.7%, 64.7%)',
-                'hsl(24.6, 95%, 53.1%)',
-                'hsl(346.8, 77.2%, 49.8%)'
-            ],
-            gridColor: isDark ? 'hsla(217.2, 32.6%, 17.5%, 0.3)' : 'hsla(214.3, 31.8%, 91.4%, 0.3)',
-            tooltipBg: isDark ? 'hsl(222.2, 84%, 4.9%)' : 'hsl(0, 0%, 100%)',
-            textColor: isDark ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 47.4%, 11.2%)'
-        };
-    };
-
-    const colors = getChartColors();
+    const colors = useChartTheme();
 
     const data = {
         labels: Object.values(labels),
@@ -127,8 +75,8 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
             axis: 'y',
             data: Object.keys(labels).map(e => detail?.find(d => d.session_range === e)?.session_count ?? 0),
             fill: false,
-            backgroundColor: colors.backgroundColor,
-            borderColor: colors.borderColor,
+            backgroundColor: BAR_BACKGROUNDS,
+            borderColor: BAR_BORDERS,
             borderWidth: 1,
             borderRadius: 4,
             barThickness: 25,
@@ -145,11 +93,7 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
                 display: false
             },
             tooltip: {
-                backgroundColor: colors.tooltipBg,
-                titleColor: colors.textColor,
-                bodyColor: colors.textColor,
-                borderColor: colors.gridColor,
-                borderWidth: 1,
+                ...heatmapTooltip(colors),
                 titleFont: {
                     size: 14,
                     weight: 'bold'
@@ -164,10 +108,10 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
         scales: {
             x: {
                 grid: {
-                    color: colors.gridColor
+                    color: colors.faintGrid
                 },
                 ticks: {
-                    color: colors.textColor,
+                    color: colors.foreground,
                     font: {
                         weight: 'bold'
                     }
@@ -178,7 +122,7 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
                     display: false
                 },
                 ticks: {
-                    color: colors.textColor,
+                    color: colors.foreground,
                     font: {
                         weight: 'bold'
                     }
@@ -220,16 +164,7 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
                     <PeriodChip />
                 </div>
                 <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Info className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{t('tooltip')}</p>
-                        </TooltipContent>
-                    </Tooltip>
+                    <InfoTooltip text={t('tooltip')} />
                 </TooltipProvider>
             </div>
 
@@ -273,11 +208,4 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
     );
 }
 
-export default function MapAverageSessionDistribution({ initialDataPromise }: MapAverageSessionDistributionProps){
-    const t = useTranslations('maps.sessionDistribution');
-    return <ErrorCatch message={t('loadError')}>
-        <Suspense fallback={<EmptyMapContext><AverageSessionDistribution /></EmptyMapContext>}>
-            <AverageSessionDistribution initialDataPromise={initialDataPromise} />
-        </Suspense>
-    </ErrorCatch>
-}
+export default withMapSuspense(AverageSessionDistribution, t => t('maps.sessionDistribution.loadError'))
