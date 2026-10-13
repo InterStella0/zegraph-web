@@ -144,6 +144,14 @@ pub fn player_global_data() -> PlayerGlobalData {
     PlayerGlobalData { canonical_id: TEST_PLAYER.to_string() }
 }
 
+pub trait Fixture { fn fixture() -> Self; }
+impl Fixture for PlayerData { fn fixture() -> Self { player_data() } }
+impl Fixture for PlayerPeriodData { fn fixture() -> Self { player_period_data(true) } }
+impl Fixture for PlayerSessionData { fn fixture() -> Self { player_session_data() } }
+impl Fixture for PlayerGlobalData { fn fixture() -> Self { player_global_data() } }
+impl Fixture for MapData { fn fixture() -> Self { map_data() } }
+impl Fixture for MapPeriodData { fn fixture() -> Self { map_period_data(true) } }
+
 /// The three constructors below go through the existing `raw` entry points
 pub fn player_query<T>() -> PlayerBasicQuery<T> {
     PlayerBasicQuery::raw(Query { pool: fake_pool(), cache: fake_cache(), data: player_data() })
