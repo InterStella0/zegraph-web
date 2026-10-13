@@ -1,4 +1,4 @@
-import StatsCards from "components/players/StatsCards";
+import StatsCards, {StatsCardsLoading} from "components/players/StatsCards";
 import PlayerRankings, {PlayerRankingsLoading} from "components/players/PlayerRankings";
 import TopPerformers, {TopPerformersLoading} from "components/players/TopPerformers";
 import PlayersOnline, {PlayersOnlineLoading} from "components/players/PlayersOnline.tsx";
@@ -67,7 +67,9 @@ export default async function Page({ params }: ServerPageProps){
             </p>
         </div>
 
-        <StatsCards serverPromise={server} />
+        <Suspense fallback={<StatsCardsLoading />}>
+            <StatsCards serverPromise={server} />
+        </Suspense>
 
         <AdSpot className="my-6" />
 
