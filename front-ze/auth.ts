@@ -94,7 +94,7 @@ export function getAuthOptions(req?: NextRequest): AuthOptions {
                 }
                 const now = Math.floor(Date.now() / 1000);
                 // @ts-expect-error
-                const expiresIn = Math.max(token.exp ?? 0 - now, 60);
+                const expiresIn = Math.max((token.exp ?? 0) - now, 60);
                 token.backendJwt = jwt.sign(
                     {
                         sub: token.sub,
