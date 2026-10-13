@@ -16,7 +16,7 @@ import { summarizeSessionDistribution } from "utils/chartSeoUtils.tsx";
 import {useTranslations} from 'next-intl';
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 import InfoTooltip from "components/common/InfoTooltip";
-import {withMapSuspense} from "components/common/withErrorCatch";
+import {withMapSuspense} from "components/maps/withMapSuspense";
 
 const BAR_HUES = ['221.2, 83.2%, 53.3%', '262.1, 83.3%, 57.8%', '291.7, 66.7%, 64.7%', '24.6, 95%, 53.1%', '346.8, 77.2%, 49.8%'];
 const BAR_BACKGROUNDS = BAR_HUES.map(hue => `hsla(${hue}, 0.7)`);

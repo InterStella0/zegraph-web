@@ -17,7 +17,7 @@ import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizePlayerTypes } from "utils/chartSeoUtils.tsx";
 import {useTranslations, useLocale} from 'next-intl';
 import InfoTooltip from "components/common/InfoTooltip";
-import {withMapSuspense} from "components/common/withErrorCatch";
+import {withMapSuspense} from "components/maps/withMapSuspense";
 
 ChartJS.register(ArcElement, Legend);
 

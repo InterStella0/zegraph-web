@@ -22,7 +22,7 @@ import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 import {calendarMatrixDataset, calendarMatrixOptions, weekdayKey} from "lib/calendarHeatmap";
 import InfoTooltip from "components/common/InfoTooltip";
-import {withMapSuspense} from "components/common/withErrorCatch";
+import {withMapSuspense} from "components/maps/withMapSuspense";
 
 dayjs.extend(utc);
 

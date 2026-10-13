@@ -17,7 +17,7 @@ import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeRegionData } from "utils/chartSeoUtils.tsx";
 import {useTranslations} from 'next-intl';
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
-import {withMapSuspense} from "components/common/withErrorCatch";
+import {withMapSuspense} from "components/maps/withMapSuspense";
 
 ChartJS.register(
     BarElement,

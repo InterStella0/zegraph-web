@@ -18,7 +18,7 @@ import PaginationPage from "components/ui/PaginationPage.tsx";
 import {useTranslations} from 'next-intl';
 import {PlayerName} from "components/players/PlayerName";
 import InfoTooltip from "components/common/InfoTooltip";
-import {withMapSuspense} from "components/common/withErrorCatch";
+import {withMapSuspense} from "components/maps/withMapSuspense";
 
 const PAGE_SIZE = 10
 const SUGGESTION_MIN_CHARS = 3
