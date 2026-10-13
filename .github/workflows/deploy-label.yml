@@ -1,9 +1,9 @@
 name: Deploy Label
 
-# Decides whether merging this PR needs a production deploy, and records the verdict as exactly one
-# of the `deploy` / `not deploy` labels. deployment.yml reads that label at merge time and skips the
-# deploy only on `not deploy`. Kept separate from claude-code-review.yml so a failure here does not
-# take the review down with it.
+# Asks Jev (TypeSafe's decision model) whether merging this PR needs a production deploy, plus one
+# yes/no question per category label in .github/pr-labels.json. The deploy verdict is recorded as
+# exactly one of `deploy` / `not deploy`; deployment.yml reads it at merge time and skips the deploy
+# only on `not deploy`. Any label a human has ever added or removed on the PR is left alone.
 
 on:
   pull_request:
@@ -21,73 +21,125 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
-      id-token: write
     env:
-      # The action authenticates gh itself, but setting this at job level guarantees the Bash
-      # tool's subprocesses inherit a usable token.
       GH_TOKEN: ${{ github.token }}
+      JEV_API_KEY: ${{ secrets.JEV_API_KEY }}
+      PR: ${{ github.event.pull_request.number }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          fetch-depth: 1
+          # The pull_request ref is the merge commit, so HEAD^1 is the base and the diff below is
+          # exactly what merging would change.
+          fetch-depth: 2
 
       - name: Ensure the labels exist
         shell: bash
         run: |
-          gh label create "deploy" --color 0e8a16 --description "Merging this PR deploys to production" --force
-          gh label create "not deploy" --color cfd3d7 --description "Merging this PR skips the production deploy" --force
+          gh label create "deploy" --color 0e8a16 --description "Merging this PR deploys to production" 2>/dev/null || true
+          gh label create "not deploy" --color cfd3d7 --description "Merging this PR skips the production deploy" 2>/dev/null || true
+          jq -r '.labels[] | [.name, .color, .description] | @tsv' .github/pr-labels.json |
+            while IFS=$'\t' read -r name color description; do
+              gh label create "$name" --color "$color" --description "$description" 2>/dev/null || true
+            done
 
-      - name: Judge whether this PR needs a deploy
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ github.token }}
-          claude_args: |
-            --max-turns 12
-            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh api:*),Read,Grep,Glob"
-          prompt: |
-            You are deciding one thing about PR #${{ github.event.pull_request.number }} in
-            ${{ github.repository }}: does merging it require a production deploy?
+      - name: Ask Jev and apply labels
+        shell: bash
+        run: |
+          set -euo pipefail
 
-            The answer is recorded as exactly one of two labels: `deploy` or `not deploy`. Do not
-            post comments, do not review the code, do not edit any files. Changing those two labels
-            is the only action you may take.
+          human=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/timeline" --paginate \
+            --jq '.[] | select((.event=="labeled" or .event=="unlabeled") and (.actor.login | endswith("[bot]") | not)) | .label.name' |
+            sort -u)
+          current=$(gh pr view "$PR" --json labels --jq '.labels[].name')
+          is_human() { grep -qxF "$1" <<< "$human"; }
+          has() { grep -qxF "$1" <<< "$current"; }
 
-            STEP 1 — check whether a human has already overruled this decision. Run:
+          add=()
+          remove=()
+          want() {
+            local name=$1 yes=$2
+            if is_human "$name"; then
+              echo "  $name: set by a human, leaving it"
+            elif [[ "$yes" == 1 ]] && ! has "$name"; then
+              add+=(--add-label "$name")
+            elif [[ "$yes" == 0 ]] && has "$name"; then
+              remove+=(--remove-label "$name")
+            fi
+          }
+          want_deploy() {
+            if is_human "deploy" || is_human "not deploy"; then
+              echo "  deploy: set by a human, leaving it"
+              return
+            fi
+            want "deploy" "$1"
+            want "not deploy" $((1 - $1))
+          }
+          apply() {
+            if (( ${#add[@]} + ${#remove[@]} )); then
+              gh pr edit "$PR" "${add[@]}" "${remove[@]}"
+            fi
+          }
 
-              gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/timeline" \
-                --paginate --jq '.[] | select((.event=="labeled" or .event=="unlabeled") and (.label.name=="deploy" or .label.name=="not deploy")) | .actor.login'
+          if [[ -z "$JEV_API_KEY" ]]; then
+            echo "::warning::JEV_API_KEY secret is not set, labelling deploy without asking Jev"
+            want_deploy 1; apply; exit 0
+          fi
 
-            If any returned login does NOT end in `[bot]`, a human has made this call deliberately.
-            Say so in one line and stop immediately, changing nothing. This check comes first and
-            is absolute — a human decision outranks yours for the rest of this PR's life.
+          # Jev takes ~32k tokens of state, so lockfile bodies are dropped (they still appear in
+          # `files`) and whitespace-only hunks are ignored before the diff is capped.
+          git diff --name-status HEAD^1 HEAD > files.txt
+          git diff -w --ignore-blank-lines --unified=2 HEAD^1 HEAD -- . ':(exclude)*.lock' > diff.full
+          head -c 60000 diff.full > diff.txt
+          truncated=$([[ $(wc -c < diff.full) -gt 60000 ]] && echo true || echo false)
 
-            STEP 2 — read the diff with:
+          jq -n \
+            --arg title "$PR_TITLE" \
+            --arg body "${PR_BODY:0:3000}" \
+            --rawfile files files.txt \
+            --rawfile diff diff.txt \
+            --argjson truncated "$truncated" \
+            --slurpfile defs .github/pr-labels.json \
+            '{
+              model: "jev-latest",
+              state: {title: $title, body: $body, files: $files, diff: $diff, diff_truncated: $truncated},
+              questions: (
+                {deploy: ($defs[0].deploy + {type: "noul"})}
+                + ($defs[0].labels | to_entries
+                   | map({key: "label_\(.key)", value: {type: "noul", instructions: .value.instructions, criteria: .value.criteria}})
+                   | from_entries)
+              )
+            }' > request.json
 
-              gh pr diff ${{ github.event.pull_request.number }}
+          if ! curl -sS --fail-with-body --retry 4 --retry-all-errors --max-time 60 \
+              https://api.typesafe.ai/v1/systemone \
+              -H "Authorization: Bearer $JEV_API_KEY" -H "Content-Type: application/json" \
+              --data @request.json > response.json; then
+            echo "::warning::Jev request failed, labelling deploy: $(head -c 500 response.json)"
+            want_deploy 1; apply; exit 0
+          fi
 
-            Decide whether it changes anything that ends up in a built image or on the server.
-            compose.yaml builds from three contexts — `nginx/`, `front-ze/`, and `.` (the backend,
-            via the root Dockerfile) — and deployment/deploy-scripts.sh additionally git-pulls the
-            repo on the server and runs deployment/deploy-swarm.sh.
+          # Biased towards deploying: a skipped deploy that was needed is far worse than a spare one.
+          p_deploy=$(jq -r '.answers.deploy.noul' response.json)
+          echo "deploy: p=$p_deploy"
+          want_deploy "$(jq -n --argjson p "$p_deploy" 'if $p >= 0.25 then 1 else 0 end')"
 
-            Needs a deploy: src/, front-ze/, nginx/, pfp-provider/, serde_macros/, qgis-server/,
-            Dockerfile, Cargo.toml, Cargo.lock, compose*.yaml, deployment/, redis.conf, db.sql,
-            default.env, assets/.
+          while IFS=$'\t' read -r name p; do
+            echo "$name: p=$p"
+            want "$name" "$(jq -n --argjson p "$p" 'if $p >= 0.5 then 1 else 0 end')"
+          done < <(jq -r --slurpfile defs .github/pr-labels.json \
+            '. as $r | $defs[0].labels | to_entries[] | [.value.name, $r.answers["label_\(.key)"].noul] | @tsv' \
+            response.json)
 
-            Does not need a deploy: *.md, LICENSE, .github/, and comment-only or whitespace-only
-            edits anywhere — including inside src/. That last case is the judgment call a plain
-            path filter cannot make, so actually read the hunks rather than just the file list.
-
-            When a diff mixes both, or you are unsure, it needs a deploy.
-
-            STEP 3 — make the labels match your verdict. Use
-            `gh pr view ${{ github.event.pull_request.number }} --json labels` to see the current
-            state first, then run the one command for your verdict if the labels do not already
-            match it:
-
-              needs a deploy     ->  gh pr edit ${{ github.event.pull_request.number }} --add-label "deploy" --remove-label "not deploy"
-              needs no deploy    ->  gh pr edit ${{ github.event.pull_request.number }} --add-label "not deploy" --remove-label "deploy"
-
-            Finish by stating your verdict and reasoning in one line.
+          apply
+          {
+            echo "### Jev labels for #$PR"
+            echo
+            echo "| question | p(yes) |"
+            echo "|---|---|"
+            jq -r --slurpfile defs .github/pr-labels.json \
+              '. as $r | (["deploy", $r.answers.deploy.noul], ($defs[0].labels | to_entries[] | [.value.name, $r.answers["label_\(.key)"].noul])) | "| \(.[0]) | \(.[1]) |"' \
+              response.json
+          } >> "$GITHUB_STEP_SUMMARY"
