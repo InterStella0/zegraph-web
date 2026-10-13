@@ -1142,34 +1142,3 @@ impl PlayerApi{
     }
 }
 const PFP_BULK_TIMEOUT: Duration = Duration::from_millis(500);
-
-impl UriPatternExt for PlayerApi{
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/servers/{server_id}/players/{player_id}/playing",
-            "/servers/{server_id}/players/playing",
-            "/servers/{server_id}/players/autocomplete",
-            "/servers/{server_id}/players/stats",
-            "/servers/{server_id}/players/countries",
-            "/servers/{server_id}/players/table",
-            "/servers/{server_id}/players/{player_id}/graph/sessions",
-            "/servers/{server_id}/players/{player_id}/sessions",
-            "/servers/{server_id}/players/{player_id}/sessions/{session_id}/info",
-            "/servers/{server_id}/players/{player_id}/sessions/{session_id}/maps",
-            "/servers/{server_id}/players/{player_id}/sessions/{session_id}/might_friends",
-            "/servers/{server_id}/players/{player_id}/might_friends",
-            "/servers/{server_id}/players/{player_id}/might_friends/calculate",
-            "/servers/{server_id}/players/{player_id}/infraction_update",
-            "/servers/{server_id}/players/{player_id}/infractions",
-            "/servers/{server_id}/players/{player_id}/detail",
-            "/servers/{server_id}/players/{player_id}/periods",
-            "/players/{player_id}/pfp",
-            "/players/pfps",
-            "/servers/{server_id}/players/{player_id}/most_played_maps",
-            "/servers/{server_id}/players/{player_id}/regions",
-            "/servers/{server_id}/players/{player_id}/legacy_stats",
-            "/servers/{server_id}/players/{player_id}/hours_of_day",
-            "/servers/{server_id}/players/{player_id}/online_heatmap",
-        ].iter_into()
-    }
-}

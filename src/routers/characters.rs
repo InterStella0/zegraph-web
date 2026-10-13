@@ -440,18 +440,3 @@ fn char_mismatch<'a>(server_id: &'a str, model_id: &'a str) -> impl Fn(&Characte
         None
     }
 }
-
-impl UriPatternExt for CharacterApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/servers/{server_id}/characters",
-            "/servers/{server_id}/characters/{model_id}/3d",
-            "/servers/{server_id}/characters/{model_id}/3d/upload",
-            "/servers/{server_id}/characters/{model_id}/3d/upload/initiate",
-            "/servers/{server_id}/characters/{model_id}/3d/upload/chunk/{session_id}",
-            "/servers/{server_id}/characters/{model_id}/3d/upload/complete/{session_id}",
-            "/servers/{server_id}/characters/{model_id}/3d/upload/cancel/{session_id}",
-            "/servers/{server_id}/characters/{model_id}/3d/thumbnail",
-        ].iter_into()
-    }
-}

@@ -389,14 +389,3 @@ impl AdminMapsApi {
         response!(ok true)
     }
 }
-
-impl UriPatternExt for AdminMapsApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/admin/maps/metadata",
-            "/admin/maps/metadata/global",
-            "/admin/maps/metadata/server",
-            "/admin/maps/{map_name}",
-        ].iter_into()
-    }
-}

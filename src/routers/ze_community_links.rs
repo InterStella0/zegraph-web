@@ -165,12 +165,3 @@ impl ZeCommunityLinksApi {
         response!(ok true)
     }
 }
-
-impl UriPatternExt for ZeCommunityLinksApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/community-links",
-            "/community-links/{id}",
-        ].iter_into()
-    }
-}

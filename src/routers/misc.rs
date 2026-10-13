@@ -1269,15 +1269,3 @@ mod traffic_tests {
         task.abort();
     }
 }
-
-impl UriPatternExt for MiscApi{
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/thumbnails/{thumbnail_type}/{filename}",
-            "/health",
-            "/events/data-updates",
-            "/sitemap-data",
-            "/announcements",
-        ].iter_into()
-    }
-}

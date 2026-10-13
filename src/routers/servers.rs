@@ -604,15 +604,3 @@ impl ServerApi {
         response!(ok communities)
     }
 }
-impl UriPatternExt for ServerApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/communities",
-            "/communities/all/players",
-            "/communities/all/players/playing",
-            "/communities/{community_id}/unique_players",
-            "/fetch-status",
-            "/fetch-status-truncated",
-        ].iter_into()
-    }
-}

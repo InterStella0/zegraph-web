@@ -506,15 +506,3 @@ impl RadarApi {
         })
     }
 }
-impl UriPatternExt for RadarApi{
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/radars/{server_id}/query",
-            "/radars/{server_id}/live_query",
-            "/radars/{server_id}/statistics",
-            "/radars/{server_id}/live_statistics",
-            "/radars/{server_id}/live_statistics/continents",
-            "/radars/global/live_statistics/continents",
-        ].iter_into()
-    }
-}

@@ -151,12 +151,3 @@ impl SpecialThanksApi {
         response!(ok true)
     }
 }
-
-impl UriPatternExt for SpecialThanksApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/special-thanks",
-            "/special-thanks/{id}",
-        ].iter_into()
-    }
-}

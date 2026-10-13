@@ -119,9 +119,3 @@ impl AdminAuditApi {
         response!(ok AuditLogsResponse { total, logs })
     }
 }
-
-impl UriPatternExt for AdminAuditApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec!["/admin/audit-logs"].iter_into()
-    }
-}

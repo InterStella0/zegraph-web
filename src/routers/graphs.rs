@@ -755,17 +755,3 @@ impl GraphApi {
 		response!(ok value)
 	}
 }
-impl UriPatternExt for GraphApi{
-	fn get_all_patterns(&self) -> Vec<RoutePattern> {
-		vec![
-			"/graph/{server_id}/get_regions",
-			"/graph/{server_id}/unique_players",
-			"/graph/{server_id}/maps",
-			"/graph/{server_id}/event_count",
-			"/graph/{server_id}/top_players",
-			"/graph/{server_id}/players",
-			"/graph/{server_id}/unique_players/maps/{map_name}/sessions/{session_id}",
-			"/graph/{server_id}/unique_players/players/{player_id}/sessions/{session_id}",
-		].iter_into()
-	}
-}

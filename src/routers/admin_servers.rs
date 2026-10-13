@@ -706,19 +706,3 @@ impl AdminServersApi {
         response!(ok true)
     }
 }
-
-impl UriPatternExt for AdminServersApi {
-    fn get_all_patterns(&self) -> Vec<RoutePattern> {
-        vec![
-            "/admin/communities",
-            "/admin/communities/{id}",
-            "/admin/communities/{id}/icon",
-            "/admin/server-browsers",
-            "/admin/servers-list",
-            "/admin/servers-list/{server_id}",
-            "/admin/servers-list/{server_id}/community",
-            "/admin/servers-list/{server_id}/metadata",
-        ]
-        .iter_into()
-    }
-}

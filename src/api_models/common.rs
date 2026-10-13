@@ -11,7 +11,6 @@ use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
 use poem_openapi::types::{ParseError, ParseFromJSON, ParseFromParameter, ParseResult, ToJSON, Type};
 use serde::{Deserialize, Serialize};
 use crate::api_models::uri_pattern::PatternTable;
-pub use crate::api_models::uri_pattern::RoutePattern;
 use crate::{AppData, FastCache};
 use crate::core::utils::get_server;
 use crate::models::servers::DbServer;
@@ -196,8 +195,6 @@ impl<'a> poem::FromRequest<'a> for ServerExtractor {
     }
 }
 
-type UriExtension = dyn UriPatternExt + Send + Sync;
-
 pub const METRICS_COUNT_KEY: &str = "gfl-ze-watcher:metrics:endpoint:count";
 pub const METRICS_DURATION_KEY: &str = "gfl-ze-watcher:metrics:endpoint:duration_us";
 pub const METRICS_SINCE_KEY: &str = "gfl-ze-watcher:metrics:endpoint:since";
@@ -344,9 +341,9 @@ pub struct PatternLogger {
 }
 
 impl PatternLogger{
-    pub fn new(apis: Vec<Arc<UriExtension>>) -> PatternLogger {
+    pub fn new(patterns: PatternTable) -> PatternLogger {
         PatternLogger{
-            patterns: Arc::new(PatternTable::new(&apis))
+            patterns: Arc::new(patterns)
         }
     }
 }
@@ -488,10 +485,6 @@ impl ParseFromParameter for KeyList {
         }
         Ok(KeyList(keys))
     }
-}
-
-pub trait UriPatternExt {
-    fn get_all_patterns(&self) -> Vec<RoutePattern>;
 }
 
 #[derive(Serialize, Deserialize)]
