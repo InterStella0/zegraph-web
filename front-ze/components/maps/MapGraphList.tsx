@@ -64,7 +64,7 @@ export default function MapGraphList(
         onDateChange(dayjs(detail.started_at), detail.ended_at != null? dayjs(detail.ended_at): dayjs())
     }
 
-    const totalPages = Math.ceil(mapData?.total_sessions ?? 0 / 10)
+    const totalPages = Math.ceil((mapData?.total_sessions ?? 0) / 10)
     return <>
         <div className="flex flex-col sm:flex-row justify-between items-center p-2 px-4">
             <h2 className="text-sm text-muted-foreground uppercase tracking-wide">
