@@ -319,8 +319,8 @@ pub trait AnonRow {
 }
 
 macro_rules! anon_row {
-    (@mask $s:ident, true) => { $s.id = Uuid::new_v4().to_string(); };
-    (@mask $s:ident, false) => {};
+    (@mask $s:ident, rotate_id) => { $s.id = Uuid::new_v4().to_string(); };
+    (@mask $s:ident, keep_id) => {};
     ($($t:ty => $new_id:tt),* $(,)?) => {$(
         impl AnonRow for $t {
             fn row_id(&self) -> &str { &self.id }
@@ -337,7 +337,7 @@ macro_rules! anon_row {
     )*};
 }
 
-anon_row!(PlayerBrief => true, PlayerSeen => true, CountryPlayer => true, PlayerDetailSession => false);
+anon_row!(PlayerBrief => rotate_id, PlayerSeen => rotate_id, CountryPlayer => rotate_id, PlayerDetailSession => keep_id);
 
 #[allow(dead_code)]
 pub struct UserTokenAuthorized{
