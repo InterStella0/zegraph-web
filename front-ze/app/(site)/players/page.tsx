@@ -1,9 +1,6 @@
 import {Metadata} from "next";
 import {Suspense} from "react";
 import {getTranslations} from "next-intl/server";
-import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
-import Footer from "components/ui/Footer";
-import getServerUser from "../getServerUser";
 import GlobalPlayerList, {GlobalPlayerListLoading} from "components/players/GlobalPlayerList";
 import GlobalPlayersOnline, {GlobalPlayersOnlineLoading} from "components/players/GlobalPlayersOnline";
 import {fetchApiUrl, fetchUrl, socialMeta} from "utils/generalUtils.ts";
@@ -23,12 +20,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Page() {
-    const user = getServerUser();
     const globalPlayersPromise = fetchUrl('/communities/all/players', {params: {page: 0}});
     const globalOnlinePromise = fetchApiUrl('/communities/all/players/playing');
 
-    return <>
-        <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
+    return (
         <div className="min-h-screen py-2 sm:py-4">
             <div className="container max-w-screen-2xl mx-auto px-1 sm:px-2 lg:px-4">
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem] gap-4 sm:gap-6 items-start">
@@ -45,6 +40,5 @@ export default async function Page() {
                 </div>
             </div>
         </div>
-        <Footer />
-    </>
+    )
 }

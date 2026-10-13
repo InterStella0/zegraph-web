@@ -1,8 +1,5 @@
 import CommunityList, {CommunityListLoading} from "./CommunityList";
-import {getCommunity} from "./getCommunity";
-import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
-import getServerUser from "./getServerUser";
-import Footer from "components/ui/Footer";
+import {getCommunity} from "app/getCommunity";
 import {Suspense} from "react";
 import {AdSpot} from "components/ui/AdSpot";
 import HomePopulationRadar from "components/home/HomePopulationRadar";
@@ -28,7 +25,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Page() {
     const communitiesDataPromise = getCommunity();
-    const user = getServerUser();
     const continentsPromise = fetchGlobalContinents();
     const t = await getTranslations('home');
 
@@ -60,7 +56,6 @@ export default async function Page() {
             type="application/ld+json"
             dangerouslySetInnerHTML={{__html: JSON.stringify(jsonLd)}}
         />
-        <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
         <div className="min-h-screen py-2 sm:py-4">
             <div className="container max-w-screen-xl mx-auto px-1 sm:px-4">
                 <div className="flex flex-col gap-4 sm:gap-6">
@@ -88,6 +83,5 @@ export default async function Page() {
                 </div>
             </div>
         </div>
-        <Footer />
     </>
 }

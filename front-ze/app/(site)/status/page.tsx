@@ -1,7 +1,4 @@
 import { Suspense } from "react";
-import ResponsiveAppBar from "components/ui/ResponsiveAppBar";
-import Footer from "components/ui/Footer";
-import getServerUser from "app/getServerUser";
 import FetchStatusTable, { FetchStatusTableLoading } from "components/status/FetchStatusTable";
 import ApiHealthPanel, { ApiHealthPanelLoading } from "components/status/ApiHealthPanel";
 import { Metadata } from "next";
@@ -21,12 +18,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function StatusPage() {
     const t = await getTranslations('status');
-    const user = getServerUser();
     const statusPromise = fetchUrl("/fetch-status-truncated", { next: { revalidate: 60 } });
     const healthPromise = fetchUrl("/health", { next: { revalidate: 30 } });
 
-    return <>
-        <ResponsiveAppBar userPromise={user} server={null} setDisplayCommunity={null} />
+    return (
         <div className="min-h-screen py-2 sm:py-4">
             <div className="container max-w-screen-lg mx-auto px-1 sm:px-3">
                 <div className="flex flex-col gap-4 sm:gap-6">
@@ -47,6 +42,5 @@ export default async function StatusPage() {
                 </div>
             </div>
         </div>
-        <Footer />
-    </>;
+    );
 }

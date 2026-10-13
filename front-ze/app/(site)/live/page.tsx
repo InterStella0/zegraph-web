@@ -1,5 +1,4 @@
 import LiveServerTrackerPage from "./TrackerPage";
-import getServerUser from "../getServerUser.ts";
 import {Metadata} from "next";
 import { formatTitle} from "utils/generalUtils.ts";
 import { getTranslations } from 'next-intl/server';
@@ -17,6 +16,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Page(){
-    const user = getServerUser();
-    return <LiveServerTrackerPage userPromise={user}/>
+    return <LiveServerTrackerPage />
 }

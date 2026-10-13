@@ -17,9 +17,9 @@ interface NotificationPreferences {
   map_specific_enabled: boolean;
 }
 
-export default function NotificationSettingsPage(user) {
+export default function NotificationSettingsPage() {
   const t = useTranslations('settings.notifications');
-  const { permission, isSubscribed, isSupported, subscribe, unsubscribe, isLoading } = usePushNotifications(user != null);
+  const { permission, isSubscribed, isSupported, subscribe, unsubscribe, isLoading } = usePushNotifications(true);
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [savingPreferences, setSavingPreferences] = useState(false);
 

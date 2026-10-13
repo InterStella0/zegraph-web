@@ -13,7 +13,7 @@ import { Upload, Trash2, Search, Image } from 'lucide-react'
 import {fetchApiUrl, fetchUrl} from 'utils/generalUtils'
 import { uploadCharacterFileChunked, CHUNKED_UPLOAD_THRESHOLD, UploadProgress } from 'utils/uploadUtils'
 import { Character3DModel } from 'types/maps'
-import {getCommunity} from "../../getCommunity.ts";
+import {getCommunity} from "app/getCommunity.ts";
 import {Community} from "types/community.ts";
 
 type ServerOption = { id: string; displayName: string }

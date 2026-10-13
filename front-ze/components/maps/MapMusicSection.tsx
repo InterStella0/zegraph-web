@@ -1,6 +1,6 @@
 'use client'
 
-import {useMemo, useState} from "react";
+import {Suspense, use, useMemo, useState} from "react";
 import { Music, Play, Clock, MoreHorizontal } from "lucide-react";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -197,11 +197,18 @@ function MapMusicSectionDisplay({ musics }: { musics: ServerMapMusic[] }) {
     );
 }
 
-export default function MapMusicSection({ musics }: { musics: ServerMapMusic[] }) {
+function MapMusicSectionResolved({ musicsPromise }: { musicsPromise: Promise<ServerMapMusic[]> }) {
+    const musics = use(musicsPromise);
+    return <MapMusicSectionDisplay musics={musics} />;
+}
+
+export default function MapMusicSection({ musicsPromise }: { musicsPromise: Promise<ServerMapMusic[]> }) {
     const t = useTranslations('maps.music');
     return (
         <ErrorCatch message={t('loadError')}>
-            <MapMusicSectionDisplay musics={musics} />
+            <Suspense fallback={null}>
+                <MapMusicSectionResolved musicsPromise={musicsPromise} />
+            </Suspense>
         </ErrorCatch>
     );
 }

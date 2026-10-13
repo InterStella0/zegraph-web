@@ -3,7 +3,7 @@ import UserCommunityConnections from "components/users/UserCommunityConnections"
 import ProfileOverview from "components/users/ProfileOverview";
 import ProfileStatsCards from "components/users/ProfileStatsCards";
 import ProfilePlaySessions from "components/users/ProfilePlaySessions";
-import getServerUser from "../../../getServerUser";
+import getServerUser from "app/getServerUser";
 import { redirect } from "next/navigation";
 import { PlayerSessionTime, ProfileResponse } from "types/community.ts";
 import {
@@ -14,10 +14,8 @@ import {
     formatTitle,
     socialMeta
 } from "utils/generalUtils.ts";
-import ResponsiveAppBar from "components/ui/ResponsiveAppBar.tsx";
-import Footer from "components/ui/Footer";
 import {Metadata} from "next";
-import { oneDay, oneHour } from "../../../servers/[server_slug]/util.ts";
+import { oneDay, oneHour } from "app/servers/[server_slug]/util.ts";
 import {getTranslations} from "next-intl/server";
 import { PlayerProfilePicture } from "types/players.ts";
 import dayjs from "dayjs";
@@ -108,12 +106,10 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
         redirect('/');
     }
 
-    const sessionUserPromise = getServerUser();
     const profilePromise: Promise<ProfileResponse> = fetchApiUrl(`/players/${player_id}/profile`);
     const heatmapPromise: Promise<PlayerSessionTime[]> = fetchApiUrl(`/players/${player_id}/playtime-heatmap`).catch(() => []);
 
-    return (<>
-        <ResponsiveAppBar userPromise={sessionUserPromise} server={null} setDisplayCommunity={null} />
+    return (
         <div className="container mx-auto max-w-10xl px-2 py-8">
             <div className="flex flex-col gap-6">
                 <UserProfile profilePromise={profilePromise} />
@@ -127,6 +123,5 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
                 </div>
             </div>
         </div>
-        <Footer />
-    </>)
+    )
 }

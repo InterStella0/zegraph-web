@@ -127,7 +127,6 @@ export default async function Page({ params }){
         if (error?.code === 404) notFound()
         throw error
     }
-    const musics = await musicsPromise
 
     const mapDetail = Promise.resolve(mapInfo);
 
@@ -189,7 +188,7 @@ export default async function Page({ params }){
                             <MapAnalyzeAttributes />
                         </div>
                         <div className="col-span-12">
-                            <MapMusicSection musics={musics} />
+                            <MapMusicSection musicsPromise={musicsPromise} />
                         </div>
                         <div className="col-span-12">
                             <AdSpot />
