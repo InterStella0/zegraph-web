@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::{Pool, Postgres};
 use sqlx::postgres::PgQueryResult;
@@ -16,7 +15,7 @@ use crate::models::admins::{DbGlobalRefreshTarget, DbGlobalSums, DbPlayerGlobalP
 use crate::models::maps::*;
 use crate::models::players::*;
 use crate::core::period::TimePeriod;
-use super::{BackgroundWorker, JobKind, PlayerContext, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query, QueryPriority, RefreshJob, WorkError, WorkResult, WorkerQuery};
+use super::{BackgroundWorker, Cacheable, JobKind, PlayerContext, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query, QueryPriority, RefreshJob, WorkError, WorkResult, WorkerQ, WorkerQuery};
 
 struct DbMightFriendsCalculated{
     last_calculated: String,
@@ -31,81 +30,48 @@ struct DbWorkerLastCalculated{
     last_calculated: String,
 }
 
-#[derive(Clone)]
-pub struct PlayerSessionQuery<T> {
-    pub context: Query<PlayerSessionData>,
-    _phantom: std::marker::PhantomData<T>,
-}
-impl<T> PlayerSessionQuery<T> {
-    fn new(ctx: &PlayerContext, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>, session_id: &str) -> Self {
-        Self::raw(Query {
-            pool,
-            cache,
-            data: PlayerSessionData{
-                player_id: ctx.player.player_id.clone(),
-                server_id: ctx.server.server_id.clone(),
-                session_id: session_id.to_string(),
-            },
-        })
-    }
-
-    /// Rebuilds the query straight from its data, with no `PlayerContext` to hand — the path a
-    /// worker process takes after deserializing a job.
-    pub(crate) fn raw(context: Query<PlayerSessionData>) -> Self {
-        Self { context, _phantom: std::marker::PhantomData }
-    }
-}
-#[derive(Clone)]
-pub struct PlayerBasicQuery<T> {
-    pub context: Query<PlayerData>,
-    _phantom: std::marker::PhantomData<T>,
-}
-impl<T> PlayerBasicQuery<T> {
-    fn new(ctx: &PlayerContext, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
-        Self::raw(Query {
-            pool,
-            cache,
-            data: PlayerData{
-                player_id: ctx.player.player_id.clone(),
-                server_id: ctx.server.server_id.clone(),
-                current_session: ctx.cache_key.current.clone()
-            },
-        })
-    }
-    pub(crate) fn raw(context: Query<PlayerData>) -> Self {
-        Self {
-            context, _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
+pub type PlayerSessionQuery<T> = WorkerQ<PlayerSessionData, T>;
+pub type PlayerBasicQuery<T> = WorkerQ<PlayerData, T>;
 /// Queries scoped to a canonical player id rather than a (server, session) pair. Their cache keys
 /// carry no `{session}` placeholder; the global refresh job invalidates them instead (see
 /// `run_global_refresh`).
-#[derive(Clone)]
-pub struct PlayerGlobalQuery<T> {
-    pub context: Query<PlayerGlobalData>,
-    _phantom: std::marker::PhantomData<T>,
+pub type PlayerGlobalQuery<T> = WorkerQ<PlayerGlobalData, T>;
+/// Every period impl only reads: none of them touch the stored all-time tables or the
+/// `player_server_worker` watermarks.
+pub type PlayerPeriodQuery<T> = WorkerQ<PlayerPeriodData, T>;
+
+impl<T> PlayerSessionQuery<T> {
+    fn new(ctx: &PlayerContext, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>, session_id: &str) -> Self {
+        Self::raw(Query { pool, cache, data: PlayerSessionData {
+            player_id: ctx.player.player_id.clone(),
+            server_id: ctx.server.server_id.clone(),
+            session_id: session_id.to_string(),
+        }})
+    }
+}
+impl<T> PlayerBasicQuery<T> {
+    fn new(ctx: &PlayerContext, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
+        Self::raw(Query { pool, cache, data: PlayerData {
+            player_id: ctx.player.player_id.clone(),
+            server_id: ctx.server.server_id.clone(),
+            current_session: ctx.cache_key.current.clone()
+        }})
+    }
 }
 impl<T> PlayerGlobalQuery<T> {
     fn new(canonical_id: &str, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
-        Self::raw(Query {
-            pool,
-            cache,
-            data: PlayerGlobalData { canonical_id: canonical_id.to_string() },
-        })
+        Self::raw(Query { pool, cache, data: PlayerGlobalData { canonical_id: canonical_id.to_string() } })
     }
-    pub(crate) fn raw(context: Query<PlayerGlobalData>) -> Self {
-        Self { context, _phantom: std::marker::PhantomData }
+}
+impl<T> PlayerPeriodQuery<T> {
+    fn new(ctx: &PlayerContext, period: TimePeriod, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
+        Self::raw(Query { pool, cache, data: ctx.period_data(period) })
     }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerSessionTime>> for PlayerBasicQuery<Vec<DbPlayerSessionTime>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerSessionTime>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerBasicQuery<Vec<DbPlayerSessionTime>> => PlayerSessionTime, 60 * DAY, Light,
+    |self, ctx| format!("player-session:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbPlayerSessionTime, "
             SELECT
                 DATE_TRUNC('day', started_at) AS bucket_time,
@@ -117,17 +83,6 @@ impl WorkerQuery<Vec<DbPlayerSessionTime>> for PlayerBasicQuery<Vec<DbPlayerSess
             GROUP BY bucket_time
             ORDER BY bucket_time;
         ", ctx.data.player_id, ctx.data.server_id).fetch_all(&*ctx.pool).await
-    }
-
-    fn cache_key_pattern(&self) -> String {
-        format!("player-session:{}:{}:{{session}}", self.context.data.server_id, self.context.data.player_id)
-    }
-
-    fn ttl(&self) -> u64 { 60 * DAY }
-    fn priority(&self) -> QueryPriority { QueryPriority::Light }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerSessionTime(self.context.data.clone())
     }
 }
 
@@ -245,11 +200,9 @@ async fn calculate_db_player_map(ctx: &Query<PlayerData>, worker_type: &str) -> 
 }
 
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerBasicQuery<Vec<DbPlayerMapPlayed>>{
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<Vec<DbPlayerMapPlayed>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerBasicQuery<Vec<DbPlayerMapPlayed>> => PlayerMapPlayed, 60 * DAY, Heavy,
+    |self, ctx| format!("player-map-played:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         let redis_pool = ctx.cache.redis_pool.clone();
         let worker_type = "playermap";
         let lock_key = format!("lock:player_map_time:{}:{}", ctx.data.server_id, ctx.data.player_id);
@@ -273,27 +226,10 @@ impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerBasicQuery<Vec<DbPlayerMapPla
             ORDER BY total_playtime DESC
         ", ctx.data.player_id, ctx.data.server_id).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        format!("player-map-played:{}:{}:{{session}}", self.context.data.server_id, self.context.data.player_id)
-    }
-
-    fn ttl(&self) -> u64 {
-        60 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Heavy
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerMapPlayed(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Option<DbPlayerRank>> for PlayerBasicQuery<Option<DbPlayerRank>> {
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<Option<DbPlayerRank>, Self::Error> {
+worker_query! {
+    PlayerBasicQuery<Option<DbPlayerRank>> => PlayerPlaytimeRanks, HOUR, Light,
+    |self, ctx| format!("player-play-ranks:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbPlayerRank, "
             SELECT global_playtime_rank AS global_playtime ,
                 playtime_rank AS total_playtime,
@@ -305,27 +241,10 @@ impl WorkerQuery<Option<DbPlayerRank>> for PlayerBasicQuery<Option<DbPlayerRank>
         ", self.context.data.server_id, self.context.data.player_id)
             .fetch_optional(&*self.context.pool.clone()).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        format!("player-play-ranks:{}:{}:{{session}}", self.context.data.server_id, self.context.data.player_id)
-    }
-
-    fn ttl(&self) -> u64 {
-        HOUR
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerPlaytimeRanks(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Vec<DbMapRank>> for PlayerBasicQuery<Vec<DbMapRank>> {
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<Vec<DbMapRank>, Self::Error> {
+worker_query! {
+    PlayerBasicQuery<Vec<DbMapRank>> => PlayerMapRanks, HOUR, Light,
+    |self, ctx| format!("player-map-ranks:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbMapRank, "
             SELECT pmr.map, pmr.map_rank AS rank, pmt.total_playtime
             FROM website.player_map_rank pmr
@@ -338,58 +257,20 @@ impl WorkerQuery<Vec<DbMapRank>> for PlayerBasicQuery<Vec<DbMapRank>> {
         ", self.context.data.server_id, self.context.data.player_id)
             .fetch_all(&*self.context.pool.clone()).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        format!("player-map-ranks:{}:{}:{{session}}", self.context.data.server_id, self.context.data.player_id)
-    }
-
-    fn ttl(&self) -> u64 {
-        HOUR
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerMapRanks(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerAlias>> for PlayerBasicQuery<Vec<DbPlayerAlias>>{
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerAlias>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerBasicQuery<Vec<DbPlayerAlias>> => PlayerAliases, 60 * DAY, Light,
+    |self, ctx| format!("player-aliases:{}:{{session}}", ctx.data.player_id), {
         sqlx::query_as!(DbPlayerAlias, "
             SELECT event_value as name, created_at FROM player_activity
             WHERE event_name='name' AND player_id=$1
             ORDER BY created_at
         ", ctx.data.player_id).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("player-aliases:{}:{{session}}", ctx.data.player_id)
-    }
-
-    fn ttl(&self) -> u64 {
-        60 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerAliases(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Option<DbPlayerWithLegacyRanks>> for PlayerBasicQuery<Option<DbPlayerWithLegacyRanks>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Option<DbPlayerWithLegacyRanks>, Self::Error> {
+worker_query! {
+    PlayerBasicQuery<Option<DbPlayerWithLegacyRanks>> => PlayerLegacyStats, 120 * DAY, Heavy,
+    |self, ctx| format!("player-legacy:{}:{}:legacy", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbPlayerWithLegacyRanks, "
             WITH ranked AS (
               SELECT
@@ -422,26 +303,6 @@ impl WorkerQuery<Option<DbPlayerWithLegacyRanks>> for PlayerBasicQuery<Option<Db
             WHERE steamid64 = $1
             LIMIT 1
         ", self.context.data.player_id).fetch_optional(&*self.context.pool).await
-    }
-
-    fn cache_key_pattern(&self) -> String {
-        format!(
-            "player-legacy:{}:{}:legacy",
-            self.context.data.server_id,
-            self.context.data.player_id,
-        )
-    }
-
-    fn ttl(&self) -> u64 {
-        120 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Heavy
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerLegacyStats(self.context.data.clone())
     }
 }
 struct DbServerMapState{
@@ -529,11 +390,9 @@ fn split_playtime(maps: &[DbPlayerMapPlayed], infos: &HashMap<String, DbMapBrief
     split
 }
 
-#[async_trait]
-impl WorkerQuery<DbPlayerDetail> for PlayerBasicQuery<DbPlayerDetail>{
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<DbPlayerDetail, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerBasicQuery<DbPlayerDetail> => PlayerDetail, 60 * DAY, Heavy,
+    |self, ctx| format!("player_detail:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         let map_state = sqlx::query_as!(DbServerMapState, "
             SELECT
               sm.server_id,
@@ -624,29 +483,10 @@ impl WorkerQuery<DbPlayerDetail> for PlayerBasicQuery<DbPlayerDetail>{
             LIMIT 1
         ", ctx.data.player_id, ctx.data.server_id).fetch_one(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("player_detail:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
-    }
-
-    fn ttl(&self) -> u64 {
-        60 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Heavy
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerDetail(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerBasicQuery<Vec<DbPlayerRegionTime>>{
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<Vec<DbPlayerRegionTime>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerBasicQuery<Vec<DbPlayerRegionTime>> => PlayerRegionTime, 60 * DAY, Light,
+    |self, ctx| format!("player-region:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbPlayerRegionTime, "
             WITH session_days AS (
                 SELECT
@@ -716,23 +556,6 @@ impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerBasicQuery<Vec<DbPlayerRegio
         ", ctx.data.player_id, ctx.data.server_id)
             .fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("player-region:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
-    }
-
-    fn ttl(&self) -> u64 {
-        60 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerRegionTime(self.context.data.clone())
-    }
 }
 
 struct LastWorkerCalculate{
@@ -775,13 +598,9 @@ async fn get_worker_player_key(ctx: &Query<PlayerData>, worker_type: &str) -> Re
 
 
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerSessionQuery<Vec<DbPlayerSeen>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerSeen>, Self::Error> {
-        let ctx = &self.context;
-
+worker_query! {
+    PlayerSessionQuery<Vec<DbPlayerSeen>> => PlayerSeen, 7 * DAY, Heavy,
+    |self, ctx| format!("player-seen-session:{}:{}:{}", ctx.data.server_id, ctx.data.player_id, ctx.data.session_id), {
         sqlx::query_as!(DbPlayerSeen, "
             WITH overlapping AS (
               SELECT
@@ -812,18 +631,6 @@ impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerSessionQuery<Vec<DbPlayerSeen>> {
             ORDER BY total_time_together DESC
         ", ctx.data.server_id, ctx.data.player_id, ctx.data.session_id).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("player-seen-session:{}:{}:{}", ctx.data.server_id, ctx.data.player_id, ctx.data.session_id)
-    }
-
-    fn ttl(&self) -> u64 { 7 * DAY }
-    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerSeen(self.context.data.clone())
-    }
 }
 
 pub const MIGHT_FRIENDS_LIMIT: i64 = 100;
@@ -836,20 +643,18 @@ fn escape_like(value: &str) -> String {
     value.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
 }
 
-/// Who a player has "played with" on a server, all-time: whoever overlapped the most with their
-/// completed sessions. Only ever run on request (the `might_friends/calculate` route queues it);
-/// the list route reads `website.player_server_relationship` directly and never calculates.
-///
-/// Time together is symmetric, so each pair is also stored from the other side (`mirrored`): the
-/// players in this list see this player in theirs without being calculated themselves. A mirror
-/// only overwrites a row whose `last_seen` is no newer, so an older calculation never rolls back a
-/// fresher one. It does not mark them calculated, so their own full calculation stays available.
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerBasicQuery<Vec<DbPlayerSeen>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerSeen>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    /// Who a player has "played with" on a server, all-time: whoever overlapped the most with their
+    /// completed sessions. Only ever run on request (the `might_friends/calculate` route queues it);
+    /// the list route reads `website.player_server_relationship` directly and never calculates.
+    ///
+    /// Time together is symmetric, so each pair is also stored from the other side (`mirrored`): the
+    /// players in this list see this player in theirs without being calculated themselves. A mirror
+    /// only overwrites a row whose `last_seen` is no newer, so an older calculation never rolls back a
+    /// fresher one. It does not mark them calculated, so their own full calculation stays available.
+    // Nothing reads this cache entry back; the list route reads the table.
+    PlayerBasicQuery<Vec<DbPlayerSeen>> => PlayerMightFriends, DAY, Heavy,
+    |self, ctx| format!("player-might-friends:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         if ctx.data.current_session == PLAYER_DEFAULT_KEY {
             // No completed session yet, so nothing to overlap with.
             return Ok(vec![]);
@@ -933,27 +738,12 @@ impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerBasicQuery<Vec<DbPlayerSeen>> {
         tx.commit().await?;
         Ok(friends)
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("player-might-friends:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
-    }
-
-    // Nothing reads this cache entry back; the list route reads the table.
-    fn ttl(&self) -> u64 { DAY }
-    fn priority(&self) -> QueryPriority { QueryPriority::Heavy }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerMightFriends(self.context.data.clone())
-    }
 }
 
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerBasicQuery<Vec<DbPlayerHourCount>> {
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<Vec<DbPlayerHourCount>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerBasicQuery<Vec<DbPlayerHourCount>> => PlayerHourCount, 60 * DAY, Light,
+    |self, ctx| format!("player-hour-day:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbPlayerHourCount, "
             WITH join_count AS (
                 SELECT player_id, (
@@ -980,30 +770,11 @@ impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerBasicQuery<Vec<DbPlayerHourCo
             ORDER BY hours
         ", ctx.data.server_id, ctx.data.player_id).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("player-hour-day:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
-    }
-
-    fn ttl(&self) -> u64 {
-        60 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerHourCount(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerOnlineHeatmap>> for PlayerBasicQuery<Vec<DbPlayerOnlineHeatmap>> {
-    type Error = sqlx::Error;
-    async fn execute(&self) -> Result<Vec<DbPlayerOnlineHeatmap>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerBasicQuery<Vec<DbPlayerOnlineHeatmap>> => PlayerOnlineHeatmap, 60 * DAY, Light,
+    |self, ctx| format!("player-online-heatmap:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbPlayerOnlineHeatmap, "
             WITH sessions AS (
                 SELECT started_at AT TIME ZONE 'UTC'                AS started_at,
@@ -1038,30 +809,10 @@ impl WorkerQuery<Vec<DbPlayerOnlineHeatmap>> for PlayerBasicQuery<Vec<DbPlayerOn
             ORDER BY gs
         ", ctx.data.server_id, ctx.data.player_id).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        let ctx = &self.context;
-        format!("player-online-heatmap:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id)
-    }
-
-    fn ttl(&self) -> u64 {
-        60 * DAY
-    }
-
-    fn priority(&self) -> QueryPriority {
-        QueryPriority::Light
-    }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerOnlineHeatmap(self.context.data.clone())
-    }
 }
-#[async_trait]
-impl WorkerQuery<DbGlobalPlaytimeSnapshot> for PlayerGlobalQuery<DbGlobalPlaytimeSnapshot> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<DbGlobalPlaytimeSnapshot, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerGlobalQuery<DbGlobalPlaytimeSnapshot> => PlayerGlobalSnapshot, 60, Light,
+    |self, ctx| global_snapshot_key(&ctx.data.canonical_id), {
         let canonical_id = &ctx.data.canonical_id;
 
         let stored = sqlx::query_as!(DbPlayerGlobalPlaytime, "
@@ -1147,25 +898,11 @@ impl WorkerQuery<DbGlobalPlaytimeSnapshot> for PlayerGlobalQuery<DbGlobalPlaytim
         };
         Ok(snapshot)
     }
-
-    fn cache_key_pattern(&self) -> String {
-        global_snapshot_key(&self.context.data.canonical_id)
-    }
-
-    fn ttl(&self) -> u64 { 60 }
-    fn priority(&self) -> QueryPriority { QueryPriority::Light }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerGlobalSnapshot(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerCommunityPlaytime>> for PlayerGlobalQuery<Vec<DbPlayerCommunityPlaytime>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerCommunityPlaytime>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerGlobalQuery<Vec<DbPlayerCommunityPlaytime>> => PlayerCommunityPlaytime, 5 * 60, Light,
+    |self, ctx| community_playtime_key(&ctx.data.canonical_id), {
         sqlx::query_as!(DbPlayerCommunityPlaytime, r#"
             WITH user_players AS (
                 SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
@@ -1182,85 +919,10 @@ impl WorkerQuery<Vec<DbPlayerCommunityPlaytime>> for PlayerGlobalQuery<Vec<DbPla
             ORDER BY SUM(pp.total_playtime) DESC
         "#, ctx.data.canonical_id).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String {
-        community_playtime_key(&self.context.data.canonical_id)
-    }
-
-    fn ttl(&self) -> u64 { 5 * 60 }
-    fn priority(&self) -> QueryPriority { QueryPriority::Light }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerCommunityPlaytime(self.context.data.clone())
-    }
 }
 
-/// Queries over one calendar period. Every impl only reads: none of them touch the stored
-/// all-time tables or the `player_server_worker` watermarks, so the result lives in the cache
-/// alone. A closed period cannot change, so its key carries no `{session}`; an open one is
-/// recalculated per completed session.
-#[derive(Clone)]
-pub struct PlayerPeriodQuery<T> {
-    pub context: Query<PlayerPeriodData>,
-    _phantom: std::marker::PhantomData<T>,
-}
-impl<T> PlayerPeriodQuery<T> {
-    fn new(ctx: &PlayerContext, period: TimePeriod, pool: Arc<Pool<Postgres>>, cache: Arc<FastCache>) -> Self {
-        Self::raw(Query { pool, cache, data: ctx.period_data(period) })
-    }
-    pub(crate) fn raw(context: Query<PlayerPeriodData>) -> Self {
-        Self { context, _phantom: std::marker::PhantomData }
-    }
-
-    fn period_key(&self, kind: &str) -> String {
-        let data = &self.context.data;
-        let key = format!("player-period-{kind}:{}:{}:{}", data.server_id, data.player_id, data.period.label());
-        if data.closed { key } else { format!("{key}:{{session}}") }
-    }
-
-    fn period_ttl(&self) -> u64 {
-        period_ttl(&self.context.data.period, self.context.data.closed)
-    }
-
-    fn period_priority(&self, priority: QueryPriority) -> QueryPriority {
-        period_priority(&self.context.data.period, priority)
-    }
-
-    fn bounds(&self) -> (OffsetDateTime, OffsetDateTime) {
-        let period = &self.context.data.period;
-        (period.start().to_db_time(), period.end().to_db_time())
-    }
-}
-
-pub const PERIOD_CLOSED_TTL: u64 = 7 * DAY;
-pub const PERIOD_OPEN_TTL: u64 = DAY;
-pub const PERIOD_RANGE_TTL: u64 = HOUR;
-
-pub const LIGHT_RANGE_DAYS: i64 = 31;
-
-pub fn period_ttl(period: &TimePeriod, closed: bool) -> u64 {
-    if period.range_days().is_some() {
-        PERIOD_RANGE_TTL
-    } else if closed {
-        PERIOD_CLOSED_TTL
-    } else {
-        PERIOD_OPEN_TTL
-    }
-}
-
-pub fn period_priority(period: &TimePeriod, priority: QueryPriority) -> QueryPriority {
-    match period.range_days() {
-        Some(days) if days <= LIGHT_RANGE_DAYS => QueryPriority::Light,
-        _ => priority,
-    }
-}
-
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerPeriodQuery<Vec<DbPlayerMapPlayed>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerMapPlayed>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerPeriodQuery<Vec<DbPlayerMapPlayed>> => PlayerPeriodMapPlayed, period "map-played", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbPlayerMapPlayed, "
             SELECT
@@ -1283,22 +945,10 @@ impl WorkerQuery<Vec<DbPlayerMapPlayed>> for PlayerPeriodQuery<Vec<DbPlayerMapPl
             ORDER BY played DESC
         ", ctx.data.player_id, ctx.data.server_id, start, end).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("map-played") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerPeriodMapPlayed(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<DbPlayerDetail> for PlayerPeriodQuery<DbPlayerDetail> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<DbPlayerDetail, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerPeriodQuery<DbPlayerDetail> => PlayerPeriodDetail, period "detail", Heavy, |self, ctx| {
         let player = get_player(&ctx.pool, &ctx.cache, &ctx.data.player_id).await
             .ok_or(sqlx::Error::RowNotFound)?;
 
@@ -1333,22 +983,10 @@ impl WorkerQuery<DbPlayerDetail> for PlayerPeriodQuery<DbPlayerDetail> {
             associated_player_id: player.associated_player_id,
         })
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("detail") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerPeriodDetail(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerSessionTime>> for PlayerPeriodQuery<Vec<DbPlayerSessionTime>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerSessionTime>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerPeriodQuery<Vec<DbPlayerSessionTime>> => PlayerPeriodSessionTime, period "session", Light, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbPlayerSessionTime, "
             SELECT
@@ -1363,22 +1001,10 @@ impl WorkerQuery<Vec<DbPlayerSessionTime>> for PlayerPeriodQuery<Vec<DbPlayerSes
             ORDER BY bucket_time;
         ", ctx.data.player_id, ctx.data.server_id, start, end).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("session") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerPeriodSessionTime(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerPeriodQuery<Vec<DbPlayerHourCount>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerHourCount>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerPeriodQuery<Vec<DbPlayerHourCount>> => PlayerPeriodHourCount, period "hour-day", Light, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbPlayerHourCount, "
             WITH join_count AS (
@@ -1408,22 +1034,10 @@ impl WorkerQuery<Vec<DbPlayerHourCount>> for PlayerPeriodQuery<Vec<DbPlayerHourC
             ORDER BY hours
         ", ctx.data.server_id, ctx.data.player_id, start, end).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("hour-day") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerPeriodHourCount(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerOnlineHeatmap>> for PlayerPeriodQuery<Vec<DbPlayerOnlineHeatmap>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerOnlineHeatmap>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerPeriodQuery<Vec<DbPlayerOnlineHeatmap>> => PlayerPeriodOnlineHeatmap, period "online-heatmap", Light, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbPlayerOnlineHeatmap, "
             WITH sessions AS (
@@ -1459,22 +1073,10 @@ impl WorkerQuery<Vec<DbPlayerOnlineHeatmap>> for PlayerPeriodQuery<Vec<DbPlayerO
             ORDER BY gs
         ", ctx.data.server_id, ctx.data.player_id, start, end).fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("online-heatmap") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerPeriodOnlineHeatmap(self.context.data.clone())
-    }
 }
 
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerPeriodQuery<Vec<DbPlayerRegionTime>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerRegionTime>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    PlayerPeriodQuery<Vec<DbPlayerRegionTime>> => PlayerPeriodRegionTime, period "region", Light, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbPlayerRegionTime, "
             WITH bounded AS (
@@ -1553,24 +1155,12 @@ impl WorkerQuery<Vec<DbPlayerRegionTime>> for PlayerPeriodQuery<Vec<DbPlayerRegi
         ", ctx.data.player_id, ctx.data.server_id, start, end)
             .fetch_all(&*ctx.pool).await
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("region") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Light) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerPeriodRegionTime(self.context.data.clone())
-    }
 }
 
-/// The period's "played with" top list: the same overlap calculation as the all-time
-/// `might_friends` job, with the player's sessions clamped to the period and nothing saved.
-#[async_trait]
-impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerPeriodQuery<Vec<DbPlayerSeen>> {
-    type Error = sqlx::Error;
-
-    async fn execute(&self) -> Result<Vec<DbPlayerSeen>, Self::Error> {
-        let ctx = &self.context;
+worker_query! {
+    /// The period's "played with" top list: the same overlap calculation as the all-time
+    /// `might_friends` job, with the player's sessions clamped to the period and nothing saved.
+    PlayerPeriodQuery<Vec<DbPlayerSeen>> => PlayerPeriodPlayedWith, period "played-with", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
 
         let mut tx = ctx.pool.begin().await?;
@@ -1626,14 +1216,6 @@ impl WorkerQuery<Vec<DbPlayerSeen>> for PlayerPeriodQuery<Vec<DbPlayerSeen>> {
         tx.commit().await?;
         Ok(friends)
     }
-
-    fn cache_key_pattern(&self) -> String { self.period_key("played-with") }
-    fn ttl(&self) -> u64 { self.period_ttl() }
-    fn priority(&self) -> QueryPriority { self.period_priority(QueryPriority::Heavy) }
-
-    fn job_kind(&self) -> JobKind {
-        JobKind::PlayerPeriodPlayedWith(self.context.data.clone())
-    }
 }
 
 pub struct PlayerWorker {
@@ -1649,24 +1231,14 @@ impl PlayerWorker {
         }
     }
 
-    async fn query_player<T>(
-        &self, context: &PlayerContext
-    ) -> WorkResult<T>
-    where
-        PlayerBasicQuery<T>: WorkerQuery<T> + Send + Sync,
-        <PlayerBasicQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display,
-        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+    async fn query_player<T: Cacheable>(&self, context: &PlayerContext) -> WorkResult<T>
+    where PlayerBasicQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
     {
         Ok(self.query_player_cached(context).await?.result)
     }
 
-    async fn query_player_cached<T>(
-        &self, context: &PlayerContext
-    ) -> WorkResult<CachedResult<T>>
-    where
-        PlayerBasicQuery<T>: WorkerQuery<T> + Send + Sync,
-        <PlayerBasicQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display,
-        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+    async fn query_player_cached<T: Cacheable>(&self, context: &PlayerContext) -> WorkResult<CachedResult<T>>
+    where PlayerBasicQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
     {
         let query = PlayerBasicQuery::new(context, self.pool.clone(), self.background_worker.cache.clone());
         self.background_worker.execute_with_session_fallback(
@@ -1680,66 +1252,38 @@ impl PlayerWorker {
         PlayerPeriodQuery::new(context, period, self.pool.clone(), self.background_worker.cache.clone())
     }
 
-    /// The keys a period query reads: its current key and, for an open period only, the previous
-    /// session's key. A closed period's key has no session in it, so there is nothing to fall back to.
-    fn period_keys<T>(&self, query: &PlayerPeriodQuery<T>, context: &PlayerContext) -> (RefreshJob, String, Option<String>)
-    where
-        PlayerPeriodQuery<T>: WorkerQuery<T>,
+    async fn query_player_period<T: Cacheable>(&self, context: &PlayerContext, period: TimePeriod) -> WorkResult<CachedResult<T>>
+    where PlayerPeriodQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
     {
-        let previous = context.cache_key.previous.as_deref().filter(|_| !query.context.data.closed);
-        RefreshJob::for_session(query, &context.cache_key.current, previous)
-    }
-
-    async fn query_player_period<T>(
-        &self, context: &PlayerContext, period: TimePeriod,
-    ) -> WorkResult<CachedResult<T>>
-    where
-        PlayerPeriodQuery<T>: WorkerQuery<T> + Send + Sync + Clone + 'static,
-        <PlayerPeriodQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display + Send + 'static,
-        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
-    {
-        let query: PlayerPeriodQuery<T> = self.period_query(context, period);
-        let (job, current_key, fallback_key) = self.period_keys(&query, context);
+        let (job, current_key, fallback_key) = self.period_query::<T>(context, period).period_keys(&context.cache_key);
         self.background_worker.get_with_fallback(&current_key, fallback_key.as_deref(), job).await
     }
 
-    async fn query_player_execute<T>(
-        &self, context: &PlayerContext
-    ) -> WorkResult<T>
+    async fn query_player_or_period<T: Cacheable>(&self, context: &PlayerContext, period: Option<TimePeriod>) -> WorkResult<T>
     where
-        PlayerBasicQuery<T>: WorkerQuery<T> + Send + Sync,
-        <PlayerBasicQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display,
-        WorkError: From<<PlayerBasicQuery<T> as WorkerQuery<T>>::Error>,
-        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+        PlayerBasicQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
+        PlayerPeriodQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
+    {
+        match period {
+            Some(period) => Ok(self.query_player_period(context, period).await?.result),
+            None => self.query_player(context).await,
+        }
+    }
+
+    async fn query_player_execute<T: Cacheable>(&self, context: &PlayerContext) -> WorkResult<T>
+    where PlayerBasicQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
     {
         let query = PlayerBasicQuery::new(context, self.pool.clone(), self.background_worker.cache.clone());
-        let result = self.background_worker.execute_get(
-            query,
-            &context.cache_key.current,
-        ).await?;
-        Ok(result.result)
+        Ok(self.background_worker.execute_get(query, &context.cache_key.current).await?.result)
     }
-    async fn query_player_execute_session<T>(
-        &self, context: &PlayerContext, session_id: &str
-    ) -> WorkResult<T>
-    where
-        PlayerSessionQuery<T>: WorkerQuery<T> + Send + Sync,
-        <PlayerSessionQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display,
-        WorkError: From<<PlayerSessionQuery<T> as WorkerQuery<T>>::Error>,
-        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+    async fn query_player_execute_session<T: Cacheable>(&self, context: &PlayerContext, session_id: &str) -> WorkResult<T>
+    where PlayerSessionQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
     {
         let query = PlayerSessionQuery::new(context, self.pool.clone(), self.background_worker.cache.clone(), session_id);
-        let result = self.background_worker.execute_get(
-            query,
-            &context.cache_key.current,
-        ).await?;
-        Ok(result.result)
+        Ok(self.background_worker.execute_get(query, &context.cache_key.current).await?.result)
     }
     pub async fn get_player_sessions(&self, context: &PlayerContext, period: Option<TimePeriod>) -> WorkResult<Vec<PlayerSessionTime>> {
-        let result: Vec<DbPlayerSessionTime> = match period {
-            Some(period) => self.query_player_period(context, period).await?.result,
-            None => self.query_player(context).await?,
-        };
+        let result: Vec<DbPlayerSessionTime> = self.query_player_or_period(context, period).await?;
         Ok(result.iter_into())
     }
 
@@ -1831,7 +1375,7 @@ impl PlayerWorker {
         &self, context: &PlayerContext, search: Option<&str>, page: i64, period: TimePeriod,
     ) -> WorkResult<PlayerMightFriendsPage> {
         let query: PlayerPeriodQuery<Vec<DbPlayerSeen>> = self.period_query(context, period);
-        let (job, current_key, fallback_key) = self.period_keys(&query, context);
+        let (job, current_key, fallback_key) = query.period_keys(&context.cache_key);
         let inflight_key = job.cache_key.clone();
 
         let cached: Option<Vec<DbPlayerSeen>> = if search.is_some() {
@@ -2013,10 +1557,7 @@ impl PlayerWorker {
 
     }
     pub async fn get_regions(&self, context: &PlayerContext, period: Option<TimePeriod>) -> WorkResult<Vec<PlayerRegionTime>>{
-        let result: Vec<DbPlayerRegionTime> = match period {
-            Some(period) => self.query_player_period(context, period).await?.result,
-            None => self.query_player(context).await?,
-        };
+        let result: Vec<DbPlayerRegionTime> = self.query_player_or_period(context, period).await?;
         Ok(result.iter_into())
     }
     pub async fn get_legacy_stats(&self, context: &PlayerContext) -> WorkResult<PlayerWithLegacyRanks>{
@@ -2154,12 +1695,8 @@ impl PlayerWorker {
         Ok(())
     }
 
-    async fn query_global<T>(&self, canonical_id: &str) -> WorkResult<T>
-    where
-        PlayerGlobalQuery<T>: WorkerQuery<T> + Send + Sync,
-        <PlayerGlobalQuery<T> as WorkerQuery<T>>::Error: std::fmt::Display,
-        WorkError: From<<PlayerGlobalQuery<T> as WorkerQuery<T>>::Error>,
-        T: serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + Clone + 'static,
+    async fn query_global<T: Cacheable>(&self, canonical_id: &str) -> WorkResult<T>
+    where PlayerGlobalQuery<T>: WorkerQuery<T, Error = sqlx::Error>,
     {
         let query = PlayerGlobalQuery::new(canonical_id, self.pool.clone(), self.background_worker.cache.clone());
         let result = self.background_worker.execute_get(query, "").await?;
@@ -2249,18 +1786,12 @@ impl PlayerWorker {
     }
 
     pub async fn get_online_heatmap(&self, context: &PlayerContext, period: Option<TimePeriod>) -> WorkResult<Vec<PlayerOnlineHeatmap>> {
-        let result: Vec<DbPlayerOnlineHeatmap> = match period {
-            Some(period) => self.query_player_period(context, period).await?.result,
-            None => self.query_player(context).await?,
-        };
+        let result: Vec<DbPlayerOnlineHeatmap> = self.query_player_or_period(context, period).await?;
         Ok(result.into_iter().map(Into::into).collect())
     }
 
     pub async fn get_hour_of_day(&self, context: &PlayerContext, period: Option<TimePeriod>) -> WorkResult<Vec<PlayerHourDay>> {
-        let result: Vec<DbPlayerHourCount> = match period {
-            Some(period) => self.query_player_period(context, period).await?.result,
-            None => self.query_player(context).await?,
-        };
+        let result: Vec<DbPlayerHourCount> = self.query_player_or_period(context, period).await?;
 
         let mut to_return = vec![];
         for data in result{

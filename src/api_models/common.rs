@@ -11,7 +11,6 @@ use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
 use poem_openapi::types::{ParseError, ParseFromJSON, ParseFromParameter, ParseResult, ToJSON, Type};
 use serde::{Deserialize, Serialize};
 use crate::api_models::uri_pattern::PatternTable;
-pub use crate::api_models::uri_pattern::RoutePattern;
 use crate::{AppData, FastCache};
 use crate::core::utils::get_server;
 use crate::models::servers::DbServer;
@@ -27,33 +26,30 @@ pub enum ErrorCode{
     FailedRetry
 }
 
+impl ErrorCode {
+    fn parts(&self) -> (&'static str, i32) {
+        match self {
+            ErrorCode::NotFound => ("!Not found!", 404),
+            ErrorCode::Conflict => ("!Conflict!", 409),
+            ErrorCode::BadRequest => ("!BadRequest!", 400),
+            ErrorCode::Forbidden => ("!Forbidden!", 403),
+            ErrorCode::InternalServerError => ("!InternalServerError!", 500),
+            ErrorCode::Calculating => ("!Calculating", 202),
+            ErrorCode::NotImplemented => ("!NotImplemented!", 501),
+            ErrorCode::FailedRetry => ("!FailedRetry!", 429),
+        }
+    }
+}
+
 impl Display for ErrorCode{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ErrorCode::NotFound => write!(f, "!Not found!"),
-            ErrorCode::Conflict => write!(f, "!Conflict!"),
-            ErrorCode::BadRequest => write!(f, "!BadRequest!"),
-            ErrorCode::Forbidden => write!(f, "!Forbidden!"),
-            ErrorCode::InternalServerError => write!(f, "!InternalServerError!"),
-            ErrorCode::Calculating => write!(f, "!Calculating"),
-            ErrorCode::NotImplemented => write!(f, "!NotImplemented!"),
-            ErrorCode::FailedRetry => write!(f, "!FailedRetry!"),
-        }
+        f.write_str(self.parts().0)
     }
 }
 
 impl From<ErrorCode> for i32{
     fn from(code: ErrorCode) -> i32 {
-        match code {
-            ErrorCode::NotFound => 404,
-            ErrorCode::BadRequest => 400,
-            ErrorCode::Conflict => 409,
-            ErrorCode::Forbidden => 403,
-            ErrorCode::Calculating => 202,
-            ErrorCode::InternalServerError => 500,
-            ErrorCode::NotImplemented => 501,
-            ErrorCode::FailedRetry => 429,
-        }
+        code.parts().1
     }
 }
 
@@ -134,6 +130,48 @@ macro_rules! response {
     }
 }
 
+#[macro_export]
+macro_rules! or_ise {
+    ($e:expr) => {
+        match $e {
+            Ok(v) => v,
+            Err(_) => return $crate::response!(internal_server_error),
+        }
+    };
+    ($e:expr, $err:ident => $($log:tt)+) => {
+        match $e {
+            Ok(v) => v,
+            Err($err) => {
+                tracing::error!($($log)+);
+                return $crate::response!(internal_server_error);
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! or_rollback {
+    ($tx:ident, $e:expr, $err:ident => $($log:tt)+) => {
+        match $e {
+            Ok(v) => v,
+            Err($err) => {
+                tracing::error!($($log)+);
+                let _ = $tx.rollback().await;
+                return $crate::response!(internal_server_error);
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! require {
+    ($cond:expr, $msg:expr, $code:expr) => {
+        if !$cond {
+            return $crate::response!(err $msg, $code);
+        }
+    };
+}
+
 pub type Response<T> = poem::Result<GenericResponse<T>>;
 
 pub struct ServerExtractor(pub DbServer);
@@ -153,8 +191,6 @@ impl<'a> poem::FromRequest<'a> for ServerExtractor {
         Ok(ServerExtractor(server))
     }
 }
-
-type UriExtension = dyn UriPatternExt + Send + Sync;
 
 pub const METRICS_COUNT_KEY: &str = "gfl-ze-watcher:metrics:endpoint:count";
 pub const METRICS_DURATION_KEY: &str = "gfl-ze-watcher:metrics:endpoint:duration_us";
@@ -302,9 +338,9 @@ pub struct PatternLogger {
 }
 
 impl PatternLogger{
-    pub fn new(apis: Vec<Arc<UriExtension>>) -> PatternLogger {
+    pub fn new(patterns: PatternTable) -> PatternLogger {
         PatternLogger{
-            patterns: Arc::new(PatternTable::new(&apis))
+            patterns: Arc::new(patterns)
         }
     }
 }
@@ -446,10 +482,6 @@ impl ParseFromParameter for KeyList {
         }
         Ok(KeyList(keys))
     }
-}
-
-pub trait UriPatternExt {
-    fn get_all_patterns(&self) -> Vec<RoutePattern>;
 }
 
 #[derive(Serialize, Deserialize)]

@@ -505,18 +505,6 @@ pub async fn live_events_listener(db_url: &str, app: AppData, events: broadcast:
     }
 }
 
-#[derive(Deserialize, Debug)]
-#[allow(dead_code)]
-struct MapChangePayload {
-    time_id: i32,
-    server_id: String,
-    map: String,
-    server_name: String,
-    started_at: DateTime<Utc>,
-    ended_at: Option<DateTime<Utc>>,
-    player_count: i32,
-}
-
 pub async fn listen_map_change_notifications(
     db_url: &str,
     pool: Arc<Pool<Postgres>>,
