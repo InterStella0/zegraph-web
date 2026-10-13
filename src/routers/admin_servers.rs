@@ -475,7 +475,7 @@ impl AdminServersApi {
         .fetch_all(&*data.pool)
         .await, e => "Failed to list servers: {}", e);
 
-        response!(ok rows.into_iter().map(AdminServer::from).collect())
+        response!(ok rows.into_iter().map(Into::into).collect())
     }
 
     /// Rename a server or change its public readable link (used in vanity URLs).
@@ -537,7 +537,7 @@ impl AdminServersApi {
             }
         };
 
-        response!(ok AdminServer::from(row))
+        response!(ok row.into())
     }
 
     /// Assign or clear a server's community. Requires the `superuser` role.
@@ -583,7 +583,7 @@ impl AdminServersApi {
             return response!(err "Server not found", ErrorCode::NotFound);
         };
 
-        response!(ok AdminServer::from(row))
+        response!(ok row.into())
     }
 
     /// Update (or create, if absent) a server's metadata: website, Discord link, source, time
@@ -680,7 +680,7 @@ impl AdminServersApi {
 
         or_ise!(tx.commit().await, e => "Failed to commit metadata update: {}", e);
 
-        response!(ok AdminServer::from(row))
+        response!(ok row.into())
     }
 
     /// Permanently delete a server and its data. Requires the `superuser` role.

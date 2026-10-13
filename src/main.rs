@@ -663,31 +663,7 @@ mod route_tests {
     const INVALID_TOKEN: poem::http::StatusCode = poem::http::StatusCode::FORBIDDEN;
 
     #[tokio::test]
-    async fn protected_routes_reject_missing_token() {
-        let cli = client();
-        for (method, path) in PROTECTED {
-            let status = send(&cli, method, path, None).await;
-            assert_eq!(
-                status, MISSING_TOKEN,
-                "{method} {path} should reject an unauthenticated request"
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn protected_routes_reject_malformed_token() {
-        let cli = client();
-        for (method, path) in PROTECTED {
-            let status = send(&cli, method, path, Some("not-a-real-jwt")).await;
-            assert_eq!(
-                status, INVALID_TOKEN,
-                "{method} {path} should reject a malformed token"
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn protected_routes_reject_token_signed_with_wrong_secret() {
+    async fn protected_routes_reject_bad_tokens() {
         let cli = client();
         let claims = Claims {
             sub: "76561198000000001".to_string(),
@@ -702,12 +678,15 @@ mod route_tests {
         )
         .expect("minting should not fail");
 
-        for (method, path) in PROTECTED {
-            let status = send(&cli, method, path, Some(&forged)).await;
-            assert_eq!(
-                status, INVALID_TOKEN,
-                "{method} {path} accepted a token signed with the wrong secret"
-            );
+        for (token, expected, case) in [
+            (None, MISSING_TOKEN, "an unauthenticated request"),
+            (Some("not-a-real-jwt"), INVALID_TOKEN, "a malformed token"),
+            (Some(forged.as_str()), INVALID_TOKEN, "a token signed with the wrong secret"),
+        ] {
+            for (method, path) in PROTECTED {
+                let status = send(&cli, method, path, token).await;
+                assert_eq!(status, expected, "{method} {path} should reject {case}");
+            }
         }
     }
 

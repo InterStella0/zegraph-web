@@ -26,33 +26,30 @@ pub enum ErrorCode{
     FailedRetry
 }
 
+impl ErrorCode {
+    fn parts(&self) -> (&'static str, i32) {
+        match self {
+            ErrorCode::NotFound => ("!Not found!", 404),
+            ErrorCode::Conflict => ("!Conflict!", 409),
+            ErrorCode::BadRequest => ("!BadRequest!", 400),
+            ErrorCode::Forbidden => ("!Forbidden!", 403),
+            ErrorCode::InternalServerError => ("!InternalServerError!", 500),
+            ErrorCode::Calculating => ("!Calculating", 202),
+            ErrorCode::NotImplemented => ("!NotImplemented!", 501),
+            ErrorCode::FailedRetry => ("!FailedRetry!", 429),
+        }
+    }
+}
+
 impl Display for ErrorCode{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ErrorCode::NotFound => write!(f, "!Not found!"),
-            ErrorCode::Conflict => write!(f, "!Conflict!"),
-            ErrorCode::BadRequest => write!(f, "!BadRequest!"),
-            ErrorCode::Forbidden => write!(f, "!Forbidden!"),
-            ErrorCode::InternalServerError => write!(f, "!InternalServerError!"),
-            ErrorCode::Calculating => write!(f, "!Calculating"),
-            ErrorCode::NotImplemented => write!(f, "!NotImplemented!"),
-            ErrorCode::FailedRetry => write!(f, "!FailedRetry!"),
-        }
+        f.write_str(self.parts().0)
     }
 }
 
 impl From<ErrorCode> for i32{
     fn from(code: ErrorCode) -> i32 {
-        match code {
-            ErrorCode::NotFound => 404,
-            ErrorCode::BadRequest => 400,
-            ErrorCode::Conflict => 409,
-            ErrorCode::Forbidden => 403,
-            ErrorCode::Calculating => 202,
-            ErrorCode::InternalServerError => 500,
-            ErrorCode::NotImplemented => 501,
-            ErrorCode::FailedRetry => 429,
-        }
+        code.parts().1
     }
 }
 
