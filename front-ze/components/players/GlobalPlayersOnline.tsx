@@ -1,23 +1,19 @@
 'use client'
 import {useTranslations} from 'next-intl';
 import {use, useState, useEffect, useMemo, ChangeEvent} from 'react';
-import {Gamepad2, Info, Circle, Search} from 'lucide-react';
+import {Gamepad2} from 'lucide-react';
 import {fetchApiUrl} from "utils/generalUtils";
-import {PlayerAvatar} from "./PlayerAvatar.tsx";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import {PlayerDetailSessionCommunity} from "types/players.ts";
 import {Card, CardContent, CardHeader} from "components/ui/card";
-import {Input} from "components/ui/input";
 import {Avatar, AvatarFallback, AvatarImage} from "components/ui/avatar";
 import {Skeleton} from "components/ui/skeleton";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "components/ui/tooltip";
-import {Button} from "components/ui/button";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
-import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {useServerMap} from "components/ui/ServerProvider.tsx";
-import {PlayerName} from "./PlayerName";
+import {OnlinePlayerRow, OnlinePlayersCard, SearchField} from "./OnlinePlayers";
 dayjs.extend(duration);
 
 const PLAYERS_PER_PAGE = 15;
@@ -62,10 +58,7 @@ export function GlobalPlayersOnlineLoading() {
                 </div>
             </CardHeader>
             <CardContent className="pt-0">
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input placeholder={t('searchPlayers')} disabled className="pl-10"/>
-                </div>
+                <SearchField placeholder={t('searchPlayers')} disabled/>
                 <GlobalPlayersOnlineSkeleton/>
             </CardContent>
         </Card>
@@ -134,126 +127,71 @@ function GlobalPlayersOnlineDisplay({ initialDataPromise }: { initialDataPromise
 
     return (
         <TooltipProvider>
-        <Card className="border-border/40 bg-card/50 backdrop-blur-xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <div className="flex items-center gap-2">
-                    <Gamepad2 className="w-5 h-5 text-primary"/>
-                    <h2 className="text-lg max-sm:text-md font-semibold">
-                        {t('title', {count: players.length})}
-                    </h2>
+        <OnlinePlayersCard
+            className="border-border/40 bg-card/50 backdrop-blur-xl"
+            title={t('title', {count: players.length})}
+            info={t('offlineDelayInfo')}
+            search={{placeholder: t('searchPlayers'), value: searchQuery, onChange: handleSearchChange}}
+        >
+            {loading ? (
+                <GlobalPlayersOnlineSkeleton/>
+            ) : error ? (
+                <div className="p-4 text-center">
+                    <p className="text-destructive">{t('loadError')}</p>
                 </div>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Info className="w-4 h-4"/>
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{t('offlineDelayInfo')}</p>
-                    </TooltipContent>
-                </Tooltip>
-            </CardHeader>
-            <CardContent className="pt-0">
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input
-                        placeholder={t('searchPlayers')}
-                        value={searchQuery}
-                        onChange={handleSearchChange}
-                        className="pl-10"
-                    />
+            ) : filteredPlayers.length === 0 ? (
+                <div className="p-6 text-center">
+                    <p className="text-muted-foreground">
+                        {searchQuery.trim() ? t('noPlayerName', {query: searchQuery}) : t('noneOnline')}
+                    </p>
                 </div>
-
-                {loading ? (
-                    <GlobalPlayersOnlineSkeleton/>
-                ) : error ? (
-                    <div className="p-4 text-center">
-                        <p className="text-destructive">{t('loadError')}</p>
+            ) : (
+                <>
+                    <div className="p-2 space-y-1">
+                        {paginatedPlayers.map(({player_detail: player, server_id}) => {
+                            const server = serversMapped.get(server_id);
+                            return (
+                                <OnlinePlayerRow
+                                    key={player.session_id}
+                                    player={player}
+                                    href={server ? `/servers/${server.gotoLink}/players/${player.id}` : null}
+                                    playingFor={t('playingFor', {duration: getSessionDuration(player.started_at)})}
+                                >
+                                    {server && (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Avatar className="w-6 h-6 flex-shrink-0 border border-border/50">
+                                                    {server.community_icon && (
+                                                        <AvatarImage
+                                                            src={server.community_icon}
+                                                            alt={server.community_name}
+                                                        />
+                                                    )}
+                                                    <AvatarFallback className="text-[10px] font-medium">
+                                                        {server.community_shorten_name?.slice(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>{t('serverTooltip', {
+                                                    community: server.community_name,
+                                                    server: server.name
+                                                })}</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    )}
+                                </OnlinePlayerRow>
+                            );
+                        })}
                     </div>
-                ) : filteredPlayers.length === 0 ? (
-                    <div className="p-6 text-center">
-                        <p className="text-muted-foreground">
-                            {searchQuery.trim() ? t('noPlayerName', {query: searchQuery}) : t('noneOnline')}
-                        </p>
-                    </div>
-                ) : (
-                    <>
-                        <div className="p-2 space-y-1">
-                            {paginatedPlayers.map(({player_detail: player, server_id}) => {
-                                const server = serversMapped.get(server_id);
-                                return (
-                                    <div
-                                        key={player.session_id}
-                                        className="py-1 rounded-md transition-all duration-200 flex items-center gap-3"
-                                    >
-                                        <div className="relative flex-shrink-0">
-                                            <PlayerAvatar uuid={player.id} name={player.name}/>
-                                            <Circle
-                                                className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full"
-                                                style={{color: 'hsl(var(--success))'}}
-                                                fill="currentColor"
-                                            />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            {server ? (
-                                                <HoverPrefetchLink
-                                                    href={`/servers/${server.gotoLink}/players/${player.id}`}
-                                                    className="text-sm font-medium hover:underline block truncate"
-                                                >
-                                                    <PlayerName
-                                                        name={player.name}
-                                                        isAnonymous={player.is_anonymous}
-                                                        hiddenFromOthers={player.hidden_from_others}
-                                                    />
-                                                </HoverPrefetchLink>
-                                            ) : (
-                                                <PlayerName
-                                                    name={player.name}
-                                                    isAnonymous={player.is_anonymous}
-                                                    hiddenFromOthers={player.hidden_from_others}
-                                                    className="text-sm font-medium truncate block"
-                                                />
-                                            )}
-                                            <p className="text-xs text-muted-foreground">
-                                                {t('playingFor', {duration: getSessionDuration(player.started_at)})}
-                                            </p>
-                                        </div>
-                                        {server && (
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Avatar className="w-6 h-6 flex-shrink-0 border border-border/50">
-                                                        {server.community_icon && (
-                                                            <AvatarImage
-                                                                src={server.community_icon}
-                                                                alt={server.community_name}
-                                                            />
-                                                        )}
-                                                        <AvatarFallback className="text-[10px] font-medium">
-                                                            {server.community_shorten_name?.slice(0, 2).toUpperCase()}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>{t('serverTooltip', {
-                                                        community: server.community_name,
-                                                        server: server.name
-                                                    })}</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                    {totalPages > 1 && (
+                        <div className="flex justify-center pt-4">
+                            <PaginationPage page={page} setPage={setPage} totalPages={totalPages} compact/>
                         </div>
-                        {totalPages > 1 && (
-                            <div className="flex justify-center pt-4">
-                                <PaginationPage page={page} setPage={setPage} totalPages={totalPages} compact/>
-                            </div>
-                        )}
-                    </>
-                )}
-            </CardContent>
-        </Card>
+                    )}
+                </>
+            )}
+        </OnlinePlayersCard>
         </TooltipProvider>
     );
 }

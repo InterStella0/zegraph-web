@@ -16,6 +16,7 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "c
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import {PlayerName} from "./PlayerName";
 import {useResource} from "lib/hooks/useResource";
+import {SearchField} from "./OnlinePlayers";
 
 const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => (
     <>
@@ -297,10 +298,7 @@ export function PlayerRankingsLoading() {
                 <h2 className="text-lg max-sm:text-md font-semibold">{t('title')}</h2>
             </CardHeader>
             <CardContent className="pt-0">
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input placeholder={t('searchPlaceholder')} disabled className="pl-10"/>
-                </div>
+                <SearchField placeholder={t('searchPlaceholder')} disabled/>
                 <Tabs value="0" className="mb-4">
                     <TabsList className="grid w-full grid-cols-3">
                         {rankingModes.map((mode, index) => (

@@ -1,17 +1,17 @@
 'use client'
 import {use, useEffect, useState} from 'react';
 import {useTranslations} from 'next-intl';
-import {Search, Users} from 'lucide-react';
+import {Users} from 'lucide-react';
 import {fetchUrl, simpleRandom} from "utils/generalUtils";
 import {GlobalBriefPlayers} from "types/players";
 import {Card, CardContent, CardHeader} from "components/ui/card";
-import {Input} from "components/ui/input";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import ErrorCatch from "components/ui/ErrorMessage.tsx";
 import GlobalPlayerRow from "./GlobalPlayerRow.tsx";
 import {useDebounced} from "lib/hooks/useDebounced";
 import {useResource} from "lib/hooks/useResource";
+import {SearchField} from "./OnlinePlayers";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -68,10 +68,7 @@ export function GlobalPlayerListLoading() {
                 </div>
             </CardHeader>
             <CardContent className="pt-0">
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input placeholder={t('searchPlaceholder')} disabled className="pl-10"/>
-                </div>
+                <SearchField placeholder={t('searchPlaceholder')} disabled/>
                 <GlobalPlayerListSkeleton/>
             </CardContent>
         </Card>
@@ -117,15 +114,7 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
                 </div>
             </CardHeader>
             <CardContent className="pt-0">
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input
-                        placeholder={t('searchPlaceholder')}
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        className="pl-10"
-                    />
-                </div>
+                <SearchField placeholder={t('searchPlaceholder')} value={searchInput} onChange={(e) => setSearchInput(e.target.value)}/>
 
                 {loading ? (
                     <GlobalPlayerListSkeleton/>
