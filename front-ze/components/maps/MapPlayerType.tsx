@@ -1,10 +1,10 @@
 'use client'
-import { useEffect, useMemo, useState} from "react";
+import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
 import {fetchServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils.ts";
 import {LazyDoughnutChart as Doughnut} from 'components/graphs/LazyCharts';
 import { Chart as ChartJS, ArcElement, Legend } from 'chart.js';
 import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
@@ -21,7 +21,9 @@ import {useTranslations, useLocale} from 'next-intl';
 
 ChartJS.register(ArcElement, Legend);
 
-function MapPlayerTypeDisplay() {
+type MapPlayerTypeProps = { initialDataPromise?: Promise<MapPlayerTypeTime[] | null> }
+
+function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
     const t = useTranslations('maps.playerType');
     const tCommon = useTranslations('common');
     const locale = useLocale();
@@ -31,14 +33,20 @@ function MapPlayerTypeDisplay() {
     const server_id = server.id
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
-    const [loading, setLoading] = useState<boolean>(true);
+    const initialData = initialDataPromise ? use(initialDataPromise) : null
+    const [loading, setLoading] = useState<boolean>(initialData === null);
     const [error, setError] = useState<Error | null>(null);
-    const [playerTypes, setPlayerTypes] = useState<MapPlayerTypeTime[]>([]);
+    const [playerTypes, setPlayerTypes] = useState<MapPlayerTypeTime[]>(initialData ?? []);
+    const isFirstRun = useRef(initialData !== null)
     const [retryTick, setRetryTick] = useState(0)
     const notReady = error instanceof StillCalculate
     useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false
+            return
+        }
         if (!name) return
         setLoading(true);
         setError(null);
@@ -167,9 +175,11 @@ function MapPlayerTypeDisplay() {
     </Card>
     );
 }
-export default function MapPlayerType(){
+export default function MapPlayerType({ initialDataPromise }: MapPlayerTypeProps){
     const t = useTranslations('maps.playerType');
     return <ErrorCatch message={t('loadError')}>
-        <MapPlayerTypeDisplay />
+        <Suspense fallback={<EmptyMapContext><MapPlayerTypeDisplay /></EmptyMapContext>}>
+            <MapPlayerTypeDisplay initialDataPromise={initialDataPromise} />
+        </Suspense>
     </ErrorCatch>
 }

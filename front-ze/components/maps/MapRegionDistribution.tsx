@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState} from "react";
+import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
 import dayjs from "dayjs";
 import {LazyBarChart} from "components/graphs/LazyCharts";
 import {BarController, BarElement, Chart as ChartJS, Legend, Tooltip} from "chart.js";
@@ -8,7 +8,7 @@ import { Skeleton } from "../ui/skeleton";
 import { Table, TableBody, TableCell, TableRow } from "../ui/table";
 import {fetchServerUrl, fetchUrl, REGION_COLORS, StillCalculate} from "utils/generalUtils.ts";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
@@ -26,13 +26,21 @@ ChartJS.register(
 )
 
 
-function RegionDistribution() {
+type MapRegionDistributionProps = {
+    initialDataPromise?: Promise<MapRegion[] | null>,
+    regionsPromise?: Promise<Region[] | null>,
+}
+
+function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDistributionProps) {
     const t = useTranslations('maps.regionDistribution');
     const { name } = useMapContext();
     const { period } = usePeriod();
-    const [detail, setDetail] = useState<MapRegion[] | null>(null);
-    const [ regions, setRegions ] = useState<Region[] | null>(null)
-    const [loading, setLoading] = useState<boolean>(true);
+    const initialData = initialDataPromise ? use(initialDataPromise) : null
+    const initialRegions = regionsPromise ? use(regionsPromise) : null
+    const [detail, setDetail] = useState<MapRegion[] | null>(initialData);
+    const [ regions, setRegions ] = useState<Region[] | null>(initialRegions)
+    const [loading, setLoading] = useState<boolean>(initialData === null);
+    const isFirstRun = useRef(initialData !== null && initialRegions !== null)
     const [error, setError] = useState<string | null>(null);
     const [notReady, setNotReady] = useState<boolean>(false);
     const { server } = useServerData()
@@ -41,10 +49,14 @@ function RegionDistribution() {
     useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false
+            return
+        }
+        if (!name) return
         fetchUrl(`/graph/${server_id}/get_regions`)
             .then(setRegions)
             .catch(() => setRegions(r => r ?? []))
-        if (!name) return
         setLoading(true);
         setError(null);
         setNotReady(false);
@@ -260,9 +272,11 @@ function RegionDistribution() {
     );
 }
 
-export default function MapRegionDistribution(){
+export default function MapRegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDistributionProps){
     const t = useTranslations('maps.regionDistribution');
     return <ErrorCatch message={t('loadError')}>
-        <RegionDistribution />
+        <Suspense fallback={<EmptyMapContext><RegionDistribution /></EmptyMapContext>}>
+            <RegionDistribution initialDataPromise={initialDataPromise} regionsPromise={regionsPromise} />
+        </Suspense>
     </ErrorCatch>
 }

@@ -1,5 +1,5 @@
 'use client'
-import {ReactElement, useDeferredValue, useEffect, useState} from "react";
+import {ReactElement, Suspense, use, useDeferredValue, useEffect, useRef, useState} from "react";
 import { Info, AlertTriangle, Search, Loader2 } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableRow } from "../ui/table";
 import {fetchApiServerUrl, fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import PlayerTableRow, {PlayerTableRowLoading} from "../players/PlayerTableRow.tsx";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
@@ -25,13 +25,16 @@ const SUGGESTION_MIN_CHARS = 3
 const SUGGESTION_DEBOUNCE_MS = 100
 const COMMIT_DEBOUNCE_MS = 2000
 
-function MapTopPlayerListDisplay(): ReactElement{
+type MapTopPlayerListProps = { initialDataPromise?: Promise<BriefPlayers | null> }
+
+function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps): ReactElement{
     const t = useTranslations('maps.top10');
     const { name } = useMapContext()
     const { period } = usePeriod()
     const [ currentPage, setPage ] = useState<number>(0)
     const pageDef = useDeferredValue(currentPage)
-    const [ playersInfoResult, setPlayerInfo ] = useState<BriefPlayers | null>(null)
+    const initialData = initialDataPromise ? use(initialDataPromise) : null
+    const [ playersInfoResult, setPlayerInfo ] = useState<BriefPlayers | null>(initialData)
     const [ loading, setLoading ] = useState<boolean>(false)
     const [ error, setError ] = useState<string | null>(null)
     const [ notReady, setNotReady ] = useState<boolean>(false)
@@ -44,10 +47,12 @@ function MapTopPlayerListDisplay(): ReactElement{
     const { server } = useServerData()
     const server_id = server.id
     const isSuggestionsOpen = suggestionsOpen && (suggestionsLoading || suggestions.length > 0)
+    const isFirstRun = useRef(initialData !== null)
     const [retryTick, setRetryTick] = useState(0)
     useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
+        if (isFirstRun.current) return
         setPlayerInfo(null)
         setPage(0)
         setSearchInput('')
@@ -57,6 +62,10 @@ function MapTopPlayerListDisplay(): ReactElement{
     }, [server_id, name, period])
 
     useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false
+            return
+        }
         if (!name) return
         const abortController = new AbortController()
         const signal = abortController.signal
@@ -259,9 +268,11 @@ function MapTopPlayerListDisplay(): ReactElement{
         </Card>
     )
 }
-export default function MapTopPlayerList(): ReactElement{
+export default function MapTopPlayerList({ initialDataPromise }: MapTopPlayerListProps): ReactElement{
     const t = useTranslations('maps.top10');
     return <ErrorCatch message={t('loadError')}>
-        <MapTopPlayerListDisplay />
+        <Suspense fallback={<EmptyMapContext><MapTopPlayerListDisplay /></EmptyMapContext>}>
+            <MapTopPlayerListDisplay initialDataPromise={initialDataPromise} />
+        </Suspense>
     </ErrorCatch>
 }

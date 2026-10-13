@@ -3,7 +3,7 @@ import {BarController, BarElement, CategoryScale, Chart as ChartJS, Legend, Line
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import {LazyBarChart, LazyMatrixChart} from "components/graphs/LazyCharts";
 import {color} from "chart.js/helpers";
-import { useEffect, useMemo, useState} from "react";
+import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { Info, AlertTriangle } from "lucide-react";
@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 import { Skeleton } from "../ui/skeleton";
 import {fetchServerUrl, formatHours, formatNumber, REGION_COLORS, StillCalculate} from "utils/generalUtils.ts";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {isShortPeriod, PeriodChip, rangeDays, splitRange, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
@@ -34,14 +34,31 @@ type HeatRegionData = {
     v: DailyMapRegion,
 }
 
-function MapHeatRegionDisplay(){
+function toHeatRegionData(resp: DailyMapRegion[]): HeatRegionData[] {
+    return resp.map(e => {
+        const dt = dayjs.utc(e.date)
+        const iso = dt.format("YYYY-MM-DD")
+        return {
+            x: iso,
+            y: dt.locale('en').format('ddd'),
+            d: iso,
+            v: e
+        }
+    })
+}
+
+type MapHeatRegionProps = { initialDataPromise?: Promise<DailyMapRegion[] | null> }
+
+function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
     const t = useTranslations('maps.heatRegion');
     const tRegion = useTranslations('maps.regionDistribution');
     const locale = useLocale();
     const { name } = useMapContext()
     const { period } = usePeriod()
-    const [ loading, setLoading ] = useState<boolean>(true)
-    const [ regions, setRegions ] = useState<HeatRegionData[]>([])
+    const initialData = initialDataPromise ? use(initialDataPromise) : null
+    const [ loading, setLoading ] = useState<boolean>(initialData === null)
+    const [ regions, setRegions ] = useState<HeatRegionData[]>(() => initialData ? toHeatRegionData(initialData) : [])
+    const isFirstRun = useRef(initialData !== null)
     const [ error, setError ] = useState<Error | null>(null)
     const notReady = error && error instanceof StillCalculate
     const {server} = useServerData()
@@ -50,21 +67,16 @@ function MapHeatRegionDisplay(){
     useNotReadyRetry(!!notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false
+            return
+        }
         if (!name) return
         setLoading(true)
         setError(null)
         setRegions([])
         fetchServerUrl(server_id, `/maps/${name}/heat-regions`, period ? { params: { period } } : {})
-            .then((resp: DailyMapRegion[]) => resp.map(e => {
-                const dt = dayjs.utc(e.date)
-                const iso = dt.format("YYYY-MM-DD")
-                return {
-                    x: iso,
-                    y: dt.locale('en').format('ddd'),
-                    d: iso,
-                    v: e
-                }
-            }))
+            .then(toHeatRegionData)
             .then(setRegions)
             .catch(setError)
             .finally(() => setLoading(false))
@@ -381,9 +393,11 @@ function MapHeatRegionDisplay(){
         </div>
     )
 }
-export default function MapHeatRegion(){
+export default function MapHeatRegion({ initialDataPromise }: MapHeatRegionProps){
     const t = useTranslations('maps.heatRegion');
     return <ErrorCatch message={t('loadError')}>
-        <MapHeatRegionDisplay />
+        <Suspense fallback={<EmptyMapContext><MapHeatRegionDisplay /></EmptyMapContext>}>
+            <MapHeatRegionDisplay initialDataPromise={initialDataPromise} />
+        </Suspense>
     </ErrorCatch>
 }
