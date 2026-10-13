@@ -6,6 +6,7 @@ import {DateProvider} from "components/graphs/DateStateManager.tsx";
 import ServerContent from "./ServerContent.tsx";
 import {createServerDescription} from "./page.tsx";
 import {Server} from "types/community.ts";
+import {fetchServerUrl} from "utils/generalUtils.ts";
 
 
 export function ServerContentWrapper({ serverPromise }: { serverPromise: Promise<Server> }) {
@@ -14,12 +15,13 @@ export function ServerContentWrapper({ serverPromise }: { serverPromise: Promise
 
     if (!server) throw notFound()
 
+    const mapSessionsPromise = fetchServerUrl(server.id, '/maps/all/sessions', { params: { page: 0 } }).catch(() => null)
     const description = use(createServerDescription(server))
 
     return <>
         <ErrorCatch message={t('pageBroken')}>
             <DateProvider>
-                <ServerContent server={server} description={description} />
+                <ServerContent server={server} description={description} mapSessionsPromise={mapSessionsPromise} />
             </DateProvider>
         </ErrorCatch>
     </>

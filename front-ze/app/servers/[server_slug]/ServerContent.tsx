@@ -1,8 +1,8 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import { useState, Activity } from "react";
+import { useState, Activity, Suspense } from "react";
 import PlayerList from "components/players/PlayerList.tsx";
-import MapGraphList from "components/maps/MapGraphList.tsx";
+import MapGraphList, {MapGraphListLoading} from "components/maps/MapGraphList.tsx";
 import dynamic from "next/dynamic";
 import {Info, Play} from "lucide-react";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import { cn } from "components/lib/utils";
 
 import {DateSources, useDateState} from "components/graphs/DateStateManager";
 import {Server} from "types/community";
+import {ServerMapPlayedPaginated} from "types/maps";
 import {getServerAvatarText} from "components/ui/CommunitySelector.tsx";
 import { Avatar, AvatarImage, AvatarFallback } from "components/ui/avatar";
 import { Card, CardContent } from "components/ui/card";
@@ -51,7 +52,11 @@ const META_SPAN = {
     4: "col-span-12 sm:col-span-6 lg:col-span-3 xl:col-span-2",
 } as const
 
-export default function ServerContent({ server, description }: {server: Server, description: string}) {
+export default function ServerContent({ server, description, mapSessionsPromise }: {
+    server: Server,
+    description: string,
+    mapSessionsPromise: Promise<ServerMapPlayedPaginated | null>,
+}) {
     const t = useTranslations('servers.content');
     const [ showPlayers, setShowPlayers ] = useState<boolean>(false);
     const [graphLoading, setGraphLoading] = useState<boolean>(false);
@@ -190,7 +195,9 @@ export default function ServerContent({ server, description }: {server: Server, 
 
                 <div className="col-span-12 md:col-span-12 xl:col-span-9">
                     <Card className="min-h-[336px]">
-                        <MapGraphList onDateChange={handleDateForceChange} />
+                        <Suspense fallback={<MapGraphListLoading />}>
+                            <MapGraphList onDateChange={handleDateForceChange} initialDataPromise={mapSessionsPromise} />
+                        </Suspense>
                     </Card>
                 </div>
                 <div className="col-span-12 md:col-span-12 xl:col-span-3">
