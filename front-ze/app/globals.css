@@ -61,7 +61,9 @@ html {
     --foreground: oklch(0.145 0.08 35);
 }
 .body-before-footer{
-    min-height: calc(100vh - 127px);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 .chart-wrapper{
     padding: 1rem;
