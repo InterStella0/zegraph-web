@@ -16,6 +16,7 @@ import ResolveMapSession from "./ResolveMapSession.tsx";
 import {MapSessionWrapperLoading} from "./MapSessionWrapper.tsx";
 import getSessionData from "./utils.ts";
 import { getTranslations } from 'next-intl/server';
+import { notFound } from 'next/navigation';
 
 dayjs.extend(relativeTime);
 dayjs.extend(timezone)
@@ -105,6 +106,12 @@ export async function generateMetadata({ params }: {
 export default async function Page({ params }) {
     const { session_id, server_slug, map_name } = await params;
     const server = await getServerSlugOrNotFound(server_slug);
+    try {
+        await getSessionInfo(server.id, session_id, "map", map_name);
+    } catch (error: any) {
+        if (error?.code === 404 || error?.code === 400) notFound();
+        throw error;
+    }
 
     const sessionDataPromise = getSessionData(server, map_name, session_id);
 

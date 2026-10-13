@@ -757,7 +757,7 @@ impl Display for ThumbnailType {
         }
     }
 }
-#[derive(Object, Serialize, Deserialize)]
+#[derive(Object, Serialize, Deserialize, Clone)]
 pub struct MapImage{
     pub map_name: String,
     pub game_type: String,

@@ -32,8 +32,9 @@ export default async function Page({ params }: {
     let model: Character3DModel | null = null
     try {
         model = await fetchServerUrl(server.id, `/characters/${character_model_id}/3d`)
-    } catch {
-        notFound()
+    } catch (error: any) {
+        if (error?.code === 404) notFound()
+        throw error
     }
 
     const displayName = model.name ?? model.model_id

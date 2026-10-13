@@ -1,6 +1,7 @@
 'use client'
 import {Heart} from 'lucide-react';
-import {getMapImage, secondsToHours} from "utils/generalUtils";
+import {secondsToHours} from "utils/generalUtils";
+import {loadMapImage} from "lib/batchLoader";
 import {StatusChip} from "./MapsTable";
 import dayjs from "dayjs";
 import {Dispatch, useEffect, useState} from "react";
@@ -53,7 +54,7 @@ function MapCardView({ server, map, favorites, toggleFavorite }){
     const server_id = server.id
     const [mapImage, setMapImage] = useState(null);
     useEffect(() => {
-        getMapImage(server_id, map.map).then(e => setMapImage(e? e.large: null))
+        loadMapImage(map.map, server_id).then(e => setMapImage(e? e.large: null))
     }, [server_id, map.map])
 
     return (

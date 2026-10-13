@@ -2,6 +2,7 @@ import {ReactNode} from 'react';
 import {getLocale, getTranslations} from 'next-intl/server';
 import {ChevronRight, Map as MapIcon, Server, User, Wrench} from 'lucide-react';
 import {Badge} from 'components/ui/badge';
+import {Skeleton} from 'components/ui/skeleton';
 import {BACKEND_DOMAIN} from 'utils/generalUtils';
 
 type ArgumentSchema = {
@@ -117,6 +118,32 @@ async function ToolCard({tool, toolNames}: { tool: McpTool, toolNames: Set<strin
                 </details>
             )}
         </article>
+    );
+}
+
+export function McpToolListLoading() {
+    return (
+        <section className="space-y-6">
+            <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                    <Wrench className="size-5 text-primary" />
+                    <Skeleton className="h-7 w-40" />
+                </div>
+                <Skeleton className="h-5 w-full max-w-md" />
+            </div>
+            <div className="space-y-3">
+                <Skeleton className="h-6 w-32" />
+                <div className="grid gap-3 md:grid-cols-2">
+                    {Array.from({length: 6}).map((_, i) => (
+                        <div key={i} className="space-y-2 rounded-lg border bg-card p-4">
+                            <Skeleton className="h-5 w-1/2" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-4/5" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
     );
 }
 

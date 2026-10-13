@@ -2,11 +2,13 @@
 import {
     createContext,
     ReactNode,
+    Suspense,
     use,
     useCallback,
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from "react";
 import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
@@ -57,6 +59,35 @@ export function PlayerStatsPatchProvider({ children }: { children: ReactNode }) 
     return <PlayerStatsPatchContext.Provider value={value}>{children}</PlayerStatsPatchContext.Provider>;
 }
 
+type PlayerStatSeeds = {
+    promises: Record<string, Promise<unknown>>,
+    idle: boolean,
+};
+
+const PlayerStatSeedsContext = createContext<PlayerStatSeeds | null>(null);
+
+const IDLE_SEEDS: PlayerStatSeeds = { promises: {}, idle: true };
+
+export function PlayerStatSeedsProvider({ promises, children }: {
+    promises: Record<string, Promise<unknown>>,
+    children: ReactNode,
+}) {
+    const value = useMemo(() => ({ promises, idle: false }), [promises]);
+    return <PlayerStatSeedsContext.Provider value={value}>{children}</PlayerStatSeedsContext.Provider>;
+}
+
+export function PlayerStatSuspense({ children }: { children: ReactNode }) {
+    const fallback = <PlayerStatSeedsContext.Provider value={IDLE_SEEDS}>{children}</PlayerStatSeedsContext.Provider>;
+    return <Suspense fallback={fallback}>{children}</Suspense>;
+}
+
+export function usePlayerStatSeed<T>(path: string, enabled: boolean = true): { seed: T | null, idle: boolean } {
+    const seeds = useContext(PlayerStatSeedsContext);
+    const idle = !!seeds?.idle;
+    const promise = enabled && !idle ? seeds?.promises[path] as Promise<T | null> | undefined : undefined;
+    return { seed: promise ? use(promise) : null, idle };
+}
+
 export function usePlayerStatsPatch(): PlayerStatsPatchValue | null {
     return useContext(PlayerStatsPatchContext);
 }
@@ -81,14 +112,20 @@ export function usePlayerStat<T>(
     const ctx = useContext(PlayerStatsPatchContext);
     const { period } = usePlayerPeriod();
     const patch = period ? undefined : ctx?.patches[path] as T | undefined;
+    const { seed, idle } = usePlayerStatSeed<T>(path, enabled && !period);
 
-    const active = enabled && !!serverId && !!playerId;
-    const [fetched, setFetched] = useState<T | null>(null);
-    const [loading, setLoading] = useState<boolean>(active);
+    const active = enabled && !!serverId && !!playerId && !idle;
+    const [fetched, setFetched] = useState<T | null>(seed);
+    const [loading, setLoading] = useState<boolean>(idle || (active && seed === null));
     const [error, setError] = useState<Error | null>(null);
+    const isFirstRun = useRef(seed !== null);
 
     useEffect(() => {
         if (!active) return;
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
 
         let cancelled = false;
         let timer: ReturnType<typeof setTimeout> | undefined;

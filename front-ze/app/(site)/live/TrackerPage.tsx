@@ -265,6 +265,8 @@ function PlayerActivity({event}){
     );
 }
 
+const MAX_EVENTS = 200;
+
 export default function LiveServerTrackerPage(){
     const t = useTranslations('tracker');
     const [events, setEvents] = useState([]);
@@ -273,6 +275,7 @@ export default function LiveServerTrackerPage(){
     const eventSourceRef = useRef(null);
 
     const [counters, setCounters] = useState({
+        all: 0,
         playerActivity: 0,
         mapActivity: 0,
         infraction: 0
@@ -308,11 +311,11 @@ export default function LiveServerTrackerPage(){
                 }
 
                 setEvents(prevEvents => {
-                    return [newEvent, ...prevEvents];
+                    return [newEvent, ...prevEvents].slice(0, MAX_EVENTS);
                 });
 
                 setCounters(prev => {
-                    const updatedCounters = { ...prev };
+                    const updatedCounters = { ...prev, all: prev.all + 1 };
 
                     if (newEvent.channel === 'player_activity') {
                         updatedCounters.playerActivity += 1;
@@ -423,7 +426,7 @@ export default function LiveServerTrackerPage(){
                     <TabsList className="bg-muted/80 p-1 rounded-lg w-full overflow-x-auto">
                         <TabsTrigger value="0" className="flex items-center gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:font-bold">
                             <Badge variant="outline" className="h-5 min-w-[20px]">
-                                {events.length}
+                                {counters.all}
                             </Badge>
                             <Zap className="h-4 w-4" />
                             <span className="hidden sm:inline">{t('allEvents')}</span>

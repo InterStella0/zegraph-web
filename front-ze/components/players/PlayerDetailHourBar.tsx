@@ -16,6 +16,7 @@ import { Server } from "types/community.ts";
 import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import type { PlayerSessionTime } from "./PlayTimeHeatmap";
 import { PeriodChip, splitPeriod, splitRange, usePlayerPeriod } from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import { PlayerStatSuspense } from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 
 export default function PlayerDetailHourBar({ player, server }: { server: Server, player: PlayerInfo }) {
     const t = useTranslations('players.hourBar');
@@ -224,18 +225,20 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
             </div>
 
             <div className="p-1 min-h-[180px] sm:min-h-[220px]">
-                <PlayTimeHeatmap
-                    groupBy={viewGroupBy}
-                    player={player}
-                    server={server}
-                    selectedYear={viewYear}
-                    selectedMonth={viewMonth}
-                    sumMethodYearly={viewSumMethod}
-                    onDataLoaded={handleDataLoaded}
-                    onChangeTotalPlayed={setTotalPlayTime}
-                    rangeFrom={range?.from.toISOString().slice(0, 10)}
-                    rangeTo={range?.to.toISOString().slice(0, 10)}
-                />
+                <PlayerStatSuspense>
+                    <PlayTimeHeatmap
+                        groupBy={viewGroupBy}
+                        player={player}
+                        server={server}
+                        selectedYear={viewYear}
+                        selectedMonth={viewMonth}
+                        sumMethodYearly={viewSumMethod}
+                        onDataLoaded={handleDataLoaded}
+                        onChangeTotalPlayed={setTotalPlayTime}
+                        rangeFrom={range?.from.toISOString().slice(0, 10)}
+                        rangeTo={range?.to.toISOString().slice(0, 10)}
+                    />
+                </PlayerStatSuspense>
             </div>
         </Card>
     )

@@ -5,6 +5,7 @@ import { Bell, BellOff } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import { Switch } from 'components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'components/ui/card';
+import { Skeleton } from 'components/ui/skeleton';
 import { usePushNotifications } from 'lib/hooks/usePushNotifications';
 import {fetchApiUrl} from 'utils/generalUtils';
 import { toast } from 'sonner';
@@ -60,6 +61,20 @@ export default function NotificationSettingsPage() {
       setSavingPreferences(false);
     }
   };
+
+  if (isSupported === null) {
+    return (
+      <div className="container max-w-4xl mx-auto p-6 space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">{t('title')}</h1>
+          <p className="text-muted-foreground">
+            {t('subtitle')}
+          </p>
+        </div>
+        <Skeleton className="h-48 w-full rounded-xl" />
+      </div>
+    );
+  }
 
   if (!isSupported) {
     return (

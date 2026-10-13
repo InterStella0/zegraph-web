@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use poem::http::StatusCode;
 use poem::web::{Data, Json};
@@ -827,6 +828,33 @@ impl MapApi{
             return response!(internal_server_error)
         };
         response!(ok d)
+    }
+    /// The best matching map image for each of up to 100 comma-separated map names, keyed by the
+    /// requested name. Names with no match are left out.
+    #[oai(path="/servers/:server_id/maps/images", method="get")]
+    async fn get_server_maps_images(
+        &self, Data(app): Data<&AppData>, Query(maps): Query<KeyList>, ServerExtractor(server): ServerExtractor
+    ) -> Response<HashMap<String, MapImage>>{
+        let game = server.game.unwrap_or(String::from(GAME_TYPES[0]));
+        let images: Vec<MapImage> = get_map_images(&app.cache)
+            .await
+            .into_iter()
+            .filter(|e| e.game_type == game)
+            .collect();
+        let map_names: Vec<String> = images
+            .iter()
+            .map(|e| e.map_name.clone())
+            .collect();
+        let mut result = HashMap::new();
+        for map_name in maps.0 {
+            let Some(map_image) = get_map_image(&map_name, &map_names) else {
+                continue
+            };
+            if let Some(image) = images.iter().find(|e| e.map_name == map_image) {
+                result.insert(map_name, image.clone());
+            }
+        }
+        response!(ok result)
     }
     /// Average counts of tracked in-game events for a map. Backed by `MapWorker`'s cache.
     #[oai(path="/servers/:server_id/maps/:map_name/events", method="get")]
@@ -2053,6 +2081,7 @@ impl UriPatternExt for MapApi{
     fn get_all_patterns(&self) -> Vec<RoutePattern> {
         vec![
             "/servers/{server_id}/maps/{map_name}/images",
+            "/servers/{server_id}/maps/images",
             "/servers/{server_id}/maps/autocomplete",
             "/servers/{server_id}/match-now",
             "/servers/{server_id}/maps/last/sessions",

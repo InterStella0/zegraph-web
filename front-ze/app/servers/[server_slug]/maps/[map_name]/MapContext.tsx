@@ -6,12 +6,18 @@ import {useServerData} from "../../ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {usePeriod} from "components/period/Period";
 
-export const MapContext = createContext<ServerMapDetail>({
+const EMPTY_MAP: ServerMapDetail = {
     name: "",
     analyze: null,
     notReady: false,
     info: null
-})
+}
+
+export const MapContext = createContext<ServerMapDetail>(EMPTY_MAP)
+
+export function EmptyMapContext({ children }: { children: ReactNode }) {
+    return <MapContext.Provider value={EMPTY_MAP}>{children}</MapContext.Provider>;
+}
 
 type PeriodAnalyze = { period: string, analyze: MapAnalyze | null, notReady: boolean };
 

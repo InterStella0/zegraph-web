@@ -4,7 +4,7 @@ import MapsFilterTabs, {FilterTypes} from "components/maps/MapsFilterTab.tsx";
 import MapsTable from "components/maps/MapsTable";
 import MapsMobileView from "components/maps/MapsMobileView";
 import LoginDialog from "components/ui/LoginDialog.tsx";
-import {use, useEffect, useState} from "react";
+import {use, useEffect, useRef, useState} from "react";
 import {fetchApiServerUrl, fetchServerUrl} from "utils/generalUtils";
 import {MapPlayedPaginated, ServerMap} from "types/maps.ts";
 import {ServerSlugPromise} from "../util.ts";
@@ -15,14 +15,25 @@ import {useTranslations} from 'next-intl';
 
 export type SortByIndex = "LastPlayed" |  "HighestCumHour" |  "UniquePlayers" |  "FrequentlyPlayed" |  "HighestHour"
 
-export default function MapsSearchIndex({ serverPromise, userPromise }: { serverPromise: ServerSlugPromise, userPromise: Promise<SteamProfile | null> }) {
+function favoritesOf(data: MapPlayedPaginated | null): Set<string> {
+    return new Set(data?.maps.filter(map => map.is_favorite).map(map => map.map) ?? []);
+}
+
+export default function MapsSearchIndex({ serverPromise, userPromise, initialDataPromise, idle = false }: {
+    serverPromise: ServerSlugPromise,
+    userPromise: Promise<SteamProfile | null>,
+    initialDataPromise?: Promise<MapPlayedPaginated | null>,
+    idle?: boolean,
+}) {
     const t = useTranslations('maps.searchIndex');
     const server = use(serverPromise)
     const user = use(userPromise)
+    const initialData = initialDataPromise ? use(initialDataPromise) : null
     const server_id = server.id;
     const { getSubscriptionType, refresh: refreshNotifications } = useMapNotifications(!!user);
-    const [mapsData, setMapsData] = useState<MapPlayedPaginated | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [mapsData, setMapsData] = useState<MapPlayedPaginated | null>(initialData);
+    const [loading, setLoading] = useState<boolean>(initialData === null);
+    const isFirstRun = useRef(initialData !== null);
     const [, setError] = useState<string | null>(null);
     const [autocompleteOptions, setAutocompleteOptions] = useState<ServerMap[]>([]);
 
@@ -30,7 +41,7 @@ export default function MapsSearchIndex({ serverPromise, userPromise }: { server
     const [searchInput, setSearchInput] = useState<string>('');
     const [sortBy, setSortBy] = useState<SortByIndex>('LastPlayed');
     const [filterTab, setFilterTab] = useState<FilterTypes>('all');
-    const [favorites, setFavorites] = useState<Set<string>>(new Set());
+    const [favorites, setFavorites] = useState<Set<string>>(() => user ? favoritesOf(initialData) : new Set());
     const [page, setPage] = useState<number>(0);
     const [autocompleteLoading, setAutocompleteLoading] = useState<boolean>(false);
     const [loginDialogOpen, setLoginDialogOpen] = useState<boolean>(false);
@@ -76,7 +87,11 @@ export default function MapsSearchIndex({ serverPromise, userPromise }: { server
     }, [server_id, searchInput]);
 
     useEffect(() => {
-        if (!server_id) return;
+        if (!server_id || idle) return;
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
 
         const loadMaps = async () => {
             try {
@@ -95,13 +110,7 @@ export default function MapsSearchIndex({ serverPromise, userPromise }: { server
                 setMapsData(data);
 
                 if (user && data?.maps) {
-                    const favoriteSet = new Set<string>();
-                    data.maps.forEach(map => {
-                        if (map.is_favorite) {
-                            favoriteSet.add(map.map);
-                        }
-                    });
-                    setFavorites(favoriteSet);
+                    setFavorites(favoritesOf(data));
                 }
             } catch (err) {
                 setError(err.message || t('loadFailed'));

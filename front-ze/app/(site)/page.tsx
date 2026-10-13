@@ -4,7 +4,7 @@ import {Suspense} from "react";
 import {AdSpot} from "components/ui/AdSpot";
 import HomePopulationRadar from "components/home/HomePopulationRadar";
 import HomeFaq from "components/home/HomeFaq";
-import {fetchGlobalContinents} from "components/home/homeData";
+import {fetchGlobalContinents, fetchPopulationSeed} from "components/home/homeData";
 import {getTranslations} from "next-intl/server";
 import {Metadata} from "next";
 import {DOMAIN, socialMeta} from "utils/generalUtils.ts";
@@ -26,6 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Page() {
     const communitiesDataPromise = getCommunity();
     const continentsPromise = fetchGlobalContinents();
+    const populationPromise = communitiesDataPromise.then(fetchPopulationSeed).catch(() => null);
     const t = await getTranslations('home');
 
     const jsonLd = [
@@ -71,7 +72,7 @@ export default async function Page() {
                         </p>
                     </div>
                     <AdSpot className="w-full" />
-                    <HomePopulationRadar continentsPromise={continentsPromise} />
+                    <HomePopulationRadar continentsPromise={continentsPromise} populationPromise={populationPromise} />
                     <section>
                         <Suspense fallback={<CommunityListLoading />}>
                             <CommunityList communitiesDataPromise={communitiesDataPromise} />

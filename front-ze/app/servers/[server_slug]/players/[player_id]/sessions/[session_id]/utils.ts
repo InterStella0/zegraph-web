@@ -38,14 +38,15 @@ async function getMapImages(server_id: string, player_id: string, session_id: st
 
 export async function getSessionData(server: Server, playerId: string, sessionId: string): Promise<SessionData> {
     const serverId = server.id;
-    const player: PlayerInfo = await getPlayerDetailed(serverId, playerId);
     const [
+        player,
         sessionInfo,
         maps,
         serverGraph,
         mutualSessions,
         mapImages
     ] = await Promise.all([
+        getPlayerDetailed(serverId, playerId),
         getSessionInfo(serverId, sessionId, "player", playerId),
         getMapsDataSession(serverId, playerId, sessionId),
         getServerGraph(serverId, sessionId, playerId, "player"),

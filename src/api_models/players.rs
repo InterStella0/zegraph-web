@@ -332,6 +332,16 @@ pub struct PlayerProfilePicture{
     pub medium: String,
 }
 
+impl PlayerProfilePicture {
+    pub fn from_full_url(id: String, full: String) -> Self {
+        let medium = match full.split_once("_full"){
+            Some((medium, ext)) => format!("{medium}_medium{ext}"),
+            None => full.clone()
+        };
+        PlayerProfilePicture{ id, full, medium }
+    }
+}
+
 /// An autocomplete search result.
 #[derive(Object)]
 pub struct SearchPlayer{

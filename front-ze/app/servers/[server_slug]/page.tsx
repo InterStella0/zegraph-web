@@ -12,20 +12,19 @@ import { getTranslations } from 'next-intl/server';
 export async function createServerDescription(server: Server): Promise<string> {
     const t = await getTranslations('metadata');
     let description = t('serverIntro', {name: server?.community_name, ip: server.fullIp});
-    try{
-        const stats: ServerPlayersStatistic = await getCachedPlayerStats(server.id);
+    const parameters = {
+        page: 1, sorted_by: 'LastPlayed'
+    }
+    const [stats, data]: [ServerPlayersStatistic | null, MapPlayedPaginated | null] = await Promise.all([
+        getCachedPlayerStats(server.id).catch(() => null),
+        fetchServerUrl(server.id, '/maps/last/sessions', { params: parameters }).catch(() => null),
+    ]);
+    if (stats){
         const allTime = stats.all_time
         description += ' ' + t('uniquePlayers', {players: allTime.total_players.toLocaleString('en-US'), countries: allTime.countries});
-    }catch(e){}
-
-    try{
-        const parameters = {
-            page: 1, sorted_by: 'LastPlayed'
-        }
-        const data: MapPlayedPaginated = await fetchServerUrl(server.id, '/maps/last/sessions', { params: parameters });
-
+    }
+    if (data)
         description += ' ' + t('mapsPlayed', {count: data.total_maps});
-    }catch(e){}
     if (server.players)
         description += ' ' + t('playersOnline', {count: server.players});
 
