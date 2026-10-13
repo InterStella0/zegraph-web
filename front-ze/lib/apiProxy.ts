@@ -35,12 +35,18 @@ async function withTimeout(endpoint: string, timeoutMs: number, run: (signal: Ab
     }
 }
 
+const passThrough = async (response: Response) =>
+    new Response(await response.text(), {
+        status: response.status,
+        headers: { 'Content-Type': response.headers.get('Content-Type') ?? 'application/json' },
+    });
+
 function callBackend(
     endpoint: string,
     backendUrl: URL,
     init: RequestInit,
     timeoutMs: number,
-    wrap: (response: NextResponse, data?: any) => Response = response => response
+    wrap: (response: Response, data?: any) => Response = response => response
 ) {
     return withTimeout(endpoint, timeoutMs, async signal => {
         const backendResponse = await fetch(backendUrl.toString(), { ...init, signal });
@@ -48,8 +54,7 @@ function callBackend(
             const data = await backendResponse.json();
             return wrap(NextResponse.json(data, { status: backendResponse.status }), data);
         }
-        const data = await backendResponse.text();
-        return wrap(NextResponse.json(data, { status: backendResponse.status }));
+        return wrap(await passThrough(backendResponse));
     });
 }
 
@@ -143,11 +148,6 @@ export const forwardRaw = (method: "POST" | "DELETE", path: RoutePath, body: 'fo
             return NextResponse.json({ msg: "Invalid request body", code: 400 }, { status: 400 });
         }
 
-        return withTimeout(endpoint, timeoutMs, async signal => {
-            const response = await fetch(BACKEND_DOMAIN + endpoint, { method, headers, body: payload, signal });
-            return new Response(await response.text(), {
-                status: response.status,
-                headers: { 'Content-Type': response.headers.get('Content-Type') ?? 'application/json' },
-            });
-        });
+        return withTimeout(endpoint, timeoutMs, async signal =>
+            passThrough(await fetch(BACKEND_DOMAIN + endpoint, { method, headers, body: payload, signal })));
     };

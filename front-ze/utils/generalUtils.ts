@@ -5,7 +5,7 @@ import {cookies} from "next/dist/server/request/cookies";
 
 const API_ROOT = "/data/api"
 const NEXTAPI_ROOT = "/api"
-export const BACKEND_DOMAIN = "http://backend:3000"
+export const BACKEND_DOMAIN = process.env.BACKEND_URL || "http://backend:3000"
 export const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://frontend:3000"
 export const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN ?? "https://zegraph.xyz";
 export const CONTACT_EMAIL = "contact@queeniemella.cc";
