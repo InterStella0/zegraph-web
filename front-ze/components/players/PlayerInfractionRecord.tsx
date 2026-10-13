@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {use, useEffect, useMemo, useState} from "react";
+import {use, useEffect, useMemo, useRef, useState} from "react";
 import {Skeleton} from "components/ui/skeleton";
 import {
     fetchApiServerUrl,
@@ -32,6 +32,7 @@ import Image from "next/image";
 import {Server} from "types/community.ts";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import {PeriodChip, periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 
 function ModalInfraction({ infraction, onClose }){
     const t = useTranslations('players.infractions');
@@ -61,13 +62,23 @@ function ModalInfraction({ infraction, onClose }){
 }
 
 
+function withInfractionFlags(infractions) {
+    return infractions.map(e => {
+        if (!(e.flags instanceof InfractionInt))
+            e.flags = new InfractionInt(e.flags, e.source);
+        return e;
+    });
+}
+
 function PlayerInfractionRecordBody({ updatedData, player, server }:
                                     { updatedData: PlayerInfraction[], player: PlayerInfo | StillCalculate, server: Server }) {
     const t = useTranslations('players.infractions');
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const server_id = server.id;
-    const [allInfractions, setInfractions] = useState([]);
-    const [loading, setLoading] = useState(playerId !== null);
+    const { seed, idle } = usePlayerStatSeed<PlayerInfraction[]>('infractions');
+    const [allInfractions, setInfractions] = useState(() => seed ? withInfractionFlags(seed) : []);
+    const [loading, setLoading] = useState(idle || (seed === null && playerId !== null));
+    const isFirstRun = useRef(seed !== null);
     const [viewInfraction, setViewInfraction] = useState(null);
     const { period } = usePlayerPeriod();
     const infractions = useMemo(() => {
@@ -81,14 +92,14 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
     }, [allInfractions, period]);
 
     useEffect(() => {
-        if (!playerId) return
+        if (!playerId || idle) return
+        if (isFirstRun.current) {
+            isFirstRun.current = false
+            return
+        }
 
         fetchApiServerUrl(server_id, `/players/${playerId}/infractions`)
-            .then((infras) => infras.map(e => {
-                if (!(e.flags instanceof InfractionInt))
-                    e.flags = new InfractionInt(e.flags, e.source);
-                return e;
-            }))
+            .then(withInfractionFlags)
             .then(e => setInfractions(e))
             .finally(() => setLoading(false));
     }, [server_id, playerId]);

@@ -23,7 +23,7 @@ export function usePushNotifications(isLogged: boolean) {
     error: null,
   });
 
-  const [isSupported, setIsSupported] = useState(false);
+  const [isSupported, setIsSupported] = useState<boolean | null>(null);
 
   useEffect(() => {
     setIsSupported(

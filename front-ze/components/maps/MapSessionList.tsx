@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState} from "react";
+import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
 import dayjs from "dayjs";
 import {fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import SessionPlayedGraph from "../graphs/SessionPlayedGraph.tsx";
@@ -7,12 +7,12 @@ import PaginationPage from "../ui/PaginationPage.tsx";
 import {Users, Trophy, AlertTriangle} from "lucide-react";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
-import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Link from "next/link";
-import {ServerMapPlayed} from "types/maps.ts";
+import {ServerMapPlayed, ServerMapPlayedPaginated} from "types/maps.ts";
 import {Skeleton} from "components/ui/skeleton";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "components/ui/tooltip";
 import {Button} from "components/ui/button";
@@ -21,14 +21,18 @@ import {Card} from "components/ui/card.tsx";
 
 dayjs.extend(relativeTime);
 
-function AllSessions(){
+type MapSessionListProps = { initialDataPromise?: Promise<ServerMapPlayedPaginated | null> }
+
+function AllSessions({ initialDataPromise }: MapSessionListProps){
     const t = useTranslations('maps.sessionList');
     const { name } = useMapContext();
     const { period } = usePeriod();
     const [page, setPage] = useState<number>(0)
-    const [ sessions, setSessions ] = useState<ServerMapPlayed[]>([])
-    const [ totalSessions, setTotalSessions ] = useState(0)
-    const [ loading, setLoading ] = useState<boolean>(true)
+    const initialData = initialDataPromise ? use(initialDataPromise) : null
+    const [ sessions, setSessions ] = useState<ServerMapPlayed[]>(initialData?.maps ?? [])
+    const [ totalSessions, setTotalSessions ] = useState(initialData?.total_sessions ?? 0)
+    const [ loading, setLoading ] = useState<boolean>(initialData === null)
+    const isFirstRun = useRef(initialData !== null)
     const [ error, setError ] = useState<string | null>(null)
     const [ notReady, setNotReady ] = useState<boolean>(false)
     const { server } = useServerData()
@@ -41,6 +45,10 @@ function AllSessions(){
     }, [server_id, name, period])
 
     useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false
+            return
+        }
         if (!name) return
         const abort = new AbortController()
         setLoading(true)
@@ -227,17 +235,19 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
     );
 }
 
-function MapSessionListDisplay(){
+function MapSessionListDisplay({ initialDataPromise }: MapSessionListProps){
     return (
         <Card>
-            <AllSessions />
+            <AllSessions initialDataPromise={initialDataPromise} />
         </Card>
     );
 }
 
-export default function MapSessionList(){
+export default function MapSessionList({ initialDataPromise }: MapSessionListProps){
     const t = useTranslations('maps.sessionList');
     return <ErrorCatch message={t('noSessionFound')}>
-        <MapSessionListDisplay />
+        <Suspense fallback={<EmptyMapContext><MapSessionListDisplay /></EmptyMapContext>}>
+            <MapSessionListDisplay initialDataPromise={initialDataPromise} />
+        </Suspense>
     </ErrorCatch>
 }

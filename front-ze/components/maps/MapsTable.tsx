@@ -1,7 +1,8 @@
 'use client'
 import { Ban, Clock, Heart} from 'lucide-react';
 import dayjs from 'dayjs';
-import {getMapImage, secondsToHours} from "utils/generalUtils";
+import {secondsToHours} from "utils/generalUtils";
+import {loadMapImage} from "lib/batchLoader";
 import {useEffect, useState} from "react";
 import duration from "dayjs/plugin/duration";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -119,7 +120,7 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
     const [ mapImage, setMapImage ] = useState(null);
     const server_id = server.id
     useEffect(() => {
-        getMapImage(server_id, map.map).then(e => setMapImage(e? e.small: null))
+        loadMapImage(map.map, server_id).then(e => setMapImage(e? e.small: null))
     }, [server_id, map.map])
 
     return (

@@ -1,7 +1,8 @@
-import UserProfile from "components/users/UserProfile";
-import UserCommunityConnections from "components/users/UserCommunityConnections";
-import ProfileOverview from "components/users/ProfileOverview";
-import ProfileStatsCards from "components/users/ProfileStatsCards";
+import {Suspense} from "react";
+import UserProfile, {UserProfileLoading} from "components/users/UserProfile";
+import UserCommunityConnections, {UserCommunityConnectionsLoading} from "components/users/UserCommunityConnections";
+import ProfileOverview, {ProfileOverviewLoading} from "components/users/ProfileOverview";
+import ProfileStatsCards, {ProfileStatsCardsLoading} from "components/users/ProfileStatsCards";
 import ProfilePlaySessions from "components/users/ProfilePlaySessions";
 import getServerUser from "app/getServerUser";
 import { redirect } from "next/navigation";
@@ -112,11 +113,19 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
     return (
         <div className="container mx-auto max-w-10xl px-2 py-8">
             <div className="flex flex-col gap-6">
-                <UserProfile profilePromise={profilePromise} />
-                <ProfileOverview heatmapPromise={heatmapPromise} />
-                <ProfileStatsCards userId={player_id} profilePromise={profilePromise} />
+                <Suspense fallback={<UserProfileLoading />}>
+                    <UserProfile profilePromise={profilePromise} />
+                </Suspense>
+                <Suspense fallback={<ProfileOverviewLoading />}>
+                    <ProfileOverview heatmapPromise={heatmapPromise} />
+                </Suspense>
+                <Suspense fallback={<ProfileStatsCardsLoading />}>
+                    <ProfileStatsCards userId={player_id} profilePromise={profilePromise} />
+                </Suspense>
                 <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_450px] lg:gap-3">
-                    <UserCommunityConnections profilePromise={profilePromise} />
+                    <Suspense fallback={<UserCommunityConnectionsLoading />}>
+                        <UserCommunityConnections profilePromise={profilePromise} />
+                    </Suspense>
                     <div className="lg:mt-8">
                         <ProfilePlaySessions userId={player_id} />
                     </div>

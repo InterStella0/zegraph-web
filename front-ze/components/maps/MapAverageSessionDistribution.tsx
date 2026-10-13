@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState} from "react";
+import {Suspense, use, useEffect, useMemo, useRef, useState} from "react";
 import {fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import {LazyBarChart as Bar} from "components/graphs/LazyCharts";
 import { Info } from "lucide-react";
@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 import { Skeleton } from "../ui/skeleton";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import SkeletonBarGraph from "../graphs/SkeletonBarGraph.tsx";
-import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
+import {EmptyMapContext, useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
@@ -18,12 +18,16 @@ import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeSessionDistribution } from "utils/chartSeoUtils.tsx";
 import {useTranslations} from 'next-intl';
 
-function AverageSessionDistribution() {
+type MapAverageSessionDistributionProps = { initialDataPromise?: Promise<MapSessionDistribution[] | null> }
+
+function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDistributionProps) {
     const t = useTranslations('maps.sessionDistribution');
     const { name } = useMapContext();
     const { period } = usePeriod();
-    const [detail, setDetail] = useState<MapSessionDistribution[] | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const initialData = initialDataPromise ? use(initialDataPromise) : null
+    const [detail, setDetail] = useState<MapSessionDistribution[] | null>(initialData);
+    const [loading, setLoading] = useState<boolean>(initialData === null);
+    const isFirstRun = useRef(initialData !== null)
     const [error, setError] = useState<string | null>(null);
     const [notReady, setNotReady] = useState<boolean>(false);
     const { server } = useServerData()
@@ -32,6 +36,10 @@ function AverageSessionDistribution() {
     useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
     useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false
+            return
+        }
         if (!name) return
         setLoading(true)
         setDetail(null)
@@ -265,9 +273,11 @@ function AverageSessionDistribution() {
     );
 }
 
-export default function MapAverageSessionDistribution(){
+export default function MapAverageSessionDistribution({ initialDataPromise }: MapAverageSessionDistributionProps){
     const t = useTranslations('maps.sessionDistribution');
     return <ErrorCatch message={t('loadError')}>
-        <AverageSessionDistribution />
+        <Suspense fallback={<EmptyMapContext><AverageSessionDistribution /></EmptyMapContext>}>
+            <AverageSessionDistribution initialDataPromise={initialDataPromise} />
+        </Suspense>
     </ErrorCatch>
 }

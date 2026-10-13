@@ -3,8 +3,12 @@ import {useState} from 'react';
 import PopulationChartLoader from 'components/home/PopulationChartLoader';
 import WherePlayersMap from 'components/home/WherePlayersMap';
 import {ContinentStatistics} from 'types/players';
+import {PopulationSeed} from 'components/home/homeData';
 
-export default function HomePopulationRadar({continentsPromise}: {continentsPromise: Promise<ContinentStatistics | null>}) {
+export default function HomePopulationRadar({continentsPromise, populationPromise}: {
+    continentsPromise: Promise<ContinentStatistics | null>,
+    populationPromise: Promise<PopulationSeed | null>,
+}) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
@@ -13,6 +17,7 @@ export default function HomePopulationRadar({continentsPromise}: {continentsProm
                 <PopulationChartLoader
                     isExpanded={isExpanded}
                     onToggleExpand={() => setIsExpanded(v => !v)}
+                    populationPromise={populationPromise}
                 />
             </div>
             <div className={isExpanded ? 'lg:col-span-2' : undefined}>

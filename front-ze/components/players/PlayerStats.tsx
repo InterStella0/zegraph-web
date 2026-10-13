@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {ReactElement, use, useState} from "react";
+import {ReactElement, useState} from "react";
 import { Card } from "components/ui/card";
 import { Badge } from "components/ui/badge";
 import { Skeleton } from "components/ui/skeleton";
@@ -8,10 +8,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "components/ui/tabs";
 import {formatHours} from "utils/generalUtils";
 import {DetailedPlayer, PlayerWithLegacyRanks} from "types/players";
 import {PeriodChip} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 
-export default function PlayerStats({ cStatsPromise, player }: { cStatsPromise: Promise<PlayerWithLegacyRanks | null>, player: DetailedPlayer | null}): ReactElement{
+export default function PlayerStats({ player }: { player: DetailedPlayer | null}): ReactElement{
     const t = useTranslations('players.stats');
-    const cStats = use(cStatsPromise)
+    const { seed: cStats } = usePlayerStatSeed<PlayerWithLegacyRanks>('legacy_stats')
     const [activeTab, setActiveTab] = useState<string>("playtime");
 
     return <Card className="ml-0 sm:ml-4 mt-6 sm:mt-0 min-w-full sm:min-w-[250px] overflow-hidden">

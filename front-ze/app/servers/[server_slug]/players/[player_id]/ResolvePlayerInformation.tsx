@@ -10,15 +10,16 @@ import PlayerInfractionRecord from "components/players/PlayerInfractionRecord.ts
 import PlayerHourOfDay from "components/players/PlayerHourOfDay.tsx";
 import StillCalculatingPlayer from "./StillCalculatingPlayer.tsx";
 import StalePlayerStats from "./StalePlayerStats.tsx";
-import {PlayerStatsPatchProvider} from "./PlayerStatsPatch.tsx";
+import {PlayerStatSeedsProvider, PlayerStatsPatchProvider, PlayerStatSuspense} from "./PlayerStatsPatch.tsx";
 import {PlayerPeriodProvider} from "./PlayerPeriod.tsx";
 import PeriodSelector from "components/period/PeriodSelector.tsx";
 import AccessDenied from "./AccessDenied.tsx";
 import {SteamProfile} from "../../../../../next-auth-steam/steam.ts";
 
-export default function ResolvePlayerInformation({ serverPlayerPromise, userPromise }: {
+export default function ResolvePlayerInformation({ serverPlayerPromise, userPromise, statSeeds }: {
     serverPlayerPromise: Promise<ServerPlayerDetailedWithError>,
     userPromise: Promise<SteamProfile | null>,
+    statSeeds: Record<string, Promise<unknown>>,
 }) {
     const { player, server, error } = use(serverPlayerPromise)
 
@@ -35,6 +36,7 @@ export default function ResolvePlayerInformation({ serverPlayerPromise, userProm
     }
 
     return <PlayerStatsPatchProvider>
+        <PlayerStatSeedsProvider promises={statSeeds}>
         <PlayerPeriodProvider serverId={server.id} playerId={player.id}>
             <div className="grid grid-cols-12 gap-4">
                 <div className="col-span-12">
@@ -49,21 +51,32 @@ export default function ResolvePlayerInformation({ serverPlayerPromise, userProm
                     <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} userPromise={userPromise} />
                 </div>
                 <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                    <PlayerSessionTabs serverPlayerPromise={serverPlayerPromise} />
+                    <PlayerStatSuspense>
+                        <PlayerSessionTabs serverPlayerPromise={serverPlayerPromise} />
+                    </PlayerStatSuspense>
                 </div>
                 <div className="col-span-12 md:col-span-6 xl:col-span-8">
-                    <PlayerTopMap serverPlayerPromise={serverPlayerPromise} />
+                    <PlayerStatSuspense>
+                        <PlayerTopMap serverPlayerPromise={serverPlayerPromise} />
+                    </PlayerStatSuspense>
                 </div>
                 <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                    <PlayerRegionPlayTime serverPlayerPromise={serverPlayerPromise} />
+                    <PlayerStatSuspense>
+                        <PlayerRegionPlayTime serverPlayerPromise={serverPlayerPromise} />
+                    </PlayerStatSuspense>
                 </div>
                 <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                    <PlayerInfractionRecord serverPlayerPromise={serverPlayerPromise} />
+                    <PlayerStatSuspense>
+                        <PlayerInfractionRecord serverPlayerPromise={serverPlayerPromise} />
+                    </PlayerStatSuspense>
                 </div>
                 <div className="col-span-12 xl:col-span-8">
-                    <PlayerHourOfDay serverPlayerPromise={serverPlayerPromise} />
+                    <PlayerStatSuspense>
+                        <PlayerHourOfDay serverPlayerPromise={serverPlayerPromise} />
+                    </PlayerStatSuspense>
                 </div>
             </div>
         </PlayerPeriodProvider>
+        </PlayerStatSeedsProvider>
     </PlayerStatsPatchProvider>
 }

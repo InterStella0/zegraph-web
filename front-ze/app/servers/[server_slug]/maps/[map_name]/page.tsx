@@ -1,6 +1,7 @@
 import {
     DOMAIN,
     fetchServerUrl,
+    fetchUrl,
     formatHours,
     formatTitle,
     getMapImage,
@@ -18,14 +19,25 @@ import MapAverageSessionDistribution from "components/maps/MapAverageSessionDist
 import MapPlayerType from "components/maps/MapPlayerType.tsx";
 import MapMusicSection from "components/maps/MapMusicSection.tsx";
 import {getServerSlugOrNotFound} from "../../util";
-import { MapRegion, ServerMapDetail, ServerMapMusic} from "types/maps";
+import {
+    DailyMapRegion,
+    MapRegion,
+    MapSessionDistribution,
+    ServerMapDetail,
+    ServerMapMusic,
+    ServerMapPlayedPaginated
+} from "types/maps";
 import {MapContextProvider} from "./MapContext";
 import {MapPeriodProvider} from "./MapPeriod";
 import PeriodSelector from "components/period/PeriodSelector";
 import {AdSpot} from "components/ui/AdSpot";
 import {Metadata} from "next";
 import {
+    BriefPlayers,
+    ExtendedPlayerBrief,
+    MapPlayerTypeTime,
     PlayerBrief,
+    Region,
 } from "types/players.ts";
 import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -33,15 +45,9 @@ import { notFound } from 'next/navigation';
 async function getMapInfoDetails(serverId: string, mapName: string): Promise<ServerMapDetail>{
     const toReturn = { info: null, analyze: null, notReady: false, name: mapName}
     try{
-        const [ info, analyze, ..._ ] = await Promise.all([
+        const [ info, analyze ] = await Promise.all([
             fetchServerUrl(serverId, `/maps/${mapName}/info`),
             fetchServerUrl(serverId, `/maps/${mapName}/analyze`),
-            fetchServerUrl(serverId, `/maps/${mapName}/heat-regions`),
-            fetchServerUrl(serverId, `/maps/${mapName}/regions`),
-            fetchServerUrl(serverId, `/maps/${mapName}/sessions`, { params: { page: 0 } }),
-            fetchServerUrl(serverId, `/maps/${mapName}/sessions_distribution`),
-            fetchServerUrl(serverId, `/maps/${mapName}/top_players`),
-            fetchServerUrl(serverId, `/maps/${mapName}/player_types`)
         ])
         toReturn.info = info
         toReturn.analyze = analyze
@@ -116,10 +122,26 @@ export async function generateMetadata({ params }: {
     }
 }
 
-export default async function Page({ params }){
+export default async function Page({ params, searchParams }){
     const { map_name, server_slug } = await params
+    const { period } = await searchParams
     const server = await getServerSlugOrNotFound(server_slug);
     const musicsPromise: Promise<ServerMapMusic[]> = fetchServerUrl(server.id, `/maps/${map_name}/musics`).catch(() => [])
+    const seed = <T,>(endpoint: string, options = {}): Promise<T | null> | undefined =>
+        period ? undefined : fetchUrl(endpoint, options).catch(() => null)
+    const mapEndpoint = `/servers/${server.id}/maps/${map_name}`
+    const heatRegionsPromise = seed<DailyMapRegion[]>(`${mapEndpoint}/heat-regions`)
+    const regionsPromise = seed<MapRegion[]>(`${mapEndpoint}/regions`)
+    const regionNamesPromise = seed<Region[]>(`/graph/${server.id}/get_regions`)
+    const sessionsPromise = seed<ServerMapPlayedPaginated>(`${mapEndpoint}/sessions`, { params: { page: 0 } })
+    const topPlayersPromise = seed<BriefPlayers>(`${mapEndpoint}/top_players`, { params: { page: 0 } })
+        ?.then(data => {
+            for (const player of data?.players ?? [])
+                (player as ExtendedPlayerBrief).server_id = server.id
+            return data
+        })
+    const distributionPromise = seed<MapSessionDistribution[]>(`${mapEndpoint}/sessions_distribution`)
+    const playerTypesPromise = seed<MapPlayerTypeTime[]>(`${mapEndpoint}/player_types`)
     let mapInfo: ServerMapDetail
     try{
         mapInfo = await getMapInfoDetails(server.id, map_name);
@@ -195,23 +217,23 @@ export default async function Page({ params }){
                         </div>
                         <div className="col-span-12">
                             <Card>
-                                <MapHeatRegion />
-                                <MapRegionDistribution />
+                                <MapHeatRegion initialDataPromise={heatRegionsPromise} />
+                                <MapRegionDistribution initialDataPromise={regionsPromise} regionsPromise={regionNamesPromise} />
                             </Card>
                         </div>
                         <div className="col-span-12 xl:col-span-4 lg:col-span-7 md:col-span-6">
-                            <MapSessionList />
+                            <MapSessionList initialDataPromise={sessionsPromise} />
                         </div>
                         <div className="col-span-12 xl:col-span-4 lg:col-span-5 md:col-span-6">
-                            <MapTopPlayerList />
+                            <MapTopPlayerList initialDataPromise={topPlayersPromise} />
                         </div>
                         <div className="col-span-12 xl:col-span-4 lg:col-span-12">
                             <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
                                 <div className="xl:col-span-6 lg:col-span-6 md:col-span-12 col-span-12">
-                                    <MapAverageSessionDistribution />
+                                    <MapAverageSessionDistribution initialDataPromise={distributionPromise} />
                                 </div>
                                 <div className="xl:col-span-6 lg:col-span-6 md:col-span-12 col-span-12">
-                                    <MapPlayerType />
+                                    <MapPlayerType initialDataPromise={playerTypesPromise} />
                                 </div>
                             </div>
                         </div>

@@ -4,6 +4,23 @@ import dayjs from "dayjs";
 import { threeMinutes} from "../../util.ts";
 
 export type PlayerInfo = DetailedPlayerInfo
+
+const LEGACY_STATS_SERVER_ID = '65bdad6379cefd7ebcecce5c'
+const PERIOD_STAT_PATHS = ['graph/sessions', 'most_played_maps', 'regions', 'hours_of_day', 'online_heatmap']
+
+export function getPlayerStatSeeds(serverId: string, playerId: string, withPeriod: boolean): Record<string, Promise<unknown>> {
+    const seed = (path: string, options = {}) =>
+        fetchApiServerUrl(serverId, `/players/${playerId}/${path}`, options).catch(() => null)
+    const seeds: Record<string, Promise<unknown>> = { infractions: seed('infractions') }
+    if (serverId === LEGACY_STATS_SERVER_ID)
+        seeds.legacy_stats = seed('legacy_stats')
+    if (!withPeriod) {
+        for (const path of PERIOD_STAT_PATHS)
+            seeds[path] = seed(path)
+        seeds.sessions = seed('sessions', { params: { page: 0 } })
+    }
+    return seeds
+}
 type DetailReturningType = "raise" | "return"
 type PlayerDetailReturnTypes = {
     return: PlayerInfo | StillCalculate,

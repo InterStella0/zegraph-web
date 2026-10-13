@@ -13,7 +13,7 @@ import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import dayjs from 'dayjs';
 import {Maximize2, Minimize2} from 'lucide-react';
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {use, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTheme} from 'next-themes';
 import {LazyLineChart} from 'components/graphs/LazyCharts';
 import {Button} from 'components/ui/button';
@@ -21,7 +21,13 @@ import {Card, CardContent} from 'components/ui/card';
 import {useServerMap} from 'components/ui/ServerProvider';
 import {PopulationTimeType} from 'types/home';
 import CommunityMultiSelect from './CommunityMultiSelect';
-import {fetchAllCommunityPopulation, fetchCommunityPopulation} from './homeData';
+import {
+    fetchAllCommunityPopulation,
+    fetchCommunityPopulation,
+    INITIAL_POPULATION_TIME_TYPE,
+    INITIAL_SELECTED_COMMUNITIES,
+    PopulationSeed,
+} from './homeData';
 import {useCommunityColors} from 'lib/hooks/useCommunityColors';
 import {useTranslations} from 'next-intl';
 
@@ -55,22 +61,24 @@ type Line = {id: string, name: string, points: {x: string, y: number}[]};
 type Props = {
     isExpanded: boolean;
     onToggleExpand: () => void;
+    populationPromise: Promise<PopulationSeed | null>;
 };
 
-export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
+export default function PopulationChart({isExpanded, onToggleExpand, populationPromise}: Props) {
     const t = useTranslations('home');
     const communityData = useServerMap();
     const {resolvedTheme} = useTheme();
     const isDark = resolvedTheme === 'dark';
+    const seed = use(populationPromise);
 
     const communities = communityData?.communities ?? [];
 
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const didInitSelection = useRef(false);
+    const [selectedIds, setSelectedIds] = useState<string[]>(() => seed?.lines.map(l => l.id) ?? []);
+    const didInitSelection = useRef(seed !== null);
     useEffect(() => {
         if (didInitSelection.current || communities.length === 0) return;
         didInitSelection.current = true;
-        setSelectedIds(communities.slice(0, 5).map(c => c.id));
+        setSelectedIds(communities.slice(0, INITIAL_SELECTED_COMMUNITIES).map(c => c.id));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [communities]);
 
@@ -101,13 +109,21 @@ export default function PopulationChart({isExpanded, onToggleExpand}: Props) {
         icon_url: c.icon_url,
     })));
 
-    const [timeType, setTimeType] = useState<PopulationTimeType>('OneHour');
-    const [cursor, setCursor] = useState(() => dayjs());
-    const [lines, setLines] = useState<Line[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [timeType, setTimeType] = useState<PopulationTimeType>(INITIAL_POPULATION_TIME_TYPE);
+    const [cursor, setCursor] = useState(() => seed ? dayjs(seed.time) : dayjs());
+    const [lines, setLines] = useState<Line[]>(() => seed?.lines.map(l => ({
+        ...l,
+        name: communities.find(c => c.id === l.id)?.name ?? l.id,
+    })) ?? []);
+    const [loading, setLoading] = useState(seed === null);
     const panTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isFirstRun = useRef(seed !== null);
 
     useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
         if (selectedCommunities.length === 0) {
             setLines([]);
             setLoading(false);

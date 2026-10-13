@@ -6,6 +6,7 @@ import { use } from "react";
 import { usePathname } from "next/navigation";
 import { SiSteam } from "@icons-pack/react-simple-icons";
 import { Card, CardContent } from "components/ui/card";
+import { Skeleton } from "components/ui/skeleton";
 import { Button } from "components/ui/button";
 import { Badge } from "components/ui/badge";
 import { Loader2, Share2, TriangleAlert } from "lucide-react";
@@ -20,6 +21,32 @@ import {
 
 interface UserProfileProps {
     profilePromise: Promise<ProfileResponse>;
+}
+
+export function UserProfileLoading() {
+    return (
+        <Card className="w-full border-border/40 bg-card/50 backdrop-blur-xl">
+            <CardContent className="p-6 sm:p-8">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                    <Skeleton className="h-[120px] w-[120px] shrink-0 rounded-full" />
+                    <div className="flex flex-col flex-1 items-center sm:items-start gap-3">
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-center sm:justify-start gap-3">
+                                <Skeleton className="h-9 sm:h-10 w-48" />
+                                <Skeleton className="h-[50px] w-[50px] rounded-full" />
+                            </div>
+                            <Skeleton className="h-5 w-56" />
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-center sm:items-end gap-1.5 sm:self-start sm:ml-auto">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-9 w-20" />
+                        <Skeleton className="h-4 w-28" />
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
 }
 
 export default function UserProfile({ profilePromise }: UserProfileProps) {

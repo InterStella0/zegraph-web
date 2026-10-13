@@ -6,9 +6,27 @@ import { useState, useCallback, useOptimistic, startTransition, use } from "reac
 import { useTranslations } from "next-intl";
 import { fetchApiUrl } from "utils/generalUtils";
 import { Separator } from "components/ui/separator";
+import { Skeleton } from "components/ui/skeleton";
 
 interface UserCommunityConnectionsProps {
     profilePromise: Promise<ProfileResponse>;
+}
+
+export function UserCommunityConnectionsLoading() {
+    const t = useTranslations('players.profile.communities');
+    return (
+        <div className="w-full">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 mt-8">
+                <h2 className="text-2xl font-semibold tracking-tight">
+                    {t('heading')}
+                </h2>
+            </div>
+            <Separator className="mb-6" />
+            <div className="space-y-4">
+                {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
+            </div>
+        </div>
+    );
 }
 
 export default function UserCommunityConnections({

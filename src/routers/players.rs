@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::Add;
+use std::time::Duration;
 use chrono::{DateTime, TimeDelta, TimeZone, Utc};
 use poem::web::Data;
 use poem_openapi::{param::{Path, Query}, Enum, Object, OpenApi};
@@ -1007,15 +1008,56 @@ impl PlayerApi{
             return response!(err "Broken", ErrorCode::InternalServerError)
         };
 
-        let url_medium = match profile.url.split_once("_full"){
-            Some((medium, ext)) => format!("{medium}_medium{ext}"),
-            None => profile.url.clone()
+        response!(ok PlayerProfilePicture::from_full_url(original_player_id, profile.url))
+    }
+    /// Steam profile pictures for up to 100 comma-separated player IDs, keyed by the requested ID.
+    ///
+    /// Not server-scoped. IDs without a picture are left out, as are IDs whose picture is not cached
+    /// and that the provider has not answered for within half a second; their lookup keeps running,
+    /// so `/players/{player_id}/pfp` or a later bulk request picks it up.
+    #[oai(path = "/players/pfps", method = "get")]
+    async fn get_player_pfps(
+        &self, Data(app): Data<&AppData>, Query(ids): Query<KeyList>
+    ) -> Response<HashMap<String, PlayerProfilePicture>>{
+        let Some(provider) = &app.steam_provider else {
+            return response!(err "This feature is disabled.", ErrorCode::NotImplemented)
         };
-        response!(ok PlayerProfilePicture{
-            id: original_player_id,
-            full: profile.url,
-            medium: url_medium
-        })
+        let mut steam_ids: Vec<(String, i64)> = vec![];
+        let mut unresolved: Vec<String> = vec![];
+        for id in ids.0 {
+            match id.parse::<i64>() {
+                Ok(steam_id) => steam_ids.push((id, steam_id)),
+                Err(_) => unresolved.push(id),
+            }
+        }
+        if !unresolved.is_empty() {
+            let Ok(rows) = sqlx::query!(
+                "SELECT player_id, associated_player_id FROM player WHERE player_id = ANY($1)",
+                &unresolved[..]
+            ).fetch_all(&*app.pool).await else {
+                return response!(internal_server_error)
+            };
+            for row in rows {
+                if let Some(steam_id) = row.associated_player_id.and_then(|p| p.parse::<i64>().ok()) {
+                    steam_ids.push((row.player_id, steam_id));
+                }
+            }
+        }
+
+        let deadline = tokio::time::Instant::now() + PFP_BULK_TIMEOUT;
+        let lookups = steam_ids.into_iter().map(|(id, steam_id)| {
+            let cache = app.cache.clone();
+            let provider = provider.clone();
+            let handle = task::spawn(async move { get_profile(&cache, &provider, &steam_id).await });
+            async move {
+                match tokio::time::timeout_at(deadline, handle).await {
+                    Ok(Ok(Ok(profile))) => Some((id.clone(), PlayerProfilePicture::from_full_url(id, profile.url))),
+                    _ => None,
+                }
+            }
+        });
+        let pictures = join_all(lookups).await.into_iter().flatten().collect();
+        response!(ok pictures)
     }
     /// Players who were likely playing alongside this player during a given session.
     ///
@@ -1115,6 +1157,8 @@ impl PlayerApi{
         handle_worker_player_result(app.player_worker.get_regions(&ctx, flatten_period(period)).await)
     }
 }
+const PFP_BULK_TIMEOUT: Duration = Duration::from_millis(500);
+
 impl UriPatternExt for PlayerApi{
     fn get_all_patterns(&self) -> Vec<RoutePattern> {
         vec![
@@ -1136,6 +1180,7 @@ impl UriPatternExt for PlayerApi{
             "/servers/{server_id}/players/{player_id}/detail",
             "/servers/{server_id}/players/{player_id}/periods",
             "/players/{player_id}/pfp",
+            "/players/pfps",
             "/servers/{server_id}/players/{player_id}/most_played_maps",
             "/servers/{server_id}/players/{player_id}/regions",
             "/servers/{server_id}/players/{player_id}/legacy_stats",

@@ -7,11 +7,28 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { useTranslations } from "next-intl";
 import { GlobalPlaytimeSummary, ProfileResponse } from "types/community";
 import { Card, CardContent } from "components/ui/card";
+import { Skeleton } from "components/ui/skeleton";
 import { secondsToHours } from "utils/generalUtils";
 import { useGlobalPlaytime } from "./useGlobalPlaytime";
 import { Loader2, TriangleAlert } from "lucide-react";
 
 dayjs.extend(relativeTime);
+
+export function ProfileStatsCardsLoading() {
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+                <Card key={i} className="border-border/40 bg-card/50 backdrop-blur-xl">
+                    <CardContent className="p-4">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="mt-2 h-7 w-20" />
+                        <Skeleton className="mt-2 h-4 w-32" />
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+    );
+}
 
 export default function ProfileStatsCards({ userId, profilePromise }: { userId: string; profilePromise: Promise<ProfileResponse> }) {
     const t = useTranslations('players.profile.stats');

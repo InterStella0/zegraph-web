@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 import { getServerSlugOrNotFound } from "../util.ts"
 import { fetchServerUrl, formatTitle } from "utils/generalUtils.ts"
-import { Character3DModel } from "types/maps"
+import { Character3DModel, MapWithModels } from "types/maps"
 import ModelsPageContent from "./ModelsPageContent"
 import { getTranslations } from 'next-intl/server';
 
@@ -23,6 +23,11 @@ export default async function Page({ params }: {
 }) {
     const { server_slug } = await params
     const server = await getServerSlugOrNotFound(server_slug)
-    const characterModels: Character3DModel[] | null = await fetchServerUrl(server.id, '/characters').catch(() => null)
-    return <ModelsPageContent characterModels={characterModels ?? []} />
+    const charactersPromise: Promise<Character3DModel[]> = fetchServerUrl(server.id, '/characters')
+        .then(models => models ?? [])
+        .catch(() => [])
+    const mapModelsPromise: Promise<MapWithModels[]> = fetchServerUrl(server.id, '/maps/3d')
+        .then((maps: MapWithModels[] | null) => (maps ?? []).filter(m => m.low_res_model || m.high_res_model))
+        .catch(() => [])
+    return <ModelsPageContent charactersPromise={charactersPromise} mapModelsPromise={mapModelsPromise} />
 }

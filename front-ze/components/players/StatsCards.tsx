@@ -1,6 +1,7 @@
 import {ReactElement} from 'react';
 import { User, Globe, Clock } from 'lucide-react';
-import { fetchServerUrl, secondsToHours } from "utils/generalUtils";
+import { secondsToHours } from "utils/generalUtils";
+import { getCachedPlayerStats } from "lib/cachedFetches";
 import { ServerPlayersStatistic } from "types/players.ts";
 import {ServerSlugPromise} from "../../app/servers/[server_slug]/util.ts";
 import { Card, CardContent } from "components/ui/card";
@@ -41,7 +42,7 @@ const getStatsCards = (stats: ServerPlayersStatistic, t: (key: string) => string
 
 export default async function StatsCards({ serverPromise }: {serverPromise: ServerSlugPromise}): Promise<ReactElement> {
     const server = await serverPromise
-    const stats: ServerPlayersStatistic = await fetchServerUrl(server.id, '/players/stats', {});
+    const stats: ServerPlayersStatistic = await getCachedPlayerStats(server.id);
     const t = await getTranslations('players.statsCards');
     const locale = await getLocale();
 

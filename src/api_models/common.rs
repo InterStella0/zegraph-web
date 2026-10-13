@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::{Arc, LazyLock, Mutex};
@@ -6,7 +7,8 @@ use poem::http::StatusCode;
 use poem::{Endpoint, Middleware, Request};
 use poem_openapi::{ApiResponse, Object};
 use poem_openapi::payload::Json;
-use poem_openapi::types::{ParseFromJSON, ToJSON};
+use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
+use poem_openapi::types::{ParseError, ParseFromJSON, ParseFromParameter, ParseResult, ToJSON, Type};
 use serde::{Deserialize, Serialize};
 use crate::api_models::uri_pattern::PatternTable;
 pub use crate::api_models::uri_pattern::RoutePattern;
@@ -396,6 +398,53 @@ where
         }).await;
 
         result
+    }
+}
+
+pub const MAX_KEY_LIST: usize = 100;
+
+/// Comma-separated keys for a bulk lookup: blanks and duplicates dropped, 1 to 100 entries.
+pub struct KeyList(pub Vec<String>);
+
+impl Type for KeyList {
+    const IS_REQUIRED: bool = true;
+    type RawValueType = Self;
+    type RawElementValueType = Self;
+
+    fn name() -> Cow<'static, str> {
+        "KeyList".into()
+    }
+
+    fn schema_ref() -> MetaSchemaRef {
+        MetaSchemaRef::Inline(Box::new(MetaSchema::new("string")))
+    }
+
+    fn as_raw_value(&self) -> Option<&Self::RawValueType> {
+        Some(self)
+    }
+
+    fn raw_element_iter<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = &'a Self::RawElementValueType> + 'a> {
+        Box::new(self.as_raw_value().into_iter())
+    }
+}
+
+impl ParseFromParameter for KeyList {
+    fn parse_from_parameter(value: &str) -> ParseResult<Self> {
+        let mut keys: Vec<String> = Vec::new();
+        for key in value.split(',').map(str::trim).filter(|k| !str::is_empty(k)) {
+            if !keys.iter().any(|k| k == key) {
+                keys.push(key.to_string());
+            }
+        }
+        if keys.is_empty() {
+            return Err(ParseError::custom("at least one key is required"));
+        }
+        if keys.len() > MAX_KEY_LIST {
+            return Err(ParseError::custom(format!("at most {MAX_KEY_LIST} keys are allowed")));
+        }
+        Ok(KeyList(keys))
     }
 }
 

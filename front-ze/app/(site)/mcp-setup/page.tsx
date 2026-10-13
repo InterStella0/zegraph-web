@@ -1,7 +1,8 @@
 import { Metadata } from 'next';
 import { Bot } from 'lucide-react';
 import McpSetupClient from 'components/mcp/McpSetupClient';
-import McpToolList from 'components/mcp/McpToolList';
+import {Suspense} from 'react';
+import McpToolList, {McpToolListLoading} from 'components/mcp/McpToolList';
 import { DOMAIN, formatTitle } from 'utils/generalUtils';
 import { getTranslations } from 'next-intl/server';
 
@@ -33,7 +34,9 @@ export default async function McpSetupPage() {
 
         <McpSetupClient mcpUrl={MCP_URL} />
 
-        <McpToolList />
+        <Suspense fallback={<McpToolListLoading />}>
+          <McpToolList />
+        </Suspense>
 
       </div>
     </div>

@@ -1,5 +1,5 @@
 import CurrentMatch, {CurrentMatchSkeleton} from "components/maps/CurrentMatch";
-import {fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils";
+import {fetchApiServerUrl, fetchServerUrl, formatTitle, socialMeta} from "utils/generalUtils";
 import {getServerSlugOrNotFound, threeMinutes} from "../util";
 import MapsSearchIndex from "./MapsSearchIndex";
 import getServerUser from "../../../getServerUser";
@@ -23,7 +23,7 @@ export async function generateMetadata({ params}: {
 
     let description = t('playIntro', {name: server.community_name, ip: server.fullIp});
     try{
-        const parameters = { page: 1, sorted_by: 'LastPlayed' }
+        const parameters = { page: 0, sorted_by: 'LastPlayed' }
         const data: MapPlayedPaginated = await fetchServerUrl(server.id, '/maps/last/sessions', { params: parameters, next: {revalidate: threeMinutes} });
         const latestMap = data.maps[0]
         description += ' ' + t('mapsPlayedLast', {count: data.total_maps, map: latestMap.map, time: dayjs(latestMap.last_played).fromNow()});
@@ -46,14 +46,17 @@ export default async function Page({ params }){
     const user = getServerUser()
     const matchData = server.then(e => getMatchNow(e.id))
     const playerContinents = server.then(e => getContinentStatsNow(e.id))
+    const mapsPromise: Promise<MapPlayedPaginated | null> = server
+        .then(e => fetchApiServerUrl(e.id, '/maps/last/sessions', { params: { page: 0, sorted_by: 'LastPlayed' } }))
+        .catch(() => null)
 
     return <div className="container max-w-screen-xl py-6 max-sm:px-0.5 mx-auto px-2">
         <Suspense fallback={<CurrentMatchSkeleton />}>
             <CurrentMatch serverPromise={server} mapCurrentPromise={matchData} playerContinentsPromise={playerContinents} userPromise={user} />
         </Suspense>
         <AdSpot className="my-4" />
-        <Suspense fallback={null}>
-            <MapsSearchIndex serverPromise={server} userPromise={user} />
+        <Suspense fallback={<MapsSearchIndex serverPromise={server} userPromise={user} idle />}>
+            <MapsSearchIndex serverPromise={server} userPromise={user} initialDataPromise={mapsPromise} />
         </Suspense>
     </div>
 }
