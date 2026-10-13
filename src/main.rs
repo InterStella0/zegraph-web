@@ -412,7 +412,7 @@ async fn init_precalculate(port: &str){
 #[cfg(test)]
 mod route_tests {
     use super::*;
-    use crate::api_models::common::Claims;
+    use crate::api_models::common::{Claims, MAX_KEY_LIST};
     use crate::api_models::uri_pattern::{PatternTable, RoutePattern};
     use crate::workers::test_support::fake_app_data;
     use poem::test::TestClient;
@@ -587,6 +587,38 @@ mod route_tests {
         );
     }
 
+    /// The bulk lookups reject a missing, blank or over-long key list in request validation; a
+    /// valid list goes on to the server lookup (404 against the dead pool) or, for the unscoped
+    /// pfp route, to the handler.
+    #[tokio::test]
+    async fn bulk_routes_validate_key_list() {
+        let cli = client();
+        let too_many = (0..=MAX_KEY_LIST).map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+        for (path, param) in [("/servers/1/maps/images", "maps"), ("/players/pfps", "ids")] {
+            assert_eq!(
+                send(&cli, "GET", path, None).await,
+                poem::http::StatusCode::BAD_REQUEST,
+                "GET {path} without {param} should fail validation",
+            );
+            for bad in ["", ",", "%20,%20", too_many.as_str()] {
+                assert_eq!(
+                    send(&cli, "GET", &format!("{path}?{param}={bad}"), None).await,
+                    poem::http::StatusCode::BAD_REQUEST,
+                    "GET {path}?{param}={bad} should fail validation",
+                );
+            }
+        }
+        let max = (1..=MAX_KEY_LIST).map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+        assert_eq!(
+            send(&cli, "GET", &format!("/servers/1/maps/images?maps={max}"), None).await,
+            poem::http::StatusCode::NOT_FOUND,
+        );
+        assert_eq!(
+            send(&cli, "GET", &format!("/players/pfps?ids={max}"), None).await,
+            poem::http::StatusCode::OK,
+        );
+    }
+
     /// Documents the shape of the public route surface. Unlike the test above this cannot detect
     /// the poem-openapi regression, but it does catch a route being renamed or dropped outright.
     #[test]
@@ -651,6 +683,10 @@ mod route_tests {
             ("/maps/all/3d", "/maps/all/3d"),
             ("/maps/ze_test_map_v1/3d", "/maps/{map_name}/3d"),
             ("/graph/1/get_regions", "/graph/{server_id}/get_regions"),
+            ("/servers/1/maps/images", "/servers/{server_id}/maps/images"),
+            ("/servers/1/maps/ze_test_map_v1/images", "/servers/{server_id}/maps/{map_name}/images"),
+            ("/players/pfps", "/players/pfps"),
+            ("/players/76561198000000001/pfp", "/players/{player_id}/pfp"),
         ] {
             assert_eq!(
                 table.find(path).map(RoutePattern::uri),
