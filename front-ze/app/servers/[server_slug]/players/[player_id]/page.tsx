@@ -9,7 +9,7 @@ import {
     socialMeta,
     StillCalculate
 } from "utils/generalUtils";
-import {getPlayerDetailed, PlayerInfo} from "./util";
+import {getPlayerDetailed, getPlayerStatSeeds, PlayerInfo} from "./util";
 import {Metadata} from "next";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -115,10 +115,15 @@ export type ServerPlayerDetailed = {
 }
 export type ServerPlayerDetailedWithError = ServerPlayerDetailed & { error?: { code: number, message: string } }
 
-export default async function Page({ params }: { params: Promise<{ server_slug: string, player_id: string }>}){
+export default async function Page({ params, searchParams }: {
+    params: Promise<{ server_slug: string, player_id: string }>,
+    searchParams: Promise<{ period?: string }>,
+}){
     const { server_slug, player_id } = await params;
+    const { period } = await searchParams;
 
     const server = await getServerSlugOrNotFound(server_slug);
+    const statSeeds = getPlayerStatSeeds(server.id, player_id, !!period);
 
     const serverPlayerPromise = (async () => {
         try {
@@ -179,6 +184,7 @@ export default async function Page({ params }: { params: Promise<{ server_slug: 
                 <ResolvePlayerInformation
                     serverPlayerPromise={serverPlayerPromise}
                     userPromise={getServerUser()}
+                    statSeeds={statSeeds}
                 />
             </div>
         </>

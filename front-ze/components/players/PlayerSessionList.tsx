@@ -1,6 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {ReactElement, ReactNode, use, useEffect, useState} from "react";
+import {ReactElement, ReactNode, use, useEffect, useRef, useState} from "react";
 import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
 import { Card, CardContent } from "components/ui/card";
 import { Badge } from "components/ui/badge";
@@ -18,6 +18,7 @@ import { cn } from "components/lib/utils";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -97,13 +98,15 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
     const { server, player } = use(serverPlayerPromise)
     const server_id = server.id
     const playerId = !(player instanceof StillCalculate)? player.id: null
-    const [loading, setLoading] = useState<boolean>(true);
-    const [sessionList, setSessionList] = useState<PlayerSession[]>([]);
+    const { period } = usePlayerPeriod();
+    const { seed, idle } = usePlayerStatSeed<PlayerSessionPage>('sessions', !period);
+    const [loading, setLoading] = useState<boolean>(seed === null);
+    const [sessionList, setSessionList] = useState<PlayerSession[]>(seed?.rows ?? []);
     const [page, setPage] = useState<number>(0);
-    const [totalPages, setTotalPages] = useState<number>(1);
+    const [totalPages, setTotalPages] = useState<number>(seed?.total_pages ?? 1);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
     const [datePickerOpen, setDatePickerOpen] = useState(false);
-    const { period } = usePlayerPeriod();
+    const isFirstRun = useRef(seed !== null);
     const [shownPeriod, setShownPeriod] = useState(period);
     if (shownPeriod !== period) {
         setShownPeriod(period);
@@ -115,7 +118,11 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
     const lastDay = bounds ? dayjs(dayjs.utc(bounds.end).subtract(1, 'day').format('YYYY-MM-DD')).toDate() : undefined;
 
     useEffect(() => {
-        if (!playerId) return;
+        if (!playerId || idle) return;
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
 
         setLoading(true);
         const abort = new AbortController();

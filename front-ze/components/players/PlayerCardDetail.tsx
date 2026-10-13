@@ -1,7 +1,7 @@
 'use client'
 import {useTranslations, useLocale} from 'next-intl';
 import {ReactElement, use} from "react";
-import {fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
+import {secondsToHours, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
 import {
@@ -20,14 +20,14 @@ import Link from "next/link";
 import relativeTime from 'dayjs/plugin/relativeTime'
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import { ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page";
-import {DetailedPlayer, PlayerWithLegacyRanks} from "types/players";
+import {DetailedPlayer} from "types/players";
 import PlayerDetailHourBar from "./PlayerDetailHourBar";
 import {Server} from "types/community";
 import PlayerStats from "./PlayerStats";
 import PlayerAliasesButton from "./PlayerAliasesButton";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import {SiSteam} from "@icons-pack/react-simple-icons";
-import {usePatchedPlayer, usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
+import {PlayerStatSuspense, usePatchedPlayer, usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod";
 import PlayerClaimButton from "./PlayerClaimButton";
 import AssociatePlayerDialog from "./AssociatePlayerDialog";
@@ -70,31 +70,9 @@ function RankChip({ label, rank, title = undefined }) {
         </Badge>
     );
 }
-async function getCStatsCSGO(server_id: string, player_id: string): Promise<PlayerWithLegacyRanks | null> {
-    if (server_id !== '65bdad6379cefd7ebcecce5c' || !player_id) return null
-    try{
-        return await fetchApiServerUrl(server_id, `/players/${player_id}/legacy_stats`)
-    }catch(e){
-        return null
-    }
-}
-
-const cStatsCache = new Map<string, Promise<PlayerWithLegacyRanks | null>>();
-
-function cStatsFor(server_id: string, player_id: string): Promise<PlayerWithLegacyRanks | null> {
-    const key = `${server_id}:${player_id}`;
-    let promise = cStatsCache.get(key);
-    if (!promise) {
-        promise = getCStatsCSGO(server_id, player_id);
-        cStatsCache.set(key, promise);
-    }
-    return promise;
-}
-
 function PlayerCardDetailDisplay({ server, player, user }: { server: Server, player: PlayerInfo, user: SteamProfile | null }): ReactElement {
     const t = useTranslations('players.card');
     const locale = useLocale();
-    const cStats = cStatsFor(server.id, player.id)
     const { period } = usePlayerPeriod()
     const { data: periodStats } = usePlayerStat<DetailedPlayer>(server.id, player.id, 'detail', !!period)
     const stats = period ? periodStats : player
@@ -201,7 +179,9 @@ function PlayerCardDetailDisplay({ server, player, user }: { server: Server, pla
                     </div>
                 </div>
 
-                <PlayerStats player={stats} cStatsPromise={cStats}/>
+                <PlayerStatSuspense>
+                    <PlayerStats player={stats}/>
+                </PlayerStatSuspense>
             </div>
             <PlayerDetailHourBar player={player} server={server} />
         </div>
