@@ -14,7 +14,7 @@ export const NIGHT_SHADING_STYLE: Record<'light' | 'dark', ShadingStyle> = {
     },
     dark: {
         basemap: '#0a0c0f',
-        night: {stroke: false, fillColor: '#000000', fillOpacity: 0.15},
+        night: {stroke: false, fillColor: '#1e3a8a', fillOpacity: 0.1},
     },
 };
 
