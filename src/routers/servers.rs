@@ -330,7 +330,7 @@ impl ServerApi {
         let viewer_cache_key = user_id
             .map(|id| format!("global-players-playing:{id}"))
             .unwrap_or_else(|| "global-players-playing:anonymous".to_string());
-        let result = or_ise!(cached_response(&viewer_cache_key, &app.cache, 10 * 60, func).await).result;
+        let result = or_ise!(cached_response(&viewer_cache_key, &app.cache, 2 * 60, func).await).result;
         let converted = result.into_iter().map(|e| {
             let server_id = e.server_id.clone();
             let player_detail: PlayerDetailSession = e.into();
