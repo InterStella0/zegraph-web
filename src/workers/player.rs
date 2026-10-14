@@ -270,7 +270,7 @@ worker_query! {
 }
 worker_query! {
     PlayerBasicQuery<Option<DbGflPlayerStats>> => PlayerLegacyStats, 120 * DAY, Heavy,
-    |self, ctx| format!("player-legacy:{}:{}:legacy", ctx.data.server_id, ctx.data.player_id), {
+    |self, ctx| format!("player-gfl-stats:{}:{}:stats", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbGflPlayerStats, "
             WITH ranked AS (
               SELECT
@@ -285,6 +285,8 @@ worker_query! {
                 boss_killed,
                 leader_count,
                 td_count,
+                NULLIF(personaname, '') AS personaname,
+                timestamp AT TIME ZONE 'UTC' AS last_seen,
                 RANK() OVER (ORDER BY human_time + zombie_time DESC) AS rank_total_playtime,
                 RANK() OVER (ORDER BY zombie_time DESC) AS rank_zombie_time,
                 RANK() OVER (ORDER BY points DESC) AS rank_points,
@@ -311,9 +313,10 @@ worker_query! {
     PlayerBasicQuery<Option<DbNidePlayerStats>> => PlayerNideStats, HOUR, Light,
     |self, ctx| format!("player-nide-stats:{}:{}:stats", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbNidePlayerStats, "
-            SELECT points, rank, kills, deaths, kills_per_death, kills_per_minute, headshots,
-                   headshots_per_kill, weapon_accuracy, longest_kill_streak,
-                   total_connection_time::BIGINT AS playtime, country_code, updated_at
+            SELECT name, points, rank, kills, deaths, kills_per_death, kills_per_minute, headshots,
+                   headshots_per_kill, shots_per_kill, weapon_accuracy, longest_kill_streak,
+                   longest_death_streak, total_connection_time::BIGINT AS playtime, country,
+                   country_code, updated_at
             FROM external_data.nide_players
             WHERE steam_id = $1
             ORDER BY updated_at DESC NULLS LAST
@@ -325,7 +328,7 @@ worker_query! {
     PlayerBasicQuery<Option<DbMapeadoresPlayerStats>> => PlayerMapeadoresStats, HOUR, Light,
     |self, ctx| format!("player-mapeadores-stats:{}:{}:stats", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbMapeadoresPlayerStats, r#"
-            SELECT minutes::BIGINT * 60 AS "playtime!", position, is_supporter, fetched_at
+            SELECT name, minutes::BIGINT * 60 AS "playtime!", position, is_supporter, fetched_at
             FROM external_data.mapeadores_playtime
             WHERE steamid64 = $1
         "#, ctx.data.player_id).fetch_optional(&*ctx.pool).await
@@ -2057,7 +2060,7 @@ mod tests {
         let (pattern, ttl, priority, kind) = metadata(
             &player_query::<Option<DbGflPlayerStats>>(),
         );
-        assert_eq!(pattern, format!("player-legacy:{TEST_SERVER}:{TEST_PLAYER}:legacy"));
+        assert_eq!(pattern, format!("player-gfl-stats:{TEST_SERVER}:{TEST_PLAYER}:stats"));
         assert!(!pattern.contains("{session}"));
         assert_eq!(ttl, 120 * DAY);
         assert!(matches!(priority, QueryPriority::Heavy));

@@ -228,9 +228,12 @@ export type GflPlayerStats = {
     rank_boss_killed: number,
     rank_leader_count: number,
     rank_td_count: number,
+    personaname: string | null,
+    last_seen: string | null,
 }
 
 export type NidePlayerStats = {
+    name: string | null,
     points: number | null,
     rank: number | null,
     kills: number | null,
@@ -240,16 +243,20 @@ export type NidePlayerStats = {
     headshots: number | null,
     /** Ratio, 0 to 1. */
     headshots_per_kill: number | null,
+    shots_per_kill: number | null,
     /** Percentage, 0 to 100. */
     weapon_accuracy: number | null,
     longest_kill_streak: number | null,
+    longest_death_streak: number | null,
     /** Seconds. */
     playtime: number | null,
+    country: string | null,
     country_code: string | null,
     updated_at: string | null,
 }
 
 export type MapeadoresPlayerStats = {
+    name: string,
     /** Seconds. */
     playtime: number,
     position: number,

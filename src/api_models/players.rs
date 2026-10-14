@@ -336,6 +336,8 @@ impl ExternalStatsSource {
 /// NiDE's own leaderboard stats for a player.
 #[derive(Object)]
 pub struct NidePlayerStats {
+    /// Name on NiDE's leaderboard.
+    pub name: Option<String>,
     pub points: Option<i32>,
     /// NiDE's leaderboard rank.
     pub rank: Option<i32>,
@@ -346,11 +348,15 @@ pub struct NidePlayerStats {
     pub headshots: Option<i32>,
     /// Ratio, 0 to 1.
     pub headshots_per_kill: Option<f64>,
+    pub shots_per_kill: Option<f64>,
     /// Percentage, 0 to 100.
     pub weapon_accuracy: Option<f64>,
     pub longest_kill_streak: Option<i32>,
+    pub longest_death_streak: Option<i32>,
     /// Lifetime playtime in seconds, as reported by NiDE.
     pub playtime: Option<i64>,
+    /// Country name, in English, as reported by NiDE.
+    pub country: Option<String>,
     pub country_code: Option<String>,
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -358,6 +364,8 @@ pub struct NidePlayerStats {
 /// Mapeadores' VIP playtime leaderboard entry for a player.
 #[derive(Object)]
 pub struct MapeadoresPlayerStats {
+    /// Name on Mapeadores' leaderboard.
+    pub name: String,
     /// Lifetime playtime in seconds, as reported by Mapeadores.
     pub playtime: i64,
     /// Position on the Mapeadores leaderboard.
@@ -391,6 +399,10 @@ pub struct GflPlayerStats {
     pub rank_boss_killed: i64,
     pub rank_leader_count: i64,
     pub rank_td_count: i64,
+    /// Steam name when GFL last recorded the player.
+    pub personaname: Option<String>,
+    /// When GFL last recorded the player.
+    pub last_seen: Option<DateTime<Utc>>,
 }
 
 /// A single ban/mute record from an anti-cheat or ban-tracking source.
@@ -683,6 +695,7 @@ mod tests {
     fn external_stats_are_tagged_with_their_source() {
         use poem_openapi::types::ToJSON;
         let stats = PlayerExternalStats::Mapeadores(MapeadoresPlayerStats {
+            name: "Rold".into(),
             playtime: 3600,
             position: 1,
             is_supporter: true,

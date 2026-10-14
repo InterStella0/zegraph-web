@@ -85,6 +85,17 @@ function formatDay(value: string | null | undefined, locale: string, compact = f
     }).format(date);
 }
 
+function formatCountry(code: string | null, name: string | null, locale: string): string {
+    if (code) {
+        try {
+            return new Intl.DisplayNames(locale, { type: 'region' }).of(code.toUpperCase()) ?? name ?? code;
+        } catch {
+            return name ?? code;
+        }
+    }
+    return name ?? EMPTY;
+}
+
 function formatPercent(value: number, locale: string, precise = false): string {
     return formatNumber(value, precise && value > 0 && value < 10 ? 1 : 0, locale);
 }
@@ -301,6 +312,7 @@ function useStatFormat() {
         rank: (value: number | null | undefined) =>
             value == null ? undefined : `#${formatNumber(value, 0, locale)}`,
         day: (value: string | null | undefined) => formatDay(value, locale),
+        country: (code: string | null, name: string | null) => formatCountry(code, name, locale),
     };
 }
 
@@ -309,13 +321,18 @@ function GflStats({ stats }: { stats: GflPlayerStats }): ReactElement {
     const f = useStatFormat();
     return <StatRow footer={t('footerGfl')}>
         <StatItem label={t('playtime')} value={f.hours(stats.human_time + stats.zombie_time)} detail={f.rank(stats.rank_total_playtime)} />
+        <StatItem label={t('humanTime')} value={f.hours(stats.human_time)} detail={f.rank(stats.rank_human_time)} />
+        <StatItem label={t('zombieTime')} value={f.hours(stats.zombie_time)} detail={f.rank(stats.rank_zombie_time)} />
         <StatItem label={t('points')} value={f.count(stats.points)} detail={f.rank(stats.rank_points)} />
         <StatItem label={t('zombieKills')} value={f.count(stats.zombie_killed)} detail={f.rank(stats.rank_zombie_killed)} />
         <StatItem label={t('headshots')} value={f.count(stats.headshot)} detail={f.rank(stats.rank_headshot)} />
+        <StatItem label={t('timesInfected')} value={f.count(stats.infected_time)} detail={f.rank(stats.rank_infected_time)} />
         <StatItem label={t('bossKills')} value={f.count(stats.boss_killed)} detail={f.rank(stats.rank_boss_killed)} />
         <StatItem label={t('leaderCount')} value={f.count(stats.leader_count)} detail={f.rank(stats.rank_leader_count)} />
         <StatItem label={t('itemUsage')} value={f.count(stats.item_usage)} detail={f.rank(stats.rank_item_usage)} />
         <StatItem label={t('topDefender')} value={f.count(stats.td_count)} detail={f.rank(stats.rank_td_count)} />
+        {stats.personaname && <StatItem label={t('knownAs')} value={stats.personaname} />}
+        {stats.last_seen && <StatItem label={t('lastSeen')} value={f.day(stats.last_seen)} />}
     </StatRow>
 }
 
@@ -330,9 +347,14 @@ function NideStats({ stats, reported }: { stats: NidePlayerStats, reported: bool
         <StatItem label={t('kills')} value={f.count(stats.kills)} />
         <StatItem label={t('deaths')} value={f.count(stats.deaths)} />
         <StatItem label={t('kd')} value={f.count(stats.kills_per_death, 2)} />
+        <StatItem label={t('killsPerMinute')} value={f.count(stats.kills_per_minute, 2)} />
         <StatItem label={t('headshots')} value={f.count(stats.headshots)} detail={headshotRate} />
+        <StatItem label={t('shotsPerKill')} value={f.count(stats.shots_per_kill, 1)} />
         <StatItem label={t('accuracy')} value={stats.weapon_accuracy == null ? EMPTY : `${f.count(stats.weapon_accuracy, 1)}%`} />
         <StatItem label={t('longestStreak')} value={f.count(stats.longest_kill_streak)} />
+        <StatItem label={t('longestDeathStreak')} value={f.count(stats.longest_death_streak)} />
+        {stats.name && <StatItem label={t('knownAs')} value={stats.name} />}
+        {(stats.country_code || stats.country) && <StatItem label={t('country')} value={f.country(stats.country_code, stats.country)} />}
     </StatRow>
 }
 
@@ -343,6 +365,7 @@ function MapeadoresStats({ stats, reported }: { stats: MapeadoresPlayerStats, re
     return <StatRow footer={footer}>
         {!reported && <StatItem label={t('playtime')} value={f.hours(stats.playtime)} />}
         <StatItem label={t('leaderboardPosition')} value={f.rank(stats.position)} />
+        <StatItem label={t('knownAs')} value={stats.name} />
         {stats.is_supporter && <StatItem label={t('status')} value={t('supporter')} />}
     </StatRow>
 }

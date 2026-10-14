@@ -67,7 +67,8 @@ pub struct DbGlobalPlayerSession{
     #[skip]
     pub total_rows: Option<i64>
 }
-#[derive(Clone, Serialize, Deserialize, DbInto)]
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
 #[db_into(GflPlayerStats)]
 pub struct DbGflPlayerStats {
     #[default("Invalid SteamID64".into())]
@@ -114,6 +115,8 @@ pub struct DbGflPlayerStats {
     pub rank_leader_count: Option<i64>,
     #[unwrap_default]
     pub rank_td_count: Option<i64>,
+    pub personaname: Option<String>,
+    pub last_seen: Option<OffsetDateTime>,
 }
 
 #[derive(Clone, DbInto)]
@@ -209,6 +212,7 @@ pub struct DbPlayerDetail{
 #[auto_serde_with]
 #[db_into(NidePlayerStats)]
 pub struct DbNidePlayerStats {
+    pub name: Option<String>,
     pub points: Option<i32>,
     pub rank: Option<i32>,
     pub kills: Option<i32>,
@@ -217,9 +221,12 @@ pub struct DbNidePlayerStats {
     pub kills_per_minute: Option<f64>,
     pub headshots: Option<i32>,
     pub headshots_per_kill: Option<f64>,
+    pub shots_per_kill: Option<f64>,
     pub weapon_accuracy: Option<f64>,
     pub longest_kill_streak: Option<i32>,
+    pub longest_death_streak: Option<i32>,
     pub playtime: Option<i64>,
+    pub country: Option<String>,
     pub country_code: Option<String>,
     pub updated_at: Option<OffsetDateTime>,
 }
@@ -227,6 +234,7 @@ pub struct DbNidePlayerStats {
 #[auto_serde_with]
 #[db_into(MapeadoresPlayerStats)]
 pub struct DbMapeadoresPlayerStats {
+    pub name: String,
     pub playtime: i64,
     pub position: i32,
     pub is_supporter: bool,
