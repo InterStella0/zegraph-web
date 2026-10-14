@@ -46,7 +46,7 @@ jobs:
           # GitHub links the merge commit to its PR a few seconds after the push, so retry
           # before concluding there is none.
           pr="" head=""
-          for _ in $(seq 6); do
+          for i in $(seq 6); do
             if ! gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" > pulls.json; then
               echo "pr lookup failed — deploying"
               echo "deploy=true" >> "$GITHUB_OUTPUT"
@@ -56,7 +56,7 @@ jobs:
               '.[] | select(.merged_at != null and .merge_commit_sha == $sha) | "\(.number) \(.head.sha)"' \
               pulls.json | head -n1) || true
             [[ -n "$pr" ]] && break
-            sleep 5
+            [[ $i -lt 6 ]] && sleep 5
           done
 
           if [[ -z "$pr" ]]; then

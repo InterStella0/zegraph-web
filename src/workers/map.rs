@@ -763,7 +763,7 @@ worker_query! {
 }
 
 worker_query! {
-    MapPeriodQuery<Vec<DbMapPeriodPlayer>> => MapPeriodTopPlayers, period "top-players", Heavy, |self, ctx| {
+    MapPeriodQuery<Vec<DbMapPeriodPlayer>> => MapPeriodTopPlayers, period "top-players-v2", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbMapPeriodPlayer, "
             WITH smp AS (
@@ -781,7 +781,7 @@ worker_query! {
                 JOIN player_server_session pss
                   ON pss.server_id = $1
                  AND tstzrange(pss.started_at, pss.ended_at) && tstzrange(smp.started_at, smp.ended_at)
-                WHERE NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = pss.player_id AND pb.is_bot)
+                WHERE NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pss.player_id)
                 GROUP BY pss.player_id
                 ORDER BY total_playtime DESC, pss.player_id
                 LIMIT $5
@@ -1070,7 +1070,7 @@ mod tests {
             Vec<DbMapPlayerTypeTime>, "map-period-player-type", QueryPriority::Heavy, JobKind::MapPeriodPlayerTypeTime(_)
         );
         assert_period_scoped!(
-            Vec<DbMapPeriodPlayer>, "map-period-top-players", QueryPriority::Heavy, JobKind::MapPeriodTopPlayers(_)
+            Vec<DbMapPeriodPlayer>, "map-period-top-players-v2", QueryPriority::Heavy, JobKind::MapPeriodTopPlayers(_)
         );
     }
 
@@ -1098,7 +1098,7 @@ mod tests {
         assert_range_scoped!(Vec<DbMapRegionDate>, "map-period-heat-region", QueryPriority::Light);
         assert_range_scoped!(Vec<DbMapSessionDistribution>, "map-period-session-distribution", QueryPriority::Heavy);
         assert_range_scoped!(Vec<DbMapPlayerTypeTime>, "map-period-player-type", QueryPriority::Heavy);
-        assert_range_scoped!(Vec<DbMapPeriodPlayer>, "map-period-top-players", QueryPriority::Heavy);
+        assert_range_scoped!(Vec<DbMapPeriodPlayer>, "map-period-top-players-v2", QueryPriority::Heavy);
     }
 
     #[tokio::test]

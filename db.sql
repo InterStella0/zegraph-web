@@ -206,6 +206,9 @@ CREATE TABLE player_bot(
     detected_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE VIEW bot_player AS
+    SELECT player_id FROM player_bot WHERE is_bot;
+
 CREATE TABLE server_map
 (
     server_id VARCHAR(100) NOT NULL REFERENCES server(server_id) ON DELETE CASCADE,
@@ -526,7 +529,7 @@ SELECT player_id,
        RANK() OVER (PARTITION BY server_id ORDER BY tryhard_playtime DESC) AS tryhard_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY mixed_playtime DESC) AS mixed_rank
 FROM website.player_playtime pp
-WHERE NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = pp.player_id AND pb.is_bot);
+WHERE NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pp.player_id);
 
 CREATE UNIQUE INDEX CONCURRENTLY player_playtime_ranks_idx
     ON website.player_playtime_ranks (player_id, server_id);
@@ -542,7 +545,7 @@ SELECT
     ORDER BY total_playtime DESC
   ) AS map_rank
 FROM website.player_map_time pmt
-WHERE NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = pmt.player_id AND pb.is_bot);
+WHERE NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pmt.player_id);
 CREATE UNIQUE INDEX CONCURRENTLY player_map_rank_idx
     ON website.player_map_rank (server_id, map, player_id);
 

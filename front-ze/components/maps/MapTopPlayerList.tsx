@@ -101,7 +101,7 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
         const timer = setTimeout(() => {
             setSuggestionsLoading(true)
             fetchApiServerUrl(server_id, '/players/autocomplete', { params: { player_name: trimmed }, signal })
-                .then((data: SearchPlayer[]) => setSuggestions(data ?? []))
+                .then((data: SearchPlayer[]) => setSuggestions((data ?? []).filter(p => !p.is_bot)))
                 .catch(e => {
                     if (e === "Value changed") return
                     setSuggestions([])
@@ -227,7 +227,6 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
                                                     name={option.name}
                                                     isAnonymous={option.is_anonymous}
                                                     hiddenFromOthers={option.hidden_from_others}
-                                                    isBot={option.is_bot}
                                                     className="font-medium"
                                                 />
                                             </CommandItem>

@@ -457,7 +457,7 @@ impl GraphApi {
 								) AS duration
 							FROM player_server_session
 							WHERE server_id = (SELECT server_id FROM pre_vars)
-							  AND NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = player_server_session.player_id AND pb.is_bot)
+							  AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = player_server_session.player_id)
 							  AND (
 									(ended_at IS NOT NULL AND ended_at >= (SELECT min_start FROM vars))
 									OR (ended_at IS NULL)
@@ -557,7 +557,7 @@ impl GraphApi {
 								END AS duration
 							FROM player_server_session
 							WHERE server_id = (SELECT server_id FROM pre_vars)
-							  AND NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = player_server_session.player_id AND pb.is_bot)
+							  AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = player_server_session.player_id)
 							  AND (
 									(ended_at IS NOT NULL AND ended_at >= (SELECT min_start FROM vars))
 									OR (ended_at IS NULL)
@@ -673,7 +673,7 @@ impl GraphApi {
                     END as duration
                 FROM player_server_session
                 WHERE server_id = $3
-                    AND NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = player_server_session.player_id AND pb.is_bot)
+                    AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = player_server_session.player_id)
                     AND((ended_at IS NOT NULL AND ended_at >= (
                         SELECT min_start FROM vars
                     ))
