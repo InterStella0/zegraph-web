@@ -79,7 +79,7 @@ function GlobalProfileButton({ steamId, label, className }: { steamId: string, l
             size="sm"
             asChild
             className={cn(
-                "border border-primary/40 bg-primary/15 text-foreground hover:bg-primary/25 hover:text-foreground dark:hover:bg-primary/25",
+                "border border-primary/40 bg-primary/15 px-3.5 text-foreground has-[>svg]:px-3.5 hover:bg-primary/25 hover:text-foreground dark:hover:bg-primary/25",
                 className,
             )}
         >
