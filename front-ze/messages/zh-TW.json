@@ -25,7 +25,9 @@
     },
     "anonymous": "匿名玩家",
     "hidden": "（已隱藏）",
-    "hiddenHint": "只有你和社群管理員可以看到此名稱，其他人看到的是「匿名玩家」。"
+    "hiddenHint": "只有你和社群管理員可以看到此名稱，其他人看到的是「匿名玩家」。",
+    "bot": "機器人",
+    "botHint": "此帳號是自動化機器人，不是真實玩家。"
   },
   "auth": {
     "login": "登入",
@@ -317,6 +319,7 @@
       "tryhard": "認真模式",
       "casual": "休閒",
       "topOnMap": "{map} 排名第 {rank}（{hours}小時）",
+      "botNotice": "此帳號是機器人，不是真實玩家。它不會顯示在線上列表中，也不計入排名。",
       "noDetail": "暫無玩家詳細資訊。"
     },
     "page": {
@@ -440,6 +443,7 @@
       "anonymous": "匿名玩家",
       "ranked": "排名第 {rank}",
       "unranked": "未排名",
+      "botUnranked": "不參與排名",
       "hoursShort": "{hours}小時"
     },
     "heatmap": {

@@ -310,6 +310,7 @@ impl PlayerApi{
     /// `player_name` must be at least 3 characters. Matches the requester's own player ID first,
     /// then substring name matches (case-insensitive), up to 20 results. Anonymized players show
     /// as "Anonymous" unless the requester is that player, a superuser, or a community admin.
+    /// Bots are included and flagged with `is_bot`.
     #[oai(path = "/servers/:server_id/players/autocomplete", method = "get", operation_id = "search_players", tag = "ApiTags::Mcp")]
     async fn get_players_autocomplete(
         &self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(player_name): Query<String>,
@@ -338,6 +339,7 @@ impl PlayerApi{
                 SELECT spn.player_id, spn.player_name,
                        COALESCE(p.associated_player_id, p.player_id) AS canonical_player_id,
                        spn.is_anonymous,
+                       EXISTS(SELECT 1 FROM bot_player b WHERE b.player_id = spn.player_id) AS is_bot,
                        CASE WHEN spn.player_id = $2 THEN 0 ELSE 1 END AS id_rank,
                        NULLIF(STRPOS(LOWER(spn.player_name), LOWER($2)), 0) AS name_rank
                 FROM server_player_names spn
@@ -363,7 +365,8 @@ impl PlayerApi{
                     THEN TRUE
                     ELSE FALSE
                 END AS "is_anonymous!",
-                COALESCE(a.is_anonymous, FALSE) AS "hidden_from_others!"
+                COALESCE(a.is_anonymous, FALSE) AS "hidden_from_others!",
+                a.is_bot AS "is_bot!"
             FROM matched_players a
             ORDER BY a.id_rank ASC, a.name_rank ASC NULLS LAST
             LIMIT 20;
@@ -385,6 +388,8 @@ impl PlayerApi{
     /// `Total`). `player_name` (minimum 2 characters) filters to matching players instead of
     /// paginating the full leaderboard; pages are 5 players each. Anonymized players show as
     /// "Anonymous" unless the requester is that player, a superuser, or a community admin.
+    /// Bots are left out of the leaderboard and only appear in a `player_name` search, flagged
+    /// with `is_bot` and unranked.
     #[oai(path = "/servers/:server_id/players/table", method = "get", operation_id = "get_player_leaderboard", tag = "ApiTags::Mcp")]
     async fn get_players_table(
         &self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor,
@@ -416,15 +421,23 @@ impl PlayerApi{
                             COALESCE(website.is_superuser($7), FALSE) AS is_superuser,
                             COALESCE(website.is_community_admin($7, (SELECT community_id FROM server_community)), FALSE) AS is_community_admin
                         WHERE $7 IS NOT NULL
+                    ),
+                    bot_ranks AS MATERIALIZED (
+                        SELECT CASE
+                            WHEN $5='casual' THEN br.casual_rank
+                            WHEN $5='tryhard' THEN br.tryhard_rank
+                            WHEN $5='mixed' THEN br.mixed_rank
+                            ELSE br.playtime_rank
+                        END AS rank
+                        FROM website.player_playtime_ranks br
+                        JOIN bot_player b ON b.player_id = br.player_id
+                        WHERE br.server_id = $4
                     )
                     SELECT
                         COUNT(*) OVER() AS total_players,
                         CASE
-                            WHEN $5='total' THEN ppr.playtime_rank
-                            WHEN $5='casual' THEN ppr.casual_rank
-                            WHEN $5='tryhard' THEN ppr.tryhard_rank
-                            WHEN $5='mixed' THEN ppr.mixed_rank
-                            ELSE ppr.playtime_rank
+                            WHEN pb.player_id IS NOT NULL THEN NULL
+                            ELSE mr.rank - (SELECT COUNT(*) FROM bot_ranks br WHERE br.rank < mr.rank)
                         END AS ranked,
                         spn.player_id AS "player_id!",
                         CASE
@@ -447,11 +460,19 @@ impl PlayerApi{
                             THEN TRUE
                             ELSE FALSE
                         END AS "is_anonymous!",
-                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!"
+                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!",
+                        pb.player_id IS NOT NULL AS "is_bot!"
                     FROM server_player_names spn
                     JOIN player target ON target.player_id = spn.player_id
                     LEFT JOIN website.player_playtime pp ON pp.server_id=spn.server_id AND pp.player_id=spn.player_id
                     LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=spn.server_id AND ppr.player_id=spn.player_id
+                    CROSS JOIN LATERAL (SELECT CASE
+                        WHEN $5='casual' THEN ppr.casual_rank
+                        WHEN $5='tryhard' THEN ppr.tryhard_rank
+                        WHEN $5='mixed' THEN ppr.mixed_rank
+                        ELSE ppr.playtime_rank
+                    END AS rank) mr
+                    LEFT JOIN bot_player pb ON pb.player_id=spn.player_id
                     WHERE spn.server_id=$4 AND (spn.player_id=$6 OR LOWER(spn.player_name) LIKE $1)
                     ORDER BY
                          CASE
@@ -476,16 +497,21 @@ impl PlayerApi{
                             COALESCE(website.is_superuser($5), FALSE) AS is_superuser,
                             COALESCE(website.is_community_admin($5, (SELECT community_id FROM server_community)), FALSE) AS is_community_admin
                         WHERE $5 IS NOT NULL
+                    ),
+                    bot_ranks AS MATERIALIZED (
+                        SELECT CASE
+                            WHEN $4='casual' THEN br.casual_rank
+                            WHEN $4='tryhard' THEN br.tryhard_rank
+                            WHEN $4='mixed' THEN br.mixed_rank
+                            ELSE br.playtime_rank
+                        END AS rank
+                        FROM website.player_playtime_ranks br
+                        JOIN bot_player b ON b.player_id = br.player_id
+                        WHERE br.server_id = $3
                     )
                     SELECT
                         COUNT(*) OVER() AS total_players,
-                        CASE
-                            WHEN $4='total' THEN ppr.playtime_rank
-                            WHEN $4='casual' THEN ppr.casual_rank
-                            WHEN $4='tryhard' THEN ppr.tryhard_rank
-                            WHEN $4='mixed' THEN ppr.mixed_rank
-                            ELSE ppr.playtime_rank
-                        END AS ranked,
+                        mr.rank - (SELECT COUNT(*) FROM bot_ranks br WHERE br.rank < mr.rank) AS ranked,
                         spn.player_id AS "player_id!",
                         CASE
                             WHEN spn.is_anonymous = TRUE
@@ -507,12 +533,20 @@ impl PlayerApi{
                             THEN TRUE
                             ELSE FALSE
                         END AS "is_anonymous!",
-                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!"
+                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!",
+                        FALSE AS "is_bot!"
                     FROM server_player_names spn
                     JOIN player target ON target.player_id = spn.player_id
                     LEFT JOIN website.player_playtime pp ON pp.server_id=spn.server_id AND pp.player_id=spn.player_id
                     LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=spn.server_id AND ppr.player_id=spn.player_id
+                    CROSS JOIN LATERAL (SELECT CASE
+                        WHEN $4='casual' THEN ppr.casual_rank
+                        WHEN $4='tryhard' THEN ppr.tryhard_rank
+                        WHEN $4='mixed' THEN ppr.mixed_rank
+                        ELSE ppr.playtime_rank
+                    END AS rank) mr
                     WHERE spn.server_id=$3
+                      AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = spn.player_id)
                     ORDER BY
                          CASE
                             WHEN $4='total' THEN COALESCE(pp.total_playtime, INTERVAL '0')
@@ -569,7 +603,7 @@ impl PlayerApi{
     /// Players currently connected to a server.
     ///
     /// A session counts as "currently connected" if it was verified within the last 20 minutes.
-    /// Anonymized players show as "Anonymous" unless the requester is that player, a superuser,
+    /// Bots are left out. Anonymized players show as "Anonymous" unless the requester is that player, a superuser,
     /// or a community admin.
     #[oai(path = "/servers/:server_id/players/playing", method = "get", operation_id = "list_online_players", tag = "ApiTags::Mcp")]
     async fn get_players_playing(&self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, OptionalTokenBearer(user_token): OptionalTokenBearer) -> Response<Vec<PlayerDetailSession>>{
@@ -594,6 +628,7 @@ impl PlayerApi{
                    ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
                   AND ua.community_id = s.community_id
             WHERE pss.server_id = $1 AND pss.ended_at IS NULL AND (CURRENT_TIMESTAMP - pss.last_verified) < INTERVAL '20 minutes'
+              AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pss.player_id)
             ORDER BY pss.started_at
         "#, server_id).fetch_all(pool);
 
@@ -1073,7 +1108,8 @@ impl PlayerApi{
     /// `q` filters by player name. If no stored player matches a `q` of 3 or more characters, the
     /// time together with every matching player on the server (up to the 100 closest names) is
     /// calculated on the spot instead, keeping only those who ever played together, and
-    /// `live_search` is set. Anonymized players show as "Anonymous" and never match `q`.
+    /// `live_search` is set. Anonymized players show as "Anonymous" and never match `q`. Bots are
+    /// left out.
     ///
     /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) the
     /// list is instead the top 100 for that year, month or range, calculated on request and only

@@ -418,14 +418,14 @@ impl GraphApi {
 	///
 	/// `time_frame` selects a fixed window (`Today`, `Week1`, `Week2`, `Month1`, `Month6`,
 	/// `Year1`); cache TTL scales with the window size. Player names are anonymized per the
-	/// requester's identity.
+	/// requester's identity. Bots are left out.
 	#[oai(path = "/graph/:server_id/top_players", method = "get", operation_id = "get_server_top_players", tag = "ApiTags::Mcp")]
 	async fn get_server_top_players(
 		&self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(time_frame): Query<TopPlayersTimeFrame>,
 		OptionalTokenBearer(user_token): OptionalTokenBearer,
 	) -> Response<BriefPlayers> {
 		let pool = &*data.pool.clone();
-		let key = format!("graph-top-players:{}:{}", server.server_id, time_frame);
+		let key = format!("graph-top-players-v2:{}:{}", server.server_id, time_frame);
 		let ttl = match time_frame{
 			TopPlayersTimeFrame::Today => 30 * 60,
 			TopPlayersTimeFrame::Week1 => 6 * HOUR,
@@ -457,6 +457,7 @@ impl GraphApi {
 								) AS duration
 							FROM player_server_session
 							WHERE server_id = (SELECT server_id FROM pre_vars)
+							  AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = player_server_session.player_id)
 							  AND (
 									(ended_at IS NOT NULL AND ended_at >= (SELECT min_start FROM vars))
 									OR (ended_at IS NULL)
@@ -556,6 +557,7 @@ impl GraphApi {
 								END AS duration
 							FROM player_server_session
 							WHERE server_id = (SELECT server_id FROM pre_vars)
+							  AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = player_server_session.player_id)
 							  AND (
 									(ended_at IS NOT NULL AND ended_at >= (SELECT min_start FROM vars))
 									OR (ended_at IS NULL)
@@ -641,6 +643,7 @@ impl GraphApi {
 	///
 	/// `start` (defaults to the server's earliest recorded session) and `end` bound the window;
 	/// `page` paginates in pages of 70. Player names are anonymized per the requester's identity.
+	/// Bots are left out.
 	#[oai(path = "/graph/:server_id/players", method = "get", operation_id = "get_server_players_in_range", tag = "ApiTags::Mcp")]
 	async fn get_server_players(
 		&self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor,
@@ -670,6 +673,7 @@ impl GraphApi {
                     END as duration
                 FROM player_server_session
                 WHERE server_id = $3
+                    AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = player_server_session.player_id)
                     AND((ended_at IS NOT NULL AND ended_at >= (
                         SELECT min_start FROM vars
                     ))
@@ -731,7 +735,7 @@ impl GraphApi {
 			", start.0.map(|e| e.to_db_time()),
 			end.0.to_db_time(), server.server_id, pagination_size, offset
 		).fetch_all(pool);
-		let key = format!("server-player:{}:{}:{}:{}",
+		let key = format!("server-player-v2:{}:{}:{}:{}",
 			server.server_id, start.0.map(|s| s.to_string()).unwrap_or_default(),
 			end.0.to_string(), page.0
 		);

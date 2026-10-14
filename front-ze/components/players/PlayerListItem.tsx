@@ -4,15 +4,17 @@ import {useTranslations, useLocale} from "next-intl";
 import {PlayerTableRank, RankMode} from "types/players";
 import {Server} from "types/community";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
-import {PlayerName} from "./PlayerName";
+import {BotBadge, PlayerName} from "./PlayerName";
 
 const PlayerListItem = ({ player, mode = 'Total', server }: { player: PlayerTableRank, mode: RankMode, server: Server}) => {
     const t = useTranslations('players.listItem');
     const tCommon = useTranslations('common');
     const locale = useLocale();
-    const rankLabel = player.rank === -1
-        ? t('unranked')
-        : t('ranked', {rank: tCommon('ordinal', {n: player.rank})});
+    const rankLabel = player.is_bot
+        ? <><BotBadge className="ml-0 mr-1.5"/>{t('botUnranked')}</>
+        : player.rank === -1
+            ? t('unranked')
+            : t('ranked', {rank: tCommon('ordinal', {n: player.rank})});
     return (
     <div className="flex items-center gap-3 rounded-md mb-2 border border-border p-3 transition-all duration-200 hover:bg-accent/50">
         <div className="flex-shrink-0">

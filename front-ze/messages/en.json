@@ -25,7 +25,9 @@
     },
     "anonymous": "Anonymous",
     "hidden": "(Hidden)",
-    "hiddenHint": "Only you and community admins can see this name. Everyone else sees “Anonymous”."
+    "hiddenHint": "Only you and community admins can see this name. Everyone else sees “Anonymous”.",
+    "bot": "Bot",
+    "botHint": "This account is an automated bot, not a real player."
   },
   "auth": {
     "login": "Login",
@@ -317,6 +319,7 @@
       "tryhard": "Tryhard",
       "casual": "Casual",
       "topOnMap": "Top {rank} on {map} ({hours}hr)",
+      "botNotice": "This account is a bot, not a real player. It is hidden from online lists and left out of rankings.",
       "noDetail": "No player detail is available."
     },
     "page": {
@@ -440,6 +443,7 @@
       "anonymous": "Anonymous",
       "ranked": "{rank} Ranked",
       "unranked": "Unranked",
+      "botUnranked": "Not ranked",
       "hoursShort": "{hours}hr"
     },
     "heatmap": {

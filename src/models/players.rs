@@ -155,6 +155,7 @@ pub struct DbPlayerMightFriend{
 #[db_into(SearchPlayer)]
 #[extra(is_anonymous = false)]
 #[extra(hidden_from_others = false)]
+#[extra(is_bot = false)]
 pub struct DbPlayer{
     #[rename(id)]
     pub player_id: String,
@@ -175,7 +176,8 @@ pub struct DbPlayerAnonymized{
     #[rename(name)]
     pub player_name: String,
     pub is_anonymous: bool,
-    pub hidden_from_others: bool
+    pub hidden_from_others: bool,
+    pub is_bot: bool
 }
 
 
@@ -183,7 +185,7 @@ pub struct DbPlayerAnonymized{
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
 #[db_into(DetailedPlayer)]
-#[extra(aliases=vec![], ranks=None, is_stale=false, calculated_at=None, external_playtime=None)]
+#[extra(aliases=vec![], ranks=None, is_stale=false, calculated_at=None, external_playtime=None, is_bot=false)]
 pub struct DbPlayerDetail{
     #[rename(id)]
     pub player_id: String,
@@ -287,7 +289,8 @@ pub struct DbPlayerTable{
     #[skip]
     pub total_players: Option<i64>,
     pub is_anonymous: bool,
-    pub hidden_from_others: bool
+    pub hidden_from_others: bool,
+    pub is_bot: bool
 }
 /// `hidden_from_others` is not selected: every query building this struct hands its rows straight
 /// to `BriefAnonymizer::apply`, which derives the flag from `is_anonymous` and overwrites whatever

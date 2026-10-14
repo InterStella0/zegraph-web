@@ -533,7 +533,7 @@ impl MapApi{
     /// Players (and their playtime during it) for a single map-play session, ranked by time.
     ///
     /// Anonymized players are handled per the requester's identity. Cached briefly while the
-    /// map is still being played, for a day once it has ended.
+    /// map is still being played, for a day once it has ended. Bots are left out.
     #[oai(path = "/servers/:server_id/sessions/:session_id/players", method = "get", operation_id = "get_map_session_players", tag = "ApiTags::Mcp")]
     async fn get_map_player_session(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>,
@@ -578,6 +578,7 @@ impl MapApi{
                     ON pss.server_id=smp.server_id
 						AND smp.time_id = p.time_id
 						AND tstzrange(pss.started_at, pss.ended_at) && tstzrange(smp.started_at, smp.ended_at)
+                    WHERE NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pss.player_id)
                     GROUP BY pss.player_id
                 ),
                 online_players AS (
@@ -616,7 +617,7 @@ impl MapApi{
                 ORDER BY total_playtime DESC
             ", server.server_id, time_id).fetch_all(pool).await
         };
-        let key = format!("map_player_session:{}:{}", server.server_id, session_id);
+        let key = format!("map_player_session-v2:{}:{}", server.server_id, session_id);
         let duration_cache = if is_playing { 60 } else { DAY };
         let Ok(rows) = cached_response(&key, cache, duration_cache, func).await else {
             tracing::warn!("Couldn't get player session");
@@ -922,7 +923,7 @@ impl MapApi{
     /// Top players on a map, ranked by playtime, with optional name search.
     ///
     /// `player_name` (minimum 2 characters) filters to matching players; pages are 10 players
-    /// each.
+    /// each. Bots are left out, even from a name search.
     ///
     /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) the
     /// list is instead the top 100 by time in the map sessions that started in that year, month or
@@ -970,14 +971,22 @@ impl MapApi{
             Some(player_name) => {
                 let name_pattern = format!("%{player_name}%");
                 let rows = or_ise!(sqlx::query_as!(DbPlayerBrief, "
-                    WITH pages AS (
-                        SELECT pmt.player_id, pmt.total_playtime, pmr.map_rank::int AS rank,
+                    WITH bot_map_ranks AS MATERIALIZED (
+                        SELECT bmr.map_rank
+                        FROM website.player_map_rank bmr
+                        JOIN bot_player b ON b.player_id = bmr.player_id
+                        WHERE bmr.server_id = $1 AND bmr.map = $2
+                    ),
+                    pages AS (
+                        SELECT pmt.player_id, pmt.total_playtime,
+                               (pmr.map_rank - (SELECT COUNT(*) FROM bot_map_ranks b WHERE b.map_rank < pmr.map_rank))::int AS rank,
                                COUNT(*) OVER() AS total_players
                         FROM website.player_map_time pmt
                         JOIN website.player_map_rank pmr
                             ON pmr.server_id = pmt.server_id AND pmr.map = pmt.map AND pmr.player_id = pmt.player_id
                         JOIN player p ON p.player_id = pmt.player_id
                         WHERE pmt.server_id = $1 AND pmt.map = $2 AND p.player_name ILIKE $5
+                          AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pmt.player_id)
                         ORDER BY pmr.map_rank
                         LIMIT $3 OFFSET $4
                     )
@@ -1020,13 +1029,21 @@ impl MapApi{
             },
             None => {
                 let sql_func = || sqlx::query_as!(DbPlayerBrief, "
-                    WITH pages AS (
-                        SELECT pmt.player_id, pmt.total_playtime, pmr.map_rank::int AS rank,
+                    WITH bot_map_ranks AS MATERIALIZED (
+                        SELECT bmr.map_rank
+                        FROM website.player_map_rank bmr
+                        JOIN bot_player b ON b.player_id = bmr.player_id
+                        WHERE bmr.server_id = $1 AND bmr.map = $2
+                    ),
+                    pages AS (
+                        SELECT pmt.player_id, pmt.total_playtime,
+                               (pmr.map_rank - (SELECT COUNT(*) FROM bot_map_ranks b WHERE b.map_rank < pmr.map_rank))::int AS rank,
                                COUNT(*) OVER() AS total_players
                         FROM website.player_map_time pmt
                         JOIN website.player_map_rank pmr
                             ON pmr.server_id = pmt.server_id AND pmr.map = pmt.map AND pmr.player_id = pmt.player_id
                         WHERE pmt.server_id = $1 AND pmt.map = $2
+                          AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pmt.player_id)
                         ORDER BY pmr.map_rank
                         LIMIT $3 OFFSET $4
                     )

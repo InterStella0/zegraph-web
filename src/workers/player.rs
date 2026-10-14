@@ -716,6 +716,7 @@ worker_query! {
                  AND s2.started_at < t.ended_at
                  AND s2.ended_at > t.started_at
                  AND s2.player_id <> $2
+                 AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = s2.player_id)
                 UNION ALL
                 SELECT s2.player_id, t.started_at, t.ended_at, s2.started_at, t.ended_at
                 FROM target t
@@ -725,6 +726,7 @@ worker_query! {
                  AND s2.started_at >= t.started_at - INTERVAL '1 day'
                  AND s2.started_at < t.ended_at
                  AND s2.player_id <> $2
+                 AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = s2.player_id)
             ),
             ranked AS (
                 SELECT
@@ -1198,7 +1200,7 @@ worker_query! {
 worker_query! {
     /// The period's "played with" top list: the same overlap calculation as the all-time
     /// `might_friends` job, with the player's sessions clamped to the period and nothing saved.
-    PlayerPeriodQuery<Vec<DbPlayerSeen>> => PlayerPeriodPlayedWith, period "played-with", Heavy, |self, ctx| {
+    PlayerPeriodQuery<Vec<DbPlayerSeen>> => PlayerPeriodPlayedWith, period "played-with-v2", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
 
         let mut tx = ctx.pool.begin().await?;
@@ -1221,6 +1223,7 @@ worker_query! {
                  AND s2.started_at < t.ended_at
                  AND s2.ended_at > t.started_at
                  AND s2.player_id <> $2
+                 AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = s2.player_id)
                 UNION ALL
                 SELECT s2.player_id, t.started_at, t.ended_at, s2.started_at, t.ended_at
                 FROM target t
@@ -1230,6 +1233,7 @@ worker_query! {
                  AND s2.started_at >= t.started_at - INTERVAL '1 day'
                  AND s2.started_at < t.ended_at
                  AND s2.player_id <> $2
+                 AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = s2.player_id)
             ),
             ranked AS (
                 SELECT
@@ -1372,6 +1376,7 @@ impl PlayerWorker {
                    ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
                   AND ua.community_id = s.community_id
             WHERE r.player_id = $1 AND r.server_id = $2
+              AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = r.meet_player_id)
               AND ($3::TEXT IS NULL OR (
                     NOT COALESCE(ua.anonymized, FALSE)
                     AND p.player_name ILIKE '%' || $3 || '%'
@@ -1524,6 +1529,7 @@ impl PlayerWorker {
                 WHERE spn.server_id = $1 AND spn.player_id <> $2
                   AND LOWER(spn.player_name) LIKE '%' || $3 || '%'
                   AND NOT COALESCE(ua.anonymized, FALSE)
+                  AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = spn.player_id)
                 ORDER BY
                     LOWER(spn.player_name) = $4 DESC,
                     LOWER(spn.player_name) LIKE $3 || '%' DESC,
@@ -1579,6 +1585,9 @@ impl PlayerWorker {
         }
         let result: Vec<DbPlayerMapPlayed> = self.query_player(context).await?;
         let values: Vec<PlayerMostPlayedMap> = result.iter_into();
+        if self.is_bot(context).await? {
+            return Ok(values);
+        }
         let ranks: Vec<DbMapRank> = self.query_player_execute(context).await?;
         let mut mapped_ranks: HashMap<String, MapRank> = HashMap::new();
         for rank in ranks{
@@ -1650,7 +1659,7 @@ impl PlayerWorker {
             detail.calculated_at = self.fetch_playtime_calculated_at(context).await?;
         }
         self.attach_external_playtime(context, &mut detail).await?;
-        self.attach_ranks_and_aliases(context, &mut detail).await?;
+        self.attach_standing(context, &mut detail).await?;
         Ok(detail)
     }
 
@@ -1660,6 +1669,7 @@ impl PlayerWorker {
         let cached: CachedResult<DbPlayerDetail> = self.query_player_period(context, period).await?;
         let mut detail: DetailedPlayer = cached.result.into();
         detail.is_stale = cached.backup;
+        detail.is_bot = self.is_bot(context).await?;
         self.attach_aliases(context, &mut detail).await?;
         Ok(detail)
     }
@@ -1689,8 +1699,30 @@ impl PlayerWorker {
         detail.is_stale = true;
         detail.calculated_at = self.fetch_playtime_calculated_at(context).await?;
         self.attach_external_playtime(context, &mut detail).await?;
-        self.attach_ranks_and_aliases(context, &mut detail).await?;
+        self.attach_standing(context, &mut detail).await?;
         Ok(detail)
+    }
+
+    async fn is_bot(&self, context: &PlayerContext) -> Result<bool, sqlx::Error>{
+        let player_id = &context.player.player_id;
+        let func = || sqlx::query_scalar!(
+            "SELECT EXISTS(SELECT 1 FROM bot_player WHERE player_id = $1) AS \"is_bot!\"",
+            player_id
+        ).fetch_one(&*self.pool);
+        let key = format!("player-bot:{player_id}");
+        Ok(cached_response(&key, &self.background_worker.cache, 10 * 60, func).await?.result)
+    }
+
+    async fn attach_standing(
+        &self, context: &PlayerContext, detail: &mut DetailedPlayer,
+    ) -> WorkResult<()>{
+        detail.is_bot = self.is_bot(context).await?;
+        if !detail.is_bot {
+            return self.attach_ranks_and_aliases(context, detail).await;
+        }
+        detail.rank = -1;
+        detail.ranks = None;
+        self.attach_aliases(context, detail).await
     }
 
     async fn attach_external_playtime(
@@ -2129,7 +2161,7 @@ mod tests {
         assert_period_scoped!(HourCount, "player-period-hour-day", QueryPriority::Light, JobKind::PlayerPeriodHourCount(_));
         assert_period_scoped!(OnlineHeatmap, "player-period-online-heatmap", QueryPriority::Light, JobKind::PlayerPeriodOnlineHeatmap(_));
         assert_period_scoped!(RegionTime, "player-period-region", QueryPriority::Light, JobKind::PlayerPeriodRegionTime(_));
-        assert_period_scoped!(PlayedWith, "player-period-played-with", QueryPriority::Heavy, JobKind::PlayerPeriodPlayedWith(_));
+        assert_period_scoped!(PlayedWith, "player-period-played-with-v2", QueryPriority::Heavy, JobKind::PlayerPeriodPlayedWith(_));
     }
 
     macro_rules! assert_range_scoped {
@@ -2157,7 +2189,7 @@ mod tests {
         assert_range_scoped!(HourCount, "player-period-hour-day", QueryPriority::Light);
         assert_range_scoped!(OnlineHeatmap, "player-period-online-heatmap", QueryPriority::Light);
         assert_range_scoped!(RegionTime, "player-period-region", QueryPriority::Light);
-        assert_range_scoped!(PlayedWith, "player-period-played-with", QueryPriority::Heavy);
+        assert_range_scoped!(PlayedWith, "player-period-played-with-v2", QueryPriority::Heavy);
     }
 
     #[tokio::test]

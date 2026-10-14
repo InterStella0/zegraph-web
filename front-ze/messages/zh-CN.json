@@ -25,7 +25,9 @@
     },
     "anonymous": "匿名玩家",
     "hidden": "（已隐藏）",
-    "hiddenHint": "只有你和社区管理员可以看到此名称，其他人看到的是“匿名玩家”。"
+    "hiddenHint": "只有你和社区管理员可以看到此名称，其他人看到的是“匿名玩家”。",
+    "bot": "机器人",
+    "botHint": "此账号是自动化机器人，不是真实玩家。"
   },
   "auth": {
     "login": "登录",
@@ -317,6 +319,7 @@
       "tryhard": "认真模式",
       "casual": "休闲",
       "topOnMap": "{map} 排名第 {rank}（{hours}小时）",
+      "botNotice": "此账号是机器人，不是真实玩家。它不会显示在在线列表中，也不计入排名。",
       "noDetail": "暂无玩家详细信息。"
     },
     "page": {
@@ -440,6 +443,7 @@
       "anonymous": "匿名玩家",
       "ranked": "排名第 {rank}",
       "unranked": "未排名",
+      "botUnranked": "不参与排名",
       "hoursShort": "{hours}小时"
     },
     "heatmap": {
