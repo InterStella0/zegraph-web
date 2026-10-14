@@ -1129,11 +1129,12 @@ BEGIN
     END IF;
 
     correction := p_external_total - COALESCE((
-        SELECT SUM(LEAST(COALESCE(ended_at, p_fetched_at), p_fetched_at) - started_at)
-        FROM player_server_session
-        WHERE player_id = p_player_id
-          AND server_id = p_server_id
-          AND started_at < p_fetched_at
+        SELECT SUM(LEAST(COALESCE(pss.ended_at, pss.last_verified, p_fetched_at), p_fetched_at) - pss.started_at)
+        FROM player_server_session pss
+        JOIN player p ON p.player_id = pss.player_id
+        WHERE (p.player_id = p_player_id OR p.associated_player_id = p_player_id)
+          AND pss.server_id = p_server_id
+          AND pss.started_at < p_fetched_at
     ), INTERVAL '0');
 
     INSERT INTO website.player_external_playtime(
@@ -1182,9 +1183,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_nide_external_playtime
-AFTER INSERT OR UPDATE OF total_connection_time, updated_at ON external_data.nide_players
+CREATE TRIGGER trigger_nide_external_playtime_insert
+AFTER INSERT ON external_data.nide_players
 FOR EACH ROW EXECUTE FUNCTION website.apply_nide_external_playtime();
+
+CREATE TRIGGER trigger_nide_external_playtime_update
+AFTER UPDATE OF total_connection_time ON external_data.nide_players
+FOR EACH ROW WHEN (OLD.total_connection_time IS DISTINCT FROM NEW.total_connection_time)
+EXECUTE FUNCTION website.apply_nide_external_playtime();
 
 CREATE OR REPLACE FUNCTION website.apply_mapeadores_external_playtime() RETURNS trigger AS $$
 BEGIN
@@ -1196,40 +1202,70 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_mapeadores_external_playtime
-AFTER INSERT OR UPDATE OF minutes, fetched_at ON external_data.mapeadores_playtime
+CREATE TRIGGER trigger_mapeadores_external_playtime_insert
+AFTER INSERT ON external_data.mapeadores_playtime
 FOR EACH ROW EXECUTE FUNCTION website.apply_mapeadores_external_playtime();
 
-CREATE OR REPLACE FUNCTION website.apply_gfl_external_playtime() RETURNS trigger AS $$
-DECLARE
-    total_seconds BIGINT := COALESCE(NEW.human_time, 0) + COALESCE(NEW.zombie_time, 0);
-    server_tracking_since TIMESTAMP WITH TIME ZONE;
+CREATE TRIGGER trigger_mapeadores_external_playtime_update
+AFTER UPDATE OF minutes ON external_data.mapeadores_playtime
+FOR EACH ROW WHEN (OLD.minutes IS DISTINCT FROM NEW.minutes)
+EXECUTE FUNCTION website.apply_mapeadores_external_playtime();
+
+CREATE OR REPLACE FUNCTION website.reapply_linked_external_playtime() RETURNS trigger AS $$
 BEGIN
-    SELECT s.tracking_since INTO server_tracking_since FROM server s WHERE s.server_id = '85568392935951359';
-    IF NOT FOUND OR total_seconds <= 0 THEN
-        RETURN NULL;
-    END IF;
-
-    INSERT INTO player(player_id, player_name, created_at)
-    VALUES (
-        NEW.steamid64,
-        COALESCE(NULLIF(NEW.personaname, ''), NEW.steamid64),
-        COALESCE(NEW.timestamp AT TIME ZONE 'UTC', CURRENT_TIMESTAMP)
-    )
-    ON CONFLICT (player_id) DO NOTHING;
-
     PERFORM website.apply_external_playtime(
-        NEW.steamid64, '85568392935951359', 'gfl',
-        make_interval(secs => total_seconds),
-        COALESCE(NEW.timestamp AT TIME ZONE 'UTC', server_tracking_since, CURRENT_TIMESTAMP)
-    );
+        e.player_id, e.server_id, e.source, e.external_total, e.fetched_at
+    )
+    FROM website.player_external_playtime e
+    WHERE e.player_id IN (OLD.associated_player_id, NEW.associated_player_id);
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_gfl_external_playtime
-AFTER INSERT OR UPDATE OF human_time, zombie_time, timestamp ON external_data.gfl_csgo_players
-FOR EACH ROW EXECUTE FUNCTION website.apply_gfl_external_playtime();
+CREATE TRIGGER trigger_player_link_external_playtime
+AFTER UPDATE OF associated_player_id ON player
+FOR EACH ROW WHEN (OLD.associated_player_id IS DISTINCT FROM NEW.associated_player_id)
+EXECUTE FUNCTION website.reapply_linked_external_playtime();
+
+CREATE OR REPLACE FUNCTION website.backfill_external_playtime() RETURNS void AS $$
+DECLARE
+    gfl_tracking_since TIMESTAMP WITH TIME ZONE;
+BEGIN
+    PERFORM website.apply_external_playtime(
+        n.steam_id, '7ae2ca188ebf8be21d4f42b2827153ac', 'nide',
+        make_interval(secs => n.total_connection_time), n.updated_at
+    )
+    FROM external_data.nide_players n
+    WHERE n.total_connection_time IS NOT NULL AND n.updated_at IS NOT NULL;
+
+    PERFORM website.apply_external_playtime(
+        m.steamid64, '674b592b744afc3c108d345a', 'mapeadores',
+        make_interval(mins => m.minutes), m.fetched_at
+    )
+    FROM external_data.mapeadores_playtime m;
+
+    SELECT s.tracking_since INTO gfl_tracking_since FROM server s WHERE s.server_id = '85568392935951359';
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    INSERT INTO player(player_id, player_name, created_at)
+    SELECT g.steamid64,
+           COALESCE(NULLIF(g.personaname, ''), g.steamid64),
+           COALESCE(g.timestamp AT TIME ZONE 'UTC', CURRENT_TIMESTAMP)
+    FROM external_data.gfl_csgo_players g
+    WHERE COALESCE(g.human_time, 0) + COALESCE(g.zombie_time, 0) > 0
+    ON CONFLICT (player_id) DO NOTHING;
+
+    PERFORM website.apply_external_playtime(
+        g.steamid64, '85568392935951359', 'gfl',
+        make_interval(secs => COALESCE(g.human_time, 0) + COALESCE(g.zombie_time, 0)),
+        COALESCE(g.timestamp AT TIME ZONE 'UTC', gfl_tracking_since, CURRENT_TIMESTAMP)
+    )
+    FROM external_data.gfl_csgo_players g
+    WHERE COALESCE(g.human_time, 0) + COALESCE(g.zombie_time, 0) > 0;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE SCHEMA IF NOT EXISTS layers;
 -- everything after this part, require PostGIS manual importing through QGIS

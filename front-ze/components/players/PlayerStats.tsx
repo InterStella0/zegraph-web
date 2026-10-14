@@ -73,14 +73,16 @@ function sourceName(source: string): string {
     return SOURCE_NAMES[source] ?? source;
 }
 
-function formatDay(value: string | null | undefined, locale: string, withYear = true): string {
+function formatDay(value: string | null | undefined, locale: string, compact = false): string {
     if (!value) return EMPTY;
+    const date = new Date(value);
+    const withYear = !compact || date.getUTCFullYear() !== new Date().getUTCFullYear();
     return new Intl.DateTimeFormat(locale, {
         day: 'numeric',
         month: 'short',
         ...(withYear ? { year: 'numeric' } : {}),
         timeZone: 'UTC',
-    }).format(new Date(value));
+    }).format(date);
 }
 
 function formatPercent(value: number, locale: string, precise = false): string {
@@ -104,7 +106,7 @@ export function PlaytimeTotal({ player, className }: { player: DetailedPlayer | 
     const { total, external } = summarize(player, period);
     const source = external ? sourceName(external.source) : null;
     const short = source
-        ? t('viaSource', { source, date: formatDay(external!.fetched_at, locale, false) })
+        ? t('viaSource', { source, date: formatDay(external!.fetched_at, locale, true) })
         : t('viaSessions', { period: periodLabel });
     const long = source
         ? t('reportedBy', { source, date: formatDay(external!.fetched_at, locale) })

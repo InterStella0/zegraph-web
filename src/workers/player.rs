@@ -309,7 +309,7 @@ worker_query! {
 }
 worker_query! {
     PlayerBasicQuery<Option<DbNidePlayerStats>> => PlayerNideStats, HOUR, Light,
-    |self, ctx| format!("player-nide-stats:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
+    |self, ctx| format!("player-nide-stats:{}:{}:stats", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbNidePlayerStats, "
             SELECT points, rank, kills, deaths, kills_per_death, kills_per_minute, headshots,
                    headshots_per_kill, weapon_accuracy, longest_kill_streak,
@@ -323,7 +323,7 @@ worker_query! {
 }
 worker_query! {
     PlayerBasicQuery<Option<DbMapeadoresPlayerStats>> => PlayerMapeadoresStats, HOUR, Light,
-    |self, ctx| format!("player-mapeadores-stats:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
+    |self, ctx| format!("player-mapeadores-stats:{}:{}:stats", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbMapeadoresPlayerStats, r#"
             SELECT minutes::BIGINT * 60 AS "playtime!", position, is_supporter, fetched_at
             FROM external_data.mapeadores_playtime
@@ -1597,20 +1597,20 @@ impl PlayerWorker {
     pub async fn get_external_stats(&self, context: &PlayerContext, source: ExternalStatsSource) -> WorkResult<PlayerExternalStats>{
         match source {
             ExternalStatsSource::Gfl => {
-                let stats: DbGflPlayerStats = self.query_external_stats(context).await?;
+                let stats: DbGflPlayerStats = self.query_external_stats(context, true).await?;
                 Ok(PlayerExternalStats::Gfl(stats.into()))
             }
             ExternalStatsSource::Nide => {
-                let stats: DbNidePlayerStats = self.query_external_stats(context).await?;
+                let stats: DbNidePlayerStats = self.query_external_stats(context, false).await?;
                 Ok(PlayerExternalStats::Nide(stats.into()))
             }
             ExternalStatsSource::Mapeadores => {
-                let stats: DbMapeadoresPlayerStats = self.query_external_stats(context).await?;
+                let stats: DbMapeadoresPlayerStats = self.query_external_stats(context, false).await?;
                 Ok(PlayerExternalStats::Mapeadores(stats.into()))
             }
         }
     }
-    async fn query_external_stats<T: Cacheable>(&self, context: &PlayerContext) -> WorkResult<T>
+    async fn query_external_stats<T: Cacheable>(&self, context: &PlayerContext, queued: bool) -> WorkResult<T>
     where PlayerBasicQuery<Option<T>>: WorkerQuery<Option<T>, Error = sqlx::Error>,
     {
         let query = PlayerBasicQuery::new(
@@ -1618,7 +1618,11 @@ impl PlayerWorker {
             self.pool.clone(),
             self.background_worker.cache.clone(),
         );
-        let result: CachedResult<Option<T>> = self.background_worker.execute_queued(query).await?;
+        let result: CachedResult<Option<T>> = if queued {
+            self.background_worker.execute_queued(query).await?
+        } else {
+            self.background_worker.execute_get(query, &context.cache_key.current).await?
+        };
         result.result.ok_or(WorkError::NotFound)
     }
     pub async fn get_detail(&self, context: &PlayerContext, period: Option<TimePeriod>) -> WorkResult<DetailedPlayer>{
@@ -1688,6 +1692,9 @@ impl PlayerWorker {
     async fn attach_external_playtime(
         &self, context: &PlayerContext, detail: &mut DetailedPlayer,
     ) -> Result<(), sqlx::Error>{
+        if ExternalStatsSource::for_server(&context.server.server_id).is_none() {
+            return Ok(());
+        }
         let external = sqlx::query_as!(DbPlayerExternalPlaytime, "
             SELECT e.source, e.external_total, e.fetched_at, e.playtime_correction,
                    REPLACE(s.external_source_url, '{player_id}', e.player_id) AS source_url
@@ -2070,14 +2077,20 @@ mod tests {
             player_query::<Vec<DbPlayerSeen>>(),
             "player-might-friends", QueryPriority::Heavy, JobKind::PlayerMightFriends(_)
         );
-        assert_session_scoped!(
-            player_query::<Option<DbNidePlayerStats>>(),
-            "player-nide-stats", QueryPriority::Light, JobKind::PlayerNideStats(_)
+        let (pattern, ttl, priority, kind) = metadata(
+            &player_query::<Option<DbNidePlayerStats>>(),
         );
-        assert_session_scoped!(
-            player_query::<Option<DbMapeadoresPlayerStats>>(),
-            "player-mapeadores-stats", QueryPriority::Light, JobKind::PlayerMapeadoresStats(_)
+        assert_eq!(pattern, format!("player-nide-stats:{TEST_SERVER}:{TEST_PLAYER}:stats"));
+        assert_eq!(ttl, HOUR);
+        assert!(matches!(priority, QueryPriority::Light));
+        assert!(matches!(kind, JobKind::PlayerNideStats(_)));
+        let (pattern, ttl, priority, kind) = metadata(
+            &player_query::<Option<DbMapeadoresPlayerStats>>(),
         );
+        assert_eq!(pattern, format!("player-mapeadores-stats:{TEST_SERVER}:{TEST_PLAYER}:stats"));
+        assert_eq!(ttl, HOUR);
+        assert!(matches!(priority, QueryPriority::Light));
+        assert!(matches!(kind, JobKind::PlayerMapeadoresStats(_)));
     }
 
     macro_rules! assert_period_scoped {
