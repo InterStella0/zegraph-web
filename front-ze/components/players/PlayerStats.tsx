@@ -52,7 +52,7 @@ type PlaytimeSummary = {
 function summarize(player: DetailedPlayer, period: PlayerPeriod): PlaytimeSummary {
     const external = period ? null : player.external_playtime ?? null;
     const correction = external?.playtime_correction ?? 0;
-    const tracked = Math.max(player.total_playtime - correction, 0);
+    const tracked = external ? external.tracked_playtime : player.total_playtime;
     const tagged = player.casual_playtime + player.mixed_playtime + player.tryhard_playtime;
     return {
         total: player.total_playtime,

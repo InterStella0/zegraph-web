@@ -399,6 +399,7 @@ CREATE TABLE website.player_playtime(
     tryhard_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
     mixed_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
     playtime_correction INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
+    tracked_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
     category VARCHAR(8),
     sum_key TEXT,
     PRIMARY KEY(player_id, server_id)
@@ -1122,6 +1123,7 @@ CREATE OR REPLACE FUNCTION website.apply_external_playtime(
 ) RETURNS void AS $$
 DECLARE
     correction INTERVAL;
+    tracked INTERVAL;
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM player WHERE player_id = p_player_id)
        OR NOT EXISTS (SELECT 1 FROM server WHERE server_id = p_server_id) THEN
@@ -1152,22 +1154,17 @@ BEGIN
         RETURN;
     END IF;
 
-    INSERT INTO website.player_playtime(player_id, server_id, total_playtime, playtime_correction)
-    VALUES (
-        p_player_id, p_server_id,
-        GREATEST(
-            COALESCE((
-                SELECT SUM(pmt.total_playtime)
-                FROM website.player_map_time pmt
-                WHERE pmt.player_id = p_player_id AND pmt.server_id = p_server_id
-            ), INTERVAL '0') + correction,
-            INTERVAL '0'
-        ),
-        correction
-    )
+    tracked := COALESCE((
+        SELECT SUM(pmt.total_playtime)
+        FROM website.player_map_time pmt
+        WHERE pmt.player_id = p_player_id AND pmt.server_id = p_server_id
+    ), INTERVAL '0');
+
+    INSERT INTO website.player_playtime(player_id, server_id, total_playtime, tracked_playtime, playtime_correction)
+    VALUES (p_player_id, p_server_id, GREATEST(tracked + correction, INTERVAL '0'), tracked, correction)
     ON CONFLICT (player_id, server_id) DO UPDATE
     SET playtime_correction = EXCLUDED.playtime_correction,
-        total_playtime = EXCLUDED.total_playtime;
+        total_playtime = GREATEST(website.player_playtime.tracked_playtime + EXCLUDED.playtime_correction, INTERVAL '0');
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1533,7 +1530,7 @@ SELECT cron.schedule_in_database(
                    SUM(pp.casual_playtime) AS casual_playtime,
                    SUM(pp.tryhard_playtime) AS tryhard_playtime,
                    SUM(pp.mixed_playtime) AS mixed_playtime,
-                   SUM(pp.total_playtime - pp.playtime_correction) AS tracked_playtime,
+                   SUM(pp.tracked_playtime) AS tracked_playtime,
                    COUNT(DISTINCT pp.server_id) AS server_count,
                    COUNT(DISTINCT s.community_id) AS community_count
             FROM website.player_playtime pp

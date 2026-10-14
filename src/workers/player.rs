@@ -473,16 +473,17 @@ worker_query! {
                 FROM pre_var
             )
             INSERT INTO website.player_playtime(
-                player_id, server_id, total_playtime, casual_playtime, tryhard_playtime, mixed_playtime,
-                playtime_correction, sum_key, category
+                player_id, server_id, total_playtime, tracked_playtime, casual_playtime, tryhard_playtime,
+                mixed_playtime, playtime_correction, sum_key, category
             )
             SELECT
-                $1, $2, GREATEST(v.total + v.correction, INTERVAL '0'), $4, $5, $6, v.correction, $7, c.category
+                $1, $2, GREATEST(v.total + v.correction, INTERVAL '0'), v.total, $4, $5, $6, v.correction, $7, c.category
             FROM category_calc AS c, pre_var AS v
             ON CONFLICT (player_id, server_id)
             DO UPDATE
             SET
                 total_playtime = EXCLUDED.total_playtime,
+                tracked_playtime = EXCLUDED.tracked_playtime,
                 casual_playtime = EXCLUDED.casual_playtime,
                 tryhard_playtime = EXCLUDED.tryhard_playtime,
                 mixed_playtime = EXCLUDED.mixed_playtime,
@@ -895,7 +896,7 @@ worker_query! {
                         SELECT SUM(pp.total_playtime) AS total_playtime,
                                SUM(pp.casual_playtime) AS casual_playtime,
                                SUM(pp.tryhard_playtime) AS tryhard_playtime,
-                               SUM(pp.total_playtime - pp.playtime_correction) AS tracked_playtime,
+                               SUM(pp.tracked_playtime) AS tracked_playtime,
                                COUNT(DISTINCT pp.server_id) AS server_count,
                                COUNT(DISTINCT s.community_id) AS community_count
                         FROM website.player_playtime pp
@@ -1721,7 +1722,7 @@ impl PlayerWorker {
                 su.player_name,
                 su.created_at,
                 su.associated_player_id,
-                pp.total_playtime - pp.playtime_correction AS \"total_playtime?\",
+                pp.tracked_playtime AS \"total_playtime?\",
                 pp.casual_playtime AS \"casual_playtime?\",
                 pp.tryhard_playtime AS \"tryhard_playtime?\",
                 pp.mixed_playtime AS \"mixed_playtime?\",
@@ -1958,7 +1959,7 @@ async fn run_global_refresh(
             SELECT SUM(pp.total_playtime) AS total_playtime,
                    SUM(pp.casual_playtime) AS casual_playtime,
                    SUM(pp.tryhard_playtime) AS tryhard_playtime,
-                   SUM(pp.total_playtime - pp.playtime_correction) AS tracked_playtime,
+                   SUM(pp.tracked_playtime) AS tracked_playtime,
                    COUNT(DISTINCT pp.server_id) AS server_count,
                    COUNT(DISTINCT s.community_id) AS community_count
             FROM website.player_playtime pp

@@ -121,6 +121,7 @@ export interface ExternalPlaytime {
     external_total: number,
     fetched_at: string,
     playtime_correction: number,
+    tracked_playtime: number,
     source_url: string | null,
 }
 export interface DetailedPlayerInfo extends DetailedPlayer{

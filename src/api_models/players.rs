@@ -48,13 +48,16 @@ pub struct ExternalPlaytime{
     pub fetched_at: DateTime<Utc>,
     /// Seconds added to the tracked playtime so it matched `external_total` at `fetched_at`. Can be negative.
     pub playtime_correction: f64,
+    /// Seconds of playtime in our own session history, before `playtime_correction` is added.
+    pub tracked_playtime: f64,
     /// Where `source` publishes this figure, from the server's `external_source_url`, with
     /// `{player_id}` replaced by the player's ID.
     pub source_url: Option<String>,
 }
 
 impl DetailedPlayer{
-    pub fn apply_external_playtime(&mut self, external: ExternalPlaytime){
+    pub fn apply_external_playtime(&mut self, mut external: ExternalPlaytime){
+        external.tracked_playtime = self.total_playtime;
         self.total_playtime = (self.total_playtime + external.playtime_correction).max(0.0);
         self.external_playtime = Some(external);
     }
@@ -648,6 +651,7 @@ mod tests {
             external_total: 0.0,
             fetched_at: DateTime::<Utc>::MIN_UTC,
             playtime_correction,
+            tracked_playtime: 0.0,
             source_url: None,
         }
     }
@@ -657,7 +661,7 @@ mod tests {
         let mut detail = player(3600.0);
         detail.apply_external_playtime(external(7200.0));
         assert_eq!(detail.total_playtime, 10800.0);
-        assert_eq!(detail.external_playtime, Some(external(7200.0)));
+        assert_eq!(detail.external_playtime, Some(ExternalPlaytime { tracked_playtime: 3600.0, ..external(7200.0) }));
     }
 
     #[test]
@@ -694,5 +698,12 @@ mod tests {
         let mut detail = player(1800.0);
         detail.apply_external_playtime(external(-3600.0));
         assert_eq!(detail.total_playtime, 0.0);
+    }
+
+    #[test]
+    fn a_clamped_total_keeps_the_tracked_playtime() {
+        let mut detail = player(1800.0);
+        detail.apply_external_playtime(external(-3600.0));
+        assert_eq!(detail.external_playtime.map(|e| e.tracked_playtime), Some(1800.0));
     }
 }

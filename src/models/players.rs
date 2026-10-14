@@ -234,6 +234,7 @@ pub struct DbMapeadoresPlayerStats {
 }
 #[derive(DbInto)]
 #[db_into(ExternalPlaytime)]
+#[extra(tracked_playtime = 0.0)]
 pub struct DbPlayerExternalPlaytime{
     pub source: String,
     pub external_total: PgInterval,
