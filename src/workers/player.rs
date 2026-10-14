@@ -269,9 +269,9 @@ worker_query! {
     }
 }
 worker_query! {
-    PlayerBasicQuery<Option<DbPlayerWithLegacyRanks>> => PlayerLegacyStats, 120 * DAY, Heavy,
+    PlayerBasicQuery<Option<DbGflPlayerStats>> => PlayerLegacyStats, 120 * DAY, Heavy,
     |self, ctx| format!("player-legacy:{}:{}:legacy", ctx.data.server_id, ctx.data.player_id), {
-        sqlx::query_as!(DbPlayerWithLegacyRanks, "
+        sqlx::query_as!(DbGflPlayerStats, "
             WITH ranked AS (
               SELECT
                 steamid64,
@@ -300,9 +300,35 @@ worker_query! {
             )
             SELECT *
             FROM ranked
-            WHERE steamid64 = $1
+            WHERE steamid64 = (
+                SELECT COALESCE(associated_player_id, player_id) FROM player WHERE player_id = $1
+            )
             LIMIT 1
         ", self.context.data.player_id).fetch_optional(&*self.context.pool).await
+    }
+}
+worker_query! {
+    PlayerBasicQuery<Option<DbNidePlayerStats>> => PlayerNideStats, HOUR, Light,
+    |self, ctx| format!("player-nide-stats:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
+        sqlx::query_as!(DbNidePlayerStats, "
+            SELECT points, rank, kills, deaths, kills_per_death, kills_per_minute, headshots,
+                   headshots_per_kill, weapon_accuracy, longest_kill_streak,
+                   total_connection_time::BIGINT AS playtime, country_code, updated_at
+            FROM external_data.nide_players
+            WHERE steam_id = $1
+            ORDER BY updated_at DESC NULLS LAST
+            LIMIT 1
+        ", ctx.data.player_id).fetch_optional(&*ctx.pool).await
+    }
+}
+worker_query! {
+    PlayerBasicQuery<Option<DbMapeadoresPlayerStats>> => PlayerMapeadoresStats, HOUR, Light,
+    |self, ctx| format!("player-mapeadores-stats:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
+        sqlx::query_as!(DbMapeadoresPlayerStats, r#"
+            SELECT minutes::BIGINT * 60 AS "playtime!", position, is_supporter, fetched_at
+            FROM external_data.mapeadores_playtime
+            WHERE steamid64 = $1
+        "#, ctx.data.player_id).fetch_optional(&*ctx.pool).await
     }
 }
 struct DbServerMapState{
@@ -428,7 +454,12 @@ worker_query! {
                 SELECT $3::INTERVAL AS total,
                 $4::INTERVAL AS casual,
                 $5::INTERVAL AS tryhard,
-                $6::INTERVAL AS mixed
+                $6::INTERVAL AS mixed,
+                COALESCE((
+                    SELECT playtime_correction
+                    FROM website.player_external_playtime
+                    WHERE player_id = $1 AND server_id = $2
+                ), INTERVAL '0') AS correction
             ),
             category_calc AS (
                 SELECT
@@ -442,11 +473,12 @@ worker_query! {
                 FROM pre_var
             )
             INSERT INTO website.player_playtime(
-                player_id, server_id, total_playtime, casual_playtime, tryhard_playtime, mixed_playtime, sum_key, category
+                player_id, server_id, total_playtime, casual_playtime, tryhard_playtime, mixed_playtime,
+                playtime_correction, sum_key, category
             )
             SELECT
-                $1, $2, $3, $4, $5, $6, $7, c.category
-            FROM category_calc AS c
+                $1, $2, GREATEST(v.total + v.correction, INTERVAL '0'), $4, $5, $6, v.correction, $7, c.category
+            FROM category_calc AS c, pre_var AS v
             ON CONFLICT (player_id, server_id)
             DO UPDATE
             SET
@@ -454,6 +486,7 @@ worker_query! {
                 casual_playtime = EXCLUDED.casual_playtime,
                 tryhard_playtime = EXCLUDED.tryhard_playtime,
                 mixed_playtime = EXCLUDED.mixed_playtime,
+                playtime_correction = EXCLUDED.playtime_correction,
                 category = EXCLUDED.category,
                 sum_key = EXCLUDED.sum_key;
         ", ctx.data.player_id, ctx.data.server_id, total_playtime,
@@ -470,7 +503,7 @@ worker_query! {
                 su.player_name,
                 su.created_at,
                 su.associated_player_id,
-                pp.total_playtime, pp.casual_playtime, pp.tryhard_playtime, pp.mixed_playtime,
+                $3::INTERVAL AS total_playtime, pp.casual_playtime, pp.tryhard_playtime, pp.mixed_playtime,
                 0::int AS rank,
                 pp.category,
                 NULL::TIMESTAMPTZ AS online_since,
@@ -481,7 +514,7 @@ worker_query! {
             JOIN website.player_playtime pp on pp.player_id = su.player_id
             WHERE pp.server_id=$2 AND pp.player_id=$1
             LIMIT 1
-        ", ctx.data.player_id, ctx.data.server_id).fetch_one(&*ctx.pool).await
+        ", ctx.data.player_id, ctx.data.server_id, total_playtime).fetch_one(&*ctx.pool).await
     }
 }
 worker_query! {
@@ -862,6 +895,7 @@ worker_query! {
                         SELECT SUM(pp.total_playtime) AS total_playtime,
                                SUM(pp.casual_playtime) AS casual_playtime,
                                SUM(pp.tryhard_playtime) AS tryhard_playtime,
+                               SUM(pp.total_playtime - pp.playtime_correction) AS tracked_playtime,
                                COUNT(DISTINCT pp.server_id) AS server_count,
                                COUNT(DISTINCT s.community_id) AS community_count
                         FROM website.player_playtime pp
@@ -871,10 +905,10 @@ worker_query! {
                     SELECT total_playtime, casual_playtime, tryhard_playtime,
                            server_count, community_count,
                            CASE
-                               WHEN total_playtime < INTERVAL '5 hours' THEN NULL
-                               WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'casual'
-                               WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'tryhard'
-                               WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
+                               WHEN tracked_playtime < INTERVAL '5 hours' THEN NULL
+                               WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM tracked_playtime), 0) >= 0.6 THEN 'casual'
+                               WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM tracked_playtime), 0) >= 0.6 THEN 'tryhard'
+                               WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM tracked_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
                                ELSE NULL
                            END AS category
                     FROM sums
@@ -1560,15 +1594,32 @@ impl PlayerWorker {
         let result: Vec<DbPlayerRegionTime> = self.query_player_or_period(context, period).await?;
         Ok(result.iter_into())
     }
-    pub async fn get_legacy_stats(&self, context: &PlayerContext) -> WorkResult<PlayerWithLegacyRanks>{
+    pub async fn get_external_stats(&self, context: &PlayerContext, source: ExternalStatsSource) -> WorkResult<PlayerExternalStats>{
+        match source {
+            ExternalStatsSource::Gfl => {
+                let stats: DbGflPlayerStats = self.query_external_stats(context).await?;
+                Ok(PlayerExternalStats::Gfl(stats.into()))
+            }
+            ExternalStatsSource::Nide => {
+                let stats: DbNidePlayerStats = self.query_external_stats(context).await?;
+                Ok(PlayerExternalStats::Nide(stats.into()))
+            }
+            ExternalStatsSource::Mapeadores => {
+                let stats: DbMapeadoresPlayerStats = self.query_external_stats(context).await?;
+                Ok(PlayerExternalStats::Mapeadores(stats.into()))
+            }
+        }
+    }
+    async fn query_external_stats<T: Cacheable>(&self, context: &PlayerContext) -> WorkResult<T>
+    where PlayerBasicQuery<Option<T>>: WorkerQuery<Option<T>, Error = sqlx::Error>,
+    {
         let query = PlayerBasicQuery::new(
             context,
             self.pool.clone(),
             self.background_worker.cache.clone(),
         );
-        let result: CachedResult<Option<DbPlayerWithLegacyRanks>> =
-            self.background_worker.execute_queued(query).await?;
-        result.result.map(Into::into).ok_or(WorkError::NotFound)
+        let result: CachedResult<Option<T>> = self.background_worker.execute_queued(query).await?;
+        result.result.ok_or(WorkError::NotFound)
     }
     pub async fn get_detail(&self, context: &PlayerContext, period: Option<TimePeriod>) -> WorkResult<DetailedPlayer>{
         if let Some(period) = period {
@@ -1590,6 +1641,7 @@ impl PlayerWorker {
         if is_stale {
             detail.calculated_at = self.fetch_playtime_calculated_at(context).await?;
         }
+        self.attach_external_playtime(context, &mut detail).await?;
         self.attach_ranks_and_aliases(context, &mut detail).await?;
         Ok(detail)
     }
@@ -1628,8 +1680,26 @@ impl PlayerWorker {
         let mut detail: DetailedPlayer = detail_db.into();
         detail.is_stale = true;
         detail.calculated_at = self.fetch_playtime_calculated_at(context).await?;
+        self.attach_external_playtime(context, &mut detail).await?;
         self.attach_ranks_and_aliases(context, &mut detail).await?;
         Ok(detail)
+    }
+
+    async fn attach_external_playtime(
+        &self, context: &PlayerContext, detail: &mut DetailedPlayer,
+    ) -> Result<(), sqlx::Error>{
+        let external = sqlx::query_as!(DbPlayerExternalPlaytime, "
+            SELECT e.source, e.external_total, e.fetched_at, e.playtime_correction,
+                   REPLACE(s.external_source_url, '{player_id}', e.player_id) AS source_url
+            FROM website.player_external_playtime e
+            JOIN server s ON s.server_id = e.server_id
+            WHERE e.player_id = $1 AND e.server_id = $2
+        ", context.player.player_id, context.server.server_id).fetch_optional(&*self.pool).await?;
+
+        if let Some(external) = external {
+            detail.apply_external_playtime(external.into());
+        }
+        Ok(())
     }
 
     async fn fetch_stored_detail(
@@ -1644,7 +1714,7 @@ impl PlayerWorker {
                 su.player_name,
                 su.created_at,
                 su.associated_player_id,
-                pp.total_playtime AS \"total_playtime?\",
+                pp.total_playtime - pp.playtime_correction AS \"total_playtime?\",
                 pp.casual_playtime AS \"casual_playtime?\",
                 pp.tryhard_playtime AS \"tryhard_playtime?\",
                 pp.mixed_playtime AS \"mixed_playtime?\",
@@ -1881,6 +1951,7 @@ async fn run_global_refresh(
             SELECT SUM(pp.total_playtime) AS total_playtime,
                    SUM(pp.casual_playtime) AS casual_playtime,
                    SUM(pp.tryhard_playtime) AS tryhard_playtime,
+                   SUM(pp.total_playtime - pp.playtime_correction) AS tracked_playtime,
                    COUNT(DISTINCT pp.server_id) AS server_count,
                    COUNT(DISTINCT s.community_id) AS community_count
             FROM website.player_playtime pp
@@ -1896,10 +1967,10 @@ async fn run_global_refresh(
                COALESCE(casual_playtime, INTERVAL '0'),
                COALESCE(tryhard_playtime, INTERVAL '0'),
                CASE
-                   WHEN total_playtime < INTERVAL '5 hours' THEN NULL
-                   WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'casual'
-                   WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'tryhard'
-                   WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
+                   WHEN tracked_playtime < INTERVAL '5 hours' THEN NULL
+                   WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM tracked_playtime), 0) >= 0.6 THEN 'casual'
+                   WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM tracked_playtime), 0) >= 0.6 THEN 'tryhard'
+                   WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM tracked_playtime), 0) BETWEEN 0.4 AND 0.6 THEN 'mixed'
                    ELSE NULL
                END,
                COALESCE(server_count, 0)::INT,
@@ -1976,7 +2047,7 @@ mod tests {
             "player_detail", QueryPriority::Heavy, JobKind::PlayerDetail(_)
         );
         let (pattern, ttl, priority, kind) = metadata(
-            &player_query::<Option<DbPlayerWithLegacyRanks>>(),
+            &player_query::<Option<DbGflPlayerStats>>(),
         );
         assert_eq!(pattern, format!("player-legacy:{TEST_SERVER}:{TEST_PLAYER}:legacy"));
         assert!(!pattern.contains("{session}"));
@@ -1998,6 +2069,14 @@ mod tests {
         assert_session_scoped!(
             player_query::<Vec<DbPlayerSeen>>(),
             "player-might-friends", QueryPriority::Heavy, JobKind::PlayerMightFriends(_)
+        );
+        assert_session_scoped!(
+            player_query::<Option<DbNidePlayerStats>>(),
+            "player-nide-stats", QueryPriority::Light, JobKind::PlayerNideStats(_)
+        );
+        assert_session_scoped!(
+            player_query::<Option<DbMapeadoresPlayerStats>>(),
+            "player-mapeadores-stats", QueryPriority::Light, JobKind::PlayerMapeadoresStats(_)
         );
     }
 

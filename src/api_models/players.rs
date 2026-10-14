@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use chrono::{DateTime, Utc};
-use poem_openapi::{Enum, Object};
+use poem_openapi::{Enum, Object, Union};
 use crate::api_models::maps::MapRank;
 use crate::api_models::misc::UserAnonymization;
 use crate::api_models::servers::BaseCommunity;
@@ -33,7 +33,31 @@ pub struct DetailedPlayer{
     /// Canonical player ID this record has been merged into, if it's a name-only alias.
     pub associated_player_id: Option<String>,
     pub is_stale: bool,
-    pub calculated_at: Option<DateTime<Utc>>
+    pub calculated_at: Option<DateTime<Utc>>,
+    /// The server's own lifetime playtime counter, when it publishes one. `total_playtime` already
+    /// includes `playtime_correction`; it is all-time only and absent when a `period` is requested.
+    pub external_playtime: Option<ExternalPlaytime>,
+}
+
+/// Lifetime playtime reported by the game server itself.
+#[derive(Object, Clone, Debug, PartialEq)]
+pub struct ExternalPlaytime{
+    pub source: String,
+    /// Seconds, as reported at `fetched_at`.
+    pub external_total: f64,
+    pub fetched_at: DateTime<Utc>,
+    /// Seconds added to the tracked playtime so it matched `external_total` at `fetched_at`. Can be negative.
+    pub playtime_correction: f64,
+    /// Where `source` publishes this figure, from the server's `external_source_url`, with
+    /// `{player_id}` replaced by the player's ID.
+    pub source_url: Option<String>,
+}
+
+impl DetailedPlayer{
+    pub fn apply_external_playtime(&mut self, external: ExternalPlaytime){
+        self.total_playtime = (self.total_playtime + external.playtime_correction).max(0.0);
+        self.external_playtime = Some(external);
+    }
 }
 
 #[derive(Object)]
@@ -276,9 +300,72 @@ pub struct PlayerOnlineHeatmap{
     pub online_count: i64,
 }
 
-/// Legacy GFL CS:GO leaderboard stats and ranks (see `PlayerApi::get_legacy_stats`).
+/// Stats a game server publishes about a player, tagged by `source` (see `PlayerApi::get_external_stats`).
+#[derive(Union)]
+#[oai(discriminator_name = "source", one_of)]
+pub enum PlayerExternalStats {
+    #[oai(mapping = "gfl")]
+    Gfl(GflPlayerStats),
+    #[oai(mapping = "nide")]
+    Nide(NidePlayerStats),
+    #[oai(mapping = "mapeadores")]
+    Mapeadores(MapeadoresPlayerStats),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ExternalStatsSource {
+    Gfl,
+    Nide,
+    Mapeadores,
+}
+
+impl ExternalStatsSource {
+    pub fn for_server(server_id: &str) -> Option<Self> {
+        match server_id {
+            "85568392935951359" => Some(Self::Gfl),
+            "7ae2ca188ebf8be21d4f42b2827153ac" => Some(Self::Nide),
+            "674b592b744afc3c108d345a" => Some(Self::Mapeadores),
+            _ => None,
+        }
+    }
+}
+
+/// NiDE's own leaderboard stats for a player.
 #[derive(Object)]
-pub struct PlayerWithLegacyRanks {
+pub struct NidePlayerStats {
+    pub points: Option<i32>,
+    /// NiDE's leaderboard rank.
+    pub rank: Option<i32>,
+    pub kills: Option<i32>,
+    pub deaths: Option<i32>,
+    pub kills_per_death: Option<f64>,
+    pub kills_per_minute: Option<f64>,
+    pub headshots: Option<i32>,
+    /// Ratio, 0 to 1.
+    pub headshots_per_kill: Option<f64>,
+    /// Percentage, 0 to 100.
+    pub weapon_accuracy: Option<f64>,
+    pub longest_kill_streak: Option<i32>,
+    /// Lifetime playtime in seconds, as reported by NiDE.
+    pub playtime: Option<i64>,
+    pub country_code: Option<String>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// Mapeadores' VIP playtime leaderboard entry for a player.
+#[derive(Object)]
+pub struct MapeadoresPlayerStats {
+    /// Lifetime playtime in seconds, as reported by Mapeadores.
+    pub playtime: i64,
+    /// Position on the Mapeadores leaderboard.
+    pub position: i32,
+    pub is_supporter: bool,
+    pub fetched_at: DateTime<Utc>,
+}
+
+/// Legacy GFL CS:GO leaderboard stats and ranks.
+#[derive(Object)]
+pub struct GflPlayerStats {
     pub steamid64: String,
     pub points: f64,
     pub human_time: i64,
@@ -529,4 +616,83 @@ pub struct PlayerClaimState {
     pub own_status: Option<String>,
     /// The Steam ID this profile is already linked to, if any.
     pub associated_player_id: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn player(total_playtime: f64) -> DetailedPlayer {
+        DetailedPlayer {
+            id: "76561198000000000".into(),
+            name: "test".into(),
+            aliases: vec![],
+            created_at: DateTime::<Utc>::MIN_UTC,
+            category: None,
+            tryhard_playtime: 0.0,
+            casual_playtime: 0.0,
+            mixed_playtime: 0.0,
+            total_playtime,
+            rank: 0,
+            ranks: None,
+            associated_player_id: None,
+            is_stale: false,
+            calculated_at: None,
+            external_playtime: None,
+        }
+    }
+
+    fn external(playtime_correction: f64) -> ExternalPlaytime {
+        ExternalPlaytime {
+            source: "nide".into(),
+            external_total: 0.0,
+            fetched_at: DateTime::<Utc>::MIN_UTC,
+            playtime_correction,
+            source_url: None,
+        }
+    }
+
+    #[test]
+    fn a_positive_correction_adds_untracked_time() {
+        let mut detail = player(3600.0);
+        detail.apply_external_playtime(external(7200.0));
+        assert_eq!(detail.total_playtime, 10800.0);
+        assert_eq!(detail.external_playtime, Some(external(7200.0)));
+    }
+
+    #[test]
+    fn a_negative_correction_lowers_the_total() {
+        let mut detail = player(10800.0);
+        detail.apply_external_playtime(external(-3600.0));
+        assert_eq!(detail.total_playtime, 7200.0);
+    }
+
+    #[test]
+    fn external_stats_sources_are_per_server() {
+        assert_eq!(ExternalStatsSource::for_server("85568392935951359"), Some(ExternalStatsSource::Gfl));
+        assert_eq!(ExternalStatsSource::for_server("7ae2ca188ebf8be21d4f42b2827153ac"), Some(ExternalStatsSource::Nide));
+        assert_eq!(ExternalStatsSource::for_server("674b592b744afc3c108d345a"), Some(ExternalStatsSource::Mapeadores));
+        assert_eq!(ExternalStatsSource::for_server("unknown"), None);
+    }
+
+    #[test]
+    fn external_stats_are_tagged_with_their_source() {
+        use poem_openapi::types::ToJSON;
+        let stats = PlayerExternalStats::Mapeadores(MapeadoresPlayerStats {
+            playtime: 3600,
+            position: 1,
+            is_supporter: true,
+            fetched_at: DateTime::<Utc>::MIN_UTC,
+        });
+        let json = stats.to_json().expect("serializable");
+        assert_eq!(json["source"], "mapeadores");
+        assert_eq!(json["playtime"], 3600);
+    }
+
+    #[test]
+    fn the_total_never_goes_below_zero() {
+        let mut detail = player(1800.0);
+        detail.apply_external_playtime(external(-3600.0));
+        assert_eq!(detail.total_playtime, 0.0);
+    }
 }

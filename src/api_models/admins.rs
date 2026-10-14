@@ -291,6 +291,9 @@ pub struct AdminServer {
     pub online: Option<bool>,
     /// Short vanity slug used in URLs, if the server has one configured.
     pub readable_link: Option<String>,
+    /// Link shown on "Reported by …" for this server's external playtime source. `{player_id}`
+    /// is replaced with the player's ID.
+    pub external_source_url: Option<String>,
     pub server_website: Option<String>,
     pub server_discord_link: Option<String>,
     pub server_source: Option<String>,

@@ -553,17 +553,18 @@ impl PlayerApi{
             players: value
         })
     }
-    /// Legacy GFL CS:GO leaderboard stats (points, zombie/human time, kills, etc.) for a player.
+    /// Stats the game server itself publishes about a player, tagged by `source`.
     ///
-    /// Only available for the original GFL server; 404s for every other server. Cached for 120
-    /// days.
-    #[oai(path="/servers/:server_id/players/:player_id/legacy_stats", method="get")]
-    async fn get_legacy_stats(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<PlayerWithLegacyRanks>{
-        if extract.server.server_id != "65bdad6379cefd7ebcecce5c"{
+    /// `gfl` is the legacy GFL CS:GO leaderboard (cached for 120 days), `nide` is NiDE's
+    /// leaderboard and `mapeadores` is Mapeadores' VIP playtime leaderboard (both cached for an
+    /// hour). 404s for every other server, and for players the source has no row for.
+    #[oai(path="/servers/:server_id/players/:player_id/external_stats", method="get")]
+    async fn get_external_stats(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<PlayerExternalStats>{
+        let Some(source) = ExternalStatsSource::for_server(&extract.server.server_id) else {
             return response!(err "Server does not have this stats", ErrorCode::NotFound)
-        }
+        };
         let context = PlayerContext::from(extract);
-        handle_worker_player_result(app.player_worker.get_legacy_stats(&context).await)
+        handle_worker_player_result(app.player_worker.get_external_stats(&context, source).await)
     }
     /// Players currently connected to a server.
     ///

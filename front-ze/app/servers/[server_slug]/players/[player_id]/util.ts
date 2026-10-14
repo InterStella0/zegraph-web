@@ -5,15 +5,19 @@ import { threeMinutes} from "../../util.ts";
 
 export type PlayerInfo = DetailedPlayerInfo
 
-const LEGACY_STATS_SERVER_ID = '65bdad6379cefd7ebcecce5c'
+const EXTERNAL_STATS_SERVER_IDS = new Set([
+    '85568392935951359',
+    '7ae2ca188ebf8be21d4f42b2827153ac',
+    '674b592b744afc3c108d345a',
+])
 const PERIOD_STAT_PATHS = ['graph/sessions', 'most_played_maps', 'regions', 'hours_of_day', 'online_heatmap']
 
 export function getPlayerStatSeeds(serverId: string, playerId: string, withPeriod: boolean): Record<string, Promise<unknown>> {
     const seed = (path: string, options = {}) =>
         fetchApiServerUrl(serverId, `/players/${playerId}/${path}`, options).catch(() => null)
     const seeds: Record<string, Promise<unknown>> = { infractions: seed('infractions') }
-    if (serverId === LEGACY_STATS_SERVER_ID)
-        seeds.legacy_stats = seed('legacy_stats')
+    if (EXTERNAL_STATS_SERVER_IDS.has(serverId))
+        seeds.external_stats = seed('external_stats')
     if (!withPeriod) {
         for (const path of PERIOD_STAT_PATHS)
             seeds[path] = seed(path)
