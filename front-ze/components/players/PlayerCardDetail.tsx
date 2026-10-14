@@ -167,9 +167,9 @@ function PlayerCardDetailDisplay({ server, player, user }: { server: Server, pla
                             )}
                         </div>
 
-                        <p className={`mt-0.5 text-sm ${player.online_since ? 'text-green-600 dark:text-green-500' : 'text-muted-foreground'}`}>
+                        {player.last_played && <p className={`mt-0.5 text-sm ${player.online_since ? 'text-green-600 dark:text-green-500' : 'text-muted-foreground'}`}>
                             {lastPlayedText}
-                        </p>
+                        </p>}
                         <AliasesDropdown aliases={player.aliases} />
                     </div>
                     {steamId && <GlobalProfileButton steamId={steamId} label={t('globalShort')} className="sm:hidden" />}

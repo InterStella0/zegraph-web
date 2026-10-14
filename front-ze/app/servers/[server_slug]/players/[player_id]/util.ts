@@ -64,11 +64,13 @@ export async function getPlayerDetailed<T extends DetailReturningType>(server_id
 
     let prop: PlayerInfo = {
         ...playerData,
-        last_played: playingData.started_at,
-        last_played_ended: playingData.ended_at,
+        last_played: playingData?.started_at ?? null,
+        last_played_ended: playingData?.ended_at ?? null,
         online_since: null,
         last_played_duration: null
     }
+    if (!playingData)
+        return prop
     if (prop.last_played_ended == null)
         prop.online_since = playingData.started_at
     else {

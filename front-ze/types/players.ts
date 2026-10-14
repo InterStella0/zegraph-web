@@ -125,7 +125,7 @@ export interface ExternalPlaytime {
     source_url: string | null,
 }
 export interface DetailedPlayerInfo extends DetailedPlayer{
-    last_played: string,
+    last_played: string | null,
     last_played_ended: string | null,
     online_since: string | null,
     last_played_duration: number | null,

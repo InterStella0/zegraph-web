@@ -605,9 +605,9 @@ impl PlayerApi{
         anonymizer.apply(&mut players);
         response!(ok players)
     }
-    /// A player's most recent session on a server. Cached for 2 minutes.
+    /// A player's most recent session on a server, or null if they have none there. Cached for 2 minutes.
     #[oai(path="/servers/:server_id/players/:player_id/playing", method="get")]
-    async fn get_last_playing(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<PlayerSession>{
+    async fn get_last_playing(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Option<PlayerSession>>{
         let pool = &*app.pool.clone();
         let redis_pool = &app.cache;
         let player_id = extract.player.player_id;
@@ -626,12 +626,12 @@ impl PlayerApi{
             WHERE server_id=$1 AND p.player_id=$2
             ORDER BY started_at DESC
             LIMIT 1
-        ", server_id, player_id).fetch_one(pool);
+        ", server_id, player_id).fetch_optional(pool);
 
         let key = format!("player-playing:{server_id}:{player_id}");
         let result = or_ise!(cached_response(&key, redis_pool, 2 * 60, func).await);
 
-        response!(ok result.result.into())
+        response!(ok result.result.map(Into::into))
     }
     /// Chart data for a player's session history on a server. Backed by `PlayerWorker`'s cache.
     ///

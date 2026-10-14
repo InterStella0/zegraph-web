@@ -56,7 +56,7 @@ export async function generateMetadata({ params}: {
         }
         if (player.online_since){
             description += ' ' + t('currentlyOnline', {time: dayjs(player.online_since).fromNow()});
-        }else{
+        }else if (player.last_played_ended){
             description += ' ' + t('lastOnline', {time: dayjs(player.last_played_ended).fromNow()});
         }
         let image = ""
