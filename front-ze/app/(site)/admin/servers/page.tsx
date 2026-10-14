@@ -44,6 +44,7 @@ interface AdminServer {
   community_id: string | null;
   online: boolean | null;
   readable_link: string | null;
+  external_source_url: string | null;
   server_website: string | null;
   server_discord_link: string | null;
   server_source: string | null;
@@ -251,13 +252,14 @@ function EditServerNameDialog({
   const [form, set] = useResetForm(open, server, () => ({
     name: server?.server_name ?? '',
     readableLink: server?.readable_link ?? '',
+    externalSourceUrl: server?.external_source_url ?? '',
   }));
-  const { name, readableLink } = form;
+  const { name, readableLink, externalSourceUrl } = form;
   const { submitting, save } = useSave(onSuccess, onOpenChange);
 
   const handleSubmit = () => {
     if (!server) return;
-    return save(() => sendJson(`/admin/servers/raw/${server.server_id}`, 'PUT', { server_name: name || null, readable_link: readableLink.trim() }), 'Server updated', (err) => toast.error(err instanceof Error ? err.message : 'Failed to update server'));
+    return save(() => sendJson(`/admin/servers/raw/${server.server_id}`, 'PUT', { server_name: name || null, readable_link: readableLink.trim(), external_source_url: externalSourceUrl.trim() }), 'Server updated', (err) => toast.error(err instanceof Error ? err.message : 'Failed to update server'));
   };
 
   return (
@@ -284,6 +286,16 @@ function EditServerNameDialog({
         />
         <p className="text-xs text-muted-foreground">
           Changes the server&apos;s URL. Leave empty to clear (URL falls back to the server ID).
+        </p>
+      </Field>
+      <Field label="External Stats Link">
+        <Input
+          value={externalSourceUrl}
+          onChange={e => set('externalSourceUrl')(e.target.value)}
+          placeholder="https://example.com/players/{player_id}"
+        />
+        <p className="text-xs text-muted-foreground">
+          Opened from &quot;Reported by …&quot; on player pages. <code>{'{player_id}'}</code> is replaced with the player&apos;s ID. Leave empty to show no link.
         </p>
       </Field>
     </FormDialog>

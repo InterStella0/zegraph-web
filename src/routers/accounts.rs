@@ -781,19 +781,27 @@ impl AccountsApi {
                 SELECT DISTINCT player_id
                 FROM player
                 WHERE player_id = $1 OR associated_player_id = $1
+            ),
+            known AS (
+                SELECT pss.server_id, pss.player_id
+                FROM player_server_session pss
+                JOIN user_players up ON up.player_id = pss.player_id
+                UNION
+                SELECT e.server_id, e.player_id
+                FROM website.player_external_playtime e
+                JOIN user_players up ON up.player_id = e.player_id
             )
             SELECT DISTINCT ON (s.server_id)
                 s.server_id,
-                pss.player_id,
+                k.player_id AS \"player_id!\",
                 c.community_id,
                 c.community_name,
                 c.community_shorten_name,
                 c.community_icon_url
-            FROM player_server_session pss
-            JOIN user_players up ON up.player_id = pss.player_id
-            JOIN server s ON s.server_id = pss.server_id
+            FROM known k
+            JOIN server s ON s.server_id = k.server_id
             JOIN community c ON c.community_id = s.community_id
-            ORDER BY s.server_id",
+            ORDER BY s.server_id, k.player_id = $1 DESC",
             steam_id
         ).fetch_all(pool).await;
 
@@ -860,19 +868,27 @@ impl AccountsApi {
                 SELECT DISTINCT player_id
                 FROM player
                 WHERE player_id = $1 OR associated_player_id = $1
+            ),
+            known AS (
+                SELECT pss.server_id, pss.player_id
+                FROM player_server_session pss
+                JOIN user_players up ON up.player_id = pss.player_id
+                UNION
+                SELECT e.server_id, e.player_id
+                FROM website.player_external_playtime e
+                JOIN user_players up ON up.player_id = e.player_id
             )
             SELECT DISTINCT ON (s.server_id)
                 s.server_id,
-                pss.player_id,
+                k.player_id AS \"player_id!\",
                 c.community_id,
                 c.community_name,
                 c.community_shorten_name,
                 c.community_icon_url
-            FROM player_server_session pss
-            JOIN user_players up ON up.player_id = pss.player_id
-            JOIN server s ON s.server_id = pss.server_id
+            FROM known k
+            JOIN server s ON s.server_id = k.server_id
             JOIN community c ON c.community_id = s.community_id
-            ORDER BY s.server_id",
+            ORDER BY s.server_id, k.player_id = $1 DESC",
             canonical_id
         ).fetch_all(pool).await;
 

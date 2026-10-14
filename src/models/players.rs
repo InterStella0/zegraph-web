@@ -67,9 +67,10 @@ pub struct DbGlobalPlayerSession{
     #[skip]
     pub total_rows: Option<i64>
 }
-#[derive(Clone, Serialize, Deserialize, DbInto)]
-#[db_into(PlayerWithLegacyRanks)]
-pub struct DbPlayerWithLegacyRanks {
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(GflPlayerStats)]
+pub struct DbGflPlayerStats {
     #[default("Invalid SteamID64".into())]
     pub steamid64: Option<String>,
     #[unwrap_default]
@@ -114,6 +115,8 @@ pub struct DbPlayerWithLegacyRanks {
     pub rank_leader_count: Option<i64>,
     #[unwrap_default]
     pub rank_td_count: Option<i64>,
+    pub personaname: Option<String>,
+    pub last_seen: Option<OffsetDateTime>,
 }
 
 #[derive(Clone, DbInto)]
@@ -180,7 +183,7 @@ pub struct DbPlayerAnonymized{
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
 #[db_into(DetailedPlayer)]
-#[extra(aliases=vec![], ranks=None, is_stale=false, calculated_at=None)]
+#[extra(aliases=vec![], ranks=None, is_stale=false, calculated_at=None, external_playtime=None)]
 pub struct DbPlayerDetail{
     #[rename(id)]
     pub player_id: String,
@@ -204,6 +207,48 @@ pub struct DbPlayerDetail{
     #[skip]
     pub last_played_duration: Option<PgInterval>,
     pub associated_player_id: Option<String>
+}
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(NidePlayerStats)]
+pub struct DbNidePlayerStats {
+    pub name: Option<String>,
+    pub points: Option<i32>,
+    pub rank: Option<i32>,
+    pub kills: Option<i32>,
+    pub deaths: Option<i32>,
+    pub kills_per_death: Option<f64>,
+    pub kills_per_minute: Option<f64>,
+    pub headshots: Option<i32>,
+    pub headshots_per_kill: Option<f64>,
+    pub shots_per_kill: Option<f64>,
+    pub weapon_accuracy: Option<f64>,
+    pub longest_kill_streak: Option<i32>,
+    pub longest_death_streak: Option<i32>,
+    pub playtime: Option<i64>,
+    pub country: Option<String>,
+    pub country_code: Option<String>,
+    pub updated_at: Option<OffsetDateTime>,
+}
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(MapeadoresPlayerStats)]
+pub struct DbMapeadoresPlayerStats {
+    pub name: String,
+    pub playtime: i64,
+    pub position: i32,
+    pub is_supporter: bool,
+    pub fetched_at: OffsetDateTime,
+}
+#[derive(DbInto)]
+#[db_into(ExternalPlaytime)]
+#[extra(tracked_playtime = 0.0)]
+pub struct DbPlayerExternalPlaytime{
+    pub source: String,
+    pub external_total: PgInterval,
+    pub fetched_at: OffsetDateTime,
+    pub playtime_correction: PgInterval,
+    pub source_url: Option<String>,
 }
 impl Into<DbPlayerBrief> for DbPlayerDetail{
     fn into(self) -> DbPlayerBrief {

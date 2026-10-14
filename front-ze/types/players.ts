@@ -113,10 +113,19 @@ export interface DetailedPlayer extends PlayerBase{
     /** These are a previous calculation, not the current one; a refresh is already queued. */
     is_stale: boolean,
     /** End of the last session folded into these numbers. Null when they are current. */
-    calculated_at: string | null
+    calculated_at: string | null,
+    external_playtime?: ExternalPlaytime | null
+}
+export interface ExternalPlaytime {
+    source: string,
+    external_total: number,
+    fetched_at: string,
+    playtime_correction: number,
+    tracked_playtime: number,
+    source_url: string | null,
 }
 export interface DetailedPlayerInfo extends DetailedPlayer{
-    last_played: string,
+    last_played: string | null,
     last_played_ended: string | null,
     online_since: string | null,
     last_played_duration: number | null,
@@ -196,8 +205,8 @@ export type PlayerDetailSessionCommunity = {
     server_id: string,
 }
 
-export type PlayerWithLegacyRanks = {
-    steamid64: String,
+export type GflPlayerStats = {
+    steamid64: string,
     points: number,
     human_time: number,
     zombie_time: number,
@@ -215,11 +224,50 @@ export type PlayerWithLegacyRanks = {
     rank_zombie_killed: number,
     rank_headshot: number,
     rank_infected_time: number,
-    rank_item_usageContinentStatistics: number,
+    rank_item_usage: number,
     rank_boss_killed: number,
     rank_leader_count: number,
     rank_td_count: number,
+    personaname: string | null,
+    last_seen: string | null,
 }
+
+export type NidePlayerStats = {
+    name: string | null,
+    points: number | null,
+    rank: number | null,
+    kills: number | null,
+    deaths: number | null,
+    kills_per_death: number | null,
+    kills_per_minute: number | null,
+    headshots: number | null,
+    /** Ratio, 0 to 1. */
+    headshots_per_kill: number | null,
+    shots_per_kill: number | null,
+    /** Percentage, 0 to 100. */
+    weapon_accuracy: number | null,
+    longest_kill_streak: number | null,
+    longest_death_streak: number | null,
+    /** Seconds. */
+    playtime: number | null,
+    country: string | null,
+    country_code: string | null,
+    updated_at: string | null,
+}
+
+export type MapeadoresPlayerStats = {
+    name: string,
+    /** Seconds. */
+    playtime: number,
+    position: number,
+    is_supporter: boolean,
+    fetched_at: string,
+}
+
+export type PlayerExternalStats =
+    | ({ source: 'gfl' } & GflPlayerStats)
+    | ({ source: 'nide' } & NidePlayerStats)
+    | ({ source: 'mapeadores' } & MapeadoresPlayerStats)
 
 export type PlayerSeen = {
     id: string,

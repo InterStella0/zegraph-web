@@ -52,7 +52,8 @@ CREATE TABLE server(
     community_id UUID REFERENCES community(community_id) ON DELETE SET NULL,
     readable_link VARCHAR(20) UNIQUE,
     last_polled_at TIMESTAMPTZ,
-    tracking_since TIMESTAMPTZ
+    tracking_since TIMESTAMPTZ,
+    external_source_url TEXT
 );
 
 CREATE TABLE server_fetch_status (
@@ -397,8 +398,20 @@ CREATE TABLE website.player_playtime(
     casual_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
     tryhard_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
     mixed_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
+    playtime_correction INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
+    tracked_playtime INTERVAL NOT NULL DEFAULT INTERVAL '0 seconds',
     category VARCHAR(8),
     sum_key TEXT,
+    PRIMARY KEY(player_id, server_id)
+);
+
+CREATE TABLE website.player_external_playtime(
+    player_id VARCHAR(100) REFERENCES player(player_id) ON DELETE CASCADE NOT NULL,
+    server_id VARCHAR(100) REFERENCES server(server_id) ON DELETE CASCADE NOT NULL,
+    source TEXT NOT NULL,
+    external_total INTERVAL NOT NULL,
+    fetched_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    playtime_correction INTERVAL NOT NULL,
     PRIMARY KEY(player_id, server_id)
 );
 
@@ -1025,11 +1038,15 @@ CREATE INDEX player_server_session_mv_geometry_gist
     USING GIST (geometry);
 
 CREATE MATERIALIZED VIEW server_player_names AS
-    SELECT DISTINCT pss.server_id, p.player_id, p.player_name,
+    SELECT DISTINCT known.server_id, p.player_id, p.player_name,
        COALESCE(ua.anonymized, FALSE) AS is_anonymous
-    FROM player_server_session pss
-    JOIN player p ON p.player_id = pss.player_id
-    JOIN server s ON s.server_id = pss.server_id
+    FROM (
+        SELECT server_id, player_id FROM player_server_session
+        UNION
+        SELECT server_id, player_id FROM website.player_external_playtime
+    ) known
+    JOIN player p ON p.player_id = known.player_id
+    JOIN server s ON s.server_id = known.server_id
     LEFT JOIN website.user_anonymization ua
         ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
        AND ua.community_id = s.community_id;
@@ -1087,6 +1104,165 @@ CREATE TABLE external_data.cola_players (
     PRIMARY KEY (steamid64, name)
 );
 CREATE INDEX idx_cola_players_name ON external_data.cola_players(name);
+
+CREATE TABLE external_data.mapeadores_playtime (
+    steamid64 VARCHAR(19) PRIMARY KEY,
+    name TEXT NOT NULL,
+    minutes INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    is_supporter BOOLEAN NOT NULL,
+    fetched_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE OR REPLACE FUNCTION website.apply_external_playtime(
+    p_player_id VARCHAR,
+    p_server_id VARCHAR,
+    p_source TEXT,
+    p_external_total INTERVAL,
+    p_fetched_at TIMESTAMP WITH TIME ZONE
+) RETURNS void AS $$
+DECLARE
+    correction INTERVAL;
+    tracked INTERVAL;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM player WHERE player_id = p_player_id)
+       OR NOT EXISTS (SELECT 1 FROM server WHERE server_id = p_server_id) THEN
+        RETURN;
+    END IF;
+
+    correction := p_external_total - COALESCE((
+        SELECT SUM(LEAST(COALESCE(pss.ended_at, pss.last_verified, p_fetched_at), p_fetched_at) - pss.started_at)
+        FROM player_server_session pss
+        JOIN player p ON p.player_id = pss.player_id
+        WHERE (p.player_id = p_player_id OR p.associated_player_id = p_player_id)
+          AND pss.server_id = p_server_id
+          AND pss.started_at < p_fetched_at
+    ), INTERVAL '0');
+
+    INSERT INTO website.player_external_playtime(
+        player_id, server_id, source, external_total, fetched_at, playtime_correction
+    )
+    VALUES (p_player_id, p_server_id, p_source, p_external_total, p_fetched_at, correction)
+    ON CONFLICT (player_id, server_id) DO UPDATE
+    SET source = EXCLUDED.source,
+        external_total = EXCLUDED.external_total,
+        fetched_at = EXCLUDED.fetched_at,
+        playtime_correction = EXCLUDED.playtime_correction
+    WHERE website.player_external_playtime.fetched_at <= EXCLUDED.fetched_at;
+
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    tracked := COALESCE((
+        SELECT SUM(pmt.total_playtime)
+        FROM website.player_map_time pmt
+        WHERE pmt.player_id = p_player_id AND pmt.server_id = p_server_id
+    ), INTERVAL '0');
+
+    INSERT INTO website.player_playtime(player_id, server_id, total_playtime, tracked_playtime, playtime_correction)
+    VALUES (p_player_id, p_server_id, GREATEST(tracked + correction, INTERVAL '0'), tracked, correction)
+    ON CONFLICT (player_id, server_id) DO UPDATE
+    SET playtime_correction = EXCLUDED.playtime_correction,
+        total_playtime = GREATEST(website.player_playtime.tracked_playtime + EXCLUDED.playtime_correction, INTERVAL '0');
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION website.apply_nide_external_playtime() RETURNS trigger AS $$
+BEGIN
+    IF NEW.total_connection_time IS NOT NULL AND NEW.updated_at IS NOT NULL THEN
+        PERFORM website.apply_external_playtime(
+            NEW.steam_id, '7ae2ca188ebf8be21d4f42b2827153ac', 'nide',
+            make_interval(secs => NEW.total_connection_time), NEW.updated_at
+        );
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_nide_external_playtime_insert
+AFTER INSERT ON external_data.nide_players
+FOR EACH ROW EXECUTE FUNCTION website.apply_nide_external_playtime();
+
+CREATE TRIGGER trigger_nide_external_playtime_update
+AFTER UPDATE OF total_connection_time ON external_data.nide_players
+FOR EACH ROW WHEN (OLD.total_connection_time IS DISTINCT FROM NEW.total_connection_time)
+EXECUTE FUNCTION website.apply_nide_external_playtime();
+
+CREATE OR REPLACE FUNCTION website.apply_mapeadores_external_playtime() RETURNS trigger AS $$
+BEGIN
+    PERFORM website.apply_external_playtime(
+        NEW.steamid64, '674b592b744afc3c108d345a', 'mapeadores',
+        make_interval(mins => NEW.minutes), NEW.fetched_at
+    );
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_mapeadores_external_playtime_insert
+AFTER INSERT ON external_data.mapeadores_playtime
+FOR EACH ROW EXECUTE FUNCTION website.apply_mapeadores_external_playtime();
+
+CREATE TRIGGER trigger_mapeadores_external_playtime_update
+AFTER UPDATE OF minutes ON external_data.mapeadores_playtime
+FOR EACH ROW WHEN (OLD.minutes IS DISTINCT FROM NEW.minutes)
+EXECUTE FUNCTION website.apply_mapeadores_external_playtime();
+
+CREATE OR REPLACE FUNCTION website.reapply_linked_external_playtime() RETURNS trigger AS $$
+BEGIN
+    PERFORM website.apply_external_playtime(
+        e.player_id, e.server_id, e.source, e.external_total, e.fetched_at
+    )
+    FROM website.player_external_playtime e
+    WHERE e.player_id IN (OLD.associated_player_id, NEW.associated_player_id);
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_player_link_external_playtime
+AFTER UPDATE OF associated_player_id ON player
+FOR EACH ROW WHEN (OLD.associated_player_id IS DISTINCT FROM NEW.associated_player_id)
+EXECUTE FUNCTION website.reapply_linked_external_playtime();
+
+CREATE OR REPLACE FUNCTION website.backfill_external_playtime() RETURNS void AS $$
+DECLARE
+    gfl_tracking_since TIMESTAMP WITH TIME ZONE;
+BEGIN
+    PERFORM website.apply_external_playtime(
+        n.steam_id, '7ae2ca188ebf8be21d4f42b2827153ac', 'nide',
+        make_interval(secs => n.total_connection_time), n.updated_at
+    )
+    FROM external_data.nide_players n
+    WHERE n.total_connection_time IS NOT NULL AND n.updated_at IS NOT NULL;
+
+    PERFORM website.apply_external_playtime(
+        m.steamid64, '674b592b744afc3c108d345a', 'mapeadores',
+        make_interval(mins => m.minutes), m.fetched_at
+    )
+    FROM external_data.mapeadores_playtime m;
+
+    SELECT s.tracking_since INTO gfl_tracking_since FROM server s WHERE s.server_id = '85568392935951359';
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    INSERT INTO player(player_id, player_name, created_at)
+    SELECT g.steamid64,
+           COALESCE(NULLIF(g.personaname, ''), g.steamid64),
+           COALESCE(g.timestamp AT TIME ZONE 'UTC', CURRENT_TIMESTAMP)
+    FROM external_data.gfl_csgo_players g
+    WHERE COALESCE(g.human_time, 0) + COALESCE(g.zombie_time, 0) > 0
+    ON CONFLICT (player_id) DO NOTHING;
+
+    PERFORM website.apply_external_playtime(
+        g.steamid64, '85568392935951359', 'gfl',
+        make_interval(secs => COALESCE(g.human_time, 0) + COALESCE(g.zombie_time, 0)),
+        COALESCE(g.timestamp AT TIME ZONE 'UTC', gfl_tracking_since, CURRENT_TIMESTAMP)
+    )
+    FROM external_data.gfl_csgo_players g
+    WHERE COALESCE(g.human_time, 0) + COALESCE(g.zombie_time, 0) > 0;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE SCHEMA IF NOT EXISTS layers;
 -- everything after this part, require PostGIS manual importing through QGIS
@@ -1354,6 +1530,7 @@ SELECT cron.schedule_in_database(
                    SUM(pp.casual_playtime) AS casual_playtime,
                    SUM(pp.tryhard_playtime) AS tryhard_playtime,
                    SUM(pp.mixed_playtime) AS mixed_playtime,
+                   SUM(pp.tracked_playtime) AS tracked_playtime,
                    COUNT(DISTINCT pp.server_id) AS server_count,
                    COUNT(DISTINCT s.community_id) AS community_count
             FROM website.player_playtime pp
@@ -1365,10 +1542,10 @@ SELECT cron.schedule_in_database(
         categorized AS (
             SELECT sums.*,
                 CASE
-                    WHEN total_playtime < INTERVAL '5 hours' THEN NULL
-                    WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'casual'
-                    WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'tryhard'
-                    WHEN EXTRACT(EPOCH FROM mixed_playtime) / NULLIF(EXTRACT(EPOCH FROM total_playtime), 0) >= 0.6 THEN 'mixed'
+                    WHEN tracked_playtime < INTERVAL '5 hours' THEN NULL
+                    WHEN EXTRACT(EPOCH FROM casual_playtime) / NULLIF(EXTRACT(EPOCH FROM tracked_playtime), 0) >= 0.6 THEN 'casual'
+                    WHEN EXTRACT(EPOCH FROM tryhard_playtime) / NULLIF(EXTRACT(EPOCH FROM tracked_playtime), 0) >= 0.6 THEN 'tryhard'
+                    WHEN EXTRACT(EPOCH FROM mixed_playtime) / NULLIF(EXTRACT(EPOCH FROM tracked_playtime), 0) >= 0.6 THEN 'mixed'
                     ELSE NULL
                 END AS category
             FROM sums

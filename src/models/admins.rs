@@ -539,6 +539,7 @@ pub struct AdminServerRow {
     pub community_id: Option<Uuid>,
     pub online: Option<bool>,
     pub readable_link: Option<String>,
+    pub external_source_url: Option<String>,
     pub server_website: Option<String>,
     pub server_discord_link: Option<String>,
     pub server_source: Option<String>,
@@ -551,6 +552,7 @@ pub struct AdminServerRow {
 pub struct UpdateServerPayload {
     pub server_name: Option<String>,
     pub readable_link: Option<String>,
+    pub external_source_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Object)]

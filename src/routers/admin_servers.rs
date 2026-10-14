@@ -464,7 +464,7 @@ impl AdminServersApi {
             AdminServerRow,
             r#"
             SELECT s.server_id, s.server_name, s.server_fullname, s.server_ip, s.server_port,
-                   s.community_id, s.online, s.readable_link,
+                   s.community_id, s.online, s.readable_link, s.external_source_url,
                    sm.server_website, sm.server_discord_link, sm.server_source,
                    sm.timezone, sm.game, sm.source_by_id
             FROM server s
@@ -478,9 +478,12 @@ impl AdminServersApi {
         response!(ok rows.into_iter().map(Into::into).collect())
     }
 
-    /// Rename a server or change its public readable link (used in vanity URLs).
+    /// Rename a server, change its public readable link (used in vanity URLs), or set the link
+    /// its external playtime source is credited with.
     ///
     /// Requires the `superuser` role. `readable_link` must be 20 characters or fewer and unique.
+    /// `external_source_url` must be an http(s) URL; `{player_id}` in it is replaced per player.
+    /// An empty string clears either field; omitting it leaves it unchanged.
     #[oai(path = "/admin/servers-list/:server_id", method = "put")]
     async fn update_server_admin(
         &self,
@@ -500,19 +503,29 @@ impl AdminServersApi {
         let set_readable_link = readable_link.is_some();
         let readable_link = readable_link.filter(|l| !l.is_empty());
 
+        let external_source_url = payload.external_source_url.as_ref().map(|u| u.trim().to_string());
+        if let Some(url) = external_source_url.as_deref().filter(|u| !str::is_empty(u)) {
+            if !(url.starts_with("https://") || url.starts_with("http://")) {
+                return response!(err "External source URL must start with http:// or https://", ErrorCode::BadRequest);
+            }
+        }
+        let set_external_source_url = external_source_url.is_some();
+        let external_source_url = external_source_url.filter(|u| !str::is_empty(u));
+
         let row = match sqlx::query_as!(
             AdminServerRow,
             r#"
             WITH updated AS (
                 UPDATE server SET
                     server_name   = COALESCE($2, server_name),
-                    readable_link = CASE WHEN $3 THEN $4 ELSE readable_link END
+                    readable_link = CASE WHEN $3 THEN $4 ELSE readable_link END,
+                    external_source_url = CASE WHEN $5 THEN $6 ELSE external_source_url END
                 WHERE server_id = $1
                 RETURNING server_id, server_name, server_fullname, server_ip, server_port,
-                          community_id, online, readable_link
+                          community_id, online, readable_link, external_source_url
             )
             SELECT u.server_id AS "server_id!", u.server_name, u.server_fullname, u.server_ip, u.server_port,
-                   u.community_id, u.online, u.readable_link,
+                   u.community_id, u.online, u.readable_link, u.external_source_url,
                    sm.server_website, sm.server_discord_link, sm.server_source,
                    sm.timezone, sm.game, sm.source_by_id
             FROM updated u
@@ -522,6 +535,8 @@ impl AdminServersApi {
             payload.server_name,
             set_readable_link,
             readable_link,
+            set_external_source_url,
+            external_source_url,
         )
         .fetch_optional(&*data.pool)
         .await
@@ -566,10 +581,10 @@ impl AdminServersApi {
                 UPDATE server SET community_id = $2
                 WHERE server_id = $1
                 RETURNING server_id, server_name, server_fullname, server_ip, server_port,
-                          community_id, online, readable_link
+                          community_id, online, readable_link, external_source_url
             )
             SELECT u.server_id AS "server_id!", u.server_name, u.server_fullname, u.server_ip, u.server_port,
-                   u.community_id, u.online, u.readable_link,
+                   u.community_id, u.online, u.readable_link, u.external_source_url,
                    sm.server_website, sm.server_discord_link, sm.server_source,
                    sm.timezone, sm.game, sm.source_by_id
             FROM updated u
@@ -666,7 +681,7 @@ impl AdminServersApi {
             AdminServerRow,
             r#"
             SELECT s.server_id, s.server_name, s.server_fullname, s.server_ip, s.server_port,
-                   s.community_id, s.online, s.readable_link,
+                   s.community_id, s.online, s.readable_link, s.external_source_url,
                    sm.server_website, sm.server_discord_link, sm.server_source,
                    sm.timezone, sm.game, sm.source_by_id
             FROM server s
