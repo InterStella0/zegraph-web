@@ -278,7 +278,7 @@ impl ServerApi {
         response!(ok GlobalBriefPlayers { total_players, players: rows.iter_into() })
     }
 
-    /// List players currently online across all tracked servers.
+    /// List players currently online across all tracked servers. Bots are left out.
     ///
     /// A player's name is replaced with "Anonymous" if they opted into anonymization for that
     /// community, unless the requester is that player, a superuser, or an admin of that community.
@@ -323,6 +323,7 @@ impl ServerApi {
                    ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
                   AND ua.community_id = sc.community_id
             WHERE pss.ended_at IS NULL AND CURRENT_TIMESTAMP - pss.last_verified < INTERVAL '20 minutes'
+              AND NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = pss.player_id AND pb.is_bot)
             ORDER BY pss.started_at
         "#, user_id).fetch_all(pool);
 

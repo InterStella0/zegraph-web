@@ -310,6 +310,7 @@ impl PlayerApi{
     /// `player_name` must be at least 3 characters. Matches the requester's own player ID first,
     /// then substring name matches (case-insensitive), up to 20 results. Anonymized players show
     /// as "Anonymous" unless the requester is that player, a superuser, or a community admin.
+    /// Bots are included and flagged with `is_bot`.
     #[oai(path = "/servers/:server_id/players/autocomplete", method = "get", operation_id = "search_players", tag = "ApiTags::Mcp")]
     async fn get_players_autocomplete(
         &self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor, Query(player_name): Query<String>,
@@ -338,6 +339,7 @@ impl PlayerApi{
                 SELECT spn.player_id, spn.player_name,
                        COALESCE(p.associated_player_id, p.player_id) AS canonical_player_id,
                        spn.is_anonymous,
+                       EXISTS(SELECT 1 FROM player_bot pb WHERE pb.player_id = spn.player_id AND pb.is_bot) AS is_bot,
                        CASE WHEN spn.player_id = $2 THEN 0 ELSE 1 END AS id_rank,
                        NULLIF(STRPOS(LOWER(spn.player_name), LOWER($2)), 0) AS name_rank
                 FROM server_player_names spn
@@ -363,7 +365,8 @@ impl PlayerApi{
                     THEN TRUE
                     ELSE FALSE
                 END AS "is_anonymous!",
-                COALESCE(a.is_anonymous, FALSE) AS "hidden_from_others!"
+                COALESCE(a.is_anonymous, FALSE) AS "hidden_from_others!",
+                a.is_bot AS "is_bot!"
             FROM matched_players a
             ORDER BY a.id_rank ASC, a.name_rank ASC NULLS LAST
             LIMIT 20;
@@ -385,6 +388,8 @@ impl PlayerApi{
     /// `Total`). `player_name` (minimum 2 characters) filters to matching players instead of
     /// paginating the full leaderboard; pages are 5 players each. Anonymized players show as
     /// "Anonymous" unless the requester is that player, a superuser, or a community admin.
+    /// Bots are left out of the leaderboard and only appear in a `player_name` search, flagged
+    /// with `is_bot` and unranked.
     #[oai(path = "/servers/:server_id/players/table", method = "get", operation_id = "get_player_leaderboard", tag = "ApiTags::Mcp")]
     async fn get_players_table(
         &self, data: Data<&AppData>, ServerExtractor(server): ServerExtractor,
@@ -420,6 +425,7 @@ impl PlayerApi{
                     SELECT
                         COUNT(*) OVER() AS total_players,
                         CASE
+                            WHEN pb.player_id IS NOT NULL THEN NULL
                             WHEN $5='total' THEN ppr.playtime_rank
                             WHEN $5='casual' THEN ppr.casual_rank
                             WHEN $5='tryhard' THEN ppr.tryhard_rank
@@ -447,11 +453,13 @@ impl PlayerApi{
                             THEN TRUE
                             ELSE FALSE
                         END AS "is_anonymous!",
-                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!"
+                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!",
+                        pb.player_id IS NOT NULL AS "is_bot!"
                     FROM server_player_names spn
                     JOIN player target ON target.player_id = spn.player_id
                     LEFT JOIN website.player_playtime pp ON pp.server_id=spn.server_id AND pp.player_id=spn.player_id
                     LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=spn.server_id AND ppr.player_id=spn.player_id
+                    LEFT JOIN player_bot pb ON pb.player_id=spn.player_id AND pb.is_bot
                     WHERE spn.server_id=$4 AND (spn.player_id=$6 OR LOWER(spn.player_name) LIKE $1)
                     ORDER BY
                          CASE
@@ -507,12 +515,14 @@ impl PlayerApi{
                             THEN TRUE
                             ELSE FALSE
                         END AS "is_anonymous!",
-                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!"
+                        COALESCE(spn.is_anonymous, FALSE) AS "hidden_from_others!",
+                        FALSE AS "is_bot!"
                     FROM server_player_names spn
                     JOIN player target ON target.player_id = spn.player_id
                     LEFT JOIN website.player_playtime pp ON pp.server_id=spn.server_id AND pp.player_id=spn.player_id
                     LEFT JOIN website.player_playtime_ranks ppr ON ppr.server_id=spn.server_id AND ppr.player_id=spn.player_id
                     WHERE spn.server_id=$3
+                      AND NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id=spn.player_id AND pb.is_bot)
                     ORDER BY
                          CASE
                             WHEN $4='total' THEN COALESCE(pp.total_playtime, INTERVAL '0')
@@ -569,7 +579,7 @@ impl PlayerApi{
     /// Players currently connected to a server.
     ///
     /// A session counts as "currently connected" if it was verified within the last 20 minutes.
-    /// Anonymized players show as "Anonymous" unless the requester is that player, a superuser,
+    /// Bots are left out. Anonymized players show as "Anonymous" unless the requester is that player, a superuser,
     /// or a community admin.
     #[oai(path = "/servers/:server_id/players/playing", method = "get", operation_id = "list_online_players", tag = "ApiTags::Mcp")]
     async fn get_players_playing(&self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, OptionalTokenBearer(user_token): OptionalTokenBearer) -> Response<Vec<PlayerDetailSession>>{
@@ -594,6 +604,7 @@ impl PlayerApi{
                    ON ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
                   AND ua.community_id = s.community_id
             WHERE pss.server_id = $1 AND pss.ended_at IS NULL AND (CURRENT_TIMESTAMP - pss.last_verified) < INTERVAL '20 minutes'
+              AND NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = pss.player_id AND pb.is_bot)
             ORDER BY pss.started_at
         "#, server_id).fetch_all(pool);
 

@@ -199,6 +199,13 @@ CREATE INDEX idx_pss_player_last_completed
     WHERE ended_at IS NOT NULL;
 
 
+CREATE TABLE player_bot(
+    player_id VARCHAR(100) PRIMARY KEY REFERENCES player(player_id) ON DELETE CASCADE,
+    is_bot BOOLEAN NOT NULL DEFAULT TRUE,       -- false = manually whitelisted
+    reason VARCHAR(20) NOT NULL,                -- 'sessions' | 'presence' | 'manual'
+    detected_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE server_map
 (
     server_id VARCHAR(100) NOT NULL REFERENCES server(server_id) ON DELETE CASCADE,
@@ -518,7 +525,8 @@ SELECT player_id,
        RANK() OVER (PARTITION BY server_id ORDER BY casual_playtime DESC) AS casual_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY tryhard_playtime DESC) AS tryhard_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY mixed_playtime DESC) AS mixed_rank
-FROM website.player_playtime;
+FROM website.player_playtime pp
+WHERE NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = pp.player_id AND pb.is_bot);
 
 CREATE UNIQUE INDEX CONCURRENTLY player_playtime_ranks_idx
     ON website.player_playtime_ranks (player_id, server_id);
@@ -533,7 +541,8 @@ SELECT
     PARTITION BY server_id, map
     ORDER BY total_playtime DESC
   ) AS map_rank
-FROM website.player_map_time;
+FROM website.player_map_time pmt
+WHERE NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = pmt.player_id AND pb.is_bot);
 CREATE UNIQUE INDEX CONCURRENTLY player_map_rank_idx
     ON website.player_map_rank (server_id, map, player_id);
 

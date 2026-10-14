@@ -25,7 +25,9 @@
     },
     "anonymous": "Anónimo",
     "hidden": "(Oculto)",
-    "hiddenHint": "Solo tú y los administradores de la comunidad pueden ver este nombre. Los demás ven «Anónimo»."
+    "hiddenHint": "Solo tú y los administradores de la comunidad pueden ver este nombre. Los demás ven «Anónimo».",
+    "bot": "Bot",
+    "botHint": "Esta cuenta es un bot automatizado, no un jugador real."
   },
   "auth": {
     "login": "Iniciar sesión",
@@ -317,6 +319,7 @@
       "tryhard": "Tryhard",
       "casual": "Casual",
       "topOnMap": "Top {rank} en {map} ({hours}h)",
+      "botNotice": "Esta cuenta es un bot, no un jugador real. Se oculta de las listas de jugadores en línea y se excluye de las clasificaciones.",
       "noDetail": "No hay detalles del jugador disponibles."
     },
     "page": {
@@ -440,6 +443,7 @@
       "anonymous": "Anónimo",
       "ranked": "Puesto {rank}",
       "unranked": "Sin clasificar",
+      "botUnranked": "Sin clasificar",
       "hoursShort": "{hours}h"
     },
     "heatmap": {

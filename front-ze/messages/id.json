@@ -25,7 +25,9 @@
     },
     "anonymous": "Anonim",
     "hidden": "(Tersembunyi)",
-    "hiddenHint": "Hanya kamu dan admin komunitas yang dapat melihat nama ini. Orang lain melihat “Anonim”."
+    "hiddenHint": "Hanya kamu dan admin komunitas yang dapat melihat nama ini. Orang lain melihat “Anonim”.",
+    "bot": "Bot",
+    "botHint": "Akun ini adalah bot otomatis, bukan pemain sungguhan."
   },
   "auth": {
     "login": "Masuk",
@@ -317,6 +319,7 @@
       "tryhard": "Tryhard",
       "casual": "Casual",
       "topOnMap": "Top {rank} di {map} ({hours}j)",
+      "botNotice": "Akun ini adalah bot, bukan pemain sungguhan. Akun ini disembunyikan dari daftar online dan tidak dimasukkan ke peringkat.",
       "noDetail": "Detail pemain tidak tersedia."
     },
     "page": {
@@ -440,6 +443,7 @@
       "anonymous": "Anonim",
       "ranked": "{rank} Peringkat",
       "unranked": "Tidak berperingkat",
+      "botUnranked": "Tidak diperingkatkan",
       "hoursShort": "{hours}j"
     },
     "heatmap": {

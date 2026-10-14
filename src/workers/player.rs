@@ -1651,6 +1651,7 @@ impl PlayerWorker {
         }
         self.attach_external_playtime(context, &mut detail).await?;
         self.attach_ranks_and_aliases(context, &mut detail).await?;
+        self.attach_bot_flag(context, &mut detail).await?;
         Ok(detail)
     }
 
@@ -1661,6 +1662,7 @@ impl PlayerWorker {
         let mut detail: DetailedPlayer = cached.result.into();
         detail.is_stale = cached.backup;
         self.attach_aliases(context, &mut detail).await?;
+        self.attach_bot_flag(context, &mut detail).await?;
         Ok(detail)
     }
 
@@ -1690,7 +1692,22 @@ impl PlayerWorker {
         detail.calculated_at = self.fetch_playtime_calculated_at(context).await?;
         self.attach_external_playtime(context, &mut detail).await?;
         self.attach_ranks_and_aliases(context, &mut detail).await?;
+        self.attach_bot_flag(context, &mut detail).await?;
         Ok(detail)
+    }
+
+    async fn attach_bot_flag(
+        &self, context: &PlayerContext, detail: &mut DetailedPlayer,
+    ) -> Result<(), sqlx::Error>{
+        detail.is_bot = sqlx::query_scalar!(
+            "SELECT EXISTS(SELECT 1 FROM player_bot WHERE player_id = $1 AND is_bot) AS \"is_bot!\"",
+            context.player.player_id
+        ).fetch_one(&*self.pool).await?;
+        if detail.is_bot {
+            detail.rank = -1;
+            detail.ranks = None;
+        }
+        Ok(())
     }
 
     async fn attach_external_playtime(

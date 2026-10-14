@@ -25,7 +25,9 @@
     },
     "anonymous": "익명",
     "hidden": "(비공개)",
-    "hiddenHint": "이 이름은 본인과 커뮤니티 관리자만 볼 수 있습니다. 다른 사람에게는 ‘익명’으로 표시됩니다."
+    "hiddenHint": "이 이름은 본인과 커뮤니티 관리자만 볼 수 있습니다. 다른 사람에게는 ‘익명’으로 표시됩니다.",
+    "bot": "봇",
+    "botHint": "이 계정은 실제 플레이어가 아닌 자동화된 봇입니다."
   },
   "auth": {
     "login": "로그인",
@@ -317,6 +319,7 @@
       "tryhard": "트라이 하드",
       "casual": "캐주얼",
       "topOnMap": "{map}에서 상위 {rank}({hours}시간)",
+      "botNotice": "이 계정은 실제 플레이어가 아닌 봇입니다. 온라인 목록에 표시되지 않으며 순위에서 제외됩니다.",
       "noDetail": "사용 가능한 플레이어 세부정보가 없습니다."
     },
     "page": {
@@ -440,6 +443,7 @@
       "anonymous": "익명",
       "ranked": "{rank} 랭크",
       "unranked": "순위 없음",
+      "botUnranked": "순위 없음",
       "hoursShort": "{hours}시간"
     },
     "heatmap": {

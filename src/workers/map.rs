@@ -781,6 +781,7 @@ worker_query! {
                 JOIN player_server_session pss
                   ON pss.server_id = $1
                  AND tstzrange(pss.started_at, pss.ended_at) && tstzrange(smp.started_at, smp.ended_at)
+                WHERE NOT EXISTS (SELECT 1 FROM player_bot pb WHERE pb.player_id = pss.player_id AND pb.is_bot)
                 GROUP BY pss.player_id
                 ORDER BY total_playtime DESC, pss.player_id
                 LIMIT $5

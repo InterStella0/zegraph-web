@@ -17,6 +17,7 @@ import { Input } from 'components/ui/input';
 import { Label } from 'components/ui/label';
 import { fetchApiServerUrl, fetchApiUrl } from 'utils/generalUtils';
 import { SearchPlayer } from 'types/players';
+import { PlayerName } from './PlayerName';
 
 const SUGGESTION_MIN_CHARS = 2;
 const SUGGESTION_DEBOUNCE_MS = 300;
@@ -185,7 +186,7 @@ export default function AssociatePlayerDialog(
                                             }}
                                             className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors"
                                         >
-                                            <div className="text-sm">{player.name}</div>
+                                            <div className="text-sm"><PlayerName name={player.name} isBot={player.is_bot}/></div>
                                             <div className="text-xs text-muted-foreground font-mono">{player.id}</div>
                                         </button>
                                     ))}

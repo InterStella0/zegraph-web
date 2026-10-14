@@ -19,6 +19,8 @@ export interface PlayerTableRank{
      *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
      *  marker off this, not off `is_anonymous`. */
     hidden_from_others: boolean,
+    /** Flagged as a bot. Bots only show up in a name search, unranked (`rank` -1). */
+    is_bot: boolean,
 }
 export type PlayersTableRanked = {
     total_players: number,
@@ -114,7 +116,9 @@ export interface DetailedPlayer extends PlayerBase{
     is_stale: boolean,
     /** End of the last session folded into these numbers. Null when they are current. */
     calculated_at: string | null,
-    external_playtime?: ExternalPlaytime | null
+    external_playtime?: ExternalPlaytime | null,
+    /** Flagged as a bot, so it is left out of rankings and `ranks` is null. */
+    is_bot: boolean,
 }
 export interface ExternalPlaytime {
     source: string,
@@ -322,6 +326,7 @@ export type SearchPlayer = {
      *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
      *  marker off this, not off `is_anonymous`. */
     hidden_from_others: boolean,
+    is_bot: boolean,
 }
 
 export type PlayerCommunityPlaytime = {

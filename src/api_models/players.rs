@@ -37,6 +37,9 @@ pub struct DetailedPlayer{
     /// The server's own lifetime playtime counter, when it publishes one. `total_playtime` already
     /// includes `playtime_correction`; it is all-time only and absent when a `period` is requested.
     pub external_playtime: Option<ExternalPlaytime>,
+    /// Flagged as a bot. Bots are left out of rankings and online lists, so `rank` and `ranks` are
+    /// empty for them.
+    pub is_bot: bool,
 }
 
 /// Lifetime playtime reported by the game server itself.
@@ -91,6 +94,8 @@ pub struct PlayerTableRank{
     /// you"; this says "the public sees Anonymous here". The frontend renders a `(Hidden)` marker
     /// off it so a privileged viewer isn't fooled into thinking their toggle did nothing.
     pub hidden_from_others: bool,
+    /// Flagged as a bot. Only appears in a name search, with `rank` -1.
+    pub is_bot: bool,
 }
 /// A page of the ranked players table.
 #[derive(Object)]
@@ -455,6 +460,8 @@ pub struct SearchPlayer{
     /// you"; this says "the public sees Anonymous here". The frontend renders a `(Hidden)` marker
     /// off it so a privileged viewer isn't fooled into thinking their toggle did nothing.
     pub(crate) hidden_from_others: bool,
+    /// Flagged as a bot.
+    pub(crate) is_bot: bool,
 }
 
 /// A player's detail on one server, paired with which server it's on.
@@ -654,6 +661,7 @@ mod tests {
             is_stale: false,
             calculated_at: None,
             external_playtime: None,
+            is_bot: false,
         }
     }
 

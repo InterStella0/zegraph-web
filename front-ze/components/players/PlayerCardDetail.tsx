@@ -14,7 +14,7 @@ import { Badge } from "components/ui/badge";
 import dayjs from "dayjs";
 import { PlayerAvatar } from "./PlayerAvatar";
 import CategoryChip from "../ui/CategoryChip";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Bot } from "lucide-react";
 import { cn } from "components/lib/utils";
 import Link from "next/link";
 
@@ -26,6 +26,7 @@ import PlayerDetailHourBar from "./PlayerDetailHourBar";
 import {Server} from "types/community";
 import PlayerStats, {PlaytimeTotal} from "./PlayerStats";
 import PlayerAliasesButton from "./PlayerAliasesButton";
+import {BotBadge} from "./PlayerName";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import {SiSteam} from "@icons-pack/react-simple-icons";
 import {usePatchedPlayer, usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
@@ -125,6 +126,7 @@ function PlayerCardDetailDisplay({ server, player, user }: { server: Server, pla
                             <h1 className="min-w-0 truncate text-xl font-semibold sm:text-2xl">
                                 {player.name}
                             </h1>
+                            {player.is_bot && <BotBadge className="ml-0"/>}
                             {steamId && (
                                 <TooltipProvider>
                                     <Tooltip>
@@ -169,6 +171,10 @@ function PlayerCardDetailDisplay({ server, player, user }: { server: Server, pla
 
                         {player.last_played && <p className={`mt-0.5 text-sm ${player.online_since ? 'text-green-600 dark:text-green-500' : 'text-muted-foreground'}`}>
                             {lastPlayedText}
+                        </p>}
+                        {player.is_bot && <p className="mt-1 flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-500">
+                            <Bot className="size-4 shrink-0"/>
+                            {t('botNotice')}
                         </p>}
                         <AliasesDropdown aliases={player.aliases} />
                     </div>

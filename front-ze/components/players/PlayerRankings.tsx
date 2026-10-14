@@ -217,6 +217,7 @@ const PlayerRankingsDisplay = ({ serverPromise, initialDataPromise }: PlayerRank
                                                 name={option.name}
                                                 isAnonymous={option.is_anonymous}
                                                 hiddenFromOthers={option.hidden_from_others}
+                                                isBot={option.is_bot}
                                                 className="font-medium"
                                             />
                                         </CommandItem>

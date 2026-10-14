@@ -25,7 +25,9 @@
     },
     "anonymous": "Tanpa nama",
     "hidden": "(Tersembunyi)",
-    "hiddenHint": "Hanya anda dan pentadbir komuniti boleh melihat nama ini. Orang lain melihat “Tanpa nama”."
+    "hiddenHint": "Hanya anda dan pentadbir komuniti boleh melihat nama ini. Orang lain melihat “Tanpa nama”.",
+    "bot": "Bot",
+    "botHint": "Akaun ini ialah bot automatik, bukan pemain sebenar."
   },
   "auth": {
     "login": "Log masuk",
@@ -317,6 +319,7 @@
       "tryhard": "Tryhard",
       "casual": "Kasual",
       "topOnMap": "Top {rank} di {map} ({hours}j)",
+      "botNotice": "Akaun ini ialah bot, bukan pemain sebenar. Ia disembunyikan daripada senarai dalam talian dan dikecualikan daripada kedudukan.",
       "noDetail": "Tiada butiran pemain tersedia."
     },
     "page": {
@@ -440,6 +443,7 @@
       "anonymous": "Tanpa nama",
       "ranked": "Kedudukan {rank}",
       "unranked": "Tiada kedudukan",
+      "botUnranked": "Tidak disenaraikan",
       "hoursShort": "{hours}j"
     },
     "heatmap": {

@@ -25,7 +25,9 @@
     },
     "anonymous": "Ẩn danh",
     "hidden": "(Đã ẩn)",
-    "hiddenHint": "Chỉ bạn và quản trị viên cộng đồng mới thấy được tên này. Những người khác thấy “Ẩn danh”."
+    "hiddenHint": "Chỉ bạn và quản trị viên cộng đồng mới thấy được tên này. Những người khác thấy “Ẩn danh”.",
+    "bot": "Bot",
+    "botHint": "Tài khoản này là bot tự động, không phải người chơi thật."
   },
   "auth": {
     "login": "Đăng nhập",
@@ -317,6 +319,7 @@
       "tryhard": "Tryhard",
       "casual": "Casual",
       "topOnMap": "Top {rank} trên {map} ({hours}h)",
+      "botNotice": "Tài khoản này là bot, không phải người chơi thật. Nó bị ẩn khỏi danh sách trực tuyến và không được tính vào bảng xếp hạng.",
       "noDetail": "Thông tin chi tiết về người chơi không có sẵn."
     },
     "page": {
@@ -440,6 +443,7 @@
       "anonymous": "Ẩn danh",
       "ranked": "{rank} Xếp hạng",
       "unranked": "Chưa xếp hạng",
+      "botUnranked": "Không xếp hạng",
       "hoursShort": "{hours}h"
     },
     "heatmap": {
