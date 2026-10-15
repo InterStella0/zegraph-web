@@ -8,7 +8,8 @@ use crate::api_models::servers::BaseCommunity;
 /// A player's playtime and rank across every category, on one server.
 #[derive(Object)]
 pub struct PlayerRanks{
-    pub global_playtime: i64,
+    /// Cross-community rank from the player's global profile; null while unranked.
+    pub global_playtime: Option<i64>,
     pub server_playtime: i64,
     pub casual_playtime: i64,
     pub tryhard_playtime: i64,
