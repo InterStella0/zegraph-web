@@ -523,7 +523,6 @@ CREATE TABLE website.announce(
 CREATE MATERIALIZED VIEW website.player_playtime_ranks AS
 SELECT player_id,
        server_id,
-       RANK() OVER (ORDER BY total_playtime DESC) AS global_playtime_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY total_playtime DESC) AS playtime_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY casual_playtime DESC) AS casual_rank,
        RANK() OVER (PARTITION BY server_id ORDER BY tryhard_playtime DESC) AS tryhard_rank,

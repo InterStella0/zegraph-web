@@ -47,7 +47,6 @@ pub struct DbMapRegionDate {
 #[db_into(PlayerRanks)]
 #[extra(highest_map_rank = None)]
 pub struct DbPlayerRank{
-    #[unwrap_default]
     pub global_playtime: Option<i64>,
     #[rename(server_playtime)]
     #[unwrap_default]

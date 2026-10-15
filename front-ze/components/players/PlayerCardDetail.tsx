@@ -186,7 +186,7 @@ function PlayerCardDetailDisplay({ server, player, user }: { server: Server, pla
                     {hasCategory && (
                         <CategoryChip category={stats.category} size="small" className="rounded-md px-2.5 py-1"/>
                     )}
-                    {ranks && <RankChip label={t('global')} rank={ranks?.global_playtime} title={t('globalTitle')}/>}
+                    {ranks?.global_playtime != null && <RankChip label={t('global')} rank={ranks?.global_playtime} title={t('globalTitle')}/>}
                     {ranks && <RankChip label={t('tryhard')} rank={ranks?.tryhard_playtime}/>}
                     {ranks && <RankChip label={t('casual')} rank={ranks?.casual_playtime}/>}
                     {ranks && ranks?.highest_map_rank &&

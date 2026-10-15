@@ -231,13 +231,17 @@ worker_query! {
     PlayerBasicQuery<Option<DbPlayerRank>> => PlayerPlaytimeRanks, HOUR, Light,
     |self, ctx| format!("player-play-ranks:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbPlayerRank, "
-            SELECT global_playtime_rank AS global_playtime ,
-                playtime_rank AS total_playtime,
-                casual_rank AS casual_playtime,
-                tryhard_rank AS tryhard_playtime,
-                mixed_rank AS mixed_playtime
-            FROM website.player_playtime_ranks
-            WHERE server_id=$1 AND player_id=$2
+            SELECT gp.global_rank AS \"global_playtime?\",
+                ppr.playtime_rank AS total_playtime,
+                ppr.casual_rank AS casual_playtime,
+                ppr.tryhard_rank AS tryhard_playtime,
+                ppr.mixed_rank AS mixed_playtime
+            FROM website.player_playtime_ranks ppr
+            JOIN player p ON p.player_id = ppr.player_id
+            LEFT JOIN website.player_global_playtime gp
+                ON gp.player_id = COALESCE(p.associated_player_id, p.player_id)
+                    AND gp.player_id ~ '^[0-9]+$'
+            WHERE ppr.server_id=$1 AND ppr.player_id=$2
         ", self.context.data.server_id, self.context.data.player_id)
             .fetch_optional(&*self.context.pool.clone()).await
     }

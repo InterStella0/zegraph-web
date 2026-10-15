@@ -93,7 +93,7 @@ type MapRank = {
     total_playtime: number
 }
 export type PlayerRanks = {
-    global_playtime: number,
+    global_playtime: number | null,
     server_playtime: number,
     casual_playtime: number,
     mixed_playtime: number,
