@@ -336,34 +336,31 @@ async fn get_global_best_rank(
     let func = || sqlx::query_as!(
         DbGlobalMapRankEntry,
         "WITH qualifying AS (
-            SELECT pmr.player_id, pmr.map, pmr.map_rank
+            SELECT pmr.player_id, pmr.map, pmr.map_rank, pmt.total_playtime,
+                pmr.map_rank::float8 / COUNT(*) OVER (PARTITION BY pmr.server_id, pmr.map) AS score
             FROM website.player_map_rank pmr
             JOIN website.player_map_time pmt
                 ON pmt.player_id = pmr.player_id
                 AND pmt.map = pmr.map
                 AND pmt.server_id = pmr.server_id
-            WHERE pmt.total_playtime > interval '1 hour'
+            WHERE pmt.total_playtime > interval '5 hours'
         ),
         best AS (
-            SELECT player_id, MIN(map_rank) AS best_rank
+            SELECT DISTINCT ON (player_id) player_id, map, map_rank, score, total_playtime
             FROM qualifying
-            GROUP BY player_id
-        ),
-        positioned AS (
-            SELECT player_id, best_rank, RANK() OVER (ORDER BY best_rank ASC) AS global_position
-            FROM best
+            ORDER BY player_id, score, total_playtime DESC, map
         )
-        SELECT DISTINCT ON (q.player_id)
-            q.player_id AS \"player_id!\",
-            p.global_position AS \"global_position\",
-            q.map AS \"map\",
-            q.map_rank AS \"rank\"
-        FROM positioned p
-        JOIN qualifying q ON q.player_id = p.player_id AND q.map_rank = p.best_rank
-        ORDER BY q.player_id, q.map_rank"
+        SELECT
+            player_id AS \"player_id!\",
+            RANK() OVER (ORDER BY score) AS \"global_position\",
+            map AS \"map\",
+            map_rank AS \"rank\",
+            score AS \"score\",
+            EXTRACT(EPOCH FROM total_playtime)::float8 AS \"playtime_seconds\"
+        FROM best"
     ).fetch_all(pool);
 
-    let entries = cached_response("global-best-map-rank-table", cache, 900, func).await.ok()?.result;
+    let entries = cached_response("global-best-map-rank-table-v2", cache, 900, func).await.ok()?.result;
 
     let merged_ids: HashSet<String> = sqlx::query_scalar!(
         "SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1",
@@ -372,7 +369,11 @@ async fn get_global_best_rank(
 
     let best = entries.into_iter()
         .filter(|e| merged_ids.contains(&e.player_id))
-        .min_by_key(|e| e.global_position.unwrap_or(i64::MAX))?;
+        .min_by(|a, b| {
+            a.score.unwrap_or(f64::MAX).total_cmp(&b.score.unwrap_or(f64::MAX))
+                .then_with(|| b.playtime_seconds.unwrap_or_default().total_cmp(&a.playtime_seconds.unwrap_or_default()))
+                .then_with(|| a.map.cmp(&b.map))
+        })?;
 
     let map = best.map?;
     Some(GlobalMapRank {

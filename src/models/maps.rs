@@ -67,6 +67,8 @@ pub struct DbMapRank{
     #[unwrap_default]
     pub rank: Option<i64>,
     pub total_playtime: Option<PgInterval>,
+    #[skip]
+    pub map_players: Option<i64>,
 }
 
 #[derive(DbInto)]

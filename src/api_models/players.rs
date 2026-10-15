@@ -523,9 +523,12 @@ pub struct ProfileServerEntry {
 pub type ProfileCommunityDetail = BaseCommunity<ProfileServerEntry>;
 
 /// A player's best map ranking, and its position among every player's best rank.
+///
+/// Only maps with more than 5 hours of playtime count. The best map is the one where the player's rank is the
+/// smallest fraction of the players with more than 5 hours on it, ties going to the most playtime.
 #[derive(Object)]
 pub struct GlobalMapRank {
-    /// This player's position among all players ranked by their single best map rank.
+    /// This player's position among all players, ordered by that best rank fraction.
     pub position: i64,
     pub map: String,
     /// The player's rank on `map` itself.

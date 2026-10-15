@@ -429,6 +429,10 @@ pub struct DbGlobalMapRankEntry {
     pub global_position: Option<i64>,
     pub map: Option<String>,
     pub rank: Option<i64>,
+    #[serde(default)]
+    pub score: Option<f64>,
+    #[serde(default)]
+    pub playtime_seconds: Option<f64>,
 }
 
 pub struct DbMapName {
