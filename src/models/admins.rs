@@ -435,6 +435,13 @@ pub struct DbGlobalMapRankEntry {
     pub playtime_seconds: Option<f64>,
 }
 
+impl DbGlobalMapRankEntry {
+    pub fn best_map_key(&self) -> Option<crate::models::maps::BestMapKey<'_>> {
+        self.rank?;
+        Some((self.score?, self.playtime_seconds.unwrap_or_default(), self.map.as_deref()?))
+    }
+}
+
 pub struct DbMapName {
     pub map_name: String,
 }

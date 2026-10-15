@@ -531,7 +531,7 @@ pub struct GlobalMapRank {
     /// This player's position among all players, ordered by that best rank fraction.
     pub position: i64,
     pub map: String,
-    /// The player's rank on `map` itself.
+    /// The player's rank on `map` among the players with more than 5 hours on it.
     pub rank: i64,
 }
 

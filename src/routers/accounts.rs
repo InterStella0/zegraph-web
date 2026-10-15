@@ -28,7 +28,7 @@ use crate::core::push_service::NotificationType;
 use crate::routers::players::{get_player, get_player_cache_key};
 use crate::FastCache;
 use crate::models::admins::*;
-use crate::models::maps::{DbMapChangeSubscription, DbMapNotifySubscription};
+use crate::models::maps::{best_map_rank_order, DbMapChangeSubscription, DbMapNotifySubscription, BEST_MAP_RANK_MIN_HOURS};
 use crate::models::players::*;
 use crate::routers::ApiTags;
 use crate::core::storage::{media_ext_from_content_type, sniff_media_ext, MediaKind};
@@ -336,19 +336,18 @@ async fn get_global_best_rank(
     let func = || sqlx::query_as!(
         DbGlobalMapRankEntry,
         "WITH qualifying AS (
-            SELECT pmr.player_id, pmr.map, pmr.map_rank, pmt.total_playtime,
-                pmr.map_rank::float8 / COUNT(*) OVER (PARTITION BY pmr.server_id, pmr.map) AS score
-            FROM website.player_map_rank pmr
-            JOIN website.player_map_time pmt
-                ON pmt.player_id = pmr.player_id
-                AND pmt.map = pmr.map
-                AND pmt.server_id = pmr.server_id
-            WHERE pmt.total_playtime > interval '5 hours'
+            SELECT pmt.player_id, pmt.map, pmt.total_playtime,
+                RANK() OVER (PARTITION BY pmt.server_id, pmt.map ORDER BY pmt.total_playtime DESC) AS map_rank,
+                COUNT(*) OVER (PARTITION BY pmt.server_id, pmt.map) AS players
+            FROM website.player_map_time pmt
+            WHERE pmt.total_playtime > make_interval(hours => $1)
+                AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pmt.player_id)
         ),
         best AS (
-            SELECT DISTINCT ON (player_id) player_id, map, map_rank, score, total_playtime
+            SELECT DISTINCT ON (player_id)
+                player_id, map, map_rank, map_rank::float8 / players AS score, total_playtime
             FROM qualifying
-            ORDER BY player_id, score, total_playtime DESC, map
+            ORDER BY player_id, map_rank::float8 / players, total_playtime DESC, map
         )
         SELECT
             player_id AS \"player_id!\",
@@ -357,7 +356,8 @@ async fn get_global_best_rank(
             map_rank AS \"rank\",
             score AS \"score\",
             EXTRACT(EPOCH FROM total_playtime)::float8 AS \"playtime_seconds\"
-        FROM best"
+        FROM best",
+        BEST_MAP_RANK_MIN_HOURS
     ).fetch_all(pool);
 
     let entries = cached_response("global-best-map-rank-table-v2", cache, 900, func).await.ok()?.result;
@@ -369,11 +369,8 @@ async fn get_global_best_rank(
 
     let best = entries.into_iter()
         .filter(|e| merged_ids.contains(&e.player_id))
-        .min_by(|a, b| {
-            a.score.unwrap_or(f64::MAX).total_cmp(&b.score.unwrap_or(f64::MAX))
-                .then_with(|| b.playtime_seconds.unwrap_or_default().total_cmp(&a.playtime_seconds.unwrap_or_default()))
-                .then_with(|| a.map.cmp(&b.map))
-        })?;
+        .filter(|e| e.best_map_key().is_some())
+        .min_by(|a, b| best_map_rank_order(a.best_map_key().unwrap(), b.best_map_key().unwrap()))?;
 
     let map = best.map?;
     Some(GlobalMapRank {
