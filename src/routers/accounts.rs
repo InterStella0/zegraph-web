@@ -28,7 +28,7 @@ use crate::core::push_service::NotificationType;
 use crate::routers::players::{get_player, get_player_cache_key};
 use crate::FastCache;
 use crate::models::admins::*;
-use crate::models::maps::{DbMapChangeSubscription, DbMapNotifySubscription};
+use crate::models::maps::{best_map_rank_order, DbMapChangeSubscription, DbMapNotifySubscription, BEST_MAP_RANK_MIN_HOURS};
 use crate::models::players::*;
 use crate::routers::ApiTags;
 use crate::core::storage::{media_ext_from_content_type, sniff_media_ext, MediaKind};
@@ -336,34 +336,31 @@ async fn get_global_best_rank(
     let func = || sqlx::query_as!(
         DbGlobalMapRankEntry,
         "WITH qualifying AS (
-            SELECT pmr.player_id, pmr.map, pmr.map_rank
-            FROM website.player_map_rank pmr
-            JOIN website.player_map_time pmt
-                ON pmt.player_id = pmr.player_id
-                AND pmt.map = pmr.map
-                AND pmt.server_id = pmr.server_id
-            WHERE pmt.total_playtime > interval '1 hour'
+            SELECT pmt.player_id, pmt.map, pmt.total_playtime,
+                RANK() OVER (PARTITION BY pmt.server_id, pmt.map ORDER BY pmt.total_playtime DESC) AS map_rank,
+                COUNT(*) OVER (PARTITION BY pmt.server_id, pmt.map) AS players
+            FROM website.player_map_time pmt
+            WHERE pmt.total_playtime > make_interval(hours => $1)
+                AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pmt.player_id)
         ),
         best AS (
-            SELECT player_id, MIN(map_rank) AS best_rank
+            SELECT DISTINCT ON (player_id)
+                player_id, map, map_rank, map_rank::float8 / players AS score, total_playtime
             FROM qualifying
-            GROUP BY player_id
-        ),
-        positioned AS (
-            SELECT player_id, best_rank, RANK() OVER (ORDER BY best_rank ASC) AS global_position
-            FROM best
+            ORDER BY player_id, map_rank::float8 / players, total_playtime DESC, map
         )
-        SELECT DISTINCT ON (q.player_id)
-            q.player_id AS \"player_id!\",
-            p.global_position AS \"global_position\",
-            q.map AS \"map\",
-            q.map_rank AS \"rank\"
-        FROM positioned p
-        JOIN qualifying q ON q.player_id = p.player_id AND q.map_rank = p.best_rank
-        ORDER BY q.player_id, q.map_rank"
+        SELECT
+            player_id AS \"player_id!\",
+            RANK() OVER (ORDER BY score) AS \"global_position\",
+            map AS \"map\",
+            map_rank AS \"rank\",
+            score AS \"score\",
+            EXTRACT(EPOCH FROM total_playtime)::float8 AS \"playtime_seconds\"
+        FROM best",
+        BEST_MAP_RANK_MIN_HOURS
     ).fetch_all(pool);
 
-    let entries = cached_response("global-best-map-rank-table", cache, 900, func).await.ok()?.result;
+    let entries = cached_response("global-best-map-rank-table-v2", cache, 900, func).await.ok()?.result;
 
     let merged_ids: HashSet<String> = sqlx::query_scalar!(
         "SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1",
@@ -372,7 +369,8 @@ async fn get_global_best_rank(
 
     let best = entries.into_iter()
         .filter(|e| merged_ids.contains(&e.player_id))
-        .min_by_key(|e| e.global_position.unwrap_or(i64::MAX))?;
+        .filter(|e| e.best_map_key().is_some())
+        .min_by(|a, b| best_map_rank_order(a.best_map_key().unwrap(), b.best_map_key().unwrap()))?;
 
     let map = best.map?;
     Some(GlobalMapRank {

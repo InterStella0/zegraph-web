@@ -248,17 +248,27 @@ worker_query! {
 }
 worker_query! {
     PlayerBasicQuery<Vec<DbMapRank>> => PlayerMapRanks, HOUR, Light,
-    |self, ctx| format!("player-map-ranks:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
+    |self, ctx| format!("player-map-ranks-v2:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbMapRank, "
-            SELECT pmr.map, pmr.map_rank AS rank, pmt.total_playtime
+            WITH map_ranks AS MATERIALIZED (
+                SELECT c.player_id, c.map,
+                    RANK() OVER (PARTITION BY c.map ORDER BY c.total_playtime DESC) AS rank,
+                    COUNT(*) OVER (PARTITION BY c.map) AS players
+                FROM website.player_map_time c
+                WHERE c.server_id=$1 AND c.total_playtime > make_interval(hours => $3)
+                    AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = c.player_id)
+            )
+            SELECT pmr.map, pmr.map_rank AS rank, pmt.total_playtime,
+                mr.rank AS qualified_rank, mr.rank::float8 / mr.players AS score
             FROM website.player_map_rank pmr
             JOIN website.player_map_time pmt
                 ON pmt.player_id = pmr.player_id
                     AND pmt.map = pmr.map
                     AND pmt.server_id = pmr.server_id
+            LEFT JOIN map_ranks mr ON mr.map = pmr.map AND mr.player_id = pmr.player_id
             WHERE pmr.server_id=$1 AND pmr.player_id=$2
             ORDER BY pmr.map_rank, pmt.total_playtime DESC
-        ", self.context.data.server_id, self.context.data.player_id)
+        ", self.context.data.server_id, self.context.data.player_id, BEST_MAP_RANK_MIN_HOURS)
             .fetch_all(&*self.context.pool.clone()).await
     }
 }
@@ -1786,10 +1796,7 @@ impl PlayerWorker {
         if let Some(playtime_ranks) = playtime_ranks {
             let mut ranks: PlayerRanks = playtime_ranks.into();
             let map_ranks: Vec<DbMapRank> = self.query_player_execute(context).await?;
-            let filtering = 3_600_000_000;  // 1 hr in microseconds
-            ranks.highest_map_rank = map_ranks.into_iter()
-                .find(|e| e.total_playtime.map_or(false, |p| p.microseconds > filtering))
-                .map(Into::into);
+            ranks.highest_map_rank = DbMapRank::best(map_ranks).map(Into::into);
             detail.ranks = Some(ranks)
         }
         self.attach_aliases(context, detail).await
@@ -2083,7 +2090,7 @@ mod tests {
         );
         assert_session_scoped!(
             player_query::<Vec<DbMapRank>>(),
-            "player-map-ranks", QueryPriority::Light, JobKind::PlayerMapRanks(_)
+            "player-map-ranks-v2", QueryPriority::Light, JobKind::PlayerMapRanks(_)
         );
         assert_session_scoped!(
             player_query::<Vec<DbPlayerAlias>>(),
