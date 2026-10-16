@@ -255,13 +255,7 @@ async fn global_player_page(
             c.community_id,
             COALESCE(c.community_name, '') AS "community_name!",
             c.community_icon_url AS icon_url,
-            SUM(pp.total_playtime) AS total_playtime,
-            EXISTS (
-                SELECT 1 FROM website.user_anonymization ua
-                WHERE ua.user_id::TEXT = m.canonical_id
-                  AND ua.community_id = c.community_id
-                  AND ua.anonymized
-            ) AS "anonymized!"
+            SUM(pp.total_playtime) AS total_playtime
         FROM members m
         JOIN website.player_playtime pp ON pp.player_id = m.player_id
         JOIN server s ON s.server_id = pp.server_id
@@ -271,6 +265,23 @@ async fn global_player_page(
     "#, &ids[..]).fetch_all(pool).await?;
 
     Ok(DbGlobalPlayerPage { total_players, players, communities })
+}
+
+async fn anonymized_communities(
+    pool: &sqlx::Pool<Postgres>, players: &[DbGlobalPlayerBrief],
+) -> Result<Vec<(String, uuid::Uuid)>, sqlx::Error> {
+    let ids: Vec<i64> = players.iter().filter_map(|player| player.player_id.parse().ok()).collect();
+    if ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let rows = sqlx::query!(r#"
+        SELECT ua.user_id::TEXT AS "player_id!", ua.community_id AS "community_id!"
+        FROM website.user_anonymization ua
+        WHERE ua.user_id = ANY($1)
+          AND ua.anonymized
+    "#, &ids[..]).fetch_all(pool).await?;
+    Ok(rows.into_iter().map(|row| (row.player_id, row.community_id)).collect())
 }
 
 pub struct ServerApi;
@@ -348,8 +359,8 @@ impl ServerApi {
     /// Search and paginate players across every community.
     ///
     /// `page` is a 0-indexed page of 10 players, ranked by total playtime. `search` filters by
-    /// player name (case-insensitive substring, minimum 2 characters); results are cached for 60
-    /// seconds when unfiltered, computed live when searching.
+    /// player name (case-insensitive substring, minimum 2 characters); results are cached for 10
+    /// minutes to 2 days when unfiltered, depending on the page, and computed live when searching.
     #[oai(path = "/communities/all/players", method = "get", operation_id = "search_players_global", tag = "ApiTags::Mcp")]
     async fn get_global_players(
         &self, Data(data): Data<&AppData>,
@@ -370,15 +381,28 @@ impl ServerApi {
         let DbGlobalPlayerPage { total_players, players, communities } = match search {
             Some(pattern) => or_ise!(search_global_players(pool, &pattern, offset).await),
             None => {
+                let caching_time = match page {
+                    1..=3 => 2 * DAY,
+                    4..=5 => DAY,
+                    6..=9 => 12 * HOUR,
+                    10..=14 => 6 * HOUR,
+                    15..=20 => 3 * HOUR,
+                    21..=30 => HOUR,
+                    _ => 10 * 60,
+                };
                 let func = || browse_global_players(pool, &data.cache, offset);
-                or_ise!(cached_response(&format!("global-players-v3:{page}"), &data.cache, 60, func).await).result
+                or_ise!(cached_response(&format!("global-players-v3:{page}"), &data.cache, caching_time, func).await).result
             }
         };
 
+        let anonymized = or_ise!(anonymized_communities(pool, &players).await);
         let viewer_id = user_token.as_ref().map(|token| token.id);
         let mut communities_by_player: HashMap<String, Vec<PlayerCommunityPlaytime>> = HashMap::new();
         for community in communities {
-            if community.anonymized && !or_ise!(can_view_player_in_community(
+            let is_anonymized = anonymized.iter().any(|(player_id, community_id)|
+                *player_id == community.player_id && *community_id == community.community_id
+            );
+            if is_anonymized && !or_ise!(can_view_player_in_community(
                 data, &community.player_id, community.community_id, viewer_id,
             ).await) {
                 continue;

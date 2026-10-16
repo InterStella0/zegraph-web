@@ -500,8 +500,6 @@ pub struct DbGlobalCommunityPlaytime {
     pub community_name: String,
     pub icon_url: Option<String>,
     pub total_playtime: Option<PgInterval>,
-    #[skip]
-    pub anonymized: bool,
 }
 
 #[derive(Clone, DbInto)]
