@@ -15,6 +15,7 @@ import SessionDateFilter from "./SessionDateFilter";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
+import {useLocalDayjs} from "lib/hooks/useHydrated";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -40,6 +41,7 @@ function SessionSkeleton({ index }: { index: number }) {
 
 function SessionRow({ session, server, player }) {
     const t = useTranslations('players.sessions');
+    const toDayjs = useLocalDayjs();
     const playerId = player.id
     const calculateDuration = (startedAt: string, endedAt: string) => {
         if (!endedAt) return t('ongoing');
@@ -60,14 +62,14 @@ function SessionRow({ session, server, player }) {
                     <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                             <p className="text-xs sm:text-sm text-muted-foreground">
-                                {dayjs(session.started_at).format('MMM DD, h:mm a')}
+                                {toDayjs(session.started_at).format('MMM DD, h:mm a')}
                             </p>
                             <span className="hidden sm:block text-xs sm:text-sm text-muted-foreground">
                                 →
                             </span>
                             <p className="text-xs sm:text-sm text-muted-foreground">
                                 {isOngoing(session.ended_at)
-                                    ? t('ongoing'): dayjs(session.ended_at).format('MMM DD, h:mm a')
+                                    ? t('ongoing'): toDayjs(session.ended_at).format('MMM DD, h:mm a')
                                 }
                             </p>
                         </div>

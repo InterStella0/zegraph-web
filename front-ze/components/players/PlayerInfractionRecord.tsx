@@ -24,6 +24,7 @@ import {
     TooltipTrigger,
 } from "components/ui/tooltip";
 import dayjs from "dayjs";
+import {useLocalDayjs} from "lib/hooks/useHydrated";
 import { Ban, RefreshCw, Loader2 } from "lucide-react";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PlayerInfraction, PlayerInfractionUpdate} from "types/players.ts";
@@ -73,6 +74,7 @@ function withInfractionFlags(infractions) {
 function PlayerInfractionRecordBody({ updatedData, player, server }:
                                     { updatedData: PlayerInfraction[], player: PlayerInfo | StillCalculate, server: Server }) {
     const t = useTranslations('players.infractions');
+    const toDayjs = useLocalDayjs();
     const playerId = !(player instanceof StillCalculate)? player.id: null
     const server_id = server.id;
     const { seed, idle } = usePlayerStatSeed<PlayerInfraction[]>('infractions');
@@ -211,7 +213,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
                                     </div>
 
                                     <p className="text-xs text-muted-foreground whitespace-nowrap">
-                                        {dayjs(row.infraction_time).format('lll')}
+                                        {toDayjs(row.infraction_time).format('lll')}
                                     </p>
                                 </div>
                             </CardContent>

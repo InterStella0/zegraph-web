@@ -1,6 +1,6 @@
 'use client'
 import {use, useMemo, useState} from "react";
-import dayjs from "dayjs";
+import {useLocalDayjs} from "lib/hooks/useHydrated";
 import {LazyBarChart} from "components/graphs/LazyCharts";
 import {BarController, BarElement, Chart as ChartJS, Legend, Tooltip} from "chart.js";
 import { Alert, AlertDescription } from "../ui/alert";
@@ -34,6 +34,7 @@ type MapRegionDistributionProps = {
 
 function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDistributionProps) {
     const t = useTranslations('maps.regionDistribution');
+    const toDayjs = useLocalDayjs();
     const { name } = useMapContext();
     const { period } = usePeriod();
     const initialData = initialDataPromise ? use(initialDataPromise) : null
@@ -214,8 +215,8 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
                                             <TableCell className="py-1.5">
                                                 <p className="text-sm font-medium">{region.region_name}</p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {dayjs(region.start_time.replace("-10000", "2000").replace("-9999", "2000")).format("LT")}<span> - </span>
-                                                    {dayjs(region.end_time.replace("-10000", "2000").replace("-9999", "2000")).format("LT")}
+                                                    {toDayjs(region.start_time.replace("-10000", "2000").replace("-9999", "2000")).format("LT")}<span> - </span>
+                                                    {toDayjs(region.end_time.replace("-10000", "2000").replace("-9999", "2000")).format("LT")}
                                                 </p>
                                             </TableCell>
                                         </TableRow>

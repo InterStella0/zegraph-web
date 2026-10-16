@@ -19,6 +19,7 @@ import { cn } from "components/lib/utils";
 import Link from "next/link";
 
 import relativeTime from 'dayjs/plugin/relativeTime'
+import {useLocalDayjs} from "lib/hooks/useHydrated";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import { ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page";
 import {DetailedPlayer} from "types/players";
@@ -95,13 +96,14 @@ function GlobalProfileButton({ steamId, label, className }: { steamId: string, l
 function PlayerCardDetailDisplay({ server, player, user }: { server: Server, player: PlayerInfo, user: SteamProfile | null }): ReactElement {
     const t = useTranslations('players.card');
     const locale = useLocale();
+    const toDayjs = useLocalDayjs();
     const { period } = usePlayerPeriod()
     const { data: periodStats } = usePlayerStat<DetailedPlayer>(server.id, player.id, 'detail', !!period)
     const stats = period ? periodStats : player
     const ranks = period ? null : player?.ranks
-    let lastPlayedText = t('lastOnline', {ago: dayjs(player.last_played_ended).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
+    let lastPlayedText = t('lastOnline', {ago: toDayjs(player.last_played_ended).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
     if (player.online_since) {
-        lastPlayedText = t('playingSince', {ago: dayjs(player.online_since).fromNow()});
+        lastPlayedText = t('playingSince', {ago: toDayjs(player.online_since).fromNow()});
     }
     const steamId = !player.id.includes('-')? player.id: player?.associated_player_id? player.associated_player_id: null
     const hasCategory = !!stats?.category && stats.category !== 'unknown'
@@ -169,7 +171,7 @@ function PlayerCardDetailDisplay({ server, player, user }: { server: Server, pla
                             )}
                         </div>
 
-                        {player.last_played && <p className={`mt-0.5 text-sm ${player.online_since ? 'text-green-600 dark:text-green-500' : 'text-muted-foreground'}`}>
+                        {player.last_played && <p className={`mt-0.5 text-sm ${player.online_since ? 'text-green-600 dark:text-green-500' : 'text-muted-foreground'}`} suppressHydrationWarning>
                             {lastPlayedText}
                         </p>}
                         {player.is_bot && <p className="mt-1 flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-500">

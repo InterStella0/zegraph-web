@@ -6,6 +6,7 @@ import {PlayerSessionMapPlayed} from "../../app/servers/[server_slug]/util";
 import dayjs from "dayjs";
 import Link from "components/ui/Link.tsx";
 import Image from "next/image";
+import {useHydrated} from "lib/hooks/useHydrated";
 
 
 export default function MapsList(
@@ -13,6 +14,7 @@ export default function MapsList(
     : { maps: PlayerSessionMapPlayed[], mapImages: Record<string, string>, server: Server}
 ){
     const t = useTranslations('sessions');
+    const timeZone = useHydrated() ? undefined : 'UTC';
     return (
         <Card>
             <CardHeader>
@@ -47,7 +49,7 @@ export default function MapsList(
 
                                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
                                             <span>
-                                                {formatTime(map.started_at)} - {map.ended_at ? formatTime(map.ended_at) : 'Ongoing'}
+                                                {formatTime(map.started_at, timeZone)} - {map.ended_at ? formatTime(map.ended_at, timeZone) : 'Ongoing'}
                                             </span>
                                             <span>({duration})</span>
                                         </div>

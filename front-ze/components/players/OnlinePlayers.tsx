@@ -69,7 +69,7 @@ export function OnlinePlayerRow({ player, href, playingFor, children }: {
                         {name}
                     </HoverPrefetchLink>
                 ) : name}
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground" suppressHydrationWarning>
                     {playingFor}
                 </p>
             </div>

@@ -11,6 +11,7 @@ import {PlayerSession} from "types/players";
 import dayjs from "dayjs";
 import LocalizedFormat from "dayjs/plugin/localizedFormat";
 import Link from "components/ui/Link.tsx";
+import {useHydrated, useLocalDayjs} from "lib/hooks/useHydrated";
 
 dayjs.extend(LocalizedFormat)
 
@@ -54,13 +55,15 @@ export const SessionHeader = (
 
 ) => {
     const t = useTranslations('sessions');
-    const ended = sessionInfo.ended_at ? formatTime(sessionInfo.ended_at) : t('now');
+    const toDayjs = useLocalDayjs();
+    const timeZone = useHydrated() ? undefined : 'UTC';
+    const ended = sessionInfo.ended_at ? formatTime(sessionInfo.ended_at, timeZone) : t('now');
 
     return <SessionHeaderShell
         back={<Link href={`/servers/${server.gotoLink}/players/${player.id}/`}><ArrowLeft className="h-4 w-4" /></Link>}
         media={<PlayerAvatar uuid={player.id} name={player.name} />}
         title={t('playerSession', {name: player.name})}
         subtitle={t('sessionNumber', {id: sessionInfo.id})}
-        badge={<>{dayjs(sessionInfo.started_at).format('LL')} • {formatTime(sessionInfo.started_at)}-{ended}</>}
+        badge={<>{toDayjs(sessionInfo.started_at).format('LL')} • {formatTime(sessionInfo.started_at, timeZone)}-{ended}</>}
     />;
 };

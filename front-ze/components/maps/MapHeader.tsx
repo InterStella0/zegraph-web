@@ -10,6 +10,7 @@ import {Button} from "components/ui/button";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import relativeTime from "dayjs/plugin/relativeTime";
+import {useLocalDayjs} from "lib/hooks/useHydrated";
 import Image from "next/image";
 import {useRouter} from "next/navigation";
 import {MapWithModels} from "types/maps.ts";
@@ -52,6 +53,7 @@ function OverlayBadge({ color, icon: Icon, spaced, tooltip, suppressHydrationWar
 function MapHeaderDisplay() {
     const t = useTranslations('maps.header');
     const locale = useLocale();
+    const toDayjs = useLocalDayjs();
     const [url, setUrl] = useState<string | null>(null);
     const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
     const { name, analyze, info, notReady } = useMapContext();
@@ -226,8 +228,8 @@ function MapHeaderDisplay() {
                                     <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium hidden sm:inline">
                                         {t('lastPlayed')}
                                     </span>
-                                    <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium">
-                                        {dayjs(analyze?.last_played).fromNow()}
+                                    <span className="text-white ml-1 text-xs sm:text-sm md:text-base font-medium" suppressHydrationWarning>
+                                        {toDayjs(analyze?.last_played).fromNow()}
                                     </span>
                                 </>
                             )}

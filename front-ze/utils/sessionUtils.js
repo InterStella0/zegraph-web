@@ -17,11 +17,12 @@ export const formatDuration = (start, end, withSeconds = false) => {
     return `${minutes}m`;
 };
 
-export const formatTime = (timeStr) => {
+export const formatTime = (timeStr, timeZone = undefined) => {
     return new Date(timeStr).toLocaleTimeString('en-US', {
         hour12: false,
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        timeZone
     });
 };
 
