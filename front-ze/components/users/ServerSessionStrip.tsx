@@ -2,7 +2,7 @@
 
 import { ProfileRecentSession } from "types/community";
 import { useTranslations } from "next-intl";
-import dayjs from "dayjs";
+import { useLocalDayjs } from "lib/hooks/useHydrated";
 import { secondsToHours } from "utils/generalUtils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
 
@@ -16,6 +16,7 @@ interface ServerSessionStripProps {
 
 export default function ServerSessionStrip({ sessions, scaleMax }: ServerSessionStripProps) {
     const t = useTranslations('players.profile.connectionCard');
+    const toDayjs = useLocalDayjs();
 
     // Newest session sits in the rightmost cell, so short histories pad on the left and
     // every server's strip stays aligned with the others.
@@ -38,7 +39,7 @@ export default function ServerSessionStrip({ sessions, scaleMax }: ServerSession
                     ))}
                     {recent.map(session => {
                         const hours = secondsToHours(session.duration);
-                        const date = dayjs(session.started_at).format('MMM D, YYYY HH:mm');
+                        const date = toDayjs(session.started_at).format('MMM D, YYYY HH:mm');
                         const cellLabel = t('sessionTooltip', { date, hours });
                         return (
                             <Tooltip key={session.started_at}>

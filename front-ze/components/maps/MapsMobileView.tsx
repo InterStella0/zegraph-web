@@ -3,7 +3,7 @@ import {Heart} from 'lucide-react';
 import {secondsToHours} from "utils/generalUtils";
 import {loadMapImage} from "lib/batchLoader";
 import {StatusChip} from "./MapsTable";
-import dayjs from "dayjs";
+import {useLocalDayjs} from "lib/hooks/useHydrated";
 import {Dispatch, useEffect, useState} from "react";
 import Link from "next/link";
 import {Badge} from "components/ui/badge";
@@ -51,6 +51,7 @@ export const MapsMobileViewSkeleton = ({ index }: { index: number }) => {
 function MapCardView({ server, map, favorites, toggleFavorite }){
     const t = useTranslations('maps.table');
     const locale = useLocale();
+    const toDayjs = useLocalDayjs();
     const server_id = server.id
     const [mapImage, setMapImage] = useState(null);
     useEffect(() => {
@@ -152,8 +153,8 @@ function MapCardView({ server, map, favorites, toggleFavorite }){
                     </span>
                 </div>
                 <div className="text-center p-2 bg-muted/50 rounded">
-                    <p className="text-xl font-bold text-primary">
-                        {dayjs(map.last_played).fromNow(true)}
+                    <p className="text-xl font-bold text-primary" suppressHydrationWarning>
+                        {toDayjs(map.last_played).fromNow(true)}
                     </p>
                     <span className="text-xs text-muted-foreground font-medium">
                         {t('lastPlayed')}

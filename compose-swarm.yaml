@@ -30,7 +30,7 @@ services:
     image: interstella0/ze-graph:frontend
     logging: *default-logging
     deploy:
-      replicas: 1
+      replicas: 2
       placement:
         constraints:
           - node.role == manager

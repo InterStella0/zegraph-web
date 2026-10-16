@@ -13,6 +13,7 @@ import { Badge } from "components/ui/badge";
 import { Card, CardContent } from "components/ui/card";
 import { Skeleton } from "components/ui/skeleton";
 import { getServerAvatarText } from "components/ui/CommunitySelector.tsx";
+import { useLocalDayjs } from "lib/hooks/useHydrated";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import SessionDateFilter from "components/players/SessionDateFilter";
 import { useResource } from "lib/hooks/useResource";
@@ -47,6 +48,7 @@ function SessionSkeleton() {
  */
 function SessionRow({ session }: { session: GlobalPlayerSession }): ReactElement {
     const t = useTranslations('players.sessions');
+    const toDayjs = useLocalDayjs();
     const serverName = session.server_name ?? t('unknownServer');
     // getServerAvatarText indexes into the string, so it throws on an empty one.
     const avatarText = getServerAvatarText(session.community_name || serverName).toUpperCase();
@@ -62,7 +64,7 @@ function SessionRow({ session }: { session: GlobalPlayerSession }): ReactElement
                 </Avatar>
                 <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-medium">
-                        {dayjs(session.started_at).format('MMM DD, YYYY h:mm a')}
+                        {toDayjs(session.started_at).format('MMM DD, YYYY h:mm a')}
                     </p>
                     <p className="truncate text-[11px] text-muted-foreground">{serverName}</p>
                 </div>

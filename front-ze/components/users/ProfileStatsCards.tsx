@@ -10,6 +10,7 @@ import { Card, CardContent } from "components/ui/card";
 import { Skeleton } from "components/ui/skeleton";
 import { secondsToHours } from "utils/generalUtils";
 import { useGlobalPlaytime } from "./useGlobalPlaytime";
+import { useLocalDayjs } from "lib/hooks/useHydrated";
 import { Loader2, TriangleAlert } from "lucide-react";
 
 dayjs.extend(relativeTime);
@@ -33,6 +34,7 @@ export function ProfileStatsCardsLoading() {
 export default function ProfileStatsCards({ userId, profilePromise }: { userId: string; profilePromise: Promise<ProfileResponse> }) {
     const t = useTranslations('players.profile.stats');
     const { summary } = use(profilePromise);
+    const toDayjs = useLocalDayjs();
     const global = useGlobalPlaytime(userId, summary.global);
     const router = useRouter();
 
@@ -44,7 +46,7 @@ export default function ProfileStatsCards({ userId, profilePromise }: { userId: 
         wasCalculating.current = global.is_calculating;
     }, [global.is_calculating, router]);
 
-    const lastOnlineLabel = summary.last_online ? dayjs(summary.last_online).fromNow() : t('never');
+    const lastOnlineLabel = summary.last_online ? toDayjs(summary.last_online).fromNow() : t('never');
     const sessionLabel = summary.last_session_duration != null
         ? t('sessionHours', { hours: secondsToHours(summary.last_session_duration) })
         : null;
@@ -58,7 +60,7 @@ export default function ProfileStatsCards({ userId, profilePromise }: { userId: 
         { label: t('bestMapRank'), value: bestRankLabel, unit: "", sub: bestRankSub, derived: true },
         { label: t('communities'), value: summary.community_count.toString(), unit: "", sub: t('joinedAndTracked'), derived: false },
         { label: t('servers'), value: summary.server_count.toString(), unit: "", sub: t('acrossAllCommunities'), derived: false },
-        { label: t('lastOnline'), value: lastOnlineLabel, unit: "", sub: sessionLabel ?? (summary.is_online ? t('onlineNow') : ""), derived: false },
+        { label: t('lastOnline'), value: lastOnlineLabel, unit: "", sub: sessionLabel ?? (summary.is_online ? t('onlineNow') : ""), derived: false, relative: true },
     ];
 
     return (
@@ -80,7 +82,7 @@ export default function ProfileStatsCards({ userId, profilePromise }: { userId: 
                                 )}
                             </div>
                             <div className={`mt-1 text-2xl font-bold ${stat.derived && global.is_outdated ? "text-muted-foreground" : ""}`}>
-                                {stat.value}{stat.unit && <span className="text-sm font-normal text-muted-foreground ml-1">{stat.unit}</span>}
+                                <span suppressHydrationWarning={stat.relative}>{stat.value}</span>{stat.unit && <span className="text-sm font-normal text-muted-foreground ml-1">{stat.unit}</span>}
                             </div>
                             {stat.sub && (
                                 <div className="text-xs text-muted-foreground mt-1">{stat.sub}</div>
@@ -95,10 +97,11 @@ export default function ProfileStatsCards({ userId, profilePromise }: { userId: 
 
 function StaleNotice({ global }: { global: GlobalPlaytimeSummary }) {
     const t = useTranslations('players.profile.stats');
+    const toDayjs = useLocalDayjs();
     if (!global.is_outdated && !global.is_calculating) return null;
 
     const verified = global.calculated_at
-        ? t('lastVerified', { ago: dayjs(global.calculated_at).fromNow() })
+        ? t('lastVerified', { ago: toDayjs(global.calculated_at).fromNow() })
         : t('neverVerified');
 
     return (
@@ -111,7 +114,7 @@ function StaleNotice({ global }: { global: GlobalPlaytimeSummary }) {
                     {global.is_calculating ? t('recalculatingPlaytime') : t('playtimeOutOfDate')}
                 </span>
                 <span className="text-muted-foreground">
-                    {" "}{t('staleNoticeBody', { verified })}
+                    {" "}<span suppressHydrationWarning>{t('staleNoticeBody', { verified })}</span>
                     {global.is_calculating && " " + t('freshFiguresNote')}
                 </span>
             </div>
