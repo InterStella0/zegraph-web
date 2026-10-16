@@ -847,7 +847,6 @@ mod cache_key_tests {
             player_query::<Vec<DbPlayerSeen>>().cache_key_pattern(),
             player_session_query::<Vec<DbPlayerSeen>>().cache_key_pattern(),
             player_global_query::<DbGlobalPlaytimeSnapshot>().cache_key_pattern(),
-            player_global_query::<Vec<DbPlayerCommunityPlaytime>>().cache_key_pattern(),
             map_query::<Vec<DbMapRegion>>().cache_key_pattern(),
             map_query::<Vec<DbMapRegionDate>>().cache_key_pattern(),
             map_query::<Vec<DbEvent>>().cache_key_pattern(),
@@ -877,6 +876,6 @@ mod cache_key_tests {
             unique.len(), patterns.len(),
             "two WorkerQuery impls resolve to the same cache key; patterns were {patterns:#?}",
         );
-        assert_eq!(patterns.len(), 38, "every WorkerQuery impl must be listed here");
+        assert_eq!(patterns.len(), 37, "every WorkerQuery impl must be listed here");
     }
 }

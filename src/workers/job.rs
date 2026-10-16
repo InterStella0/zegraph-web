@@ -162,7 +162,6 @@ job_registry! {
     PlayerSeen(PlayerSessionData) => Vec<DbPlayerSeen>,
 
     PlayerGlobalSnapshot(PlayerGlobalData) => DbGlobalPlaytimeSnapshot,
-    PlayerCommunityPlaytime(PlayerGlobalData) => Vec<DbPlayerCommunityPlaytime>,
 }
 
 #[derive(Debug)]
@@ -274,6 +273,6 @@ mod tests {
             assert!(tags.insert(tag.clone()), "two JobKind variants share the tag {tag}");
         }
 
-        assert_eq!(tags.len(), 39, "all variants must be covered by all_job_kinds()");
+        assert_eq!(tags.len(), 38, "all variants must be covered by all_job_kinds()");
     }
 }

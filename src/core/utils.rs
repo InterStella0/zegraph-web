@@ -652,7 +652,10 @@ pub fn http_client() -> &'static reqwest::Client {
 pub async fn fetch_profile(provider: &str, player_id: &i64) -> Result<ProviderResponse, ErrorCode> {
     let url = format!("{provider}/steams/pfp/{player_id}");
     let resp = http_client().get(&url).send().await.map_err(|_| ErrorCode::NotImplemented)?;
-    let result = resp.json::<ProviderResponse>().await.map_err(|_| ErrorCode::NotFound)?;
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err(ErrorCode::NotFound);
+    }
+    let result = resp.json::<ProviderResponse>().await.map_err(|_| ErrorCode::InternalServerError)?;
     Ok(result)
 }
 
@@ -661,12 +664,43 @@ pub fn is_session_id(session_id: &str) -> bool {
 }
 
 const PFP_BACKUP_TTL: u64 = 12 * DAY;
+const PFP_MISSING_TTL: u64 = DAY;
 
-pub async fn get_profile(cache: &FastCache, provider: &str, player_id: &i64) -> Result<ProviderResponse, ErrorCode> {
-    let backup_key = format!("gfl-ze-watcher:pfp_backup:{player_id}");
+pub async fn get_profile(cache: &Arc<FastCache>, provider: &str, player_id: &i64) -> Result<ProviderResponse, ErrorCode> {
+    if let Some(profile) = get_fresh_profile(cache, player_id).await {
+        return Ok(profile);
+    }
+    if let Some(stale) = read_pfp_backup(cache, &pfp_backup_key(player_id)).await {
+        let (cache, provider, player_id) = (cache.clone(), provider.to_string(), *player_id);
+        tokio::spawn(async move {
+            let _ = refresh_profile(&cache, &provider, &player_id).await;
+        });
+        return Ok(stale);
+    }
+    refresh_profile(cache, provider, player_id).await
+}
+
+async fn refresh_profile(cache: &FastCache, provider: &str, player_id: &i64) -> Result<ProviderResponse, ErrorCode> {
+    let backup_key = pfp_backup_key(player_id);
+    let missing_key = pfp_missing_key(player_id);
     let callable = || async {
-        let profile = fetch_profile(provider, player_id).await?;
-        
+        if redis_key_exists(&cache.redis_pool, &missing_key).await {
+            return Err(ErrorCode::NotFound);
+        }
+        let profile = match fetch_profile(provider, player_id).await {
+            Ok(profile) => profile,
+            Err(ErrorCode::NotFound) => {
+                if let Ok(mut conn) = cache.redis_pool.get().await {
+                    let saved: RedisResult<()> = conn.set_ex(&missing_key, 1, PFP_MISSING_TTL).await;
+                    if let Err(e) = saved {
+                        tracing::warn!("Failed to store missing pfp marker {}: {}", missing_key, e);
+                    }
+                }
+                return Err(ErrorCode::NotFound);
+            }
+            Err(e) => return Err(e),
+        };
+
         if let (Ok(mut conn), Ok(json)) = (
             cache.redis_pool.get().await,
             serde_json::to_string(&profile),
@@ -679,16 +713,35 @@ pub async fn get_profile(cache: &FastCache, provider: &str, player_id: &i64) -> 
         Ok(profile)
     };
 
-    let redis_key = format!("pfp_cache:{player_id}");
-    match cached_response(&redis_key, cache, 7 * DAY, callable).await {
-        Ok(result) => Ok(result.result),
-        Err(e) => {
-            if let Some(stale) = read_pfp_backup(cache, &backup_key).await {
-                tracing::warn!("Provider unreachable, serving stale avatar for {player_id}");
-                return Ok(stale);
-            }
-            Err(e)
+    cached_response(&pfp_cache_key(player_id), cache, 7 * DAY, callable).await.map(|result| result.result)
+}
+
+fn pfp_cache_key(player_id: &i64) -> String {
+    format!("pfp_cache:{player_id}")
+}
+
+fn pfp_backup_key(player_id: &i64) -> String {
+    format!("gfl-ze-watcher:pfp_backup:{player_id}")
+}
+
+fn pfp_missing_key(player_id: &i64) -> String {
+    format!("gfl-ze-watcher:pfp_missing:{player_id}")
+}
+
+async fn get_fresh_profile(cache: &FastCache, player_id: &i64) -> Option<ProviderResponse> {
+    let key = pfp_cache_key(player_id);
+    if let Some(val) = cache.memory.get(&key).await {
+        if let Ok(profile) = serde_json::from_str(&val) {
+            return Some(profile);
         }
+    }
+    read_through(cache, &key, &format!("gfl-ze-watcher:{key}")).await
+}
+
+pub async fn get_cached_profile(cache: &FastCache, player_id: &i64) -> Option<ProviderResponse> {
+    match get_fresh_profile(cache, player_id).await {
+        Some(profile) => Some(profile),
+        None => read_pfp_backup(cache, &pfp_backup_key(player_id)).await,
     }
 }
 

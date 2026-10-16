@@ -1,6 +1,7 @@
 'use client';
 
 import { ProfileResponse } from "types/community";
+import { PlayerProfilePicture } from "types/players";
 import { UserAvatar } from "./UserAvatar";
 import { use } from "react";
 import { usePathname } from "next/navigation";
@@ -21,6 +22,7 @@ import {
 
 interface UserProfileProps {
     profilePromise: Promise<ProfileResponse>;
+    pfpPromise?: Promise<PlayerProfilePicture | null>;
 }
 
 export function UserProfileLoading() {
@@ -49,7 +51,7 @@ export function UserProfileLoading() {
     );
 }
 
-export default function UserProfile({ profilePromise }: UserProfileProps) {
+export default function UserProfile({ profilePromise, pfpPromise }: UserProfileProps) {
     const t = useTranslations('players.profile.header');
     const profile = use(profilePromise);
     const { steamid, name } = profile;
@@ -75,6 +77,7 @@ export default function UserProfile({ profilePromise }: UserProfileProps) {
                     <div className="relative shrink-0">
                         <UserAvatar
                             userId={steamid}
+                            pfpPromise={pfpPromise}
                             name={displayName}
                             width={120}
                             height={120}
