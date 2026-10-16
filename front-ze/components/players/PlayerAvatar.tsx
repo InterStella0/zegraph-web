@@ -48,7 +48,7 @@ function PlayerAvatarDisplay({ uuid, name, width = 40, height = 40, anonymous = 
                     className="text-white font-semibold"
                     style={{ backgroundColor: getAvatarColor(name) }}
                 >
-                    {name && name.length > 0 ? name.charAt(0).toUpperCase() : '?'}
+                    {name && name.length > 0 ? [...name][0].toUpperCase() : '?'}
                 </AvatarFallback>
             </Avatar>
         );

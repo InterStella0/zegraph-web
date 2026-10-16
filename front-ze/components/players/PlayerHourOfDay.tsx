@@ -26,6 +26,7 @@ import { Button } from "components/ui/button";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import {useHydrated} from "lib/hooks/useHydrated";
 import { AlertCircle } from "lucide-react";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PlayerHourDay, PlayerOnlineHeatmap} from "types/players.ts";
@@ -83,6 +84,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     const hours = useMemo(() => hoursData ?? [], [hoursData])
     const heat = useMemo(() => heatData ?? [], [heatData])
     const [ mode, setMode ] = useState<string>("user")
+    const hydrated = useHydrated()
     const [ metric, setMetric ] = useState<Metric>("hour")
     const yAxis = useMemo(() => {
         let yMax = hours.reduce((a, b) => Math.max(a,  b.count), 0)
@@ -93,7 +95,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     // values to stay in order, and a per-point remap leaves them shuffled.
     const online = useMemo(() => {
         const byUtcHour = new Map(heat.map(e => [e.hour_of_day, e]))
-        const offsetHours = mode === "UTC" ? 0 : Math.round(dayjs().utcOffset() / 60)
+        const offsetHours = mode === "UTC" || !hydrated ? 0 : Math.round(dayjs().utcOffset() / 60)
 
         return Array.from({length: 24}, (_, displayHour) => {
             const utcHour = ((displayHour - offsetHours) % 24 + 24) % 24
@@ -104,7 +106,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
                 online_count: found?.online_count ?? 0,
             }
         })
-    }, [heat, mode])
+    }, [heat, mode, hydrated])
 
     const heatMax = useMemo(
         () => online.reduce((a, b) => Math.max(a, b.hours_online), 0),

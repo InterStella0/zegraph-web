@@ -10,6 +10,7 @@ import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/Map
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useResource} from "lib/hooks/useResource";
 import relativeTime from "dayjs/plugin/relativeTime";
+import {useLocalDayjs} from "lib/hooks/useHydrated";
 import Link from "next/link";
 import {ServerMapPlayed, ServerMapPlayedPaginated} from "types/maps.ts";
 import {Skeleton} from "components/ui/skeleton";
@@ -134,6 +135,7 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
     const { server } = useServerData()
     const server_id = server?.id
     const { name } = useMapContext()
+    const toDayjs = useLocalDayjs()
     const [ matchData, setMatchData ] = useState(null)
     useEffect(() => {
         if (!session?.time_id) return
@@ -141,8 +143,8 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
         fetchServerUrl(server_id, `/sessions/${sessionId}/match`)
             .then(setMatchData)
     }, [server_id, session?.time_id]);
-    const startedAt = dayjs(session.started_at)
-    const endedAt = session.ended_at? dayjs(session.ended_at): dayjs()
+    const startedAt = toDayjs(session.started_at)
+    const endedAt = session.ended_at? toDayjs(session.ended_at): toDayjs()
 
     return (
         <div className="m-2">
@@ -152,7 +154,7 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
                     <div className="flex flex-row items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                         <Tooltip>
                             <TooltipTrigger>
-                                <span>
+                                <span suppressHydrationWarning>
                                     {dayjs().diff(startedAt, 'd') < 1 ? startedAt.fromNow() : startedAt.format(startedAt.year() !== dayjs().year() ? 'MMM D YYYY, h:mma' : 'MMM D, h:mma')}
                                 </span>
                             </TooltipTrigger>
