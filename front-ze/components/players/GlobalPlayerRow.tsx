@@ -1,16 +1,14 @@
 'use client'
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import {useEffect, useState} from "react";
 import {useLocale, useTranslations} from "next-intl";
 import {Badge} from "components/ui/badge";
 import {Avatar, AvatarImage} from "components/ui/avatar";
-import {Skeleton} from "components/ui/skeleton";
 import {PlayerAvatar} from "./PlayerAvatar.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {GAME_META} from "components/ui/ServerIndicator";
 import {GlobalPlayerBrief, PlayerCommunityPlaytime} from "types/players.ts";
-import {fetchApiUrl, secondsToHours} from "utils/generalUtils.ts";
+import {secondsToHours} from "utils/generalUtils.ts";
 import {cn} from "components/lib/utils";
 import {useCommunityColors} from "lib/hooks/useCommunityColors";
 import {Gamepad2} from "lucide-react";
@@ -19,25 +17,13 @@ dayjs.extend(relativeTime)
 
 const MAX_LEGEND = 4;
 
-function HoursSplitBar({ communities, loading }: { communities: PlayerCommunityPlaytime[], loading: boolean }) {
+function HoursSplitBar({ communities }: { communities: PlayerCommunityPlaytime[] }) {
     const t = useTranslations('players.global');
     const colors = useCommunityColors(communities.map(c => ({
         key: c.community_id,
         name: c.community_name,
         icon_url: c.icon_url,
     })));
-
-    if (loading) {
-        return (
-            <div>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                    {t('hoursSplit')}
-                </p>
-                <Skeleton className="h-2 w-full rounded-full"/>
-                <Skeleton className="h-4 w-32 mt-1.5"/>
-            </div>
-        );
-    }
 
     const splitSummary = communities
         .map(c => `${c.community_name} ${secondsToHours(c.total_playtime)}h`)
@@ -91,37 +77,17 @@ function HoursSplitBar({ communities, loading }: { communities: PlayerCommunityP
 export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief }) {
     const t = useTranslations('players.global');
     const locale = useLocale();
-    const [communities, setCommunities] = useState<PlayerCommunityPlaytime[]>([]);
-    const [communitiesLoading, setCommunitiesLoading] = useState<boolean>(true);
+    const communities = player.communities;
     const isOnline = !!player.online_since;
     const lastCommunity = communities.find(c => c.community_id === player.last_community_id);
     const gameMeta = player.game ? GAME_META[player.game] : undefined;
-
-    useEffect(() => {
-        const controller = new AbortController();
-        const signal = controller.signal;
-        setCommunitiesLoading(true);
-        fetchApiUrl(`/players/${player.id}/communities_playtime`, {signal})
-            .then((data: PlayerCommunityPlaytime[]) => setCommunities(data ?? []))
-            .catch(error => {
-                if (signal.aborted) return;
-                console.error(`Error fetching communities playtime for player ${player.id}:`, error);
-                setCommunities([]);
-            })
-            .finally(() => {
-                if (!signal.aborted) setCommunitiesLoading(false);
-            });
-        return () => {
-            controller.abort("Changed");
-        };
-    }, [player.id]);
 
     return (
         <div
             className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3 hover:bg-accent/50 transition-colors"
         >
             <div className="flex items-center gap-3 min-w-0 sm:w-56">
-                <PlayerAvatar uuid={player.id} name={player.name} width={40} height={40} className="flex-shrink-0"/>
+                <PlayerAvatar uuid={player.id} name={player.name} pfp={player.pfp} width={40} height={40} className="flex-shrink-0"/>
                 <div className="min-w-0">
                     <HoverPrefetchLink href={`/players/${player.id}/profile`} className="font-semibold text-sm sm:text-base hover:underline truncate">
                         {player.name}
@@ -132,9 +98,6 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
                             isOnline ? "text-green-500" : "text-muted-foreground"
                         )}
                     >
-                        {communitiesLoading && player.last_community_id && (
-                            <Skeleton className="w-4 h-4 rounded-full flex-shrink-0"/>
-                        )}
                         {lastCommunity?.icon_url && (
                             <Avatar className="w-4 h-4 flex-shrink-0">
                                 <AvatarImage src={lastCommunity.icon_url} alt={lastCommunity.community_name}/>
@@ -166,7 +129,7 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
             </div>
 
             <div className="flex-1 min-w-40 max-sm:order-last max-sm:w-full">
-                <HoursSplitBar communities={communities} loading={communitiesLoading}/>
+                <HoursSplitBar communities={communities}/>
             </div>
 
             <div className="flex flex-col items-end gap-1 ml-auto">

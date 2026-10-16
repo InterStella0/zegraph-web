@@ -433,7 +433,7 @@ pub struct PlayerInfractionUpdate{
 }
 
 /// A player's Steam avatar at two sizes.
-#[derive(Object)]
+#[derive(Object, Clone)]
 pub struct PlayerProfilePicture{
     pub id: String,
     pub full: String,
@@ -579,6 +579,11 @@ pub struct GlobalPlayerBrief {
     pub last_community_id: Option<String>,
     pub server_count: i64,
     pub game: Option<String>,
+    /// Playtime per community, largest first. A community the player anonymized is left out unless
+    /// the requester is that player, a superuser, or an admin of that community.
+    pub communities: Vec<PlayerCommunityPlaytime>,
+    /// Null when the picture is not cached yet; `/players/pfps` resolves it.
+    pub pfp: Option<PlayerProfilePicture>,
 }
 
 /// A page of the global, cross-community player list.

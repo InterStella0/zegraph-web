@@ -5,13 +5,13 @@ import { ErrorBoundary } from "react-error-boundary";
 import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 
-function UserAvatarDisplay({ userId, name, width = 120, height = 120, className = "" }) {
+function UserAvatarDisplay({ userId, name, width = 120, height = 120, className = "", pfpPromise = null }) {
     const t = useTranslations('players.profile.header');
     const [playerImage, setPlayerImage] = useState(null);
 
     useEffect(() => {
         if (!userId) return;
-        fetchUrl(`/players/${userId}/pfp`)
+        Promise.resolve(pfpPromise ?? fetchUrl(`/players/${userId}/pfp`))
             .then(image => {
                 setPlayerImage(image);
             })
@@ -20,7 +20,7 @@ function UserAvatarDisplay({ userId, name, width = 120, height = 120, className 
                     console.error(`Failed to fetch avatar for user ${userId}:`, error);
                 setPlayerImage(null);
             });
-    }, [userId]);
+    }, [userId, pfpPromise]);
 
     const getAvatarColor = (name: string) => {
         if (!name) return 'hsl(var(--muted))';

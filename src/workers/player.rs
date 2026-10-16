@@ -955,27 +955,6 @@ worker_query! {
 }
 
 worker_query! {
-    PlayerGlobalQuery<Vec<DbPlayerCommunityPlaytime>> => PlayerCommunityPlaytime, 5 * 60, Light,
-    |self, ctx| community_playtime_key(&ctx.data.canonical_id), {
-        sqlx::query_as!(DbPlayerCommunityPlaytime, r#"
-            WITH user_players AS (
-                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
-            )
-            SELECT c.community_id,
-                   COALESCE(c.community_name, '') AS "community_name!",
-                   c.community_icon_url AS icon_url,
-                   SUM(pp.total_playtime) AS total_playtime
-            FROM website.player_playtime pp
-            JOIN user_players up ON up.player_id = pp.player_id
-            JOIN server s ON s.server_id = pp.server_id
-            JOIN community c ON c.community_id = s.community_id
-            GROUP BY c.community_id, c.community_name, c.community_icon_url
-            ORDER BY SUM(pp.total_playtime) DESC
-        "#, ctx.data.canonical_id).fetch_all(&*ctx.pool).await
-    }
-}
-
-worker_query! {
     PlayerPeriodQuery<Vec<DbPlayerMapPlayed>> => PlayerPeriodMapPlayed, period "map-played", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
         sqlx::query_as!(DbPlayerMapPlayed, "
@@ -1856,11 +1835,6 @@ impl PlayerWorker {
         })
     }
 
-    pub async fn get_community_playtime(&self, canonical_id: &str) -> WorkResult<Vec<PlayerCommunityPlaytime>> {
-        let result: Vec<DbPlayerCommunityPlaytime> = self.query_global(canonical_id).await?;
-        Ok(result.into_iter().map(Into::into).collect())
-    }
-
     async fn total_ranked_players(&self) -> i64 {
         let pool = self.pool.clone();
         let func = || sqlx::query_scalar!("
@@ -1933,10 +1907,6 @@ fn global_lock_key(canonical_id: &str) -> String {
 
 fn global_snapshot_key(canonical_id: &str) -> String {
     format!("player-global-playtime:{canonical_id}")
-}
-
-fn community_playtime_key(canonical_id: &str) -> String {
-    format!("player-community-playtime:{canonical_id}")
 }
 
 pub(crate) async fn run_global_playtime_job(
@@ -2044,7 +2014,6 @@ async fn run_global_refresh(
     ", canonical_id).execute(&**pool).await?;
 
     background_worker.drop_cached(&global_snapshot_key(canonical_id)).await;
-    background_worker.drop_cached(&community_playtime_key(canonical_id)).await;
 
     tracing::info!("GLOBAL PLAYTIME REFRESH DONE {canonical_id}");
     Ok(())
@@ -2347,14 +2316,6 @@ mod tests {
         assert!(ttl > 0, "a zero ttl would cache nothing");
         assert!(matches!(priority, QueryPriority::Light));
         assert!(matches!(kind, JobKind::PlayerGlobalSnapshot(_)));
-
-        let (pattern, ttl, priority, kind) =
-            metadata(&player_global_query::<Vec<DbPlayerCommunityPlaytime>>());
-        assert_eq!(pattern, community_playtime_key(TEST_PLAYER));
-        assert!(!pattern.contains("{session}"), "global keys are refresh-invalidated, not session-scoped");
-        assert!(ttl > 0, "a zero ttl would cache nothing");
-        assert!(matches!(priority, QueryPriority::Light));
-        assert!(matches!(kind, JobKind::PlayerCommunityPlaytime(_)));
     }
 
     #[tokio::test]

@@ -3,7 +3,7 @@ import UserProfile, {UserProfileLoading} from "components/users/UserProfile";
 import UserCommunityConnections, {UserCommunityConnectionsLoading} from "components/users/UserCommunityConnections";
 import ProfileOverview, {ProfileOverviewLoading} from "components/users/ProfileOverview";
 import ProfileStatsCards, {ProfileStatsCardsLoading} from "components/users/ProfileStatsCards";
-import ProfilePlaySessions from "components/users/ProfilePlaySessions";
+import ProfilePlaySessions, {ProfilePlaySessionsLoading} from "components/users/ProfilePlaySessions";
 import getServerUser from "app/getServerUser";
 import { redirect } from "next/navigation";
 import { PlayerSessionTime, ProfileResponse } from "types/community.ts";
@@ -18,7 +18,7 @@ import {
 import {Metadata} from "next";
 import { oneDay, oneHour } from "app/servers/[server_slug]/util.ts";
 import {getTranslations} from "next-intl/server";
-import { PlayerProfilePicture } from "types/players.ts";
+import { GlobalPlayerSessionPage, PlayerProfilePicture } from "types/players.ts";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 
@@ -109,12 +109,17 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
 
     const profilePromise: Promise<ProfileResponse> = fetchApiUrl(`/players/${player_id}/profile`);
     const heatmapPromise: Promise<PlayerSessionTime[]> = fetchApiUrl(`/players/${player_id}/playtime-heatmap`).catch(() => []);
+    const pfpPromise: Promise<PlayerProfilePicture | null> = profilePromise
+        .then(profile => fetchUrl(`/players/${profile.steamid}/pfp`, {  next: { revalidate: oneDay } }))
+        .catch(() => null);
+    const sessionsPromise: Promise<GlobalPlayerSessionPage | null> = fetchApiUrl(`/players/${player_id}/sessions`, { params: { page: 0 } })
+        .catch(() => null);
 
     return (
         <div className="container mx-auto max-w-10xl px-2 py-8">
             <div className="flex flex-col gap-6">
                 <Suspense fallback={<UserProfileLoading />}>
-                    <UserProfile profilePromise={profilePromise} />
+                    <UserProfile profilePromise={profilePromise} pfpPromise={pfpPromise} />
                 </Suspense>
                 <Suspense fallback={<ProfileOverviewLoading />}>
                     <ProfileOverview heatmapPromise={heatmapPromise} />
@@ -127,7 +132,9 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
                         <UserCommunityConnections profilePromise={profilePromise} />
                     </Suspense>
                     <div className="lg:mt-8">
-                        <ProfilePlaySessions userId={player_id} />
+                        <Suspense fallback={<ProfilePlaySessionsLoading />}>
+                            <ProfilePlaySessions userId={player_id} initialDataPromise={sessionsPromise} />
+                        </Suspense>
                     </div>
                 </div>
             </div>

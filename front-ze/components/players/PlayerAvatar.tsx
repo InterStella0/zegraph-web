@@ -7,9 +7,9 @@ import { useServerData } from "../../app/servers/[server_slug]/ServerDataProvide
 import Image from "next/image";
 import { cn } from "components/lib/utils";
 
-function PlayerAvatarDisplay({ uuid, name, width = 40, height = 40, anonymous = false, className, serverId, ...props }) {
+function PlayerAvatarDisplay({ uuid, name, width = 40, height = 40, anonymous = false, className, serverId, pfp = null, ...props }) {
     const avatarRef = useRef(null);
-    const [playerImage, setPlayerImage] = useState(null);
+    const [playerImage, setPlayerImage] = useState(pfp);
     const data = useServerData();
     const server_id = serverId ?? data?.server?.id;
 

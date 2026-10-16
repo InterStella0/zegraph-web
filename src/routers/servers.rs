@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
@@ -9,11 +10,11 @@ use sqlx::Postgres;
 use crate::{or_ise, require, response, AppData, FastCache};
 use crate::api_models::common::*;
 use crate::api_models::misc::*;
-use crate::api_models::players::{GlobalBriefPlayers, PlayerDetailSession, PlayerDetailSessionCommunity};
+use crate::api_models::players::{GlobalBriefPlayers, GlobalPlayerBrief, PlayerCommunityPlaytime, PlayerDetailSession, PlayerDetailSessionCommunity, PlayerProfilePicture};
 use crate::api_models::servers::*;
 use crate::core::utils::*;
 use crate::models::admins::DbFetchStatus;
-use crate::models::players::{DbGlobalPlayerBrief, DbPlayerDetailSession};
+use crate::models::players::{DbGlobalCommunityPlaytime, DbGlobalPlayerBrief, DbGlobalPlayerPage, DbPlayerDetailSession};
 use crate::models::servers::*;
 use crate::routers::ApiTags;
 
@@ -110,6 +111,168 @@ impl<'a> poem::FromRequest<'a> for CommunityWithAllExtractor {
         Ok(CommunityWithAllExtractor(Some(community)))
     }
 }
+const GLOBAL_PLAYERS_PAGE_SIZE: i64 = 10;
+
+async fn global_player_counts(pool: &sqlx::Pool<Postgres>, cache: &FastCache) -> Result<(i64, i64), sqlx::Error> {
+    let func = || async {
+        let counts = sqlx::query!(r#"
+            SELECT
+                COUNT(*) FILTER (WHERE gp.total_playtime > INTERVAL '0') AS "ranked!",
+                COUNT(*) AS "total!"
+            FROM player p
+            LEFT JOIN website.player_global_playtime gp ON gp.player_id = p.player_id
+            WHERE p.associated_player_id IS NULL
+              AND p.player_id ~ '^[0-9]+$'
+        "#).fetch_one(pool).await?;
+        Ok::<_, sqlx::Error>((counts.ranked, counts.total))
+    };
+    Ok(cached_response("global-players-counts", cache, 10 * 60, func).await?.result)
+}
+
+async fn browse_global_players(
+    pool: &sqlx::Pool<Postgres>, cache: &FastCache, offset: i64,
+) -> Result<DbGlobalPlayerPage, sqlx::Error> {
+    let (ranked, total) = global_player_counts(pool, cache).await?;
+
+    let mut ids = vec![];
+    if offset < ranked {
+        ids = sqlx::query_scalar!(r#"
+            SELECT gp.player_id
+            FROM website.player_global_playtime gp
+            JOIN player p ON p.player_id = gp.player_id
+            WHERE gp.total_playtime > INTERVAL '0'
+              AND p.associated_player_id IS NULL
+              AND p.player_id ~ '^[0-9]+$'
+            ORDER BY gp.total_playtime DESC, gp.player_id
+            LIMIT $2 OFFSET $1
+        "#, offset, GLOBAL_PLAYERS_PAGE_SIZE).fetch_all(pool).await?;
+    }
+
+    let remaining = GLOBAL_PLAYERS_PAGE_SIZE - ids.len() as i64;
+    if remaining > 0 {
+        let unranked = sqlx::query_scalar!(r#"
+            SELECT p.player_id
+            FROM player p
+            LEFT JOIN website.player_global_playtime gp ON gp.player_id = p.player_id
+            WHERE p.associated_player_id IS NULL
+              AND p.player_id ~ '^[0-9]+$'
+              AND COALESCE(gp.total_playtime, INTERVAL '0') <= INTERVAL '0'
+            ORDER BY COALESCE(gp.total_playtime, INTERVAL '0') DESC, p.player_id
+            LIMIT $2 OFFSET $1
+        "#, (offset - ranked).max(0), remaining).fetch_all(pool).await?;
+        ids.extend(unranked);
+    }
+
+    global_player_page(pool, ids, total).await
+}
+
+async fn search_global_players(
+    pool: &sqlx::Pool<Postgres>, pattern: &str, offset: i64,
+) -> Result<DbGlobalPlayerPage, sqlx::Error> {
+    let matches = sqlx::query!(r#"
+        SELECT p.player_id, COUNT(*) OVER() AS "total!"
+        FROM player p
+        LEFT JOIN website.player_global_playtime gp ON gp.player_id = p.player_id
+        WHERE p.associated_player_id IS NULL
+          AND p.player_id ~ '^[0-9]+$'
+          AND LOWER(p.player_name) LIKE $1
+        ORDER BY COALESCE(gp.total_playtime, INTERVAL '0') DESC, p.player_id
+        LIMIT $3 OFFSET $2
+    "#, pattern, offset, GLOBAL_PLAYERS_PAGE_SIZE).fetch_all(pool).await?;
+
+    let total = matches.first().map(|m| m.total).unwrap_or_default();
+    let ids = matches.into_iter().map(|m| m.player_id).collect();
+    global_player_page(pool, ids, total).await
+}
+
+async fn global_player_page(
+    pool: &sqlx::Pool<Postgres>, ids: Vec<String>, total_players: i64,
+) -> Result<DbGlobalPlayerPage, sqlx::Error> {
+    if ids.is_empty() {
+        return Ok(DbGlobalPlayerPage { total_players, players: vec![], communities: vec![] });
+    }
+
+    let players = sqlx::query_as!(DbGlobalPlayerBrief, r#"
+        SELECT
+            p.player_id AS "player_id!",
+            p.player_name AS "player_name!",
+            COALESCE(gp.total_playtime, INTERVAL '0') AS "total_playtime?",
+            COALESCE(gp.global_rank, -1) AS "rank!",
+            online.online_since,
+            COALESCE(last.last_played, p.created_at) AS "last_played!",
+            last.community_id::TEXT AS last_community_id,
+            COALESCE(gp.server_count, 0)::BIGINT AS "server_count!",
+            last.game,
+            $2::BIGINT AS "total_players!"
+        FROM UNNEST($1::TEXT[]) WITH ORDINALITY AS ids(player_id, ord)
+        JOIN player p ON p.player_id = ids.player_id
+        LEFT JOIN website.player_global_playtime gp ON gp.player_id = p.player_id
+        LEFT JOIN LATERAL (
+            SELECT MIN(pss.started_at) AS online_since
+            FROM player_server_session pss
+            JOIN player lp ON lp.player_id = pss.player_id
+            WHERE (lp.player_id = p.player_id OR lp.associated_player_id = p.player_id)
+              AND pss.ended_at IS NULL
+              AND CURRENT_TIMESTAMP - pss.started_at < INTERVAL '24 hours'
+        ) online ON true
+        LEFT JOIN LATERAL (
+            SELECT recent.last_played, s.community_id, sm.game
+            FROM player lp
+            CROSS JOIN LATERAL (
+                (SELECT pss.server_id, pss.ended_at AS last_played
+                 FROM player_server_session pss
+                 WHERE pss.player_id = lp.player_id AND pss.ended_at IS NOT NULL
+                 ORDER BY pss.ended_at DESC
+                 LIMIT 1)
+                UNION ALL
+                (SELECT pss.server_id, pss.started_at
+                 FROM player_server_session pss
+                 WHERE pss.player_id = lp.player_id AND pss.ended_at IS NULL
+                 ORDER BY pss.started_at DESC
+                 LIMIT 1)
+            ) recent
+            JOIN server s ON s.server_id = recent.server_id
+            LEFT JOIN server_metadata sm ON sm.server_id = s.server_id
+            WHERE lp.player_id = p.player_id OR lp.associated_player_id = p.player_id
+            ORDER BY recent.last_played DESC
+            LIMIT 1
+        ) last ON true
+        ORDER BY ids.ord
+    "#, &ids[..], total_players).fetch_all(pool).await?;
+
+    let communities = sqlx::query_as!(DbGlobalCommunityPlaytime, r#"
+        WITH members AS (
+            SELECT player_id, player_id AS canonical_id
+            FROM player
+            WHERE player_id = ANY($1)
+            UNION
+            SELECT player_id, associated_player_id
+            FROM player
+            WHERE associated_player_id = ANY($1)
+        )
+        SELECT
+            m.canonical_id AS "player_id!",
+            c.community_id,
+            COALESCE(c.community_name, '') AS "community_name!",
+            c.community_icon_url AS icon_url,
+            SUM(pp.total_playtime) AS total_playtime,
+            EXISTS (
+                SELECT 1 FROM website.user_anonymization ua
+                WHERE ua.user_id::TEXT = m.canonical_id
+                  AND ua.community_id = c.community_id
+                  AND ua.anonymized
+            ) AS "anonymized!"
+        FROM members m
+        JOIN website.player_playtime pp ON pp.player_id = m.player_id
+        JOIN server s ON s.server_id = pp.server_id
+        JOIN community c ON c.community_id = s.community_id
+        GROUP BY m.canonical_id, c.community_id, c.community_name, c.community_icon_url
+        ORDER BY m.canonical_id, SUM(pp.total_playtime) DESC
+    "#, &ids[..]).fetch_all(pool).await?;
+
+    Ok(DbGlobalPlayerPage { total_players, players, communities })
+}
+
 pub struct ServerApi;
 #[OpenApi(tag = "ApiTags::Servers")]
 impl ServerApi {
@@ -191,10 +354,10 @@ impl ServerApi {
     async fn get_global_players(
         &self, Data(data): Data<&AppData>,
         Query(page): Query<usize>, Query(search): Query<Option<String>>,
+        OptionalTokenBearer(user_token): OptionalTokenBearer,
     ) -> Response<GlobalBriefPlayers> {
-        let pool = &*data.pool.clone();
-        let pagination = 10;
-        let paging = page as i64 * pagination;
+        let pool = &*data.pool;
+        let offset = page as i64 * GLOBAL_PLAYERS_PAGE_SIZE;
 
         let search = search
             .map(|s| s.trim().to_string())
@@ -204,78 +367,40 @@ impl ServerApi {
                 format!("%{}%", escaped.to_lowercase())
             });
 
-        let func = || sqlx::query_as!(DbGlobalPlayerBrief, r#"
-            WITH base AS (
-                SELECT
-                    p.player_id,
-                    p.player_name,
-                    p.created_at,
-                    COUNT(*) OVER() AS total_players,
-                    COALESCE(gp.total_playtime, INTERVAL '0') AS total_playtime,
-                    COALESCE(gp.global_rank, -1) AS rank,
-                    COALESCE(gp.server_count, 0)::BIGINT AS server_count
-                FROM player p
-                LEFT JOIN website.player_global_playtime gp ON gp.player_id = p.player_id
-                WHERE p.associated_player_id IS NULL
-                  AND p.player_id ~ '^[0-9]+$'
-                  AND ($1::TEXT IS NULL OR LOWER(p.player_name) LIKE $1)
-                ORDER BY COALESCE(gp.total_playtime, INTERVAL '0') DESC, p.player_id
-                LIMIT $3 OFFSET $2
-            )
-            SELECT
-                b.player_id AS "player_id!",
-                b.player_name AS "player_name!",
-                b.total_playtime,
-                b.rank AS "rank!",
-                online.online_since,
-                COALESCE(last.last_played, b.created_at) AS "last_played!",
-                last.community_id::TEXT AS last_community_id,
-                b.server_count AS "server_count!",
-                last.game,
-                b.total_players AS "total_players!"
-            FROM base b
-            LEFT JOIN LATERAL (
-                SELECT MIN(pss.started_at) AS online_since
-                FROM player_server_session pss
-                JOIN player lp ON lp.player_id = pss.player_id
-                WHERE (lp.player_id = b.player_id OR lp.associated_player_id = b.player_id)
-                  AND pss.ended_at IS NULL
-                  AND CURRENT_TIMESTAMP - pss.started_at < INTERVAL '24 hours'
-            ) online ON true
-            LEFT JOIN LATERAL (
-                SELECT COALESCE(pss.ended_at, pss.started_at) AS last_played,
-                       s.community_id,
-                       sm.game
-                FROM player_server_session pss
-                JOIN player lp ON lp.player_id = pss.player_id
-                JOIN server s ON s.server_id = pss.server_id
-                LEFT JOIN server_metadata sm ON sm.server_id = s.server_id
-                WHERE lp.player_id = b.player_id OR lp.associated_player_id = b.player_id
-                ORDER BY COALESCE(pss.ended_at, pss.started_at) DESC
-                LIMIT 1
-            ) last ON true
-            ORDER BY b.total_playtime DESC, b.player_id
-        "#, search, paging, pagination).fetch_all(pool);
-
-        let rows = if search.is_none() {
-            let caching_time = match page {
-                1..=3 => 2 * DAY,
-                4..=5 => DAY,
-                6..=9 => 12 * HOUR,
-                10..=14 => 6 * HOUR,
-                15..=20 => 3 * HOUR,
-                21..=30 => HOUR,
-                _ => 10 * 60,
-            };
-            or_ise!(cached_response(&format!("global-players:{page}"), &data.cache, caching_time, func).await).result
-        } else {
-            or_ise!(func().await)
+        let DbGlobalPlayerPage { total_players, players, communities } = match search {
+            Some(pattern) => or_ise!(search_global_players(pool, &pattern, offset).await),
+            None => {
+                let func = || browse_global_players(pool, &data.cache, offset);
+                or_ise!(cached_response(&format!("global-players-v3:{page}"), &data.cache, 60, func).await).result
+            }
         };
 
-        let total_players = rows.first()
-            .map(|r| r.total_players)
-            .unwrap_or_default();
-        response!(ok GlobalBriefPlayers { total_players, players: rows.iter_into() })
+        let viewer_id = user_token.as_ref().map(|token| token.id);
+        let mut communities_by_player: HashMap<String, Vec<PlayerCommunityPlaytime>> = HashMap::new();
+        for community in communities {
+            if community.anonymized && !or_ise!(can_view_player_in_community(
+                data, &community.player_id, community.community_id, viewer_id,
+            ).await) {
+                continue;
+            }
+            communities_by_player.entry(community.player_id.clone()).or_default().push(community.into());
+        }
+
+        let mut result = Vec::with_capacity(players.len());
+        for row in players {
+            let id = row.player_id.clone();
+            let pfp = match id.parse::<i64>() {
+                Ok(steam_id) => get_cached_profile(&data.cache, &steam_id).await
+                    .map(|profile| PlayerProfilePicture::from_full_url(id.clone(), profile.url)),
+                Err(_) => None,
+            };
+            let mut player: GlobalPlayerBrief = row.into();
+            player.communities = communities_by_player.remove(&id).unwrap_or_default();
+            player.pfp = pfp;
+            result.push(player);
+        }
+
+        response!(ok GlobalBriefPlayers { total_players, players: result })
     }
 
     /// List players currently online across all tracked servers. Bots are left out.

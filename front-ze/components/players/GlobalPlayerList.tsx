@@ -2,7 +2,7 @@
 import {use, useEffect, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {Users} from 'lucide-react';
-import {fetchUrl, simpleRandom} from "utils/generalUtils";
+import {fetchApiUrl, simpleRandom} from "utils/generalUtils";
 import {GlobalBriefPlayers} from "types/players";
 import {Card, CardContent, CardHeader} from "components/ui/card";
 import {Skeleton} from "components/ui/skeleton";
@@ -15,6 +15,7 @@ import {withErrorCatch} from "components/common/withErrorCatch";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
+const MIN_SEARCH_LENGTH = 3;
 
 function GlobalPlayerListSkeleton({ count = PAGE_SIZE }: { count?: number }) {
     const [isClient, setIsClient] = useState(false)
@@ -81,13 +82,14 @@ function GlobalPlayerListDisplay({ initialDataPromise }: { initialDataPromise: P
     const [searchInput, setSearchInput] = useState<string>('');
     const [page, setPage] = useState<number>(0);
 
-    const debouncedSearch = useDebounced(searchInput.trim(), SEARCH_DEBOUNCE_MS);
+    const debouncedInput = useDebounced(searchInput.trim(), SEARCH_DEBOUNCE_MS);
+    const debouncedSearch = debouncedInput.length >= MIN_SEARCH_LENGTH ? debouncedInput : '';
 
     useEffect(() => {
         setPage(0);
     }, [debouncedSearch]);
 
-    const { data, loading, error: fetchError } = useResource<GlobalBriefPlayers>(signal => fetchUrl('/communities/all/players', {
+    const { data, loading, error: fetchError } = useResource<GlobalBriefPlayers>(signal => fetchApiUrl('/communities/all/players', {
         params: { page, ...(debouncedSearch && {search: debouncedSearch}) },
         signal,
     }), [page, debouncedSearch], { initial: initialData, keepData: true, errorLog: 'Error fetching global players:' });

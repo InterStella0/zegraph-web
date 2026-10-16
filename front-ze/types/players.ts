@@ -346,6 +346,8 @@ export interface GlobalPlayerBrief {
     last_community_id: string | null,
     server_count: number,
     game: string | null,
+    communities: PlayerCommunityPlaytime[],
+    pfp: PlayerProfilePicture | null,
 }
 
 export type GlobalBriefPlayers = {

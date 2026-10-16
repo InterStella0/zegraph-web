@@ -3,7 +3,7 @@ import {Suspense} from "react";
 import {getTranslations} from "next-intl/server";
 import GlobalPlayerList, {GlobalPlayerListLoading} from "components/players/GlobalPlayerList";
 import GlobalPlayersOnline, {GlobalPlayersOnlineLoading} from "components/players/GlobalPlayersOnline";
-import {fetchApiUrl, fetchUrl, socialMeta} from "utils/generalUtils.ts";
+import {fetchApiUrl, socialMeta} from "utils/generalUtils.ts";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Page() {
-    const globalPlayersPromise = fetchUrl('/communities/all/players', {params: {page: 0}});
+    const globalPlayersPromise = fetchApiUrl('/communities/all/players', {params: {page: 0}});
     const globalOnlinePromise = fetchApiUrl('/communities/all/players/playing');
 
     return (

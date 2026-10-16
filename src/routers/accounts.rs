@@ -9,6 +9,7 @@ use tokio::io::AsyncReadExt;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use futures::stream::{self, StreamExt};
 use sqlx::types::time::OffsetDateTime;
 use tokio::time::sleep;
 use uuid::Uuid;
@@ -378,6 +379,119 @@ async fn get_global_best_rank(
         map,
         rank: best.rank.unwrap_or_default(),
     })
+}
+
+const PROFILE_SERVER_CONCURRENCY: usize = 4;
+
+async fn profile_server_entry(
+    app: &AppData,
+    entry: &DbCommunityServerEntry,
+    canonical_id: &str,
+    current_name: Option<&String>,
+    is_owner: bool,
+) -> Option<(ProfileServerEntry, Option<OffsetDateTime>)> {
+    let pool = &*app.pool;
+    let server_id = &entry.server_id;
+    let player_id = &entry.player_id;
+
+    let server = get_server(pool, &app.cache, server_id).await?;
+    let player = get_player(pool, &app.cache, player_id).await?;
+
+    let cache_key = get_player_cache_key(pool, &app.cache, server_id, player_id).await;
+    let ctx = PlayerContext { player, server: server.clone(), cache_key };
+
+    let mut detail = app.player_worker.get_detail_stored(&ctx).await.ok()?;
+
+    let mut sessions = sqlx::query_as!(
+        DbProfileRecentSession,
+        "WITH user_players AS (
+            SELECT player_id FROM player WHERE player_id = $2 OR associated_player_id = $2
+        )
+        SELECT
+            started_at,
+            ended_at,
+            EXTRACT(EPOCH FROM (COALESCE(ended_at, CURRENT_TIMESTAMP) - started_at))::float8 AS \"duration!\",
+            (ended_at IS NULL AND CURRENT_TIMESTAMP - last_verified < INTERVAL '20 minutes') AS \"is_live!\"
+        FROM player_server_session
+        WHERE server_id = $1 AND player_id IN (SELECT player_id FROM user_players)
+        ORDER BY started_at DESC
+        LIMIT 7",
+        server_id,
+        canonical_id
+    ).fetch_all(pool).await.unwrap_or_default();
+
+    let by_id = server.source_by_id.unwrap_or(false);
+    let mut linked_names: Vec<LinkedName> = vec![];
+    let mut mergeable_count = 0;
+    if !by_id {
+        let names = sqlx::query_as!(
+            DbLinkedName,
+            "SELECT p.player_id, p.player_name, pp.total_playtime
+             FROM player p
+             JOIN website.player_playtime pp ON pp.player_id = p.player_id AND pp.server_id = $1
+             WHERE (p.player_id = $2 OR p.associated_player_id = $2)
+                AND pp.total_playtime > interval '0'
+             ORDER BY pp.total_playtime DESC",
+            server_id,
+            canonical_id
+        ).fetch_all(pool).await.unwrap_or_default();
+
+        linked_names = names.into_iter().map(|n| LinkedName {
+            is_current: Some(&n.player_name) == current_name,
+            name: n.player_name,
+            total_playtime: n.total_playtime.map(|i| i.to_f64()).unwrap_or(0.0),
+        }).collect();
+
+        if !linked_names.is_empty() {
+            detail.total_playtime = linked_names.iter().map(|n| n.total_playtime).sum();
+        }
+
+        if is_owner {
+            mergeable_count = sqlx::query_scalar!(
+                r#"SELECT COUNT(DISTINCT p.player_id) AS "count!"
+                   FROM player p
+                   JOIN player_server_session pss
+                     ON pss.player_id = p.player_id AND pss.server_id = $1
+                   WHERE p.associated_player_id = $2
+                     AND p.merged_at IS NULL
+                     AND p.player_id !~ '^[0-9]+$'"#,
+                server_id,
+                canonical_id
+            ).fetch_one(pool).await.unwrap_or(0);
+        }
+    }
+
+    let (server_online, server_last_played, server_duration) = match sessions.first() {
+        Some(s) => (
+            s.is_live,
+            Some(db_to_utc(s.ended_at.unwrap_or(s.started_at))),
+            Some(s.duration),
+        ),
+        None => (false, None, None),
+    };
+
+    let latest_started_at = sessions.first().map(|s| s.started_at);
+    sessions.reverse();
+    let recent_sessions = sessions.into_iter().map(|s| ProfileRecentSession {
+        started_at: db_to_utc(s.started_at),
+        ended_at: s.ended_at.map(db_to_utc),
+        duration: s.duration,
+    }).collect();
+
+    let server_entry = ProfileServerEntry {
+        server_id: server_id.clone(),
+        server_name: server.server_name.clone().unwrap_or_default(),
+        by_id,
+        is_online: server_online,
+        last_played: server_last_played,
+        last_played_duration: server_duration,
+        player: detail,
+        linked_names,
+        mergeable_count,
+        recent_sessions,
+    };
+
+    Some((server_entry, latest_started_at))
 }
 
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
@@ -923,126 +1037,37 @@ impl AccountsApi {
         let mut last_session_duration: Option<f64> = None;
         let mut latest_started_at: Option<OffsetDateTime> = None;
 
-        for entry in servers_played {
-            if anonymized_community_ids.contains(&entry.community_id) {
-                continue;
-            }
+        let canonical = canonical_id.as_str();
+        let current_name_ref = current_name.as_ref();
+        let visible_servers: Vec<&DbCommunityServerEntry> = servers_played.iter()
+            .filter(|entry| !anonymized_community_ids.contains(&entry.community_id))
+            .collect();
+        let lookups: Vec<_> = visible_servers.iter().copied()
+            .map(|entry| profile_server_entry(app, entry, canonical, current_name_ref, is_owner))
+            .collect();
+        let server_entries: Vec<_> = stream::iter(lookups)
+            .buffered(PROFILE_SERVER_CONCURRENCY)
+            .collect()
+            .await;
 
-            let server_id = &entry.server_id;
-            let player_id = &entry.player_id;
-
-            let Some(server) = get_server(pool, &app.cache, server_id).await else { continue };
-            let Some(player) = get_player(pool, &app.cache, player_id).await else { continue };
-
-            let cache_key = get_player_cache_key(pool, &app.cache, server_id, player_id).await;
-            let ctx = PlayerContext { player, server: server.clone(), cache_key };
-
-            let Ok(mut detail) = app.player_worker.get_detail_stored(&ctx).await else { continue };
-
-            let mut sessions = sqlx::query_as!(
-                DbProfileRecentSession,
-                "WITH user_players AS (
-                    SELECT player_id FROM player WHERE player_id = $2 OR associated_player_id = $2
-                )
-                SELECT
-                    started_at,
-                    ended_at,
-                    EXTRACT(EPOCH FROM (COALESCE(ended_at, CURRENT_TIMESTAMP) - started_at))::float8 AS \"duration!\",
-                    (ended_at IS NULL AND CURRENT_TIMESTAMP - last_verified < INTERVAL '20 minutes') AS \"is_live!\"
-                FROM player_server_session
-                WHERE server_id = $1 AND player_id IN (SELECT player_id FROM user_players)
-                ORDER BY started_at DESC
-                LIMIT 7",
-                server_id,
-                canonical_id
-            ).fetch_all(pool).await.unwrap_or_default();
-
-            let by_id = server.source_by_id.unwrap_or(false);
-            let mut linked_names: Vec<LinkedName> = vec![];
-            let mut mergeable_count = 0;
-            if !by_id {
-                let names = sqlx::query_as!(
-                    DbLinkedName,
-                    "SELECT p.player_id, p.player_name, pp.total_playtime
-                     FROM player p
-                     JOIN website.player_playtime pp ON pp.player_id = p.player_id AND pp.server_id = $1
-                     WHERE (p.player_id = $2 OR p.associated_player_id = $2)
-                        AND pp.total_playtime > interval '0'
-                     ORDER BY pp.total_playtime DESC",
-                    server_id,
-                    canonical_id
-                ).fetch_all(pool).await.unwrap_or_default();
-
-                linked_names = names.into_iter().map(|n| LinkedName {
-                    is_current: Some(&n.player_name) == current_name.as_ref(),
-                    name: n.player_name,
-                    total_playtime: n.total_playtime.map(|i| i.to_f64()).unwrap_or(0.0),
-                }).collect();
-
-                if !linked_names.is_empty() {
-                    detail.total_playtime = linked_names.iter().map(|n| n.total_playtime).sum();
-                }
-
-                if is_owner {
-                    mergeable_count = sqlx::query_scalar!(
-                        r#"SELECT COUNT(DISTINCT p.player_id) AS "count!"
-                           FROM player p
-                           JOIN player_server_session pss
-                             ON pss.player_id = p.player_id AND pss.server_id = $1
-                           WHERE p.associated_player_id = $2
-                             AND p.merged_at IS NULL
-                             AND p.player_id !~ '^[0-9]+$'"#,
-                        server_id,
-                        canonical_id
-                    ).fetch_one(pool).await.unwrap_or(0);
-                }
-            }
-
-            let (server_online, server_last_played, server_duration) = match sessions.first() {
-                Some(s) => (
-                    s.is_live,
-                    Some(db_to_utc(s.ended_at.unwrap_or(s.started_at))),
-                    Some(s.duration),
-                ),
-                None => (false, None, None),
-            };
-
-            if server_online {
+        for (entry, server_entry) in visible_servers.into_iter().zip(server_entries) {
+            let Some((server_entry, started_at)) = server_entry else { continue };
+            if server_entry.is_online {
                 is_online = true;
             }
-            if let Some(started) = sessions.first().map(|s| s.started_at) {
+            if let Some(started) = started_at {
                 let is_newer = match latest_started_at {
                     Some(latest) => started > latest,
                     None => true,
                 };
                 if is_newer {
                     latest_started_at = Some(started);
-                    last_online = server_last_played;
-                    last_session_duration = server_duration;
+                    last_online = server_entry.last_played;
+                    last_session_duration = server_entry.last_played_duration;
                 }
             }
 
-            total_playtime += detail.total_playtime;
-
-            sessions.reverse();
-            let recent_sessions = sessions.into_iter().map(|s| ProfileRecentSession {
-                started_at: db_to_utc(s.started_at),
-                ended_at: s.ended_at.map(db_to_utc),
-                duration: s.duration,
-            }).collect();
-
-            let server_entry = ProfileServerEntry {
-                server_id: server_id.clone(),
-                server_name: server.server_name.clone().unwrap_or_default(),
-                by_id,
-                is_online: server_online,
-                last_played: server_last_played,
-                last_played_duration: server_duration,
-                player: detail,
-                linked_names,
-                mergeable_count,
-                recent_sessions,
-            };
+            total_playtime += server_entry.player.total_playtime;
 
             let community_id = entry.community_id.to_string();
             let com = results.entry(community_id.clone()).or_insert(ProfileCommunityDetail {
@@ -1125,50 +1150,6 @@ impl AccountsApi {
 
         let result = app.player_worker.get_global_playtime(&canonical_id).await;
         handle_worker_result(result, "Player not found")
-    }
-
-    /// A player's playtime broken down per community. `player_id` may be `"me"` or a numeric Steam ID.
-    #[oai(path="/players/:player_id/communities_playtime", method="get", tag = "ApiTags::Players")]
-    async fn get_user_communities_playtime(
-        &self,
-        Data(app): Data<&AppData>,
-        OptionalTokenBearer(requester): OptionalTokenBearer,
-        Path(player_id): Path<String>,
-    ) -> Response<Vec<PlayerCommunityPlaytime>> {
-        let pool = &*app.pool;
-        let target_user_id = match resolve_user_id(&player_id, &requester) {
-            Ok(id) => id,
-            Err(e) => return e,
-        };
-
-        let Some(canonical_id) = resolve_canonical_player_id(pool, &target_user_id.to_string()).await else {
-            return response!(ok vec![]);
-        };
-
-        let anonymization_settings = sqlx::query_as!(
-            DbUserAnonymization,
-            "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
-            canonical_id.parse::<i64>().unwrap_or(target_user_id)
-        ).fetch_all(pool).await;
-        let anonymization_settings = or_ise!(anonymization_settings);
-        let excluded = or_ise!(hidden_community_ids(
-            app,
-            &canonical_id,
-            &anonymization_settings,
-            requester.as_ref().map(|token| token.id),
-        ).await);
-
-        match app.player_worker.get_community_playtime(&canonical_id).await {
-            Ok(mut rows) => {
-                rows.retain(|row| {
-                    Uuid::parse_str(&row.community_id)
-                        .map(|id| !excluded.contains(&id))
-                        .unwrap_or(true)
-                });
-                response!(ok rows)
-            }
-            Err(error) => handle_worker_result(Err(error), "Player not found"),
-        }
     }
 
     /// A player's playtime by day, summed across every server they've played on.

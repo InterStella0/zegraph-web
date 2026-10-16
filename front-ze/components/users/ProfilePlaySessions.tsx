@@ -1,6 +1,6 @@
 'use client'
 import { useTranslations } from 'next-intl';
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, use, useEffect, useState } from "react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -15,6 +15,7 @@ import { Skeleton } from "components/ui/skeleton";
 import { getServerAvatarText } from "components/ui/CommunitySelector.tsx";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import SessionDateFilter from "components/players/SessionDateFilter";
+import { useResource } from "lib/hooks/useResource";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -78,47 +79,48 @@ function SessionRow({ session }: { session: GlobalPlayerSession }): ReactElement
     );
 }
 
+export function ProfilePlaySessionsLoading(): ReactElement {
+    const t = useTranslations('players.sessions');
+    return (
+        <Card className="border-border/40 bg-card/50 p-2 backdrop-blur-xl">
+            <CardContent className="px-1 max-sm:px-1">
+                <div className="mb-2 space-y-2">
+                    <h2 className="text-base font-semibold">{t('title')}</h2>
+                    <SessionDateFilter selectedDate={undefined} onSelectDate={() => {}} compact />
+                </div>
+                <div className="max-h-[525px] overflow-y-auto mb-2 pr-1">
+                    <div className="space-y-1">
+                        {Array.from({ length: 10 }).map((_, index) => (<SessionSkeleton key={index} />))}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 /**
  * A player's sessions across every server, for the global profile page.
  *
- * Fetches client-side rather than taking a server-started promise: the list is driven by page and
- * date-filter state, so the client fetch path has to exist regardless, and the section sits below
- * the fold on a page that has no Suspense boundaries.
- *
  * `userId` may be the literal `"me"` — `fetchApiUrl` routes through `/api`, which attaches the JWT.
  */
-export default function ProfilePlaySessions({ userId }: { userId: string }): ReactElement {
+export default function ProfilePlaySessions({ userId, initialDataPromise }: {
+    userId: string,
+    initialDataPromise: Promise<GlobalPlayerSessionPage | null>,
+}): ReactElement {
     const t = useTranslations('players.sessions');
-    const [loading, setLoading] = useState<boolean>(true);
-    const [sessionList, setSessionList] = useState<GlobalPlayerSession[]>([]);
+    const initialData = use(initialDataPromise);
     const [page, setPage] = useState<number>(0);
-    const [totalPages, setTotalPages] = useState<number>(1);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
-    useEffect(() => {
-        setLoading(true);
-        const abort = new AbortController();
+    const { data, loading } = useResource<GlobalPlayerSessionPage>(signal => {
         const params: { page: number, datetime?: string } = { page };
-
         if (selectedDate) {
             params.datetime = dayjs(selectedDate).utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
         }
-
-        fetchApiUrl(`/players/${userId}/sessions`, { params, signal: abort.signal })
-            .then((data: GlobalPlayerSessionPage) => {
-                setSessionList(data.rows);
-                setTotalPages(data.total_pages);
-                setLoading(false);
-            })
-            .catch((error) => {
-                if (error.name !== 'AbortError') {
-                    console.error('Failed to fetch global sessions:', error);
-                    setLoading(false);
-                }
-            });
-
-        return () => { abort.abort(); };
-    }, [userId, page, selectedDate]);
+        return fetchApiUrl(`/players/${userId}/sessions`, { params, signal });
+    }, [userId, page, selectedDate], { initial: initialData ?? undefined, keepData: true, errorLog: 'Failed to fetch global sessions:' });
+    const sessionList: GlobalPlayerSession[] = data?.rows ?? [];
+    const totalPages = data?.total_pages ?? 1;
 
     const handleDateChange = (newDate: Date | undefined) => {
         setSelectedDate(newDate);

@@ -492,17 +492,22 @@ pub struct DbGlobalPlaytimeSnapshot {
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
 #[db_into(PlayerCommunityPlaytime)]
-pub struct DbPlayerCommunityPlaytime {
+pub struct DbGlobalCommunityPlaytime {
+    #[skip]
+    pub player_id: String,
     #[method(to_string)]
     pub community_id: uuid::Uuid,
     pub community_name: String,
     pub icon_url: Option<String>,
     pub total_playtime: Option<PgInterval>,
+    #[skip]
+    pub anonymized: bool,
 }
 
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
 #[db_into(GlobalPlayerBrief)]
+#[extra(communities = vec![], pfp = None)]
 pub struct DbGlobalPlayerBrief {
     #[rename(id)]
     pub player_id: String,
@@ -519,4 +524,11 @@ pub struct DbGlobalPlayerBrief {
     pub game: Option<String>,
     #[skip]
     pub total_players: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DbGlobalPlayerPage {
+    pub total_players: i64,
+    pub players: Vec<DbGlobalPlayerBrief>,
+    pub communities: Vec<DbGlobalCommunityPlaytime>,
 }

@@ -3,7 +3,7 @@
 import { ProfileCommunityDetail, UserAnonymization } from "types/community";
 import { getServerAvatarText } from "../ui/CommunitySelector";
 import { secondsToHours } from "utils/generalUtils";
-import Link from "next/link";
+import { HoverPrefetchLink } from "components/ui/HoverPrefetchLink";
 import { Card, CardContent } from "components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 import { Switch } from "components/ui/switch";
@@ -222,12 +222,12 @@ export default function CommunityConnectionCard({
                                     <div className="flex-1 min-w-0 space-y-1">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             {serverPlayer.player.total_playtime > 0 ? (
-                                                <Link
+                                                <HoverPrefetchLink
                                                     href={`/servers/${serverPlayer.server_id}/players/${serverPlayer.player.id}`}
                                                     className="text-sm font-medium hover:underline"
                                                 >
                                                     {serverPlayer.server_name}
-                                                </Link>
+                                                </HoverPrefetchLink>
                                             ) : (
                                                 <p className="text-sm font-medium">
                                                     {serverPlayer.server_name}
