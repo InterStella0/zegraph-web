@@ -77,7 +77,7 @@ function HoursSplitBar({ communities }: { communities: PlayerCommunityPlaytime[]
 export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief }) {
     const t = useTranslations('players.global');
     const locale = useLocale();
-    const communities = player.communities;
+    const communities = player.communities ?? [];
     const isOnline = !!player.online_since;
     const lastCommunity = communities.find(c => c.community_id === player.last_community_id);
     const gameMeta = player.game ? GAME_META[player.game] : undefined;

@@ -3,7 +3,8 @@ import {Suspense} from "react";
 import {getTranslations} from "next-intl/server";
 import GlobalPlayerList, {GlobalPlayerListLoading} from "components/players/GlobalPlayerList";
 import GlobalPlayersOnline, {GlobalPlayersOnlineLoading} from "components/players/GlobalPlayersOnline";
-import {fetchApiUrl, socialMeta} from "utils/generalUtils.ts";
+import {fetchApiUrl, fetchUrl, socialMeta} from "utils/generalUtils.ts";
+import getServerUser from "app/getServerUser.ts";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
@@ -20,7 +21,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Page() {
-    const globalPlayersPromise = fetchApiUrl('/communities/all/players', {params: {page: 0}});
+    const userPromise = getServerUser();
+    const globalPlayersPromise = userPromise.then(user =>
+        (user ? fetchApiUrl : fetchUrl)('/communities/all/players', {params: {page: 0}})
+    );
     const globalOnlinePromise = fetchApiUrl('/communities/all/players/playing');
 
     return (
@@ -29,7 +33,7 @@ export default async function Page() {
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem] gap-4 sm:gap-6 items-start">
                     <section className="min-w-0">
                         <Suspense fallback={<GlobalPlayerListLoading/>}>
-                            <GlobalPlayerList initialDataPromise={globalPlayersPromise} />
+                            <GlobalPlayerList initialDataPromise={globalPlayersPromise} userPromise={userPromise} />
                         </Suspense>
                     </section>
                     <aside className="min-w-0 lg:sticky lg:top-4">
