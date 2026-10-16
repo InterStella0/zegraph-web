@@ -15,8 +15,8 @@ them will run without it.
 
 | Script | What it does | Runs on | Called by |
 |---|---|---|---|
-| `deploy-scripts.sh` | Build, push to Docker Hub, ship `.env` and deploy to the VPS | the runner, or your machine | `.github/workflows/deployment.yml`, on push to `main` |
-| `deploy-swarm.sh` | `docker stack deploy` with `.env` loaded into the environment | the VPS (swarm manager) | `deploy-scripts.sh`, over ssh |
+| `deploy-scripts.sh` | Build, push to Docker Hub, have Dokploy deploy the stack and wait for it | the runner, or your machine | `.github/workflows/deployment.yml`, on push to `main` |
+| `deploy-swarm.sh` | `docker stack deploy` with `.env` loaded into the environment | the VPS (swarm manager) | nothing — the manual fallback when Dokploy is unavailable |
 | `deploy-staging.sh` | Build and run the staging stack on the same host | the runner | `.github/workflows/staging.yml`, on push to `development` |
 | `staging-db-reset.sh` | Drop the staging database and replay `db.sql` into a fresh one | the runner | `deploy-staging.sh`, when the schema marker does not match |
 | `check-schema.sh` | Diff a live database against `db.sql` and report the drift | anywhere with `psql` | nothing — run it by hand |
@@ -27,8 +27,9 @@ flowchart TB
     direction TB
     ProdCI("deployment.yml") --> DeployScripts("deploy-scripts.sh")
     DeployScripts -- "build + push" --> Hub[("Docker Hub")]
-    DeployScripts -- "scp .env, ssh" --> Swarm("deploy-swarm.sh")
-    Swarm --> Stack[["docker stack deploy ze"]]
+    DeployScripts -- "compose.deploy, then wait" --> Dokploy("Dokploy")
+    Dokploy --> Stack[["docker stack deploy ze"]]
+    Swarm("deploy-swarm.sh") -. "manual fallback" .-> Stack
     Hub -. "workers pull" .-> Stack
   end
   subgraph STG["🧪 Staging — push to development"]
@@ -49,7 +50,7 @@ flowchart TB
   classDef prod fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000000
   classDef stg fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000000
   classDef man fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000000
-  class ProdCI,DeployScripts,Swarm,Stack,Hub prod
+  class ProdCI,DeployScripts,Dokploy,Swarm,Stack,Hub prod
   class StgCI,Gate,Staging,Reset,Tests,Images,Deploy stg
   class Check,Drift man
   style PROD fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000000
@@ -81,9 +82,9 @@ hour, so edits to the catalog show up there without a frontend change.
 
 ## `deploy-scripts.sh`
 
-The production deploy, driven from the runner. It builds the `compose.yaml` images and pushes them to
-Docker Hub, checks the VPS is reachable over ssh, copies `.env` up, then hands over to
-`deploy-swarm.sh` on the other side.
+The production deploy, driven from the runner. It checks Dokploy is reachable, builds the `compose.yaml`
+images and pushes them to Docker Hub, then asks Dokploy to deploy the `ze` stack and follows that
+deployment until it finishes.
 
 ```bash
 bash ./deployment/deploy-scripts.sh
@@ -91,22 +92,34 @@ bash ./deployment/deploy-scripts.sh
 
 | Variable | Effect |
 |---|---|
-| `SSH_CONFIG_FILE` | ssh config to use. CI builds a throwaway one from secrets and points here; unset locally, so the `server` alias in `~/.ssh/config` is used instead. |
+| `DOKPLOY_URL` | Base URL of the Dokploy dashboard, reachable from wherever the script runs. CI reads it from the `DOKPLOY_URL` repository variable. |
+| `DOKPLOY_COMPOSE_ID` | Id of the Dokploy compose service that deploys the stack. CI reads it from the `DOKPLOY_COMPOSE_ID` repository variable. |
+| `DOKPLOY_API_KEY` | Dokploy API key. CI reads it from the `DOKPLOY_API_KEY` repository secret. Leave rate limiting off on this key, or the polling runs out of requests. |
 | `GITHUB_ACTIONS` | Set by Actions. When present the leading `git pull` is skipped. |
 
 Notes:
 
 - The `git pull` only happens outside CI. `actions/checkout` already places the exact pushed commit,
   and pulling on its detached HEAD would fail.
-- The ssh reachability probe (`-o BatchMode=yes -o ConnectTimeout=10 server true`) runs *before* the
-  `scp`, so an unreachable VPS aborts the deploy instead of failing halfway through the upload.
-- The remote side runs `git pull && bash ./deployment/deploy-swarm.sh` in `~/gfl-ze-watcher`, so the
-  VPS needs a checkout there.
+- The Dokploy probe runs *before* the build, so an unreachable Dokploy, a bad key or a wrong compose id
+  aborts in seconds instead of after a long build. It also refuses to deploy unless Dokploy's command
+  still targets the stack `ze` — Dokploy suffixes its app names, so without the custom command a deploy
+  would start a second stack next to the live one.
+- Dokploy keeps the runtime `.env` (the compose service's Environment tab) and clones `main` for
+  `compose-swarm.yaml` on every deploy. The `.env` staged here only feeds the image build — the frontend
+  bakes `NEXT_PUBLIC_*` in at build time — so a variable used in both places has to be changed in both.
+- Dokploy runs `docker stack deploy -c ./compose-swarm.yaml ze --prune --with-registry-auth --detach=false`
+  through its custom command, which keeps the stack name `ze`. With `--detach=false` the deployment only
+  ends as `done` once every service converged; a paused or rolled-back update ends as `error`.
+- `compose.deploy` only queues the job, so the script remembers the newest deployment first and waits
+  for a new one before following it. `error` or `cancelled` (Dokploy restarted mid-deploy) fails the job,
+  and so does going past 20 minutes.
 
 ## `deploy-swarm.sh`
 
 Runs **on the VPS**, from the repo root. It sources `.env` into the environment and then
-`docker stack deploy`s `compose-swarm.yaml`.
+`docker stack deploy`s `compose-swarm.yaml`. Dokploy does the same thing on every normal deploy, so this
+is only the manual fallback for when Dokploy is unavailable.
 
 ```bash
 ./deployment/deploy-swarm.sh
@@ -257,7 +270,9 @@ Notes:
 - **In CI** the file is never committed. Both workflows copy it from an absolute path on the runner,
   given by the `ENV_LOCATION` (production) and `STAGING_ENV_LOCATION` (staging) repository variables,
   and delete it again in an `if: always()` step. These are two different files and must stay that way.
-- **Production** additionally needs a `server` ssh alias resolving to the VPS (or `SSH_CONFIG_FILE`
-  pointing at a config that defines one), a Docker Hub login for the push, and a checkout at
-  `~/gfl-ze-watcher` on the VPS with swarm already initialised.
+- **Production** additionally needs a Docker Hub login for the push, Dokploy on the swarm manager with a
+  Docker Hub login of its own for the pull, and the `DOKPLOY_*` variables and secret above. The
+  `~/gfl-ze-watcher` checkout on the VPS stays: `reverse` and `redis` bind-mount `front-ze/public` and
+  `redis.conf` from it (Dokploy re-clones its own copy on every deploy, which would leave those mounts
+  empty), so `git pull` it after changing either, and `deploy-swarm.sh` runs from it.
 - **`check-schema.sh`** needs `psql` and nothing else — it does not go through compose.

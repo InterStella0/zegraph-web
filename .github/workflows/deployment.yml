@@ -10,9 +10,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Absolute path on the machine deploying real production .env, kept outside the
-  # repo so actions/checkout cannot wipe it. Set as the ENV_LOCATION repository
-  # variable (Settings -> Secrets and variables -> Actions -> Variables).
+  # Absolute path on the runner to the production .env the images are built with (the frontend
+  # bakes NEXT_PUBLIC_* in at build time), kept outside the repo so actions/checkout cannot wipe
+  # it. The runtime env lives in Dokploy. Set as the ENV_LOCATION repository variable
+  # (Settings -> Secrets and variables -> Actions -> Variables).
   ENV_SOURCE: ${{ vars.ENV_LOCATION }}
 
 jobs:
@@ -112,47 +113,16 @@ jobs:
           fi
           cp "$ENV_SOURCE" .env
 
-      - name: Configure ssh access to the deploy target
-        shell: bash
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
-          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
-          DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
-          DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
-        run: |
-          for v in DEPLOY_SSH_KEY DEPLOY_SSH_KNOWN_HOSTS DEPLOY_SSH_HOST DEPLOY_SSH_USER; do
-            if [[ -z "${!v}" ]]; then
-              echo "error: $v secret is empty or not set" >&2
-              exit 1
-            fi
-          done
-          ssh_dir="$RUNNER_TEMP/deploy-ssh"
-          rm -rf "$ssh_dir"
-          mkdir -p "$ssh_dir"
-          chmod 700 "$ssh_dir"
-          umask 077
-          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/id_deploy"
-          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
-          cat > "$ssh_dir/config" <<EOF
-          Host server
-            HostName $DEPLOY_SSH_HOST
-            User $DEPLOY_SSH_USER
-            Port ${DEPLOY_SSH_PORT:-22}
-            IdentityFile $ssh_dir/id_deploy
-            IdentitiesOnly yes
-            UserKnownHostsFile $ssh_dir/known_hosts
-            StrictHostKeyChecking yes
-          EOF
-          echo "SSH_CONFIG_FILE=$ssh_dir/config" >> "$GITHUB_ENV"
-
       - name: Build, push, and deploy
         shell: bash
+        env:
+          # Dokploy is only reachable over the tailnet, which is why this job stays on stella-pc.
+          DOKPLOY_URL: ${{ vars.DOKPLOY_URL }}
+          DOKPLOY_COMPOSE_ID: ${{ vars.DOKPLOY_COMPOSE_ID }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
         run: bash ./deployment/deploy-scripts.sh
 
       - name: Remove staged secrets
         if: always()
         shell: bash
-        run: |
-          rm -f .env
-          rm -rf "$RUNNER_TEMP/deploy-ssh"
+        run: rm -f .env
