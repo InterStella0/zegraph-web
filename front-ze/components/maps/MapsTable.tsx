@@ -3,6 +3,7 @@ import { Ban, Clock, Heart} from 'lucide-react';
 import dayjs from 'dayjs';
 import {secondsToHours} from "utils/generalUtils";
 import {loadMapImage} from "lib/batchLoader";
+import {useLocalDayjs} from "lib/hooks/useHydrated";
 import {useEffect, useState} from "react";
 import duration from "dayjs/plugin/duration";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -71,6 +72,7 @@ const MapsRowSkeleton = ({ index, showNotify }: { index: number, showNotify: boo
 
 export const StatusChip = ({ map }) => {
     const t = useTranslations('maps.table');
+    const toDayjs = useLocalDayjs();
     if (!map.enabled) return (
         <Badge variant="destructive" className="gap-1">
             <Ban className="h-3 w-3" />
@@ -86,12 +88,12 @@ export const StatusChip = ({ map }) => {
         );
     }
     if (map.pending_cooldown || map.cooldown) {
-        const cooldown = dayjs(map.cooldown);
+        const cooldown = toDayjs(map.cooldown);
         if (cooldown.diff(dayjs(), "second") > 0)
             return (
                 <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 dark:text-amber-500">
                     <Clock className="h-3 w-3" />
-                    {cooldown.fromNow(true)}
+                    <span suppressHydrationWarning>{cooldown.fromNow(true)}</span>
                 </Badge>
             );
     }
@@ -117,6 +119,7 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
 }) {
     const t = useTranslations('maps.table');
     const locale = useLocale();
+    const toDayjs = useLocalDayjs();
     const [ mapImage, setMapImage ] = useState(null);
     const server_id = server.id
     useEffect(() => {
@@ -192,8 +195,8 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
                 {map.total_sessions}
             </TableCell>
             <TableCell align="center">
-                <span className="text-sm text-muted-foreground">
-                    {dayjs(map.last_played).fromNow()}
+                <span className="text-sm text-muted-foreground" suppressHydrationWarning>
+                    {toDayjs(map.last_played).fromNow()}
                 </span>
             </TableCell>
             <TableCell align="center">
