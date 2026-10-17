@@ -131,7 +131,7 @@ const SESSION_COOKIE = /^(__Secure-)?next-auth\.session-token(\.\d+)?$/;
 // Presence only, no decrypt: a stale cookie just keeps the request on the Next proxy, which
 // resolves the real session itself. The client can't read the httpOnly cookie, so it reads the
 // flag the root layout renders on <html> instead.
-async function hasSession(): Promise<boolean> {
+export async function hasSession(): Promise<boolean> {
     if (typeof window !== 'undefined')
         return document.documentElement.dataset.auth === "1";
     const cookieStore = await cookies();
