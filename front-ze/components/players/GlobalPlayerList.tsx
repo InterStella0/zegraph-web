@@ -2,9 +2,8 @@
 import {use, useEffect, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {Users} from 'lucide-react';
-import {fetchApiUrl, fetchUrl, simpleRandom} from "utils/generalUtils";
+import {fetchApiUrl, simpleRandom} from "utils/generalUtils";
 import {GlobalBriefPlayers} from "types/players";
-import {SteamProfile} from "types/steam";
 import {Card, CardContent, CardHeader} from "components/ui/card";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
@@ -77,14 +76,11 @@ export function GlobalPlayerListLoading() {
     );
 }
 
-function GlobalPlayerListDisplay({ initialDataPromise, userPromise }: {
+function GlobalPlayerListDisplay({ initialDataPromise }: {
     initialDataPromise: Promise<GlobalBriefPlayers>,
-    userPromise: Promise<SteamProfile | null>,
 }) {
     const t = useTranslations('players.global');
     const initialData = use(initialDataPromise);
-    const user = use(userPromise);
-    const fetchPlayers = user ? fetchApiUrl : fetchUrl;
     const [searchInput, setSearchInput] = useState<string>('');
     const [page, setPage] = useState<number>(0);
 
@@ -95,7 +91,7 @@ function GlobalPlayerListDisplay({ initialDataPromise, userPromise }: {
         setPage(0);
     }, [debouncedSearch]);
 
-    const { data, loading, error: fetchError } = useResource<GlobalBriefPlayers>(signal => fetchPlayers('/communities/all/players', {
+    const { data, loading, error: fetchError } = useResource<GlobalBriefPlayers>(signal => fetchApiUrl('/communities/all/players', {
         params: { page, ...(debouncedSearch && {search: debouncedSearch}) },
         signal,
     }), [page, debouncedSearch], { initial: initialData, keepData: true, errorLog: 'Error fetching global players:' });

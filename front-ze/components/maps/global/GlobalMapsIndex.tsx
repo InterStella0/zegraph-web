@@ -72,7 +72,6 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
     const t = useTranslations('maps.global');
     const initialData = use(initialDataPromise);
     const user = use(userPromise);
-    const fetchMaps = user ? fetchApiUrl : fetchUrl;
 
     const [searchInput, setSearchInput] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState<string>('');
@@ -122,7 +121,7 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
     }, [searchInput]);
 
     const filterMode = getFilterMode(filterTab);
-    const { data, loading, error } = useResource<GlobalMapPaginated>(signal => fetchMaps('/maps', {
+    const { data, loading, error } = useResource<GlobalMapPaginated>(signal => fetchApiUrl('/maps', {
         params: {
             page,
             sorted_by: sortBy,

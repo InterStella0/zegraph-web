@@ -5,7 +5,7 @@ import {ThemeProvider} from "components/providers/theme-provider";
 import {CommunityServerProvider} from "components/ui/ServerProvider";
 import {getCommunity} from "./getCommunity";
 import './globals.css'
-import {DOMAIN} from "utils/generalUtils.ts";
+import {DOMAIN, hasSession} from "utils/generalUtils.ts";
 import {Toaster} from "components/ui/sonner";
 import {SakuraBackground} from "components/backgrounds/SakuraBackground";
 import {inter} from './fonts';
@@ -77,13 +77,16 @@ export default async function RootLayout({
     const user = getServerUser();
     const donorBanner = getDonorBanner();
     const locale = await getLocale();
+    // Read by fetchUrl in the browser to route anonymous reads straight to the backend. Cookie
+    // presence only (same check fetchUrl uses on the server), so the layout never waits on auth().
+    const signedIn = await hasSession();
     // AdSpot renders an <amp-ad> element, which needs the AMP runtime. Only pull in that
     // third-party script when AdSpot will actually render one.
     const adsEnabled = process.env.NEXT_PUBLIC_AD_SHOW?.toUpperCase() !== "FALSE"
         && !!process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
         && !!process.env.NEXT_PUBLIC_ADSENSE_AD_SLOT;
     return (
-        <html lang={locale} className={inter.variable} suppressHydrationWarning>
+        <html lang={locale} className={inter.variable} data-auth={signedIn ? "1" : undefined} suppressHydrationWarning>
             <head>
                 <link rel="icon" href="/favicon.ico" sizes="any" />
                 <meta name="theme-color" content="#f48fb1" />

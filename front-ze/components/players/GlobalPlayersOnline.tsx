@@ -18,6 +18,7 @@ dayjs.extend(duration);
 
 const PLAYERS_PER_PAGE = 15;
 const REFRESH_MS = 60_000;
+const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
 
 function GlobalPlayersOnlineSkeleton({count = PLAYERS_PER_PAGE}: { count?: number }) {
     return (
@@ -81,7 +82,7 @@ function GlobalPlayersOnlineDisplay({ initialDataPromise }: { initialDataPromise
 
         const load = (initial: boolean) => {
             if (initial) setLoading(true);
-            fetchApiUrl('/communities/all/players/playing', {signal})
+            fetchApiUrl('/communities/all/players/playing', {signal, ...NO_CACHE})
                 .then((data: PlayerDetailSessionCommunity[]) => {
                     setPlayers(data || []);
                     setError(null);
