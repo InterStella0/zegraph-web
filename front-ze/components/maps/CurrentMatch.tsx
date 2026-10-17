@@ -14,6 +14,9 @@ import {ContinentStatistics} from "types/players.ts";
 import PlayerContinentCounter from "components/players/PlayerContinentCounter.tsx";
 import {Skeleton} from "components/ui/skeleton";
 import {Badge} from "components/ui/badge";
+import {Avatar, AvatarFallback, AvatarImage} from "components/ui/avatar";
+import {GAME_META} from "components/ui/ServerIndicator";
+import {getServerAvatarText} from "components/ui/CommunitySelector";
 import {Button} from "components/ui/button";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "components/ui/tooltip";
 import {usePushNotifications} from "lib/hooks/usePushNotifications";
@@ -92,17 +95,18 @@ export default function CurrentMatch({ serverPromise, mapCurrentPromise, playerC
     return <CurrentMatchDisplay server={server} mapImage={mapImage} currentMatch={currentMatch ?? serverSideCurrentMatch} continentData={continentData ?? playerContinents} user={user} />
 }
 
-export function CurrentMatchSkeleton() {
+export function CurrentMatchSkeleton({ className = "mb-6" }: { className?: string }) {
     const t = useTranslations('servers.currentMatch');
     return (
-        <div className="mb-6 border border-border rounded-lg bg-gradient-to-br from-primary/5 via-secondary/5 to-background p-6">
+        <div className={`${className} border border-border rounded-lg bg-gradient-to-br from-primary/5 via-secondary/5 to-background p-6`}>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                 <div className="md:col-span-4">
                     <Skeleton className="w-full h-40 rounded-lg" />
                 </div>
                 <div className="md:col-span-5">
-                    <span className="text-xs uppercase tracking-widest font-bold text-primary">
-                        🎮 {t('currentlyPlaying')}
+                    <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-primary">
+                        <Play className="h-3 w-3 fill-current"/>
+                        {t('playing')}
                     </span>
                     <div className="text-2xl md:text-4xl mb-2 font-bold">
                         <Skeleton className="inline-block align-middle h-6 md:h-8 w-56 max-w-full" />{'\u200b'}
@@ -162,8 +166,11 @@ export function CurrentMatchSkeleton() {
     );
 }
 
-function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, user }: {
-    server: Server, mapImage: string | null, currentMatch: ServerMapMatch, continentData: ContinentStatistics, user: SteamProfile | null
+export function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, user, className = "mb-6", showServer = false }: {
+    server: Server, mapImage: string | null, currentMatch: ServerMapMatch, continentData: ContinentStatistics, user: SteamProfile | null,
+    className?: string,
+    /** Show which community and server the match is on; for pages that span several servers. */
+    showServer?: boolean,
 }) {
     const t = useTranslations('servers.currentMatch');
     const [currentTime, setCurrentTime] = useState(dayjs());
@@ -314,7 +321,7 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
             <TooltipProvider>
                 <div
                     suppressHydrationWarning
-                    className="mb-6 border border-border rounded-lg bg-gradient-to-br from-primary/5 via-secondary/5 to-background p-6"
+                    className={`${className} border border-border rounded-lg bg-gradient-to-br from-primary/5 via-secondary/5 to-background p-6`}
                 >
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                         <div className="md:col-span-4">
@@ -334,13 +341,16 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
                             </div>
                         </div>
                         <div className="md:col-span-5">
-                            <span className="text-xs uppercase tracking-widest font-bold text-primary">
-                                🎮 {t('currentlyPlaying')}
+                            <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-primary">
+                                <Play className="h-3 w-3 fill-current"/>
+                                {t('playing')}
                             </span>
 
                             <h4 className="text-2xl md:text-4xl mb-2 font-bold overflow-hidden text-ellipsis whitespace-nowrap max-w-[40rem]">
                                 {currentMatch.map}
                             </h4>
+
+                            {showServer && <MatchServerLine server={server}/>}
 
                             <p suppressHydrationWarning className="text-sm text-muted-foreground mb-2">
                                 {t('playingFor', {duration})}
@@ -441,5 +451,31 @@ function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, us
             </TooltipProvider>
             <LoginDialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)} />
         </>
+    );
+}
+
+function MatchServerLine({ server }: { server: Server }) {
+    const gameMeta = server.game ? GAME_META[server.game] : undefined;
+    return (
+        <div className="flex items-center gap-2 mb-2 min-w-0 text-sm">
+            <Avatar className="w-5 h-5 shrink-0">
+                {server.community_icon && <AvatarImage src={server.community_icon} alt={server.community_name}/>}
+                <AvatarFallback className="text-[9px]">
+                    {getServerAvatarText(server.community_shorten_name || server.community_name)}
+                </AvatarFallback>
+            </Avatar>
+            <HoverPrefetchLink
+                href={`/servers/${server.gotoLink}`}
+                className="font-medium truncate hover:text-primary transition-colors"
+            >
+                {server.community_name}
+            </HoverPrefetchLink>
+            <span className="text-muted-foreground truncate">· {server.name}</span>
+            {gameMeta && (
+                <Badge variant="outline" className={`h-5 px-1.5 text-[10px] shrink-0 ${gameMeta.className}`}>
+                    {gameMeta.label}
+                </Badge>
+            )}
+        </div>
     );
 }

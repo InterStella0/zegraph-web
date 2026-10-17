@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use poem_openapi::{Enum, Object};
 use serde::{Deserialize, Serialize};
+use crate::core::utils::MapImage;
 
 /// A player's rank on a single map, by playtime.
 #[derive(Object)]
@@ -178,6 +179,64 @@ pub struct MapWithModels {
 pub struct MapPlayedPaginated{
     pub total_maps: i32,
     pub maps: Vec<MapPlayed>
+}
+
+/// One server's state for a map in the global map listing.
+#[derive(Object)]
+pub struct GlobalMapServer{
+    pub server_id: String,
+    pub game: String,
+    pub enabled: bool,
+    pub removed: bool,
+    /// When this map's nomination cooldown expires on this server, if one is active.
+    pub cooldown: Option<DateTime<Utc>>,
+    pub map_left: Option<i32>,
+    pub min_players: Option<i16>,
+    /// Whether this server is currently playing the map.
+    pub is_playing: bool,
+    pub last_played: DateTime<Utc>,
+    /// Player-hours on this server, not wall-clock time.
+    pub total_cum_time: f64,
+}
+
+/// A map's entry in the global map listing, aggregated across every server that has played it.
+#[derive(Object)]
+pub struct GlobalMapPlayed{
+    pub map: String,
+    pub is_tryhard: bool,
+    pub is_casual: bool,
+    pub has_lasers: bool,
+    /// Whether nominations are blocked on every server that has the map.
+    pub no_noms: bool,
+    pub total_time: f64,
+    pub total_sessions: i32,
+    /// Sum of every player's individual playtime on this map (player-hours, not wall-clock time).
+    pub total_cum_time: f64,
+    /// Distinct players across every server, alt accounts merged.
+    pub unique_players: i32,
+    pub last_played: Option<DateTime<Utc>>,
+    /// Whether any server is currently playing the map.
+    pub is_playing: bool,
+    /// Whether the requesting user has favorited this map (`None` if not signed in).
+    pub is_favorite: Option<bool>,
+    /// Game types of the servers that have the map.
+    pub games: Vec<String>,
+    /// Per-server state, most player-hours first.
+    pub servers: Vec<GlobalMapServer>,
+    pub image: Option<MapImage>,
+}
+
+/// A page of the global map listing.
+#[derive(Object)]
+pub struct GlobalMapPaginated{
+    pub total_maps: i32,
+    pub maps: Vec<GlobalMapPlayed>
+}
+
+/// A map, identified by name across every server.
+#[derive(Object)]
+pub struct GlobalMapName{
+    pub map: String,
 }
 
 /// Aggregate performance metrics for a map.

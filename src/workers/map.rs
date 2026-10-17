@@ -468,6 +468,29 @@ worker_query! {
               dropoff_rate = EXCLUDED.dropoff_rate,
               avg_players_per_session = EXCLUDED.avg_players_per_session;
         ", ctx.data.server_id, ctx.data.map_name).execute(&*ctx.pool).await;
+        // Distinct players across every server, alts merged, for the global /maps page. This body only
+        // runs when this server's map cache misses (a new session ended, or the cache expired), so the
+        // recount happens on every map end without the daily sweep repeating it for unchanged maps.
+        // Session players are collected first so alt accounts are only resolved for those players;
+        // about 0.1-0.3s for the busiest maps on a production-sized copy.
+        let _ = sqlx::query!("
+            WITH session_players AS (
+                SELECT DISTINCT pss.player_id
+                FROM server_map_played smp
+                JOIN player_server_session pss
+                    ON pss.server_id = smp.server_id
+                   AND tstzrange(pss.started_at, pss.ended_at) && tstzrange(smp.started_at, smp.ended_at)
+                WHERE smp.map = $1
+                  AND smp.server_id = ANY(SELECT server_id FROM server_map WHERE map = $1)
+            )
+            INSERT INTO website.global_map_analyze (map, unique_players, calculated_at)
+            SELECT $1::TEXT, COUNT(DISTINCT COALESCE(p.associated_player_id, sp.player_id)), CURRENT_TIMESTAMP
+            FROM session_players sp
+            JOIN player p ON p.player_id = sp.player_id
+            ON CONFLICT (map) DO UPDATE SET
+                unique_players = EXCLUDED.unique_players,
+                calculated_at = EXCLUDED.calculated_at
+        ", ctx.data.map_name).execute(&*ctx.pool).await;
         sqlx::query_as!(DbMapAnalyze, "
             SELECT map,
                 total_playtime,

@@ -132,6 +132,42 @@ export type MapPlayedPaginated = {
     maps: MapPlayed[]
 }
 
+export type GlobalMapServer = {
+    server_id: string,
+    game: string,
+    enabled: boolean,
+    removed: boolean,
+    cooldown: string | null,
+    map_left: number | null,
+    min_players: number | null,
+    is_playing: boolean,
+    last_played: string,
+    total_cum_time: number,
+}
+
+export type GlobalMapPlayed = {
+    map: string,
+    is_tryhard: boolean,
+    is_casual: boolean,
+    has_lasers: boolean,
+    no_noms: boolean,
+    total_time: number,
+    total_sessions: number,
+    total_cum_time: number,
+    unique_players: number,
+    last_played: string | null,
+    is_playing: boolean,
+    is_favorite: boolean | null,
+    games: string[],
+    servers: GlobalMapServer[],
+    image: MapImage | null,
+}
+
+export type GlobalMapPaginated = {
+    total_maps: number,
+    maps: GlobalMapPlayed[]
+}
+
 
 export type MapMusicTrack = {
     id: string;

@@ -121,7 +121,7 @@
       "lastRound": "最后一轮",
       "estimatedEndIn": "预计结束于",
       "probablyEnding": "现在可能快结束了~",
-      "currentlyPlaying": "当前进行中",
+      "playing": "进行中",
       "playingFor": "已进行 {duration}",
       "extendCount": "延长次数：{count}",
       "scoreTooltip": "人类比分 : 僵尸比分",
@@ -767,6 +767,7 @@
       "tryhard": "长程图",
       "hasLasers": "含激光",
       "availableNow": "当前可用",
+      "liveNow": "正在游玩",
       "favorites": "收藏"
     },
     "category": {
@@ -917,6 +918,22 @@
       "cancel": "取消",
       "submitting": "正在提交...",
       "submitReport": "提交报告"
+    },
+    "global": {
+      "title": "全球地图",
+      "subtitle": "CS2、CS:S 和 CS:GO 服务器上的 {count, number} 张地图",
+      "allGames": "所有游戏",
+      "communities": "社区",
+      "serversCount": "{count} 个服务器",
+      "playersCount": "{count} 名玩家",
+      "readyOn": "{ready}/{total} 个服务器就绪",
+      "playingOn": "进行中 · {server}",
+      "playingOnCount": "{count} 个服务器进行中",
+      "now": "现在",
+      "live": "直播",
+      "noLiveServers": "当前没有在线的服务器。",
+      "noMapsFound": "未找到地图",
+      "loadError": "无法加载全球地图列表。"
     }
   },
   "tracker": {
@@ -1102,6 +1119,8 @@
     "homeDescription": "为 CS2、CS:GO 和 CS:S 上的 Counter-Strike 僵尸逃脱服务器提供实时玩家人数、游戏时长排名和地图分析。GFL、Mapeadores、RSS、PSE 等。",
     "globalPlayersTitle": "全球玩家 | ZE Graph",
     "globalPlayersDescription": "搜索所有社区中被追踪的每一位 Zombie Escape 玩家，查看累计小时数、各社区游戏时长分布和全球排名。",
+    "globalMapsTitle": "全球地图 | ZE Graph",
+    "globalMapsDescription": "浏览所有被追踪社区中玩过的 Zombie Escape 地图，包含累计时长、独立玩家、场次和实时冷却状态。",
     "liveTitle": "实时追踪器",
     "liveDescription": "所有僵尸逃脱 (ZE) 玩家数据更新都通过这里实时传输。",
     "statusTitle": "状态",

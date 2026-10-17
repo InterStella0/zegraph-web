@@ -121,7 +121,7 @@
       "lastRound": "Última ronda",
       "estimatedEndIn": "Fin estimado en",
       "probablyEnding": "Probablemente terminando ahora~",
-      "currentlyPlaying": "Jugando ahora",
+      "playing": "Jugando",
       "playingFor": "Jugando desde hace {duration}",
       "extendCount": "{count} extensiones",
       "scoreTooltip": "Puntuación humanos : Puntuación zombis",
@@ -767,6 +767,7 @@
       "tryhard": "Tryhard",
       "hasLasers": "Tiene láseres",
       "availableNow": "Disponible ahora",
+      "liveNow": "En vivo",
       "favorites": "Favoritos"
     },
     "category": {
@@ -917,6 +918,22 @@
       "cancel": "Cancelar",
       "submitting": "Enviando...",
       "submitReport": "Enviar reporte"
+    },
+    "global": {
+      "title": "Mapas globales",
+      "subtitle": "{count, number} mapas en servidores de CS2, CS:S y CS:GO",
+      "allGames": "Todos los juegos",
+      "communities": "Comunidades",
+      "serversCount": "{count, plural, one {# servidor} other {# servidores}}",
+      "playersCount": "{count, plural, one {# jugador} other {# jugadores}}",
+      "readyOn": "Listo en {ready}/{total}",
+      "playingOn": "Jugando · {server}",
+      "playingOnCount": "{count, plural, one {Jugando en # servidor} other {Jugando en # servidores}}",
+      "now": "Ahora",
+      "live": "En vivo",
+      "noLiveServers": "No hay servidores en línea ahora mismo.",
+      "noMapsFound": "No se encontraron mapas",
+      "loadError": "No se pudo cargar la lista global de mapas."
     }
   },
   "tracker": {
@@ -1102,6 +1119,8 @@
     "homeDescription": "Recuento de jugadores en vivo, clasificaciones de tiempo de juego y análisis de mapas para servidores de Counter-Strike Zombie Escape en CS2, CS:GO y CS:S. GFL, Mapeadores, RSS, PSE y más.",
     "globalPlayersTitle": "Jugadores globales | ZE Graph",
     "globalPlayersDescription": "Busca a todos los jugadores de Zombie Escape rastreados en todas las comunidades, con horas totales, distribución del tiempo de juego por comunidad y rango global.",
+    "globalMapsTitle": "Mapas globales | ZE Graph",
+    "globalMapsDescription": "Explora todos los mapas de Zombie Escape jugados en todas las comunidades registradas, con horas acumuladas, jugadores únicos, sesiones y estado de enfriamiento en vivo.",
     "liveTitle": "Rastreador en vivo",
     "liveDescription": "Todas las actualizaciones de datos de jugadores de Zombie Escape (ZE) se transmiten por aquí.",
     "statusTitle": "Estado",

@@ -55,6 +55,12 @@ function resolveBuildCommit(): string {
 
 const nextConfig: NextConfig = {
     output: 'standalone',
+    // `next dev` blocks its dev resources for any origin other than localhost, so a page opened by
+    // LAN hostname or tailnet IP never hydrates. Comma-separated hosts from the local env; dev-only.
+    allowedDevOrigins: (process.env.ALLOWED_DEV_ORIGINS ?? '')
+        .split(',')
+        .map(origin => origin.trim())
+        .filter(Boolean),
     // Inlined at build time through both webpack and turbopack, unlike a DefinePlugin.
     env: {
         NEXT_PUBLIC_BUILD_COMMIT: resolveBuildCommit(),

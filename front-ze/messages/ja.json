@@ -121,7 +121,7 @@
       "lastRound": "最後のラウンド",
       "estimatedEndIn": "推定終了時間",
       "probablyEnding": "もうすぐ終わりそう~",
-      "currentlyPlaying": "現在プレイ中",
+      "playing": "プレイ中",
       "playingFor": "{duration}プレイ中",
       "extendCount": "{count}回延長",
       "scoreTooltip": "人間スコア：ゾンビスコア",
@@ -767,6 +767,7 @@
       "tryhard": "トライハード",
       "hasLasers": "レーザー搭載",
       "availableNow": "今すぐ利用可能",
+      "liveNow": "プレイ中",
       "favorites": "お気に入り"
     },
     "category": {
@@ -917,6 +918,22 @@
       "cancel": "キャンセル",
       "submitting": "送信中...",
       "submitReport": "報告を送信"
+    },
+    "global": {
+      "title": "グローバルマップ",
+      "subtitle": "CS2・CS:S・CS:GO サーバー全体で {count, number} マップ",
+      "allGames": "すべてのゲーム",
+      "communities": "コミュニティ",
+      "serversCount": "{count, plural, one {# サーバー} other {# サーバー}}",
+      "playersCount": "{count, plural, one {# プレイヤー} other {# プレイヤー}}",
+      "readyOn": "{ready}/{total} サーバーで準備完了",
+      "playingOn": "プレイ中 · {server}",
+      "playingOnCount": "{count, plural, one {# サーバーでプレイ中} other {# サーバーでプレイ中}}",
+      "now": "現在",
+      "live": "ライブ",
+      "noLiveServers": "現在オンラインのサーバーはありません。",
+      "noMapsFound": "マップが見つかりません",
+      "loadError": "グローバルマップ一覧を読み込めませんでした。"
     }
   },
   "tracker": {
@@ -1102,6 +1119,8 @@
     "homeDescription": "CS2、CS:GO、CS:S の Counter-Strike ゾンビエスケープサーバーのリアルタイム人数、プレイ時間ランキング、マップ分析。GFL、Mapeadores、RSS、PSE など。",
     "globalPlayersTitle": "グローバルプレイヤー | ZE Graph",
     "globalPlayersDescription": "全コミュニティで追跡されているすべての Zombie Escape プレイヤーを、累計時間・コミュニティ別プレイ時間の内訳・グローバルランクとともに検索できます。",
+    "globalMapsTitle": "グローバルマップ | ZE Graph",
+    "globalMapsDescription": "追跡中のすべてのコミュニティでプレイされた Zombie Escape マップを、累計時間・ユニークプレイヤー・セッション数・クールダウン状況とともに一覧できます。",
     "liveTitle": "ライブトラッカー",
     "liveDescription": "すべてのゾンビエスケープ(ZE)プレイヤーデータの更新がここを通じてストリーミングされます。",
     "statusTitle": "ステータス",

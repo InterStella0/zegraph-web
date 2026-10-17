@@ -121,7 +121,7 @@
       "lastRound": "Last round",
       "estimatedEndIn": "Estimated end in",
       "probablyEnding": "Probably ending now~",
-      "currentlyPlaying": "Currently Playing",
+      "playing": "Playing",
       "playingFor": "Playing for {duration}",
       "extendCount": "{count} Extend Count",
       "scoreTooltip": "Human Score : Zombie Score",
@@ -767,6 +767,7 @@
       "tryhard": "Tryhard",
       "hasLasers": "Has Lasers",
       "availableNow": "Available Now",
+      "liveNow": "Live Now",
       "favorites": "Favorites"
     },
     "category": {
@@ -917,6 +918,22 @@
       "cancel": "Cancel",
       "submitting": "Submitting...",
       "submitReport": "Submit Report"
+    },
+    "global": {
+      "title": "Global Maps",
+      "subtitle": "{count, number} maps across CS2, CS:S and CS:GO servers",
+      "allGames": "All games",
+      "communities": "Communities",
+      "serversCount": "{count, plural, one {# server} other {# servers}}",
+      "playersCount": "{count, plural, one {# player} other {# players}}",
+      "readyOn": "Ready on {ready}/{total}",
+      "playingOn": "Playing · {server}",
+      "playingOnCount": "{count, plural, one {Playing on # server} other {Playing on # servers}}",
+      "now": "Now",
+      "live": "Live",
+      "noLiveServers": "No servers are online right now.",
+      "noMapsFound": "No maps found",
+      "loadError": "Couldn't load the global map list."
     }
   },
   "tracker": {
@@ -1102,6 +1119,8 @@
     "homeDescription": "Live player counts, playtime rankings and map analytics for Counter-Strike Zombie Escape servers across CS2, CS:GO and CS:S. GFL, Mapeadores, RSS, PSE and more.",
     "globalPlayersTitle": "Global Players | ZE Graph",
     "globalPlayersDescription": "Search every tracked Zombie Escape player across all communities, with all-time hours, per-community playtime split and global rank.",
+    "globalMapsTitle": "Global Maps | ZE Graph",
+    "globalMapsDescription": "Browse every Zombie Escape map played across all tracked communities, with cumulative hours, unique players, sessions and live cooldown status.",
     "liveTitle": "Live Tracker",
     "liveDescription": "All Zombie Escape (ZE) player data updates are streamed through here.",
     "statusTitle": "Status",

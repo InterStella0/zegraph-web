@@ -30,6 +30,7 @@ export const pagesSelection: Record<'ServerSpecific' | 'Community', readonly Pag
     'Community': [
         {key: 'communities', href: '/'},
         {key: 'players', href: '/players'},
+        {key: 'maps', href: '/maps'},
         {key: 'discover', children: [
             {key: 'hub', href: '/hub'},
             {key: 'tracker', href: '/live'},

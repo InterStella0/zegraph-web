@@ -298,6 +298,17 @@
       "description": "List maps played on a server with sorting, category filtering, and name search. Results include activity and classification details and contain up to 25 maps per page.",
       "title": "Browse Server Maps"
     },
+    "list_maps_global": {
+      "arguments": {
+        "filter": "Optional map filter: `Casual`, `TryHard`, `HasLaser`, `Playing` (currently played on at least one server), or `Favorite`. `Favorite` requires the requester's bearer token.",
+        "game": "Optional game type to limit servers to: `730_cs2`, `240` (CS:S), or `730_csgo`.",
+        "page": "Zero-based page number; each page contains up to 25 maps.",
+        "search_map": "Optional case-insensitive substring to match against map names.",
+        "sorted_by": "Ranking order: `LastPlayed`, `HighestHour`, `HighestCumHour`, `FrequentlyPlayed`, or `UniquePlayers`."
+      },
+      "description": "List maps played across every community, grouped by map name, with sorting, category filtering, game filtering, and name search. Each map includes totals across servers, distinct players with alt accounts merged, live status, and the servers that have it. Contains up to 25 maps per page.",
+      "title": "Browse Maps Across All Communities"
+    },
     "list_online_players": {
       "arguments": {
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."

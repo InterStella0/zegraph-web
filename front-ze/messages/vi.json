@@ -121,7 +121,7 @@
       "lastRound": "Vòng cuối cùng",
       "estimatedEndIn": "Dự kiến kết thúc trong",
       "probablyEnding": "Có thể kết thúc ngay bây giờ~",
-      "currentlyPlaying": "Đang chơi",
+      "playing": "Đang chơi",
       "playingFor": "Đang chơi {duration}",
       "extendCount": "{count} Số lần gia hạn",
       "scoreTooltip": "Điểm con người : Điểm zombie",
@@ -767,6 +767,7 @@
       "tryhard": "Tryhard",
       "hasLasers": "Có tia laser",
       "availableNow": "Sẵn có bây giờ",
+      "liveNow": "Đang chơi",
       "favorites": "Yêu thích"
     },
     "category": {
@@ -917,6 +918,22 @@
       "cancel": "Hủy",
       "submitting": "Đang gửi...",
       "submitReport": "Gửi báo cáo"
+    },
+    "global": {
+      "title": "Bản đồ toàn cầu",
+      "subtitle": "{count, number} bản đồ trên các máy chủ CS2, CS:S và CS:GO",
+      "allGames": "Tất cả trò chơi",
+      "communities": "Cộng đồng",
+      "serversCount": "{count, plural, one {# máy chủ} other {# máy chủ}}",
+      "playersCount": "{count, plural, one {# người chơi} other {# người chơi}}",
+      "readyOn": "Sẵn sàng trên {ready}/{total}",
+      "playingOn": "Đang chơi · {server}",
+      "playingOnCount": "{count, plural, one {Đang chơi trên # máy chủ} other {Đang chơi trên # máy chủ}}",
+      "now": "Bây giờ",
+      "live": "Trực tiếp",
+      "noLiveServers": "Hiện không có máy chủ nào trực tuyến.",
+      "noMapsFound": "Không tìm thấy bản đồ",
+      "loadError": "Không thể tải danh sách bản đồ toàn cầu."
     }
   },
   "tracker": {
@@ -1102,6 +1119,8 @@
     "homeDescription": "Số lượng người chơi trực tiếp, bảng xếp hạng thời gian chơi và phân tích bản đồ cho các máy chủ Counter-Strike Zombie Escape trên CS2, CS:GO và CS:S. GFL, Mapeadores, RSS, PSE và nhiều hơn nữa.",
     "globalPlayersTitle": "Người chơi toàn cầu | ZE Graph",
     "globalPlayersDescription": "Tìm kiếm mọi người chơi Zombie Escape được theo dõi trên tất cả cộng đồng, cùng với số giờ toàn thời gian, phân bổ thời gian chơi theo từng cộng đồng và thứ hạng toàn cầu.",
+    "globalMapsTitle": "Bản đồ toàn cầu | ZE Graph",
+    "globalMapsDescription": "Xem mọi bản đồ Zombie Escape đã được chơi trên tất cả cộng đồng được theo dõi, kèm số giờ tích lũy, người chơi duy nhất, số phiên và trạng thái hồi chiêu trực tiếp.",
     "liveTitle": "Theo dõi trực tiếp",
     "liveDescription": "Tất cả các bản cập nhật dữ liệu người chơi Zombie Escape (ZE) được phát trực tiếp tại đây.",
     "statusTitle": "Trạng thái",
