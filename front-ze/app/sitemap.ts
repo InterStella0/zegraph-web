@@ -56,6 +56,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         })
     }
 
+    // Each map also has one page across every server, last modified when any server last played it.
+    const globalMaps = new Map<string, string | null>()
     for (const map of data.maps) {
         const map_name = sanitizeUrl(map.map_name).trim()
         if (map_name.indexOf("<") != -1 || map_name.indexOf(">") != -1)
@@ -69,6 +71,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             changeFrequency: 'weekly',
             priority: 0.9,
             ...(map.last_played && { lastModified: map.last_played }),
+        })
+
+        const latest = globalMaps.get(map_name) ?? null
+        globalMaps.set(map_name, latest && (!map.last_played || latest > map.last_played) ? latest : map.last_played)
+    }
+    for (const [map_name, lastPlayed] of globalMaps) {
+        urls.push({
+            url: `${DOMAIN}/maps/${map_name}`,
+            changeFrequency: 'weekly',
+            priority: 0.9,
+            ...(lastPlayed && { lastModified: lastPlayed }),
         })
     }
 

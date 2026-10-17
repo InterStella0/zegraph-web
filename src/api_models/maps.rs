@@ -195,6 +195,9 @@ pub struct GlobalMapServer{
     /// Whether this server is currently playing the map.
     pub is_playing: bool,
     pub last_played: DateTime<Utc>,
+    /// Wall-clock time the map has run on this server.
+    pub total_time: f64,
+    pub total_sessions: i32,
     /// Player-hours on this server, not wall-clock time.
     pub total_cum_time: f64,
 }
@@ -237,6 +240,33 @@ pub struct GlobalMapPaginated{
 #[derive(Object)]
 pub struct GlobalMapName{
     pub map: String,
+}
+
+/// A map's detail across every server that has played it.
+#[derive(Object)]
+pub struct GlobalMapDetail{
+    pub map: GlobalMapPlayed,
+    /// Steam Workshop ID for this map, if sourced from the Workshop.
+    pub workshop_id: Option<i64>,
+    pub creators: Option<String>,
+    pub file_bytes: Option<i64>,
+}
+
+/// One server's time on a map, in seconds.
+#[derive(Object)]
+pub struct MapServerTime{
+    pub server_id: String,
+    /// Wall-clock time the map was running on this server.
+    pub map_duration: f64,
+    /// Sum of every player's time on the map on this server (player-hours, not wall-clock time).
+    pub player_duration: f64,
+}
+
+/// A map's per-server playtime for a single UTC day.
+#[derive(Object)]
+pub struct DailyMapServer{
+    pub date: DateTime<Utc>,
+    pub servers: Vec<MapServerTime>,
 }
 
 /// Aggregate performance metrics for a map.

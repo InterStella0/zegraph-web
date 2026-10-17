@@ -4,6 +4,7 @@ import {useLocale, useTranslations} from 'next-intl';
 import {secondsToHours} from "utils/generalUtils";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
+import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {GlobalMapPaginated, GlobalMapPlayed} from "types/maps.ts";
 import GlobalMapStatusChip from "./GlobalMapStatusChip";
 import CommunityAvatarStack from "./CommunityAvatarStack";
@@ -56,7 +57,12 @@ function GlobalMapCard({ map, favorites, toggleFavorite }: {
         <div className="border border-border rounded-lg bg-card p-4" style={{opacity: inRotation ? 1 : 0.6}}>
             <div className="flex justify-between items-start mb-4">
                 <div className="flex-1 min-w-0 mr-4">
-                    <span className="block font-bold text-base leading-tight mb-2 truncate">{map.map}</span>
+                    <HoverPrefetchLink
+                        href={`/maps/${map.map}`}
+                        className="block font-bold text-base leading-tight mb-2 truncate hover:text-primary transition-colors"
+                    >
+                        {map.map}
+                    </HoverPrefetchLink>
                     <div className="mb-2">
                         <GlobalMapChips map={map}/>
                     </div>

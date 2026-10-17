@@ -20,7 +20,7 @@ export type ServerMapMatch = {
     extend_count: number | null,
 }
 
-type MapInfo = {
+export type MapInfo = {
     name: string,
     first_occurrence: string,
     cleared_at: string | null,
@@ -52,12 +52,13 @@ export type MapAnalyze = {
     last_played_ended: string | null,
     avg_players_per_session: number,
 }
-export type ServerMapDetail = {
+export type MapDetail<I> = {
     name: string,
     analyze: MapAnalyze | null,
     notReady: boolean,
-    info: MapInfo | null
+    info: I | null
 }
+export type ServerMapDetail = MapDetail<MapInfo>
 export interface ServerMap {
     map: string,
     server_id: string,
@@ -142,6 +143,8 @@ export type GlobalMapServer = {
     min_players: number | null,
     is_playing: boolean,
     last_played: string,
+    total_time: number,
+    total_sessions: number,
     total_cum_time: number,
 }
 
@@ -166,6 +169,26 @@ export type GlobalMapPlayed = {
 export type GlobalMapPaginated = {
     total_maps: number,
     maps: GlobalMapPlayed[]
+}
+
+/** `/maps/{map}/info`: the map across every server, plus its Workshop metadata. */
+export type GlobalMapInfo = {
+    map: GlobalMapPlayed,
+    workshop_id: number | null,
+    creators: string | null,
+    file_bytes: number | null,
+}
+export type GlobalMapDetail = MapDetail<GlobalMapInfo>
+
+/** Durations are in seconds: how long the map ran, and every player's time on it summed. */
+export type MapServerTime = {
+    server_id: string,
+    map_duration: number,
+    player_duration: number,
+}
+export type DailyMapServer = {
+    date: string,
+    servers: MapServerTime[],
 }
 
 

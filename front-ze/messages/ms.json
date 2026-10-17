@@ -651,7 +651,9 @@
       "sessions": "Sesi",
       "lastPlayed": "Terakhir dimainkan",
       "havePlayed": "telah bermain map ini",
-      "loadError": "Pengepala map tidak dapat dimuatkan :/"
+      "loadError": "Pengepala map tidak dapat dimuatkan :/",
+      "allServers": "Semua pelayan",
+      "allServersTooltip": "Lihat map ini merentas semua pelayan"
     },
     "analyze": {
       "stillCalculating": "Masih mengira, data belum sedia. Datang lagi kemudian~",
@@ -721,6 +723,24 @@
       "title": "Taburan Keseluruhan",
       "regions": "WILAYAH",
       "loadError": "Taburan wilayah tidak dapat dimuatkan."
+    },
+    "serverBreakdown": {
+      "title": "Pecahan mengikut Pelayan",
+      "tooltipMap": "Berapa lama map ini dimainkan di setiap pelayan setiap hari sepanjang tahun lalu. Setiap hari mengambil warna pelayan yang paling banyak memainkannya.",
+      "tooltipPlayer": "Jumlah masa pemain pada map ini di setiap pelayan setiap hari sepanjang tahun lalu. Setiap hari mengambil warna pelayan dengan jam pemain terbanyak.",
+      "metric": "Ukuran",
+      "mapHours": "Jam map",
+      "playerHours": "Jam pemain",
+      "hours": "Jam",
+      "noData": "Tiada data pelayan.",
+      "dataNotReady": "Data belum sedia.",
+      "somethingWrong": "Sesuatu telah berlaku",
+      "ariaLabel": "Map haba masa bermain harian mengikut pelayan",
+      "summary": "Map haba menunjukkan corak permainan map selama {days} hari. Hari paling aktif: {day} dengan {dayHours}. Pelayan paling aktif: {server} dengan {serverHours}.",
+      "distributionTitle": "Taburan mengikut pelayan",
+      "servers": "PELAYAN",
+      "allTime": "{hours} sepanjang masa",
+      "loadError": "Pecahan mengikut pelayan tidak dapat dimuatkan!"
     },
     "music": {
       "reportIssue": "Laporkan Isu",
@@ -1173,6 +1193,9 @@
     "mapRemoved": "Map telah dibuang dari {name}.",
     "mainlyPlayed": "Kebanyakannya dimainkan semasa {region} dengan {hours}.",
     "mostActivePlayer": "Pemain paling aktif pada map ini ialah {name} dengan masa bermain {hours}.",
+    "globalMapTitle": "{map} merentas semua pelayan",
+    "globalMapCumulative": "Ia mempunyai jumlah terkumpul {hours} merentas {servers, plural, other {# pelayan}} dalam {communities, plural, other {# komuniti}}. Dimainkan oleh {players} pemain.",
+    "globalMapTopServer": "Paling banyak dimainkan di {server} dengan {hours}.",
     "roundsFinalScore": "Bermain sebanyak {rounds} pusingan dengan markah akhir {human}-{zombie}.",
     "roundsScore": "Bermain sebanyak {rounds} pusingan dengan markah {human}-{zombie}.",
     "playingSince": "Kini sedang memainkannya sejak {time}.",

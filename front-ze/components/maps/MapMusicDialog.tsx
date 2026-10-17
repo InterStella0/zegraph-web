@@ -8,7 +8,7 @@ import { Badge } from "../ui/badge";
 import {ScrollArea, ScrollBar} from "../ui/scroll-area";
 import { cn } from "../lib/utils";
 import { MapMusicTrack } from "types/maps";
-import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider.tsx";
+import {useMapScope} from "lib/hooks/useMapScope";
 import MusicReportDialog from "./MusicReportDialog";
 import { fetchApiUrl } from "utils/generalUtils";
 import {PlayerAvatar} from "components/players/PlayerAvatar.tsx";
@@ -30,7 +30,7 @@ export default function MapMusicDialog({
     initialTrackIndex = 0
 }: MapMusicDialogProps) {
     const t = useTranslations('maps.music');
-    const { server } = useServerData()
+    const { mapHref } = useMapScope()
     const [currentIndex, setCurrentIndex] = useState(initialTrackIndex);
     const trackRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const [reportDialogOpen, setReportDialogOpen] = useState(false);
@@ -185,7 +185,7 @@ export default function MapMusicDialog({
                                         <span className="text-xs sm:text-sm text-muted-foreground">{t('alsoUsedIn')}</span>
                                         {currentTrack.otherMaps.map((map, idx) => (
                                             <Badge key={idx} variant="secondary" className="text-xs">
-                                                <HoverPrefetchLink href={`/servers/${server.gotoLink}/maps/${map}`}>
+                                                <HoverPrefetchLink href={mapHref(map)}>
                                                     {map}
                                                 </HoverPrefetchLink>
                                             </Badge>

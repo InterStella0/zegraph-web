@@ -9,7 +9,10 @@ import {Server} from "types/community.ts";
 
 const MAX_AVATARS = 5;
 
-export default function CommunityAvatarStack({ servers }: { servers: GlobalMapServer[] }) {
+export default function CommunityAvatarStack({ servers, countClassName = 'text-muted-foreground' }: {
+    servers: GlobalMapServer[],
+    countClassName?: string,
+}) {
     const t = useTranslations('maps.global');
     const { serversMapped } = useServerMap();
 
@@ -38,7 +41,7 @@ export default function CommunityAvatarStack({ servers }: { servers: GlobalMapSe
                             </Avatar>
                         ))}
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    <span className={`text-xs whitespace-nowrap ${countClassName}`}>
                         {t('serversCount', {count: servers.length})}
                     </span>
                 </div>

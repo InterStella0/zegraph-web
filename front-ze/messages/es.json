@@ -651,7 +651,9 @@
       "sessions": "Sesiones",
       "lastPlayed": "Jugado por última vez",
       "havePlayed": "han jugado este mapa",
-      "loadError": "No se pudo cargar el encabezado del mapa :/"
+      "loadError": "No se pudo cargar el encabezado del mapa :/",
+      "allServers": "Todos los servidores",
+      "allServersTooltip": "Ver este mapa en todos los servidores"
     },
     "analyze": {
       "stillCalculating": "Todavía calculando, los datos no están listos. Vuelve más tarde~",
@@ -721,6 +723,24 @@
       "title": "Distribución general",
       "regions": "REGIONES",
       "loadError": "No se pudo cargar la distribución regional."
+    },
+    "serverBreakdown": {
+      "title": "Desglose por servidor",
+      "tooltipMap": "Cuánto tiempo se jugó este mapa en cada servidor por día durante el último año. Cada día toma el color del servidor que más lo jugó.",
+      "tooltipPlayer": "Tiempo combinado de los jugadores en este mapa en cada servidor por día durante el último año. Cada día toma el color del servidor con más horas de jugadores.",
+      "metric": "Medida",
+      "mapHours": "Horas de mapa",
+      "playerHours": "Horas de jugadores",
+      "hours": "Horas",
+      "noData": "No hay datos por servidor.",
+      "dataNotReady": "Los datos no están listos.",
+      "somethingWrong": "Algo salió mal",
+      "ariaLabel": "Mapa de calor del tiempo de juego diario por servidor",
+      "summary": "El mapa de calor muestra patrones de juego durante {days} días. Día más activo: {day} con {dayHours}. Servidor más activo: {server} con {serverHours}.",
+      "distributionTitle": "Distribución por servidor",
+      "servers": "SERVIDORES",
+      "allTime": "{hours} en total",
+      "loadError": "¡No se pudo cargar el desglose por servidor!"
     },
     "music": {
       "reportIssue": "Reportar problema",
@@ -1173,6 +1193,9 @@
     "mapRemoved": "El mapa fue eliminado de {name}.",
     "mainlyPlayed": "Jugado principalmente durante {region} con {hours}.",
     "mostActivePlayer": "El jugador más activo en este mapa es {name} con un tiempo de juego de {hours}.",
+    "globalMapTitle": "{map} en todos los servidores",
+    "globalMapCumulative": "Tiene un acumulado de {hours} en {servers, plural, one {# servidor} other {# servidores}} de {communities, plural, one {# comunidad} other {# comunidades}}. Jugado por {players} jugadores.",
+    "globalMapTopServer": "Más jugado en {server} con {hours}.",
     "roundsFinalScore": "Se jugaron {rounds} rondas con una puntuación final de {human}-{zombie}.",
     "roundsScore": "Se jugaron {rounds} rondas con una puntuación de {human}-{zombie}.",
     "playingSince": "Jugándolo actualmente desde {time}.",

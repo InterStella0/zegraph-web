@@ -651,7 +651,9 @@
       "sessions": "场次数",
       "lastPlayed": "上次游玩",
       "havePlayed": "人玩过此地图",
-      "loadError": "地图头部信息无法加载 :/"
+      "loadError": "地图头部信息无法加载 :/",
+      "allServers": "所有服务器",
+      "allServersTooltip": "查看此地图在所有服务器上的数据"
     },
     "analyze": {
       "stillCalculating": "仍在计算中，数据尚未就绪，请稍后再来~",
@@ -721,6 +723,24 @@
       "title": "总体分布",
       "regions": "地区",
       "loadError": "地区分布无法加载。"
+    },
+    "serverBreakdown": {
+      "title": "服务器细分",
+      "tooltipMap": "过去一年中此地图每天在各服务器上运行的时长。每天以游玩最多的服务器颜色显示。",
+      "tooltipPlayer": "过去一年中各服务器每天在此地图上的玩家总时长。每天以玩家小时数最多的服务器颜色显示。",
+      "metric": "统计方式",
+      "mapHours": "地图小时数",
+      "playerHours": "玩家小时数",
+      "hours": "小时数",
+      "noData": "暂无服务器数据。",
+      "dataNotReady": "数据尚未就绪。",
+      "somethingWrong": "出错了",
+      "ariaLabel": "按服务器划分的每日游玩时长热力图",
+      "summary": "热力图显示了 {days} 天内的地图游玩模式。最活跃的一天：{day}，{dayHours}。最活跃服务器：{server}，{serverHours}。",
+      "distributionTitle": "按服务器分布",
+      "servers": "服务器",
+      "allTime": "累计 {hours}",
+      "loadError": "无法加载服务器细分！"
     },
     "music": {
       "reportIssue": "报告问题",
@@ -1173,6 +1193,9 @@
     "mapRemoved": "该地图已从 {name} 中移除。",
     "mainlyPlayed": "主要在 {region} 期间游玩，共 {hours}。",
     "mostActivePlayer": "此地图上最活跃的玩家是 {name}，游戏时长为 {hours}。",
+    "globalMapTitle": "{map} 全服务器数据",
+    "globalMapCumulative": "在 {communities} 个社区的 {servers} 个服务器上累计 {hours}，共有 {players} 名玩家游玩过。",
+    "globalMapTopServer": "在 {server} 上游玩最多，共 {hours}。",
     "roundsFinalScore": "进行了 {rounds} 轮，最终比分为 {human}-{zombie}。",
     "roundsScore": "进行了 {rounds} 轮，比分为 {human}-{zombie}。",
     "playingSince": "目前自 {time} 起一直在游玩。",
