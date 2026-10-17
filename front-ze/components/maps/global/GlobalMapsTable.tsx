@@ -17,6 +17,7 @@ import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {GlobalMapPaginated, GlobalMapPlayed} from "types/maps.ts";
 import GlobalMapStatusChip from "./GlobalMapStatusChip";
 import CommunityAvatarStack from "./CommunityAvatarStack";
+import {cn} from "components/lib/utils";
 import {GLOBAL_MAPS_PAGE_SIZE} from "./constants";
 
 dayjs.extend(relativeTime);
@@ -184,11 +185,12 @@ export default function GlobalMapsTable({ mapsData, page, setPage, favorites, to
                         <TableHead/>
                     </TableRow>
                 </TableHeader>
-                <TableBody>
-                    {!loading && mapsData?.maps?.map(map => (
+                {/* The previous page stays up, dimmed, while the next one loads. */}
+                <TableBody aria-busy={loading} className={cn("transition-opacity", loading && mapsData && "opacity-50")}>
+                    {mapsData?.maps?.map(map => (
                         <GlobalMapRow key={map.map} map={map} favorites={favorites} toggleFavorite={toggleFavorite}/>
                     ))}
-                    {loading && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, i) =>
+                    {!mapsData && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, i) =>
                         <GlobalMapRowSkeleton key={i} index={i}/>
                     )}
                 </TableBody>

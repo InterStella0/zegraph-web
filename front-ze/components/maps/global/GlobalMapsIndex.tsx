@@ -1,9 +1,9 @@
 'use client'
-import {use, useEffect, useState} from 'react';
+import {use, useEffect, useMemo, useReducer, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {Map as MapIcon} from 'lucide-react';
 import {fetchApiUrl, fetchUrl} from "utils/generalUtils";
-import {useResource} from "lib/hooks/useResource";
+import {useMediaQuery} from "lib/hooks/useMediaQuery";
 import {GlobalMapPaginated} from "types/maps.ts";
 import {SteamProfile} from "types/steam";
 import {Skeleton} from "components/ui/skeleton";
@@ -16,13 +16,72 @@ import {withErrorCatch} from "components/common/withErrorCatch";
 import {SortByIndex} from "../../../app/servers/[server_slug]/maps/MapsSearchIndex.tsx";
 import GlobalMapsTable from "./GlobalMapsTable";
 import GlobalMapsMobileView from "./GlobalMapsMobileView";
-import {GLOBAL_MAPS_DEFAULT_SORT} from "./constants";
+import {GLOBAL_MAPS_DEFAULT_SORT, GLOBAL_MAPS_PAGE_SIZE} from "./constants";
 
 const GLOBAL_TABS: FilterTypes[] = ['all', 'casual', 'tryhard', 'lasers', 'playing', 'favorites'];
 // Only metrics with a column in the global table; there is no plain "Hours" column.
 const GLOBAL_SORT_OPTIONS: SortByIndex[] = ['HighestCumHour', 'UniquePlayers', 'FrequentlyPlayed', 'LastPlayed'];
 const ALL_GAMES = 'all';
 const SEARCH_DEBOUNCE_MS = 600;
+// Matches the backend's own cache on these pages.
+const PAGE_CACHE_TTL_MS = 60_000;
+
+// Pages already fetched this session, keyed by their query, so stepping back is instant and the
+// next page can load ahead of the click. Module-level so it outlives leaving /maps and coming back.
+// Only effects write to it, so the server render never sees entries.
+const pageCache = new Map<string, {data: GlobalMapPaginated, at: number}>();
+const pageRequests = new Map<string, Promise<GlobalMapPaginated>>();
+// Favorite toggles made this session. They win over is_favorite on every copy of a page, whether it
+// came from the cache, is the page still on screen, or was fetched before the toggle landed.
+const favoriteOverrides = new Map<string, boolean>();
+// Bumped on each toggle, so a favorites-filter request that started earlier is not cached with the
+// old list.
+let favoritesVersion = 0;
+
+function cachedPage(key: string): GlobalMapPaginated | undefined {
+    const entry = pageCache.get(key);
+    return entry && Date.now() - entry.at < PAGE_CACHE_TTL_MS ? entry.data : undefined;
+}
+
+// Shares one request per page, so a click on a page that is still prefetching waits for it
+// instead of asking again.
+function loadPage(key: string): Promise<GlobalMapPaginated> {
+    const cached = cachedPage(key);
+    if (cached) return Promise.resolve(cached);
+    let request = pageRequests.get(key);
+    if (!request) {
+        const params = JSON.parse(key);
+        const version = favoritesVersion;
+        request = fetchApiUrl('/maps', {params})
+            .then((data: GlobalMapPaginated) => {
+                if (params.filter !== 'Favorite' || version === favoritesVersion)
+                    pageCache.set(key, {data, at: Date.now()});
+                return data;
+            })
+            .finally(() => pageRequests.delete(key));
+        pageRequests.set(key, request);
+    }
+    return request;
+}
+
+function pageKey(page: number, sortBy: SortByIndex, searchTerm: string, filterMode: string | null, game: string) {
+    return JSON.stringify({
+        page,
+        sorted_by: sortBy,
+        ...(searchTerm && {search_map: searchTerm}),
+        ...(filterMode && {filter: filterMode}),
+        ...(game !== ALL_GAMES && {game}),
+    });
+}
+
+function recordFavorite(mapName: string, isFavorite: boolean) {
+    favoriteOverrides.set(mapName, isFavorite);
+    favoritesVersion++;
+    // Which maps a favorites page holds has changed, so those pages have to be fetched again.
+    for (const key of pageCache.keys()) {
+        if (JSON.parse(key).filter === 'Favorite') pageCache.delete(key);
+    }
+}
 
 function getFilterMode(tab: FilterTypes) {
     switch (tab) {
@@ -36,7 +95,9 @@ function getFilterMode(tab: FilterTypes) {
 }
 
 function favoritesOf(data: GlobalMapPaginated | null): Set<string> {
-    return new Set(data?.maps.filter(map => map.is_favorite).map(map => map.map) ?? []);
+    return new Set(data?.maps
+        .filter(map => favoriteOverrides.get(map.map) ?? map.is_favorite)
+        .map(map => map.map) ?? []);
 }
 
 function GlobalMapsHeader({ total }: { total: number | null }) {
@@ -79,10 +140,12 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
     const [filterTab, setFilterTab] = useState<FilterTypes>('all');
     const [game, setGame] = useState<string>(ALL_GAMES);
     const [page, setPage] = useState<number>(0);
-    const [favorites, setFavorites] = useState<Set<string>>(() => favoritesOf(initialData));
+    const [favoritesTick, bumpFavorites] = useReducer((n: number) => n + 1, 0);
     const [autocompleteOptions, setAutocompleteOptions] = useState<{map: string}[]>([]);
     const [autocompleteLoading, setAutocompleteLoading] = useState<boolean>(false);
     const [loginDialogOpen, setLoginDialogOpen] = useState<boolean>(false);
+    // Tailwind's md breakpoint. Rendering only the visible layout halves the work of each page change.
+    const isDesktop = useMediaQuery('(min-width: 48rem)');
 
     useEffect(() => {
         const trimmed = searchInput.trim();
@@ -121,20 +184,50 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
     }, [searchInput]);
 
     const filterMode = getFilterMode(filterTab);
-    const { data, loading, error } = useResource<GlobalMapPaginated>(signal => fetchApiUrl('/maps', {
-        params: {
-            page,
-            sorted_by: sortBy,
-            ...(searchTerm && {search_map: searchTerm}),
-            ...(filterMode && {filter: filterMode}),
-            ...(game !== ALL_GAMES && {game}),
-        },
-        signal,
-    }), [page, sortBy, searchTerm, filterMode, game], {initial: initialData, errorLog: 'Error fetching global maps:'});
+    const key = pageKey(page, sortBy, searchTerm, filterMode, game);
+    const [initialKey] = useState(key);
+    // The last page that finished loading. It stays on screen, dimmed, until the requested one
+    // arrives, so the table and its pagination never collapse to skeletons between pages.
+    const [shown, setShown] = useState<{key: string, data: GlobalMapPaginated}>({key: initialKey, data: initialData});
+    const [failedKey, setFailedKey] = useState<string | null>(null);
+    const cached = cachedPage(key);
+    const data = cached ?? shown.data;
+    const loading = !cached && shown.key !== key && failedKey !== key;
+    const error = failedKey === key;
+    const totalPages = Math.ceil((data?.total_maps ?? 0) / GLOBAL_MAPS_PAGE_SIZE);
 
     useEffect(() => {
-        if (data) setFavorites(favoritesOf(data));
-    }, [data]);
+        pageCache.set(initialKey, {data: initialData, at: Date.now()});
+    }, [initialKey, initialData]);
+
+    useEffect(() => {
+        let cancelled = false;
+        loadPage(key)
+            .then(result => {
+                if (cancelled) return;
+                setShown({key, data: result});
+                setFailedKey(null);
+            })
+            .catch(err => {
+                if (cancelled) return;
+                console.error('Error fetching global maps:', err);
+                setFailedKey(key);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [key]);
+
+    // Fetch the next page once this one is showing, so Next is usually instant.
+    useEffect(() => {
+        if (loading || page + 1 >= totalPages) return;
+        const nextKey = pageKey(page + 1, sortBy, searchTerm, filterMode, game);
+        loadPage(nextKey).catch(() => {});
+    }, [loading, page, totalPages, sortBy, searchTerm, filterMode, game]);
+
+    // favoriteOverrides is module state, so favoritesTick is what tells this to recompute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const favorites = useMemo(() => favoritesOf(data), [data, favoritesTick]);
 
     const toggleFavorite = async (mapName: string) => {
         if (!user) {
@@ -145,12 +238,8 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
         const action = isFavorite ? 'unset-favorite' : 'set-favorite';
         try {
             await fetchApiUrl(`/maps/${encodeURIComponent(mapName)}/${action}`, {method: 'POST'});
-            setFavorites(prev => {
-                const next = new Set(prev);
-                if (isFavorite) next.delete(mapName);
-                else next.add(mapName);
-                return next;
-            });
+            recordFavorite(mapName, !isFavorite);
+            bumpFavorites();
         } catch (err) {
             console.error('Failed to toggle favorite:', err);
         }
@@ -198,7 +287,7 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
                 </div>
             ) : (
                 <>
-                    <div className="hidden md:block">
+                    {isDesktop !== false && <div className="hidden md:block">
                         <GlobalMapsTable
                             mapsData={data}
                             page={page}
@@ -207,8 +296,8 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
                             toggleFavorite={toggleFavorite}
                             loading={loading}
                         />
-                    </div>
-                    <div className="block md:hidden">
+                    </div>}
+                    {isDesktop !== true && <div className="block md:hidden">
                         <GlobalMapsMobileView
                             mapsData={data}
                             page={page}
@@ -217,7 +306,7 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
                             toggleFavorite={toggleFavorite}
                             loading={loading}
                         />
-                    </div>
+                    </div>}
                 </>
             )}
 

@@ -145,6 +145,8 @@ const nextConfig: NextConfig = {
         ]
     },
     experimental: {
+        // Opts the router into React's <ViewTransition>, used for page transitions.
+        viewTransition: true,
         optimizePackageImports: [
             'lucide-react',
             '@radix-ui/react-avatar',

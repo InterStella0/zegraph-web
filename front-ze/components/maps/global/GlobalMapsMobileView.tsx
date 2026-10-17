@@ -9,6 +9,7 @@ import {GlobalMapPaginated, GlobalMapPlayed} from "types/maps.ts";
 import GlobalMapStatusChip from "./GlobalMapStatusChip";
 import CommunityAvatarStack from "./CommunityAvatarStack";
 import {FavoriteButton, GlobalMapChips, globalMapImage, LastPlayed} from "./GlobalMapsTable";
+import {cn} from "components/lib/utils";
 import {GLOBAL_MAPS_PAGE_SIZE} from "./constants";
 
 function GlobalMapCardSkeleton({ index }: { index: number }) {
@@ -105,11 +106,11 @@ export default function GlobalMapsMobileView({ mapsData, page, setPage, favorite
 
     return (
         <>
-            <div className="space-y-4">
-                {!loading && mapsData?.maps?.map(map => (
+            <div aria-busy={loading} className={cn("space-y-4 transition-opacity", loading && mapsData && "opacity-50")}>
+                {mapsData?.maps?.map(map => (
                     <GlobalMapCard key={map.map} map={map} favorites={favorites} toggleFavorite={toggleFavorite}/>
                 ))}
-                {loading && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, index) =>
+                {!mapsData && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, index) =>
                     <GlobalMapCardSkeleton key={index} index={index}/>
                 )}
                 {!loading && total === 0 && (

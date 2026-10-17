@@ -1077,7 +1077,13 @@ impl MapApi{
                     COALESCE(md.human_score, NULL) human_score,
                     COALESCE(md.occurred_at, NULL) occurred_at,
                     COALESCE(md.estimated_time_end, NULL) estimated_time_end,
-                    COALESCE(md.server_time_end, NULL) server_time_end,
+                    -- Servers that don't report timeleft (NiDE, Mapeadores...) get it stamped at the
+                    -- map's first round and carried forward, which reads as the last round all map.
+                    -- No real map ends by its first round, so treat that as unknown. A genuine last
+                    -- round (end at or before the current round) is later in the map and stays.
+                    CASE WHEN md.server_time_end > (
+                        SELECT MIN(f.occurred_at) FROM match_data f WHERE f.time_id = smp.time_id
+                    ) THEN md.server_time_end END server_time_end,
                     COALESCE(md.extend_count, NULL) extend_count,
                     LEAST((SELECT COUNT(DISTINCT player_id) FROM player_server_session p
                         WHERE p.server_id = smp.server_id
