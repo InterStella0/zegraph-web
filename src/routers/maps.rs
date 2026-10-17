@@ -195,6 +195,24 @@ fn handle_worker_map_result<T>(result: WorkResult<T>) -> Response<T>
 }
 
 const GLOBAL_MAPS_PAGE_SIZE: i64 = 25;
+/// Highest `page` served. About 1.5k maps is roughly 60 pages, so this only rejects nonsense.
+const GLOBAL_MAPS_MAX_PAGE: usize = 1_000;
+/// Pages past this are computed live instead of cached, so arbitrary `page` values can't flood the
+/// cache with keys.
+const GLOBAL_MAPS_CACHED_PAGES: usize = 100;
+/// Shortest search the global autocomplete answers; shorter ones would scan every map name.
+const GLOBAL_MAPS_MIN_AUTOCOMPLETE: usize = 2;
+
+/// Escapes `\`, `%` and `_` so a user's term matches literally inside `ILIKE '%' || $n || '%'`.
+fn escape_like(term: &str) -> String {
+    term.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+}
+
+async fn global_map_exists(pool: &Pool<Postgres>, map_name: &str) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT EXISTS(SELECT 1 FROM server_map WHERE map = $1) AS "exists!""#, map_name
+    ).fetch_one(pool).await
+}
 
 /// One page of maps grouped by name across servers, plus the per-server rows of those maps.
 /// `user_id` is only read by the `favorite` filter, so pages without it are viewer-independent.
@@ -539,8 +557,8 @@ impl MapApi{
     /// Maps are grouped by name. `sorted_by` picks the ranking metric; `filter` narrows to
     /// `Casual`/`TryHard`/`HasLaser`/`Playing`/`Favorite`; `game` limits to servers of one game
     /// (`730_cs2`, `240`, `730_csgo`); `search_map` filters by name substring. Each map lists the
-    /// servers that have it. Pages are 25 maps each, cached for 60 seconds unless searching or
-    /// filtering by favorites.
+    /// servers that have it. Pages are 25 maps each, `page` at most 1000; the first 100 pages are
+    /// cached for 60 seconds unless searching or filtering by favorites.
     #[oai(path = "/maps", method = "get", operation_id = "list_maps_global", tag = "ApiTags::Mcp")]
     async fn get_global_maps(
         &self, Data(data): Data<&AppData>, Query(page): Query<usize>,
@@ -554,13 +572,15 @@ impl MapApi{
             game.as_deref().is_none_or(|g| GAME_TYPES.contains(&g)),
             "Unknown game", ErrorCode::BadRequest
         );
-        let search = search_map.map(|s| s.trim().to_string()).unwrap_or_default();
+        require!(page <= GLOBAL_MAPS_MAX_PAGE, "page is out of range", ErrorCode::BadRequest);
+        let search = search_map.map(|s| escape_like(s.trim())).unwrap_or_default();
         let filtering = filter.map(|e| e.to_string()).unwrap_or("all".into());
         let sorting = sorted_by.to_string();
         let user_id = user.map(|e| e.id);
         let offset = page as i64 * GLOBAL_MAPS_PAGE_SIZE;
 
-        let DbGlobalMapPage { total_maps, maps, servers } = if search.is_empty() && filtering != "favorite" {
+        let cacheable = search.is_empty() && filtering != "favorite" && page < GLOBAL_MAPS_CACHED_PAGES;
+        let DbGlobalMapPage { total_maps, maps, servers } = if cacheable {
             let key = format!("global-maps-v1:{sorting}:{filtering}:{}:{page}", game.as_deref().unwrap_or("all"));
             let func = || global_map_page(pool, game.as_deref(), &search, &filtering, &sorting, None, offset);
             or_ise!(cached_response(&key, &data.cache, 60, func).await, e => "Error global maps: {e}").result
@@ -572,13 +592,17 @@ impl MapApi{
         };
 
         let names: Vec<String> = maps.iter().map(|m| m.map.clone()).collect();
-        let favorites: Vec<String> = match user_id {
-            Some(user_id) if !names.is_empty() => or_ise!(sqlx::query_scalar!("
+        // A failed favorites lookup leaves `is_favorite` unknown rather than failing the whole page.
+        let favorites: Option<Vec<String>> = match user_id {
+            Some(_) if names.is_empty() => Some(vec![]),
+            Some(user_id) => sqlx::query_scalar!("
                 SELECT map
                 FROM website.user_favorite_global_maps
                 WHERE user_id = $1 AND map = ANY($2)
-            ", user_id, &names[..]).fetch_all(pool).await),
-            _ => vec![],
+            ", user_id, &names[..]).fetch_all(pool).await
+                .inspect_err(|e| tracing::warn!("Couldn't load global map favorites: {e}"))
+                .ok(),
+            None => None,
         };
 
         let mut servers_by_map: HashMap<String, Vec<DbGlobalMapServerRow>> = HashMap::new();
@@ -603,7 +627,7 @@ impl MapApi{
             }
             let image = global_map_image(&row.map, &games, &images, &names_by_game);
             let mut map: GlobalMapPlayed = row.into();
-            map.is_favorite = user_id.map(|_| favorites.contains(&map.map));
+            map.is_favorite = favorites.as_ref().map(|favorites| favorites.contains(&map.map));
             map.games = games;
             map.servers = map_servers.iter_into();
             map.image = image;
@@ -612,18 +636,24 @@ impl MapApi{
 
         response!(ok GlobalMapPaginated { total_maps: total_maps as i32, maps: result })
     }
-    /// Search played maps across every server by name, for autocomplete. Up to 20 substring matches.
+    /// Search played maps across every server by name, for autocomplete. Up to 20 substring matches;
+    /// terms shorter than 2 characters return nothing.
     #[oai(path = "/maps/autocomplete", method = "get")]
     async fn get_global_maps_autocomplete(
         &self, Data(data): Data<&AppData>, Query(map): Query<String>
     ) -> Response<Vec<GlobalMapName>>{
+        let map = map.trim();
+        if map.chars().count() < GLOBAL_MAPS_MIN_AUTOCOMPLETE {
+            return response!(ok vec![])
+        }
+        let pattern = escape_like(map);
         let Ok(result) = sqlx::query_scalar!(r#"
             SELECT m.map AS "map!"
             FROM (SELECT DISTINCT map FROM website.map_analyze) m
             WHERE m.map ILIKE '%' || $1 || '%'
-            ORDER BY NULLIF(STRPOS(LOWER(m.map), LOWER($1)), 0) ASC NULLS LAST, m.map
+            ORDER BY NULLIF(STRPOS(LOWER(m.map), LOWER($2)), 0) ASC NULLS LAST, m.map
             LIMIT 20
-        "#, map).fetch_all(&*data.pool).await else {
+        "#, pattern, map).fetch_all(&*data.pool).await else {
             return response!(ok vec![])
         };
         response!(ok result.into_iter().map(|map| GlobalMapName { map }).collect())
@@ -635,10 +665,7 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer
     ) -> Response<GlobalMapName>{
         let pool = &*data.pool;
-        let exists = or_ise!(sqlx::query_scalar!(
-            r#"SELECT EXISTS(SELECT 1 FROM server_map WHERE map = $1) AS "exists!""#, map_name
-        ).fetch_one(pool).await);
-        require!(exists, "Map not found", ErrorCode::NotFound);
+        require!(or_ise!(global_map_exists(pool, &map_name).await), "Map not found", ErrorCode::NotFound);
 
         let Ok(_) = sqlx::query!("
             INSERT INTO website.user_favorite_global_maps(user_id, map)
@@ -657,11 +684,14 @@ impl MapApi{
         &self, Data(data): Data<&AppData>, Path(map_name): Path<String>,
         TokenBearer(user_token): TokenBearer
     ) -> Response<GlobalMapName>{
+        let pool = &*data.pool;
+        require!(or_ise!(global_map_exists(pool, &map_name).await), "Map not found", ErrorCode::NotFound);
+
         let Ok(_) = sqlx::query!("
             DELETE FROM website.user_favorite_global_maps
             WHERE user_id = $1 AND map = $2
         ", user_token.id, map_name)
-            .execute(&*data.pool).await else {
+            .execute(pool).await else {
             return response!(err "Something went wrong :/", ErrorCode::InternalServerError)
         };
 
@@ -1937,4 +1967,21 @@ impl MapApi{
 
 fn map_mismatch(map_name: &str) -> impl Fn(&UploadSession) -> Option<&'static str> + '_ {
     move |s| (s.map_name != map_name).then_some("Map name mismatch")
+}
+
+#[cfg(test)]
+mod global_map_search_tests {
+    use super::*;
+
+    #[test]
+    fn like_wildcards_match_literally() {
+        assert_eq!(escape_like("ze_santa"), r"ze\_santa");
+        assert_eq!(escape_like("100%"), r"100\%");
+        assert_eq!(escape_like(r"a\b"), r"a\\b");
+    }
+
+    #[test]
+    fn plain_terms_are_untouched() {
+        assert_eq!(escape_like("santassination"), "santassination");
+    }
 }

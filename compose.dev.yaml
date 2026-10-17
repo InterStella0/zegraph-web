@@ -36,6 +36,7 @@ services:
         ANALYZE: ${ANALYZE}
         NEXT_PUBLIC_ADSENSE_CLIENT_ID: ${NEXT_PUBLIC_ADSENSE_CLIENT_ID}
         NEXT_PUBLIC_ADSENSE_AD_SLOT: ${NEXT_PUBLIC_ADSENSE_AD_SLOT}
+        ALLOWED_DEV_ORIGINS: ${ALLOWED_DEV_ORIGINS:-}
         BUILD_COMMIT: ${BUILD_COMMIT:-}
     volumes:
       # next.config.ts reads HEAD from here for the footer's build line. Mounted rather than passed
