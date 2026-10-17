@@ -194,15 +194,65 @@ body {
     }
 }
 
+/* Translate percentages are relative to the bar itself, which is a third of its track: it has to
+   travel 300% of its own width to clear the far edge, or it snaps back from the middle. */
 @keyframes progress-indeterminate {
     0% {
         transform: translateX(-100%);
     }
-    50% {
-        transform: translateX(10%);
-    }
     100% {
-        transform: translateX(100%);
+        transform: translateX(300%);
+    }
+}
+
+/* Page transitions, driven by components/ui/PageTransition.tsx. The outgoing page fades out
+   quickly and the incoming one fades in just behind it, so the two never sit on top of each other
+   at full strength. Browsers without the View Transitions API simply navigate without them. */
+@keyframes page-exit {
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+::view-transition-old(.page-exit) {
+    animation: page-exit 120ms ease-in both;
+}
+
+::view-transition-new(.page-enter) {
+    animation: page-enter 220ms ease-out 60ms both;
+}
+
+/* The app bar is its own snapshot so it never fades or slides with the page: it swaps straight
+   to the incoming page's bar and stays above the page snapshots, which can reach under it when the
+   page is scrolled. */
+.site-header {
+    view-transition-name: site-header;
+}
+
+::view-transition-group(site-header) {
+    z-index: 1;
+    animation: none;
+}
+
+::view-transition-old(site-header) {
+    display: none;
+}
+
+::view-transition-new(site-header) {
+    animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(.page-exit),
+    ::view-transition-new(.page-enter) {
+        animation: none;
     }
 }
 /*---break---*/

@@ -100,7 +100,7 @@ function StalePlayerStatsBanner({ serverId, playerId, calculatedAt }: StalePlaye
                 className="flex-1 min-w-12 h-0.5 rounded-full bg-border overflow-hidden"
             >
                 {isRefreshing ? (
-                    <div className="h-full w-full bg-primary animate-progress-indeterminate" />
+                    <div className="h-full w-1/3 bg-primary animate-progress-indeterminate" />
                 ) : (
                     <div
                         key={cycle}
