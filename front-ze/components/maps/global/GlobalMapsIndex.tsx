@@ -1,5 +1,5 @@
 'use client'
-import {use, useEffect, useState} from 'react';
+import {use, useEffect, useMemo, useReducer, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {Map as MapIcon} from 'lucide-react';
 import {fetchApiUrl, fetchUrl} from "utils/generalUtils";
@@ -31,6 +31,12 @@ const PAGE_CACHE_TTL_MS = 60_000;
 // Only effects write to it, so the server render never sees entries.
 const pageCache = new Map<string, {data: GlobalMapPaginated, at: number}>();
 const pageRequests = new Map<string, Promise<GlobalMapPaginated>>();
+// Favorite toggles made this session. They win over is_favorite on every copy of a page, whether it
+// came from the cache, is the page still on screen, or was fetched before the toggle landed.
+const favoriteOverrides = new Map<string, boolean>();
+// Bumped on each toggle, so a favorites-filter request that started earlier is not cached with the
+// old list.
+let favoritesVersion = 0;
 
 function cachedPage(key: string): GlobalMapPaginated | undefined {
     const entry = pageCache.get(key);
@@ -44,9 +50,12 @@ function loadPage(key: string): Promise<GlobalMapPaginated> {
     if (cached) return Promise.resolve(cached);
     let request = pageRequests.get(key);
     if (!request) {
-        request = fetchApiUrl('/maps', {params: JSON.parse(key)})
+        const params = JSON.parse(key);
+        const version = favoritesVersion;
+        request = fetchApiUrl('/maps', {params})
             .then((data: GlobalMapPaginated) => {
-                pageCache.set(key, {data, at: Date.now()});
+                if (params.filter !== 'Favorite' || version === favoritesVersion)
+                    pageCache.set(key, {data, at: Date.now()});
                 return data;
             })
             .finally(() => pageRequests.delete(key));
@@ -65,18 +74,12 @@ function pageKey(page: number, sortBy: SortByIndex, searchTerm: string, filterMo
     });
 }
 
-// A favorite toggle has to reach the cached copies too, or revisiting a page would undo it.
-function setCachedFavorite(mapName: string, isFavorite: boolean) {
-    for (const [key, entry] of pageCache) {
-        if (JSON.parse(key).filter === 'Favorite') {
-            pageCache.delete(key);
-            continue;
-        }
-        if (!entry.data.maps.some(map => map.map === mapName)) continue;
-        pageCache.set(key, {...entry, data: {
-            ...entry.data,
-            maps: entry.data.maps.map(map => map.map === mapName ? {...map, is_favorite: isFavorite} : map),
-        }});
+function recordFavorite(mapName: string, isFavorite: boolean) {
+    favoriteOverrides.set(mapName, isFavorite);
+    favoritesVersion++;
+    // Which maps a favorites page holds has changed, so those pages have to be fetched again.
+    for (const key of pageCache.keys()) {
+        if (JSON.parse(key).filter === 'Favorite') pageCache.delete(key);
     }
 }
 
@@ -92,7 +95,9 @@ function getFilterMode(tab: FilterTypes) {
 }
 
 function favoritesOf(data: GlobalMapPaginated | null): Set<string> {
-    return new Set(data?.maps.filter(map => map.is_favorite).map(map => map.map) ?? []);
+    return new Set(data?.maps
+        .filter(map => favoriteOverrides.get(map.map) ?? map.is_favorite)
+        .map(map => map.map) ?? []);
 }
 
 function GlobalMapsHeader({ total }: { total: number | null }) {
@@ -135,7 +140,7 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
     const [filterTab, setFilterTab] = useState<FilterTypes>('all');
     const [game, setGame] = useState<string>(ALL_GAMES);
     const [page, setPage] = useState<number>(0);
-    const [favorites, setFavorites] = useState<Set<string>>(() => favoritesOf(initialData));
+    const [favoritesTick, bumpFavorites] = useReducer((n: number) => n + 1, 0);
     const [autocompleteOptions, setAutocompleteOptions] = useState<{map: string}[]>([]);
     const [autocompleteLoading, setAutocompleteLoading] = useState<boolean>(false);
     const [loginDialogOpen, setLoginDialogOpen] = useState<boolean>(false);
@@ -220,9 +225,9 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
         loadPage(nextKey).catch(() => {});
     }, [loading, page, totalPages, sortBy, searchTerm, filterMode, game]);
 
-    useEffect(() => {
-        if (data) setFavorites(favoritesOf(data));
-    }, [data]);
+    // favoriteOverrides is module state, so favoritesTick is what tells this to recompute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const favorites = useMemo(() => favoritesOf(data), [data, favoritesTick]);
 
     const toggleFavorite = async (mapName: string) => {
         if (!user) {
@@ -233,13 +238,8 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
         const action = isFavorite ? 'unset-favorite' : 'set-favorite';
         try {
             await fetchApiUrl(`/maps/${encodeURIComponent(mapName)}/${action}`, {method: 'POST'});
-            setCachedFavorite(mapName, !isFavorite);
-            setFavorites(prev => {
-                const next = new Set(prev);
-                if (isFavorite) next.delete(mapName);
-                else next.add(mapName);
-                return next;
-            });
+            recordFavorite(mapName, !isFavorite);
+            bumpFavorites();
         } catch (err) {
             console.error('Failed to toggle favorite:', err);
         }
