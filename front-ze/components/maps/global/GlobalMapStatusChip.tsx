@@ -14,14 +14,14 @@ import {Server} from "types/community.ts";
 dayjs.extend(relativeTime);
 
 // The tooltip surface is inverted from the page, so mid tones that read on either theme.
-const STATUS_TONE = {
+export const STATUS_TONE = {
     playing: 'text-primary',
     ready: 'text-green-500',
     waiting: 'text-amber-500',
     off: 'text-red-500',
 } as const;
 
-type ServerState = { tone: keyof typeof STATUS_TONE, label: ReactNode };
+export type ServerState = { tone: keyof typeof STATUS_TONE, label: ReactNode };
 
 function hasCooldown(server: GlobalMapServer): boolean {
     return server.cooldown != null && dayjs(server.cooldown).isAfter(dayjs());
@@ -36,13 +36,11 @@ function serverLabel(server: Server | undefined, fallback: string): string {
     return server?.community_shorten_name || server?.community_name || fallback;
 }
 
-export default function GlobalMapStatusChip({ map }: { map: GlobalMapPlayed }) {
+/** One server's rotation state for the map: playing, removed, disabled, cooling down or ready. */
+export function useServerMapState(): (server: GlobalMapServer) => ServerState {
     const t = useTranslations('maps.table');
-    const tGlobal = useTranslations('maps.global');
     const toDayjs = useLocalDayjs();
-    const { serversMapped } = useServerMap();
-
-    const stateOf = (server: GlobalMapServer): ServerState => {
+    return server => {
         if (server.is_playing) return {tone: 'playing', label: t('playing')};
         if (server.removed) return {tone: 'off', label: t('removed')};
         if (!server.enabled) return {tone: 'off', label: t('disabled')};
@@ -52,6 +50,14 @@ export default function GlobalMapStatusChip({ map }: { map: GlobalMapPlayed }) {
             return {tone: 'waiting', label: <span suppressHydrationWarning>{toDayjs(server.cooldown).fromNow(true)}</span>};
         return {tone: 'ready', label: t('ready')};
     };
+}
+
+export default function GlobalMapStatusChip({ map }: { map: GlobalMapPlayed }) {
+    const t = useTranslations('maps.table');
+    const tGlobal = useTranslations('maps.global');
+    const toDayjs = useLocalDayjs();
+    const { serversMapped } = useServerMap();
+    const stateOf = useServerMapState();
 
     const breakdown = (
         <ul className="space-y-0.5">

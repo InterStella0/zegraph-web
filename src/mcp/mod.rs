@@ -31,7 +31,8 @@ const INVALID_PARAMS: i32 = -32602;
 
 const INSTRUCTIONS: &str = "Read-only data from zegraph.xyz, which tracks CS Zombie Escape \
     servers across the western community. Call list_servers first to resolve a server_id (a \
-    server's readable_link works too). Player and map tools are scoped to one server. Graph tools \
+    server's readable_link works too). Player and map tools are scoped to one server, except the \
+    get_global_map_* and *_global tools, which span every server. Graph tools \
     return pre-bucketed series sized for charting. Players who anonymized themselves are hidden unless the request carries their own, or an admin's, bearer \
     token.";
 

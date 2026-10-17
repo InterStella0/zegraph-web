@@ -651,7 +651,9 @@
       "sessions": "セッション",
       "lastPlayed": "最後にプレイした日時",
       "havePlayed": "このマップをプレイしました",
-      "loadError": "マップヘッダーを読み込めません :/"
+      "loadError": "マップヘッダーを読み込めません :/",
+      "allServers": "全サーバー",
+      "allServersTooltip": "このマップを全サーバーで表示"
     },
     "analyze": {
       "stillCalculating": "まだ計算中です。後でまた来てください~",
@@ -721,6 +723,24 @@
       "title": "全体分布",
       "regions": "地域",
       "loadError": "地域分布を読み込めません。"
+    },
+    "serverBreakdown": {
+      "title": "サーバー別内訳",
+      "tooltipMap": "過去1年間に各サーバーでこのマップが1日あたりどれだけ稼働したか。各日は最も多くプレイしたサーバーの色で表示されます。",
+      "tooltipPlayer": "過去1年間に各サーバーでこのマップをプレイしたプレイヤーの1日あたりの合計時間。各日はプレイヤー時間が最も多いサーバーの色で表示されます。",
+      "metric": "指標",
+      "mapHours": "マップ時間",
+      "playerHours": "プレイヤー時間",
+      "hours": "時間",
+      "noData": "サーバー別のデータがありません。",
+      "dataNotReady": "データの準備ができていません。",
+      "somethingWrong": "何か問題が発生しました",
+      "ariaLabel": "サーバー別の日次プレイ時間ヒートマップ",
+      "summary": "ヒートマップは{days}日間のマッププレイパターンを表示します。最も活動的な日：{day} ({dayHours})。最も活動的なサーバー：{server} ({serverHours})。",
+      "distributionTitle": "サーバー別分布",
+      "servers": "サーバー",
+      "allTime": "累計 {hours}",
+      "loadError": "サーバー別内訳を読み込めません!"
     },
     "music": {
       "reportIssue": "問題を報告",
@@ -1173,6 +1193,9 @@
     "mapRemoved": "マップは{name}から削除されました。",
     "mainlyPlayed": "主に{region}で{hours}でプレイされました。",
     "mostActivePlayer": "このマップで最も活動的なプレイヤーは{hours}のプレイ時間を持つ{name}です。",
+    "globalMapTitle": "全サーバーの{map}",
+    "globalMapCumulative": "{communities, plural, other {#個のコミュニティ}}の{servers, plural, other {#個のサーバー}}で{hours}の累計があります。{players}人のプレイヤーがプレイしました。",
+    "globalMapTopServer": "最も多くプレイされたのは{server}で{hours}です。",
     "roundsFinalScore": "{rounds}ラウンドをプレイして最終スコア{human}-{zombie}を記録しました。",
     "roundsScore": "{rounds}ラウンドをプレイしてスコア{human}-{zombie}を記録しました。",
     "playingSince": "現在{time}以降プレイしています。",

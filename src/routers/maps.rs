@@ -216,9 +216,10 @@ async fn global_map_exists(pool: &Pool<Postgres>, map_name: &str) -> Result<bool
 
 /// One page of maps grouped by name across servers, plus the per-server rows of those maps.
 /// `user_id` is only read by the `favorite` filter, so pages without it are viewer-independent.
-async fn global_map_page(
+/// `exact` limits the page to that one map name, for the global map detail.
+pub(crate) async fn global_map_page(
     pool: &Pool<Postgres>, game: Option<&str>, search: &str, filter: &str, sorted_by: &str,
-    user_id: Option<i64>, offset: i64,
+    user_id: Option<i64>, offset: i64, exact: Option<&str>,
 ) -> Result<DbGlobalMapPage, sqlx::Error> {
     let maps = sqlx::query_as!(DbGlobalMapRow, r#"
         WITH open_sessions AS (
@@ -252,7 +253,8 @@ async fn global_map_page(
             LEFT JOIN map_metadata mam ON mam.name = sm.map
             LEFT JOIN open_sessions os
                 ON os.server_id = sm.server_id AND os.map = sm.map
-            WHERE $1::TEXT IS NULL OR COALESCE(smd.game, '730_cs2') = $1
+            WHERE ($1::TEXT IS NULL OR COALESCE(smd.game, '730_cs2') = $1)
+              AND ($8::TEXT IS NULL OR sm.map = $8)
         ),
         maps AS (
             SELECT
@@ -309,7 +311,7 @@ async fn global_map_page(
             m.map
         LIMIT $6
         OFFSET $7
-    "#, game, search, filter, user_id, sorted_by, GLOBAL_MAPS_PAGE_SIZE, offset)
+    "#, game, search, filter, user_id, sorted_by, GLOBAL_MAPS_PAGE_SIZE, offset, exact)
         .fetch_all(pool)
         .await?;
 
@@ -343,6 +345,8 @@ async fn global_map_page(
             sm.min_players AS "min_players?",
             (os.server_id IS NOT NULL) AS "is_playing!",
             mp.last_played AS "last_played!",
+            mp.total_playtime AS "total_playtime!",
+            mp.total_sessions AS "total_sessions!",
             mp.cum_player_hours AS "cum_player_hours!"
         FROM server_map sm
         JOIN website.map_analyze mp
@@ -358,6 +362,98 @@ async fn global_map_page(
         .await?;
 
     Ok(DbGlobalMapPage { total_maps, maps, servers })
+}
+
+/// Turns grouped map rows and their per-server rows into API maps: per-server state, games in
+/// order of player-hours, a thumbnail and, for a signed-in viewer, whether they favorited it.
+pub(crate) async fn assemble_global_maps(
+    data: &AppData, maps: Vec<DbGlobalMapRow>, servers: Vec<DbGlobalMapServerRow>, user_id: Option<i64>,
+) -> Vec<GlobalMapPlayed> {
+    let names: Vec<String> = maps.iter().map(|m| m.map.clone()).collect();
+    // A failed favorites lookup leaves `is_favorite` unknown rather than failing the whole page.
+    let favorites: Option<Vec<String>> = match user_id {
+        Some(_) if names.is_empty() => Some(vec![]),
+        Some(user_id) => sqlx::query_scalar!("
+            SELECT map
+            FROM website.user_favorite_global_maps
+            WHERE user_id = $1 AND map = ANY($2)
+        ", user_id, &names[..]).fetch_all(&*data.pool).await
+            .inspect_err(|e| tracing::warn!("Couldn't load global map favorites: {e}"))
+            .ok(),
+        None => None,
+    };
+
+    let mut servers_by_map: HashMap<String, Vec<DbGlobalMapServerRow>> = HashMap::new();
+    for server in servers {
+        servers_by_map.entry(server.map.clone()).or_default().push(server);
+    }
+
+    let images = get_map_images(&data.cache).await;
+    let mut names_by_game: HashMap<String, Vec<String>> = HashMap::new();
+    for image in &images {
+        names_by_game.entry(image.game_type.clone()).or_default().push(image.map_name.clone());
+    }
+
+    let mut result = Vec::with_capacity(maps.len());
+    for row in maps {
+        let map_servers = servers_by_map.remove(&row.map).unwrap_or_default();
+        let mut games: Vec<String> = vec![];
+        for server in &map_servers {
+            if !games.contains(&server.game) {
+                games.push(server.game.clone());
+            }
+        }
+        let image = global_map_image(&row.map, &games, &images, &names_by_game);
+        let mut map: GlobalMapPlayed = row.into();
+        map.is_favorite = favorites.as_ref().map(|favorites| favorites.contains(&map.map));
+        map.games = games;
+        map.servers = map_servers.iter_into();
+        map.image = image;
+        result.push(map);
+    }
+    result
+}
+
+/// Music tracks associated with a map, including which other maps share each track. Tracks are
+/// tied to the map name, so this is the same on every server.
+pub(crate) async fn map_musics(pool: &Pool<Postgres>, map_name: &str) -> Result<Vec<DbAssociatedMapMusic>, sqlx::Error> {
+    sqlx::query_as!(DbAssociatedMapMusic,
+            "WITH form_associated_maps AS (
+                SELECT
+                    amm.map_name AS current_map,
+                    mm.*,
+                    COALESCE(
+                        ARRAY_AGG(amm2.map_name ORDER BY amm2.map_name)
+                            FILTER (WHERE amm2.map_name IS NOT NULL),
+                        ARRAY[]::text[]
+                    ) AS other_maps
+                FROM associated_map_music amm
+                JOIN map_music mm
+                    ON mm.id = amm.map_music_id
+                LEFT JOIN associated_map_music amm2
+                    ON amm.map_music_id = amm2.map_music_id
+                   AND amm.map_name <> amm2.map_name
+                WHERE amm.map_name = $1
+                GROUP BY amm.map_name, mm.id
+            )
+            SELECT amm.map_music_id AS id,
+                music_name,
+                duration,
+                youtube_music,
+                source,
+                map_name,
+                other_maps,
+                tags,
+                yt_source,
+                COALESCE(su.persona_name, NULL) AS yt_source_name
+            FROM associated_map_music amm
+            LEFT JOIN form_associated_maps fam ON fam.id=amm.map_music_id
+            LEFT JOIN website.steam_user su ON su.user_id=yt_source
+            WHERE amm.map_name = $1 AND music_name <> ''
+            ",
+        map_name)
+        .fetch_all(pool)
+        .await
 }
 
 /// Thumbnail for a map name, trying each game in order (most played first).
@@ -581,59 +677,17 @@ impl MapApi{
 
         let cacheable = search.is_empty() && filtering != "favorite" && page < GLOBAL_MAPS_CACHED_PAGES;
         let DbGlobalMapPage { total_maps, maps, servers } = if cacheable {
-            let key = format!("global-maps-v1:{sorting}:{filtering}:{}:{page}", game.as_deref().unwrap_or("all"));
-            let func = || global_map_page(pool, game.as_deref(), &search, &filtering, &sorting, None, offset);
+            let key = format!("global-maps-v2:{sorting}:{filtering}:{}:{page}", game.as_deref().unwrap_or("all"));
+            let func = || global_map_page(pool, game.as_deref(), &search, &filtering, &sorting, None, offset, None);
             or_ise!(cached_response(&key, &data.cache, 60, func).await, e => "Error global maps: {e}").result
         } else {
             or_ise!(
-                global_map_page(pool, game.as_deref(), &search, &filtering, &sorting, user_id, offset).await,
+                global_map_page(pool, game.as_deref(), &search, &filtering, &sorting, user_id, offset, None).await,
                 e => "Error global maps: {e}"
             )
         };
 
-        let names: Vec<String> = maps.iter().map(|m| m.map.clone()).collect();
-        // A failed favorites lookup leaves `is_favorite` unknown rather than failing the whole page.
-        let favorites: Option<Vec<String>> = match user_id {
-            Some(_) if names.is_empty() => Some(vec![]),
-            Some(user_id) => sqlx::query_scalar!("
-                SELECT map
-                FROM website.user_favorite_global_maps
-                WHERE user_id = $1 AND map = ANY($2)
-            ", user_id, &names[..]).fetch_all(pool).await
-                .inspect_err(|e| tracing::warn!("Couldn't load global map favorites: {e}"))
-                .ok(),
-            None => None,
-        };
-
-        let mut servers_by_map: HashMap<String, Vec<DbGlobalMapServerRow>> = HashMap::new();
-        for server in servers {
-            servers_by_map.entry(server.map.clone()).or_default().push(server);
-        }
-
-        let images = get_map_images(&data.cache).await;
-        let mut names_by_game: HashMap<String, Vec<String>> = HashMap::new();
-        for image in &images {
-            names_by_game.entry(image.game_type.clone()).or_default().push(image.map_name.clone());
-        }
-
-        let mut result = Vec::with_capacity(maps.len());
-        for row in maps {
-            let map_servers = servers_by_map.remove(&row.map).unwrap_or_default();
-            let mut games: Vec<String> = vec![];
-            for server in &map_servers {
-                if !games.contains(&server.game) {
-                    games.push(server.game.clone());
-                }
-            }
-            let image = global_map_image(&row.map, &games, &images, &names_by_game);
-            let mut map: GlobalMapPlayed = row.into();
-            map.is_favorite = favorites.as_ref().map(|favorites| favorites.contains(&map.map));
-            map.games = games;
-            map.servers = map_servers.iter_into();
-            map.image = image;
-            result.push(map);
-        }
-
+        let result = assemble_global_maps(data, maps, servers, user_id).await;
         response!(ok GlobalMapPaginated { total_maps: total_maps as i32, maps: result })
     }
     /// Search played maps across every server by name, for autocomplete. Up to 20 substring matches;
@@ -733,45 +787,7 @@ impl MapApi{
     #[oai(path = "/servers/:server_id/maps/:map_name/musics", method = "get")]
     async fn get_maps_all_musics(
         &self, data: Data<&AppData>, extract: MapExtractor) -> Response<Vec<ServerMapMusic>>{
-        let pool = &*data.pool.clone();
-        let rows = or_ise!(sqlx::query_as!(DbAssociatedMapMusic,
-                "WITH form_associated_maps AS (
-                    SELECT
-                        amm.map_name AS current_map,
-                        mm.*,
-                        COALESCE(
-                            ARRAY_AGG(amm2.map_name ORDER BY amm2.map_name)
-                                FILTER (WHERE amm2.map_name IS NOT NULL),
-                            ARRAY[]::text[]
-                        ) AS other_maps
-                    FROM associated_map_music amm
-                    JOIN map_music mm
-                        ON mm.id = amm.map_music_id
-                    LEFT JOIN associated_map_music amm2
-                        ON amm.map_music_id = amm2.map_music_id
-                       AND amm.map_name <> amm2.map_name
-                    WHERE amm.map_name = $1
-                    GROUP BY amm.map_name, mm.id
-                )
-                SELECT amm.map_music_id AS id,
-                    music_name,
-                    duration,
-                    youtube_music,
-                    source,
-                    map_name,
-                    other_maps,
-                    tags,
-                    yt_source,
-                    COALESCE(su.persona_name, NULL) AS yt_source_name
-                FROM associated_map_music amm
-                LEFT JOIN form_associated_maps fam ON fam.id=amm.map_music_id
-                LEFT JOIN website.steam_user su ON su.user_id=yt_source
-                WHERE amm.map_name = $1 AND music_name <> ''
-                ",
-				extract.map.map)
-            .fetch_all(pool)
-            .await);
-
+        let rows = or_ise!(map_musics(&data.pool, &extract.map.map).await);
         response!(ok rows.iter_into())
     }
 

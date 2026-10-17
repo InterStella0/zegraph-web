@@ -1,6 +1,6 @@
 'use client'
 import {use, useEffect, useMemo, useRef, useState} from "react";
-import {fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
+import {StillCalculate} from "utils/generalUtils.ts";
 import {LazyBarChart as Bar} from "components/graphs/LazyCharts";
 import { Card } from "../ui/card";
 import { TooltipProvider } from "../ui/tooltip";
@@ -8,7 +8,7 @@ import { Skeleton } from "../ui/skeleton";
 import SkeletonBarGraph from "../graphs/SkeletonBarGraph.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
-import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
+import {useMapScope} from "lib/hooks/useMapScope";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
 import {MapSessionDistribution} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
@@ -34,8 +34,8 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
     const isFirstRun = useRef(initialData !== null)
     const [error, setError] = useState<string | null>(null);
     const [notReady, setNotReady] = useState<boolean>(false);
-    const { server } = useServerData()
-    const server_id = server.id
+    const { server, fetchMap } = useMapScope()
+    const server_id = server?.id ?? null
     const [retryTick, setRetryTick] = useState(0)
     useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
 
@@ -48,7 +48,8 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
         setLoading(true)
         setDetail(null)
         setNotReady(false)
-        fetchServerUrl(server_id, `/maps/${name}/sessions_distribution`, period ? { params: { period } } : {})
+        setError(null)
+        fetchMap('/sessions_distribution', period ? { params: { period } } : {})
             .then((data: MapSessionDistribution[]) => {
                 setDetail(data);
             })

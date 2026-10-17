@@ -254,18 +254,17 @@ impl BriefAnonymizer {
         };
         let reveal_all = check_superuser(app, viewer_id).await
             || is_community_admin_of_server(app, viewer_id, server_id).await;
-        let viewer_id = viewer_id.to_string();
-        let viewer_player_ids = sqlx::query_scalar::<_, String>(
-            "SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1",
-        )
-        .bind(&viewer_id)
-        .fetch_all(&*app.pool)
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .chain(std::iter::once(viewer_id))
-        .collect();
-        Self { reveal_all, viewer_player_ids }
+        Self { reveal_all, viewer_player_ids: viewer_player_ids(app, viewer_id).await }
+    }
+
+    /// For rows that span every community. A community admin only covers their own community, so
+    /// beyond the player themselves only a superuser sees through the mask.
+    pub async fn global(app: &AppData, viewer_id: Option<i64>) -> Self {
+        let Some(viewer_id) = viewer_id else {
+            return Self { reveal_all: false, viewer_player_ids: HashSet::new() };
+        };
+        let reveal_all = check_superuser(app, viewer_id).await;
+        Self { reveal_all, viewer_player_ids: viewer_player_ids(app, viewer_id).await }
     }
 
     fn reveal(&self, player_id: &str) -> bool {
@@ -294,6 +293,21 @@ impl BriefAnonymizer {
         // points cannot drift.
         self.apply(rows);
     }
+}
+
+/// The viewer's own player rows: their account plus every alt linked to it.
+async fn viewer_player_ids(app: &AppData, viewer_id: i64) -> HashSet<String> {
+    let viewer_id = viewer_id.to_string();
+    sqlx::query_scalar::<_, String>(
+        "SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1",
+    )
+    .bind(&viewer_id)
+    .fetch_all(&*app.pool)
+    .await
+    .unwrap_or_default()
+    .into_iter()
+    .chain(std::iter::once(viewer_id))
+    .collect()
 }
 
 async fn is_community_admin_of_server(app: &AppData, user_id: i64, server_id: &str) -> bool {

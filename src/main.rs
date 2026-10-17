@@ -30,6 +30,7 @@ use dotenv::dotenv;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use crate::routers::maps::MapApi;
+use crate::routers::global_maps::GlobalMapApi;
 use crate::routers::misc::{HealthMonitor, LiveEventHub, MiscApi};
 use crate::routers::radars::RadarApi;
 use core::updater::*;
@@ -127,6 +128,7 @@ fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
         PlayerApi,
         GraphApi,
         MapApi,
+        GlobalMapApi,
         RadarApi,
         MiscApi,
         AccountsApi,
@@ -571,6 +573,24 @@ mod route_tests {
         );
     }
 
+    /// The global map routes resolve the map before anything else, so against the dead pool every
+    /// one of them is a 404 rather than a server error.
+    #[tokio::test]
+    async fn global_map_routes_404_unknown_maps() {
+        let cli = client();
+        for route in [
+            "info", "analyze", "heat-servers", "sessions?page=0", "top_players", "sessions_distribution",
+            "player_types", "musics",
+        ] {
+            let path = format!("/maps/ze_test_map_v1/{route}");
+            assert_eq!(
+                send(&cli, "GET", &path, None).await,
+                poem::http::StatusCode::NOT_FOUND,
+                "GET {path} should reach the map lookup and 404",
+            );
+        }
+    }
+
     /// The bulk lookups reject a missing, blank or over-long key list in request validation; a
     /// valid list goes on to the server lookup (404 against the dead pool) or, for the unscoped
     /// pfp route, to the handler.
@@ -610,6 +630,8 @@ mod route_tests {
         let paths = spec_paths();
         for expected in [
             "/servers/{server_id}/maps/{map_name}/info",
+            "/maps/{map_name}/info",
+            "/maps/{map_name}/heat-servers",
             "/graph/{server_id}/unique_players/players/{player_id}/sessions/{session_id}",
             "/players/{player_id}/profile",
             "/players/{player_id}/sessions",
@@ -632,6 +654,9 @@ mod route_tests {
             ("/servers/1/maps/ze_test_map_v1/info", "/servers/{server_id}/maps/{map_name}/info"),
             ("/maps/all/3d", "/maps/all/3d"),
             ("/maps/ze_test_map_v1/3d", "/maps/{map_name}/3d"),
+            ("/maps/autocomplete", "/maps/autocomplete"),
+            ("/maps/ze_test_map_v1/info", "/maps/{map_name}/info"),
+            ("/maps/ze_test_map_v1/top_players", "/maps/{map_name}/top_players"),
             ("/graph/1/get_regions", "/graph/{server_id}/get_regions"),
             ("/servers/1/maps/images", "/servers/{server_id}/maps/images"),
             ("/servers/1/maps/ze_test_map_v1/images", "/servers/{server_id}/maps/{map_name}/images"),
@@ -847,7 +872,7 @@ mod route_tests {
         let cli = client();
         let (_, body) = mcp(&cli, rpc(1, "tools/list", serde_json::Value::Null)).await;
         let tools = body["result"]["tools"].as_array().expect("a tools array");
-        assert_eq!(tools.len(), 41);
+        assert_eq!(tools.len(), 48);
         for tool in tools {
             assert_eq!(tool["inputSchema"]["type"], "object", "{tool:#}");
             assert!(tool["description"].as_str().is_some_and(|d| !d.is_empty()), "{tool:#}");

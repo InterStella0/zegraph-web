@@ -651,7 +651,9 @@
       "sessions": "Sesi",
       "lastPlayed": "Terakhir dimainkan",
       "havePlayed": "telah bermain peta ini",
-      "loadError": "Header peta tidak dapat dimuat :/"
+      "loadError": "Header peta tidak dapat dimuat :/",
+      "allServers": "Semua server",
+      "allServersTooltip": "Lihat peta ini di semua server"
     },
     "analyze": {
       "stillCalculating": "Masih menghitung, data tidak siap. Kembali nanti~",
@@ -721,6 +723,24 @@
       "title": "Distribusi Keseluruhan",
       "regions": "WILAYAH",
       "loadError": "Distribusi wilayah tidak dapat dimuat."
+    },
+    "serverBreakdown": {
+      "title": "Rincian per Server",
+      "tooltipMap": "Berapa lama peta ini dimainkan di setiap server per hari selama setahun terakhir. Setiap hari diberi warna server yang paling banyak memainkannya.",
+      "tooltipPlayer": "Total waktu pemain di peta ini di setiap server per hari selama setahun terakhir. Setiap hari diberi warna server dengan jam pemain terbanyak.",
+      "metric": "Ukuran",
+      "mapHours": "Jam peta",
+      "playerHours": "Jam pemain",
+      "hours": "Jam",
+      "noData": "Tidak ada data server.",
+      "dataNotReady": "Data tidak siap.",
+      "somethingWrong": "Sesuatu tidak beres",
+      "ariaLabel": "Peta panas waktu bermain harian per server",
+      "summary": "Peta panas menunjukkan pola permainan peta selama {days} hari. Hari paling aktif: {day} dengan {dayHours}. Server paling aktif: {server} dengan {serverHours}.",
+      "distributionTitle": "Distribusi per server",
+      "servers": "SERVER",
+      "allTime": "{hours} sepanjang waktu",
+      "loadError": "Rincian per server tidak dapat dimuat!"
     },
     "music": {
       "reportIssue": "Laporkan Masalah",
@@ -1173,6 +1193,9 @@
     "mapRemoved": "Peta dihapus dari {name}.",
     "mainlyPlayed": "Terutama dimainkan selama {region} dengan {hours}.",
     "mostActivePlayer": "Pemain paling aktif di peta ini adalah {name} dengan waktu bermain {hours}.",
+    "globalMapTitle": "{map} di semua server",
+    "globalMapCumulative": "Memiliki kumulatif {hours} di {servers, plural, one {# server} other {# server}} dalam {communities, plural, one {# komunitas} other {# komunitas}}. Dimainkan oleh {players} pemain.",
+    "globalMapTopServer": "Paling banyak dimainkan di {server} dengan {hours}.",
     "roundsFinalScore": "Dimainkan melalui {rounds} putaran dengan skor akhir {human}-{zombie}.",
     "roundsScore": "Dimainkan melalui {rounds} putaran dengan skor {human}-{zombie}.",
     "playingSince": "Saat ini bermain sejak {time}.",

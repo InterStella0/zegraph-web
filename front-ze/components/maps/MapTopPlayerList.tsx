@@ -7,12 +7,12 @@ import { TooltipProvider } from "../ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "../ui/command";
 import { Table, TableBody, TableCell, TableRow } from "../ui/table";
-import {fetchApiServerUrl, fetchServerUrl, StillCalculate} from "utils/generalUtils.ts";
+import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils.ts";
 import PlayerTableRow, {PlayerTableRowLoading} from "../players/PlayerTableRow.tsx";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
-import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
+import {useMapScope} from "lib/hooks/useMapScope";
 import {BriefPlayers, ExtendedPlayerBrief, SearchPlayer} from "types/players.ts";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {useTranslations} from 'next-intl';
@@ -44,8 +44,8 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
     const [ suggestionsLoading, setSuggestionsLoading ] = useState<boolean>(false)
     const [ suggestionsOpen, setSuggestionsOpen ] = useState<boolean>(false)
     const [ selectedIndex, setSelectedIndex ] = useState<number>(-1)
-    const { server } = useServerData()
-    const server_id = server.id
+    const { server, fetchMap, playerHref } = useMapScope()
+    const server_id = server?.id ?? null
     const isSuggestionsOpen = suggestionsOpen && (suggestionsLoading || suggestions.length > 0)
     const isFirstRun = useRef(initialData !== null)
     const [retryTick, setRetryTick] = useState(0)
@@ -70,10 +70,11 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
         const abortController = new AbortController()
         const signal = abortController.signal
         setLoading(true)
-        fetchServerUrl(server_id, `/maps/${name}/top_players`, { params: { page: pageDef, ...(searchTerm && { player_name: searchTerm }), ...(period && { period }) }, signal })
+        fetchMap('/top_players', { params: { page: pageDef, ...(searchTerm && { player_name: searchTerm }), ...(period && { period }) }, signal })
             .then((data: BriefPlayers) => {
-                for(const p of data.players)
-                    (p as ExtendedPlayerBrief).server_id = server_id
+                if (server_id)
+                    for(const p of data.players)
+                        (p as ExtendedPlayerBrief).server_id = server_id
                 setPlayerInfo(data)
                 setError(null)
                 setNotReady(false)
@@ -91,7 +92,9 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
 
     useEffect(() => {
         const trimmed = searchInput.trim()
-        if (trimmed.length < SUGGESTION_MIN_CHARS) {
+        // Name suggestions come from one server's players; across every server the search still
+        // filters the list, just without suggestions.
+        if (!server_id || trimmed.length < SUGGESTION_MIN_CHARS) {
             setSuggestions([])
             setSuggestionsLoading(false)
             return
@@ -249,7 +252,7 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
                             </TableCell>
                         </TableRow>
                         }
-                        {absoluteLoad && playersInfo.map(player => <PlayerTableRow player={player} key={player.id} showRank/>)}
+                        {absoluteLoad && playersInfo.map(player => <PlayerTableRow player={player} key={player.id} showRank href={playerHref(player.id)}/>)}
                     </TableBody>
                 </Table>
                 <div className="flex items-center justify-center pt-4">

@@ -116,6 +116,12 @@ export function fetchServerUrl(serverId: string, endpoint: string, options = {},
 export function fetchApiServerUrl(serverId: string, endpoint: string, options = {}, errorOnStillCalculate = true){
     return fetchApiUrl(`/servers/${serverId}${endpoint}`, options, errorOnStillCalculate)
 }
+/** A map's endpoint on one server, or across every server when `serverId` is null. */
+export function fetchMapUrl(serverId: string | null, mapName: string, endpoint: string, options = {}, errorOnStillCalculate = true){
+    return serverId
+        ? fetchServerUrl(serverId, `/maps/${mapName}${endpoint}`, options, errorOnStillCalculate)
+        : fetchUrl(`/maps/${encodeURIComponent(mapName)}${endpoint}`, options, errorOnStillCalculate)
+}
 
 export async function fetchApiUrl(endpoint: string, options: any = {}, errorOnStillCalculate = true, maxRetries = 5, backoffBaseMs = 500, maxFailures = 3){
     const optionsNew = {...options, backend: true};

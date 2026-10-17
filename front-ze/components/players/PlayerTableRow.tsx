@@ -18,14 +18,20 @@ import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 
 dayjs.extend(relativeTime)
 
-function PlayerInformation(
-    { player, timeUnit = "h", showRank = false }: { player: ExtendedPlayerBrief, timeUnit?: "h" | "m", showRank?: boolean }
-) {
+type PlayerTableRowProps = {
+    player: ExtendedPlayerBrief,
+    timeUnit?: "h" | "m",
+    showRank?: boolean,
+    /** Where the name links; defaults to the player on the current server. */
+    href?: string,
+}
+
+function PlayerInformation({ player, timeUnit = "h", showRank = false, href }: PlayerTableRowProps) {
     const t = useTranslations('players.card');
     const locale = useLocale();
     const { resolvedTheme } = useTheme();
     const isDarkMode = resolvedTheme === 'dark';
-    const { server } = useServerData()
+    const server = useServerData()?.server
 
     const isOnline = !!player.online_since;
 
@@ -57,7 +63,7 @@ function PlayerInformation(
 
                     <div className="ml-2 sm:ml-4 min-w-0">
                         <HoverPrefetchLink
-                            href={`/servers/${server.gotoLink}/players/${player.id}`}
+                            href={href ?? `/servers/${server.gotoLink}/players/${player.id}`}
                             className={cn(
                                 "font-semibold tracking-wide mb-1 max-w-[11rem] max-sm:max-w-[10rem] whitespace-nowrap overflow-hidden text-ellipsis inline-block text-sm sm:text-base",
                                 "hover:underline transition-colors",
@@ -168,12 +174,10 @@ export function PlayerTableRowLoading({ showRank = false }: { showRank?: boolean
     );
 }
 
-export default function PlayerTableRow(
-    { player, timeUnit = "h", showRank = false }: { player: ExtendedPlayerBrief, timeUnit?: "h" | "m", showRank?: boolean }
-) {
+export default function PlayerTableRow({ player, timeUnit = "h", showRank = false, href }: PlayerTableRowProps) {
     return (
         <ErrorBoundary fallback={<PlayerRowError />}>
-            <PlayerInformation player={player} timeUnit={timeUnit} showRank={showRank} />
+            <PlayerInformation player={player} timeUnit={timeUnit} showRank={showRank} href={href} />
         </ErrorBoundary>
     );
 }

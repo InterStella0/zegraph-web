@@ -651,7 +651,9 @@
       "sessions": "場次數",
       "lastPlayed": "上次遊玩",
       "havePlayed": "人玩過此地圖",
-      "loadError": "地圖標頭資訊無法載入 :/"
+      "loadError": "地圖標頭資訊無法載入 :/",
+      "allServers": "所有伺服器",
+      "allServersTooltip": "查看此地圖在所有伺服器上的資料"
     },
     "analyze": {
       "stillCalculating": "仍在計算中，資料尚未就緒，請稍後再來~",
@@ -721,6 +723,24 @@
       "title": "整體分佈",
       "regions": "地區",
       "loadError": "地區分佈無法載入。"
+    },
+    "serverBreakdown": {
+      "title": "伺服器細分",
+      "tooltipMap": "過去一年中此地圖每天在各伺服器上運行的時長。每天以遊玩最多的伺服器顏色顯示。",
+      "tooltipPlayer": "過去一年中各伺服器每天在此地圖上的玩家總時長。每天以玩家小時數最多的伺服器顏色顯示。",
+      "metric": "統計方式",
+      "mapHours": "地圖小時數",
+      "playerHours": "玩家小時數",
+      "hours": "小時數",
+      "noData": "暫無伺服器資料。",
+      "dataNotReady": "資料尚未就緒。",
+      "somethingWrong": "發生錯誤",
+      "ariaLabel": "依伺服器劃分的每日遊玩時長熱力圖",
+      "summary": "熱力圖顯示了 {days} 天內的地圖遊玩模式。最活躍的一天：{day}，{dayHours}。最活躍伺服器：{server}，{serverHours}。",
+      "distributionTitle": "依伺服器分佈",
+      "servers": "伺服器",
+      "allTime": "累計 {hours}",
+      "loadError": "無法載入伺服器細分！"
     },
     "music": {
       "reportIssue": "回報問題",
@@ -1173,6 +1193,9 @@
     "mapRemoved": "該地圖已從 {name} 中移除。",
     "mainlyPlayed": "主要在 {region} 期間遊玩，共 {hours}。",
     "mostActivePlayer": "此地圖上最活躍的玩家是 {name}，遊玩時間為 {hours}。",
+    "globalMapTitle": "{map} 全伺服器資料",
+    "globalMapCumulative": "在 {communities} 個社群的 {servers} 個伺服器上累計 {hours}，共有 {players} 名玩家遊玩過。",
+    "globalMapTopServer": "在 {server} 上遊玩最多，共 {hours}。",
     "roundsFinalScore": "進行了 {rounds} 輪，最終比分為 {human}-{zombie}。",
     "roundsScore": "進行了 {rounds} 輪，比分為 {human}-{zombie}。",
     "playingSince": "目前自 {time} 起一直在遊玩。",

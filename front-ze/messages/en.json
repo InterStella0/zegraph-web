@@ -651,7 +651,9 @@
       "sessions": "Sessions",
       "lastPlayed": "Last played",
       "havePlayed": "have played this map",
-      "loadError": "Couldn't load map header :/"
+      "loadError": "Couldn't load map header :/",
+      "allServers": "All servers",
+      "allServersTooltip": "See this map across every server"
     },
     "analyze": {
       "stillCalculating": "Still calculating, data is not ready. Come back later~",
@@ -721,6 +723,24 @@
       "title": "Overall Distribution",
       "regions": "REGIONS",
       "loadError": "Region distribution cannot be load."
+    },
+    "serverBreakdown": {
+      "title": "Server Breakdown",
+      "tooltipMap": "How long this map ran on each server per day over the last year. Each day takes the color of the server that played it most.",
+      "tooltipPlayer": "Combined player time on this map on each server per day over the last year. Each day takes the color of the server with the most player-hours.",
+      "metric": "Measure",
+      "mapHours": "Map hours",
+      "playerHours": "Player-hours",
+      "hours": "Hours",
+      "noData": "No server data available.",
+      "dataNotReady": "Data is not ready.",
+      "somethingWrong": "Something went wrong",
+      "ariaLabel": "Daily playtime heatmap by server",
+      "summary": "Heatmap shows map play patterns over {days} days. Most active day: {day} with {dayHours}. Most active server: {server} with {serverHours}.",
+      "distributionTitle": "Distribution by server",
+      "servers": "SERVERS",
+      "allTime": "{hours} all-time",
+      "loadError": "Couldn't load the server breakdown!"
     },
     "music": {
       "reportIssue": "Report Issue",
@@ -1173,6 +1193,9 @@
     "mapRemoved": "Map was removed from {name}.",
     "mainlyPlayed": "Mainly played during {region} with {hours}.",
     "mostActivePlayer": "Most active player on this map is {name} with a playtime of {hours}.",
+    "globalMapTitle": "{map} across all servers",
+    "globalMapCumulative": "It has a cumulative of {hours} across {servers, plural, one {# server} other {# servers}} in {communities, plural, one {# community} other {# communities}}. Played by {players} players.",
+    "globalMapTopServer": "Played most on {server} with {hours}.",
     "roundsFinalScore": "Played through {rounds} rounds with a final score of {human}-{zombie}.",
     "roundsScore": "Played through {rounds} rounds with a score of {human}-{zombie}.",
     "playingSince": "Currently playing it since {time}.",
