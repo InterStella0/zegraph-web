@@ -121,7 +121,7 @@
       "lastRound": "Pusingan terakhir",
       "estimatedEndIn": "Anggaran tamat dalam",
       "probablyEnding": "Mungkin berakhir sekarang~",
-      "currentlyPlaying": "Sedang Dimainkan",
+      "playing": "Dimainkan",
       "playingFor": "Bermain selama {duration}",
       "extendCount": "{count} Kiraan Lanjutan",
       "scoreTooltip": "Markah Manusia : Markah Zombi",
@@ -767,6 +767,7 @@
       "tryhard": "Tryhard",
       "hasLasers": "Ada Laser",
       "availableNow": "Tersedia Sekarang",
+      "liveNow": "Sedang Dimainkan",
       "favorites": "Kegemaran"
     },
     "category": {
@@ -917,6 +918,22 @@
       "cancel": "Batal",
       "submitting": "Menghantar...",
       "submitReport": "Hantar Laporan"
+    },
+    "global": {
+      "title": "Peta Global",
+      "subtitle": "{count, number} peta merentasi pelayan CS2, CS:S dan CS:GO",
+      "allGames": "Semua permainan",
+      "communities": "Komuniti",
+      "serversCount": "{count, plural, other {# pelayan}}",
+      "playersCount": "{count, plural, other {# pemain}}",
+      "readyOn": "Sedia di {ready}/{total}",
+      "playingOn": "Dimainkan · {server}",
+      "playingOnCount": "{count, plural, other {Dimainkan di # pelayan}}",
+      "now": "Sekarang",
+      "live": "Langsung",
+      "noLiveServers": "Tiada pelayan dalam talian sekarang.",
+      "noMapsFound": "Tiada peta ditemui",
+      "loadError": "Gagal memuatkan senarai peta global."
     }
   },
   "tracker": {
@@ -1102,6 +1119,8 @@
     "homeDescription": "Kiraan pemain langsung, kedudukan masa bermain dan analitik peta untuk pelayan Counter-Strike Zombie Escape merentas CS2, CS:GO dan CS:S. GFL, Mapeadores, RSS, PSE dan banyak lagi.",
     "globalPlayersTitle": "Pemain Global | ZE Graph",
     "globalPlayersDescription": "Cari setiap pemain Zombie Escape yang dijejaki merentas semua komuniti, dengan jam sepanjang masa, pecahan masa bermain mengikut komuniti dan kedudukan global.",
+    "globalMapsTitle": "Peta Global | ZE Graph",
+    "globalMapsDescription": "Layari setiap peta Zombie Escape yang dimainkan merentasi semua komuniti yang dijejaki, dengan jam kumulatif, pemain unik, sesi dan status cooldown secara langsung.",
     "liveTitle": "Penjejak Langsung",
     "liveDescription": "Semua kemas kini data pemain Zombie Escape (ZE) dialirkan di sini.",
     "statusTitle": "Status",

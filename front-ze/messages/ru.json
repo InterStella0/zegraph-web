@@ -121,7 +121,7 @@
       "lastRound": "Последний раунд",
       "estimatedEndIn": "Примерно закончится через",
       "probablyEnding": "Вероятно, заканчивается прямо сейчас~",
-      "currentlyPlaying": "Играют сейчас",
+      "playing": "Играют",
       "playingFor": "Играют {duration}",
       "extendCount": "{count} Количество продлений",
       "scoreTooltip": "Счет людей : Счет зомби",
@@ -767,6 +767,7 @@
       "tryhard": "потный",
       "hasLasers": "Eсть лазеры",
       "availableNow": "Доступны сейчас",
+      "liveNow": "Сейчас играют",
       "favorites": "Избранные"
     },
     "category": {
@@ -917,6 +918,22 @@
       "cancel": "Отмена",
       "submitting": "Отправка...",
       "submitReport": "Отправить сообщение"
+    },
+    "global": {
+      "title": "Глобальные карты",
+      "subtitle": "{count, number} карт на серверах CS2, CS:S и CS:GO",
+      "allGames": "Все игры",
+      "communities": "Сообщества",
+      "serversCount": "{count, plural, one {# сервер} few {# сервера} other {# серверов}}",
+      "playersCount": "{count, plural, one {# игрок} few {# игрока} other {# игроков}}",
+      "readyOn": "Готова на {ready}/{total}",
+      "playingOn": "Играют · {server}",
+      "playingOnCount": "{count, plural, one {Играют на # сервере} few {Играют на # серверах} other {Играют на # серверах}}",
+      "now": "Сейчас",
+      "live": "В эфире",
+      "noLiveServers": "Сейчас нет серверов в сети.",
+      "noMapsFound": "Карты не найдены",
+      "loadError": "Не удалось загрузить глобальный список карт."
     }
   },
   "tracker": {
@@ -1102,6 +1119,8 @@
     "homeDescription": "Онлайн-число игроков, рейтинги времени игры и аналитика карт для серверов Counter-Strike Zombie Escape в CS2, CS:GO и CS:S. GFL, Mapeadores, RSS, PSE и другие.",
     "globalPlayersTitle": "Глобальные игроки | ZE Graph",
     "globalPlayersDescription": "Ищите любого отслеживаемого игрока Zombie Escape по всем сообществам с общим количеством часов, разбивкой времени по сообществам и глобальным рангом.",
+    "globalMapsTitle": "Глобальные карты | ZE Graph",
+    "globalMapsDescription": "Все карты Zombie Escape, сыгранные во всех отслеживаемых сообществах: суммарные часы, уникальные игроки, сессии и текущий статус кулдауна.",
     "liveTitle": "Живой трекер",
     "liveDescription": "Все обновления данных игроков Zombie Escape (ZE) транслируются здесь.",
     "statusTitle": "Статус",

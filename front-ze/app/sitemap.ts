@@ -28,6 +28,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: 'hourly',
         priority: 1.0,
     })
+    urls.push({
+        url: `${DOMAIN}/maps`,
+        changeFrequency: 'daily',
+        priority: 1.0,
+    })
 
     for (const server of data.servers) {
         const slug = server.readable_link ?? server.server_id

@@ -261,6 +261,60 @@ pub struct DbMap3DModel {
     pub updated_at: OffsetDateTime,
 }
 
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(GlobalMapPlayed)]
+#[extra(is_favorite = None, games = vec![], servers = vec![], image = None)]
+pub struct DbGlobalMapRow {
+    #[skip]
+    pub total_maps: Option<i64>,
+    pub map: String,
+    #[unwrap_default]
+    pub is_tryhard: Option<bool>,
+    #[unwrap_default]
+    pub is_casual: Option<bool>,
+    #[unwrap_default]
+    pub has_lasers: Option<bool>,
+    #[unwrap_default]
+    pub no_noms: Option<bool>,
+    pub total_time: Option<PgInterval>,
+    #[unwrap_default]
+    pub total_sessions: Option<i32>,
+    #[rename(total_cum_time)]
+    pub cum_player_hours: Option<PgInterval>,
+    #[unwrap_default]
+    pub unique_players: Option<i32>,
+    pub last_played: Option<OffsetDateTime>,
+    #[unwrap_default]
+    pub is_playing: Option<bool>,
+}
+
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(GlobalMapServer)]
+pub struct DbGlobalMapServerRow {
+    #[skip]
+    pub map: String,
+    pub server_id: String,
+    pub game: String,
+    pub enabled: bool,
+    pub removed: bool,
+    pub cooldown: Option<OffsetDateTime>,
+    pub map_left: Option<i32>,
+    pub min_players: Option<i16>,
+    pub is_playing: bool,
+    pub last_played: OffsetDateTime,
+    #[rename(total_cum_time)]
+    pub cum_player_hours: PgInterval,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DbGlobalMapPage {
+    pub total_maps: i64,
+    pub maps: Vec<DbGlobalMapRow>,
+    pub servers: Vec<DbGlobalMapServerRow>,
+}
+
 #[cfg(test)]
 mod best_map_rank_tests {
     use super::*;

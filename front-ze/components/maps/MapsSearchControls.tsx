@@ -1,13 +1,21 @@
 'use client'
-import {useState} from 'react';
+import {ReactNode, useState} from 'react';
 import {Search, Loader2} from 'lucide-react';
 import {SortByIndex} from "../../app/servers/[server_slug]/maps/MapsSearchIndex.tsx";
-import {ServerMap} from "types/maps.ts";
 import {Input} from "components/ui/input";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "components/ui/select";
 import {Popover, PopoverContent, PopoverTrigger} from "components/ui/popover";
 import {Command, CommandEmpty, CommandGroup, CommandItem, CommandList} from "components/ui/command";
 import {useTranslations} from 'next-intl';
+
+const SORT_LABELS: Record<SortByIndex, string> = {
+    LastPlayed: 'recentlyPlayed',
+    HighestCumHour: 'cumulativeHours',
+    UniquePlayers: 'uniquePlayers',
+    FrequentlyPlayed: 'frequentlyPlayed',
+    HighestHour: 'highestHours',
+};
+const DEFAULT_SORT_OPTIONS = Object.keys(SORT_LABELS) as SortByIndex[];
 
 
 export default function MapsSearchControls({
@@ -19,6 +27,8 @@ export default function MapsSearchControls({
     setSortBy,
     autocompleteOptions,
     autocompleteLoading,
+    sortOptions = DEFAULT_SORT_OPTIONS,
+    children,
 }: {
     searchInput: string,
     setSearchInput: (searchInput: string) => void,
@@ -26,8 +36,12 @@ export default function MapsSearchControls({
     setPage: (page: number) => void,
     sortBy: SortByIndex,
     setSortBy: (sortBy: SortByIndex) => void,
-    autocompleteOptions: ServerMap[],
+    autocompleteOptions: {map: string}[],
     autocompleteLoading: boolean,
+    /** Extra controls placed after the sort select, e.g. a game filter. */
+    children?: ReactNode,
+    /** Sort choices to offer; defaults to all of them. */
+    sortOptions?: SortByIndex[],
 
 }) {
     const t = useTranslations('maps.searchControls');
@@ -81,8 +95,8 @@ export default function MapsSearchControls({
 
     return (
         <div className="border border-border rounded-lg bg-card p-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div className="md:col-span-8">
+            <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 min-w-0">
                     <Popover open={isOpen} onOpenChange={setOpen}>
                         <PopoverTrigger asChild>
                             <div className="relative">
@@ -132,7 +146,7 @@ export default function MapsSearchControls({
                         </PopoverContent>
                     </Popover>
                 </div>
-                <div className="md:col-span-4">
+                <div className="md:shrink-0">
                     <Select
                         value={sortBy}
                         onValueChange={(value: SortByIndex) => {
@@ -140,18 +154,17 @@ export default function MapsSearchControls({
                             setPage(0);
                         }}
                     >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full md:w-fit">
                             <SelectValue placeholder={t('sortBy')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="LastPlayed">{t('recentlyPlayed')}</SelectItem>
-                            <SelectItem value="HighestCumHour">{t('cumulativeHours')}</SelectItem>
-                            <SelectItem value="UniquePlayers">{t('uniquePlayers')}</SelectItem>
-                            <SelectItem value="FrequentlyPlayed">{t('frequentlyPlayed')}</SelectItem>
-                            <SelectItem value="HighestHour">{t('highestHours')}</SelectItem>
+                            {sortOptions.map(option => (
+                                <SelectItem key={option} value={option}>{t(SORT_LABELS[option])}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </div>
+                {children && <div className="md:shrink-0">{children}</div>}
             </div>
         </div>
     );

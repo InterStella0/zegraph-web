@@ -306,6 +306,15 @@ CREATE TABLE website.user_favorite_maps (
         ON DELETE CASCADE
 );
 
+-- Favorites on the global /maps page, keyed by map name across every server. No FK on map,
+-- since no table is uniquely keyed by map name; the admin map delete cleans these up instead.
+CREATE TABLE website.user_favorite_global_maps (
+    user_id BIGINT REFERENCES website.steam_user(user_id) ON DELETE CASCADE,
+    map TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, map)
+);
+
 
 CREATE TABLE IF NOT EXISTS website.map_3d_model (
     id SERIAL PRIMARY KEY,
@@ -494,6 +503,14 @@ CREATE TABLE website.map_analyze(
     avg_players_per_session DOUBLE PRECISION DEFAULT 0,
     PRIMARY KEY (server_id, map),
     FOREIGN KEY (server_id, map) REFERENCES server_map(server_id, map) ON DELETE CASCADE
+);
+
+-- Distinct players per map across every server, alts merged. Upserted by the MapAnalyze worker
+-- whenever the map ends on any server; summing map_analyze.unique_players would double count.
+CREATE TABLE website.global_map_analyze(
+    map TEXT PRIMARY KEY,
+    unique_players INT NOT NULL DEFAULT 0,
+    calculated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 
