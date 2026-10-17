@@ -77,13 +77,15 @@ export default async function RootLayout({
     const user = getServerUser();
     const donorBanner = getDonorBanner();
     const locale = await getLocale();
+    // Read by fetchUrl in the browser to route anonymous reads straight to the backend.
+    const signedIn = await user.then(Boolean, () => false);
     // AdSpot renders an <amp-ad> element, which needs the AMP runtime. Only pull in that
     // third-party script when AdSpot will actually render one.
     const adsEnabled = process.env.NEXT_PUBLIC_AD_SHOW?.toUpperCase() !== "FALSE"
         && !!process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
         && !!process.env.NEXT_PUBLIC_ADSENSE_AD_SLOT;
     return (
-        <html lang={locale} className={inter.variable} suppressHydrationWarning>
+        <html lang={locale} className={inter.variable} data-auth={signedIn ? "1" : undefined} suppressHydrationWarning>
             <head>
                 <link rel="icon" href="/favicon.ico" sizes="any" />
                 <meta name="theme-color" content="#f48fb1" />

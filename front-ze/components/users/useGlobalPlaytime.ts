@@ -6,6 +6,7 @@ import { GlobalPlaytimeSummary } from "types/community";
 
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLLS = 45;
+const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
 
 export function useGlobalPlaytime(userId: string, initial: GlobalPlaytimeSummary): GlobalPlaytimeSummary {
     const [global, setGlobal] = useState(initial);
@@ -23,7 +24,7 @@ export function useGlobalPlaytime(userId: string, initial: GlobalPlaytimeSummary
                 return;
             }
             try {
-                const next: GlobalPlaytimeSummary = await fetchApiUrl(`/players/${userId}/global-playtime`);
+                const next: GlobalPlaytimeSummary = await fetchApiUrl(`/players/${userId}/global-playtime`, NO_CACHE);
                 if (!cancelled) setGlobal(next);
             } catch {
                 // Keep the last known values on the screen and try again on the next tick.

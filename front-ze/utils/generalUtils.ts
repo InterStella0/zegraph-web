@@ -124,6 +124,19 @@ export async function fetchApiUrl(endpoint: string, options: any = {}, errorOnSt
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+// next-auth v4 session cookie, optionally __Secure- prefixed and chunked (.0, .1, ...) when large.
+const SESSION_COOKIE = /^(__Secure-)?next-auth\.session-token(\.\d+)?$/;
+
+// Presence only, no decrypt: a stale cookie just keeps the request on the Next proxy, which
+// resolves the real session itself. The client can't read the httpOnly cookie, so it reads the
+// flag the root layout renders on <html> instead.
+async function hasSession(): Promise<boolean> {
+    if (typeof window !== 'undefined')
+        return document.documentElement.dataset.auth === "1";
+    const cookieStore = await cookies();
+    return cookieStore.getAll().some(cookie => SESSION_COOKIE.test(cookie.name));
+}
 export async function fetchUrl(endpoint: string, options: any = {}, errorOnStillCalculate = true, maxRetries = 5, backoffBaseMs = 500, maxFailures = 3) {
     if (process.env.NEXT_PHASE === "phase-production-build")
         throw new RendererError()
@@ -131,6 +144,13 @@ export async function fetchUrl(endpoint: string, options: any = {}, errorOnStill
     if (options?.params) {
         endpoint = endpoint + '?' + new URLSearchParams(options.params).toString();
     }
+    // The Next proxy only exists to attach the session's backend JWT. Anonymous reads skip it and
+    // hit the backend directly (through /data/api in the browser, picking up nginx/edge caching).
+    // Writes stay on the proxy: several of those routes map to a different backend path.
+    const isGet = (options?.method ?? "GET").toUpperCase() === "GET";
+    if (options?.backend && isGet && !(await hasSession()))
+        options = {...options, backend: false};
+
     const isOnServer = typeof window === 'undefined';
     if (isOnServer && options?.backend) { // STRICTLY ON THE SERVER
         const cookieStore = await cookies();
