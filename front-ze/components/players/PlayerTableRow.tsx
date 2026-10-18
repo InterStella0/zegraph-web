@@ -149,7 +149,7 @@ export function PlayerTableRowLoading({ showRank = false, compact = false }: { s
             <TableCell className={cn("pl-2", showRank ? "py-3 sm:py-3.5" : "py-2 sm:py-3", !compact && "sm:pl-4")}>
                 <div className="flex items-center">
                     <div className={cn("relative flex-shrink-0", showRank && "mx-1")}>
-                        <Skeleton className="w-[40px] h-[40px] rounded-full" />
+                        <Skeleton className="w-[40px] h-[40px] rounded-[22%]" />
                         {showRank && (
                             <Skeleton className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2 h-3.5 w-9 rounded-full" />
                         )}

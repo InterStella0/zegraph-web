@@ -29,7 +29,7 @@ function SessionSkeleton() {
     return (
         <Card className="my-1 p-0">
             <CardContent className="flex items-center gap-2 p-2 max-sm:p-2">
-                <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                <Skeleton className="h-8 w-8 shrink-0 rounded-[22%]" />
                 <div className="min-w-0 flex-1 space-y-1.5">
                     <Skeleton className="h-[14px]" style={{ width: simpleRandom(100, 130, isClient) }} />
                     <Skeleton className="h-[12px]" style={{ width: simpleRandom(60, 110, isClient) }} />

@@ -29,7 +29,7 @@ const LeaderboardSkeleton = ({ count = 20 }) => (
                         <Skeleton className="inline-block align-middle h-5 w-5" />{'\u200b'}
                     </div>
                     <div className="relative">
-                        <Skeleton className="w-[40px] h-[40px] rounded-full" />
+                        <Skeleton className="w-[40px] h-[40px] rounded-[22%]" />
                     </div>
                     <div className="flex-1 max-sm:max-w-[9rem] max-w-[10rem] max-sm:text-sm">
                         <Skeleton className="inline-block align-middle h-4" style={{ width: `${4 + (index * 3) % 5}rem` }} />{'\u200b'}

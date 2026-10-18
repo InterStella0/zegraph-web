@@ -350,6 +350,10 @@ worker_query! {
                    sm.pending_cooldown,
                    sm.map_left,
                    sm.map_left_last_update,
+                   to_char(sm.nom_available_from, 'HH24:MI') AS nom_available_from,
+                   to_char(sm.nom_available_until, 'HH24:MI') AS nom_available_until,
+                   nw.opens_at AS \"nom_opens_at?\",
+                   nw.closes_at AS \"nom_closes_at?\",
                    sm.no_noms,
                    sm.workshop_id, sm.resolved_workshop_id,
                    sm.enabled,
@@ -358,6 +362,28 @@ worker_query! {
                    sm.removed
             FROM server_map sm
             LEFT JOIN map_metadata mam ON mam.name = sm.map
+            LEFT JOIN server_metadata smd ON smd.server_id = sm.server_id
+            LEFT JOIN LATERAL (
+                SELECT
+                    CASE WHEN NOT w.open_now THEN
+                        (w.local_now::date + sm.nom_available_from
+                            + CASE WHEN w.local_now::time > sm.nom_available_from THEN INTERVAL '1 day' ELSE INTERVAL '0' END) AT TIME ZONE w.tz
+                    END AS opens_at,
+                    CASE WHEN w.open_now THEN
+                        (w.local_now::date + sm.nom_available_until
+                            + CASE WHEN w.local_now::time > sm.nom_available_until THEN INTERVAL '1 day' ELSE INTERVAL '0' END) AT TIME ZONE w.tz
+                    END AS closes_at
+                FROM (
+                    SELECT l.tz, l.local_now,
+                           CASE WHEN sm.nom_available_from <= sm.nom_available_until
+                                THEN l.local_now::time BETWEEN sm.nom_available_from AND sm.nom_available_until
+                                ELSE l.local_now::time >= sm.nom_available_from OR l.local_now::time <= sm.nom_available_until
+                           END AS open_now
+                    FROM (SELECT tz, now() AT TIME ZONE tz AS local_now
+                          FROM (SELECT COALESCE(NULLIF(smd.timezone, ''), 'UTC') AS tz) t) l
+                ) w
+                WHERE sm.nom_available_from <> sm.nom_available_until
+            ) nw ON TRUE
             WHERE sm.server_id=$1 AND sm.map=$2
             LIMIT 1", ctx.data.server_id, ctx.data.map_name)
             .fetch_one(&*ctx.pool)

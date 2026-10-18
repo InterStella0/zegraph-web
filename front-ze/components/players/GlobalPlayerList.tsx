@@ -31,7 +31,7 @@ function GlobalPlayerListSkeleton({ count = PAGE_SIZE }: { count?: number }) {
                     className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3"
                 >
                     <div className="flex items-center gap-3 sm:w-56">
-                        <Skeleton className="w-10 h-10 rounded-full flex-shrink-0"/>
+                        <Skeleton className="w-10 h-10 rounded-[22%] flex-shrink-0"/>
                         <div>
                             <Skeleton className="h-5 mb-1" style={{width: isClient ? `${simpleRandom(5, 10)}rem` : '5rem'}}/>
                             <Skeleton className="h-3.5 w-24"/>

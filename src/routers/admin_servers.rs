@@ -617,6 +617,17 @@ impl AdminServersApi {
                 return response!(err "Invalid game type", ErrorCode::BadRequest);
             }
         }
+        if let Some(tz) = payload.timezone.as_deref().filter(|tz| !tz.is_empty()) {
+            let valid = or_ise!(sqlx::query_scalar!(
+                r#"SELECT EXISTS(SELECT 1 FROM pg_timezone_names WHERE name = $1) AS "valid!""#,
+                tz,
+            )
+            .fetch_one(&*data.pool)
+            .await, e => "Failed to validate timezone: {}", e);
+            if !valid {
+                return response!(err "Invalid timezone", ErrorCode::BadRequest);
+            }
+        }
 
         let mut tx = or_ise!(data.pool.begin().await, e => "Failed to start transaction: {}", e);
 

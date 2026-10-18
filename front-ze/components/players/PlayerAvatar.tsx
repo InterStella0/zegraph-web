@@ -65,7 +65,7 @@ function PlayerAvatarDisplay({ uuid, name, width = 40, height = 40, anonymous = 
             src={playerImage.full}
             width={width}
             height={height}
-            className={cn("rounded-full", className)}
+            className={cn("rounded-[22%]", className)}
             {...props}
         />
     );

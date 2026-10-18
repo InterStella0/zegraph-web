@@ -334,6 +334,7 @@ pub(crate) async fn global_map_page(
             sm.removed AS "removed!",
             sm.current_cooldown AS "cooldown?",
             sm.map_left AS "map_left?",
+            nw.opens_at AS "nom_opens_at?",
             sm.min_players AS "min_players?",
             (os.server_id IS NOT NULL) AS "is_playing!",
             mp.last_played AS "last_played!",
@@ -344,6 +345,27 @@ pub(crate) async fn global_map_page(
         JOIN website.map_analyze mp
             ON mp.server_id = sm.server_id AND mp.map = sm.map
         LEFT JOIN server_metadata smd ON smd.server_id = sm.server_id
+        LEFT JOIN LATERAL (
+            SELECT
+                CASE WHEN NOT w.open_now THEN
+                    (w.local_now::date + sm.nom_available_from
+                        + CASE WHEN w.local_now::time > sm.nom_available_from THEN INTERVAL '1 day' ELSE INTERVAL '0' END) AT TIME ZONE w.tz
+                END AS opens_at,
+                CASE WHEN w.open_now THEN
+                    (w.local_now::date + sm.nom_available_until
+                        + CASE WHEN w.local_now::time > sm.nom_available_until THEN INTERVAL '1 day' ELSE INTERVAL '0' END) AT TIME ZONE w.tz
+                END AS closes_at
+            FROM (
+                SELECT l.tz, l.local_now,
+                       CASE WHEN sm.nom_available_from <= sm.nom_available_until
+                            THEN l.local_now::time BETWEEN sm.nom_available_from AND sm.nom_available_until
+                            ELSE l.local_now::time >= sm.nom_available_from OR l.local_now::time <= sm.nom_available_until
+                       END AS open_now
+                FROM (SELECT tz, now() AT TIME ZONE tz AS local_now
+                      FROM (SELECT COALESCE(NULLIF(smd.timezone, ''), 'UTC') AS tz) t) l
+            ) w
+            WHERE sm.nom_available_from <> sm.nom_available_until
+        ) nw ON TRUE
         LEFT JOIN open_sessions os
             ON os.server_id = sm.server_id AND os.map = sm.map
         WHERE sm.map = ANY($1)
@@ -555,6 +577,10 @@ impl MapApi{
                 sm.pending_cooldown,
                 sm.map_left,
                 sm.map_left_last_update,
+                to_char(sm.nom_available_from, 'HH24:MI') AS nom_available_from,
+                to_char(sm.nom_available_until, 'HH24:MI') AS nom_available_until,
+                nw.opens_at AS \"nom_opens_at?\",
+                nw.closes_at AS \"nom_closes_at?\",
                 sm.enabled,
                 sm.current_cooldown AS cooldown,
                 COALESCE(sm.is_tryhard, mam.is_tryhard) AS is_tryhard,
@@ -587,6 +613,28 @@ impl MapApi{
              AND ufm.map = sm.map
              AND ufm.user_id = $8
             LEFT JOIN map_metadata mam ON mam.name = sm.map
+            LEFT JOIN server_metadata smd ON smd.server_id = sm.server_id
+            LEFT JOIN LATERAL (
+                SELECT
+                    CASE WHEN NOT w.open_now THEN
+                        (w.local_now::date + sm.nom_available_from
+                            + CASE WHEN w.local_now::time > sm.nom_available_from THEN INTERVAL '1 day' ELSE INTERVAL '0' END) AT TIME ZONE w.tz
+                    END AS opens_at,
+                    CASE WHEN w.open_now THEN
+                        (w.local_now::date + sm.nom_available_until
+                            + CASE WHEN w.local_now::time > sm.nom_available_until THEN INTERVAL '1 day' ELSE INTERVAL '0' END) AT TIME ZONE w.tz
+                    END AS closes_at
+                FROM (
+                    SELECT l.tz, l.local_now,
+                           CASE WHEN sm.nom_available_from <= sm.nom_available_until
+                                THEN l.local_now::time BETWEEN sm.nom_available_from AND sm.nom_available_until
+                                ELSE l.local_now::time >= sm.nom_available_from OR l.local_now::time <= sm.nom_available_until
+                           END AS open_now
+                    FROM (SELECT tz, now() AT TIME ZONE tz AS local_now
+                          FROM (SELECT COALESCE(NULLIF(smd.timezone, ''), 'UTC') AS tz) t) l
+                ) w
+                WHERE sm.nom_available_from <> sm.nom_available_until
+            ) nw ON TRUE
             WHERE sm.server_id=$1 AND ($6 OR sm.map ILIKE '%' || $5 || '%') AND smp.time_id IS NOT NULL
                 AND CASE
                         WHEN $7 = 'all' THEN TRUE
@@ -594,6 +642,7 @@ impl MapApi{
                         WHEN $7 = 'tryhard' THEN COALESCE(sm.is_tryhard, mam.is_tryhard)
                         WHEN $7 = 'available' THEN (sm.current_cooldown IS NULL OR CURRENT_TIMESTAMP > sm.current_cooldown)
                                                    AND (sm.map_left IS NULL OR sm.map_left <= 0)
+                                                   AND nw.opens_at IS NULL
                                                    AND sm.enabled AND NOT sm.removed
                         WHEN $7 = 'favorite' AND $8 IS NOT NULL THEN ufm.map IS NOT NULL
                         WHEN $7 = 'has_laser' THEN mam.has_lasers

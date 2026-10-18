@@ -123,7 +123,7 @@ export function MapSessionWrapperLoading() {
                         <CardContent className="p-0">
                             {Array.from({length: 30}).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 p-4 border-b last:border-0">
-                                    <Skeleton className="w-[40px] h-[40px] rounded-full flex-shrink-0" />
+                                    <Skeleton className="w-[40px] h-[40px] rounded-[22%] flex-shrink-0" />
                                     <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
                                         <div className="min-w-0">
                                             <div className="font-medium">

@@ -26,10 +26,19 @@ pub struct MapInfo{
     pub current_cooldown: Option<DateTime<Utc>>,
     /// Whether a cooldown is queued to start once the map is next played.
     pub pending_cooldown: bool,
-    /// Remaining map-count-based cooldown, if `current_cooldown` is count-based rather than
-    /// time-based.
+    /// Remaining map-count-based cooldown. Some servers (NiDE) run this alongside the time-based
+    /// `current_cooldown`; the map is only nominatable once both have cleared.
     pub map_left: Option<i32>,
     pub map_left_last_update: Option<DateTime<Utc>>,
+    /// Start of the daily nomination window, as `HH:MM` in the server's time zone.
+    pub nom_available_from: Option<String>,
+    /// End of the daily nomination window, as `HH:MM` in the server's time zone. May be earlier
+    /// than `nom_available_from` when the window wraps past midnight.
+    pub nom_available_until: Option<String>,
+    /// When the nomination window next opens, if it is currently closed.
+    pub nom_opens_at: Option<DateTime<Utc>>,
+    /// When the current nomination window closes, if it is currently open.
+    pub nom_closes_at: Option<DateTime<Utc>>,
     /// Whether nominations for this map are disabled.
     pub no_noms: bool,
     /// Whether the map is currently allowed in rotation at all.
@@ -102,6 +111,14 @@ pub struct MapPlayed{
     pub pending_cooldown: bool,
     pub map_left: Option<i32>,
     pub map_left_last_update: Option<DateTime<Utc>>,
+    /// Start of the daily nomination window, as `HH:MM` in the server's time zone.
+    pub nom_available_from: Option<String>,
+    /// End of the daily nomination window, as `HH:MM` in the server's time zone.
+    pub nom_available_until: Option<String>,
+    /// When the nomination window next opens, if it is currently closed.
+    pub nom_opens_at: Option<DateTime<Utc>>,
+    /// When the current nomination window closes, if it is currently open.
+    pub nom_closes_at: Option<DateTime<Utc>>,
     pub enabled: bool,
     pub is_tryhard: Option<bool>,
     pub is_casual: Option<bool>,
@@ -191,6 +208,8 @@ pub struct GlobalMapServer{
     /// When this map's nomination cooldown expires on this server, if one is active.
     pub cooldown: Option<DateTime<Utc>>,
     pub map_left: Option<i32>,
+    /// When this map's nomination window next opens on this server, if it is currently closed.
+    pub nom_opens_at: Option<DateTime<Utc>>,
     pub min_players: Option<i16>,
     /// Whether this server is currently playing the map.
     pub is_playing: bool,

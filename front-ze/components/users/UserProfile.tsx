@@ -30,7 +30,7 @@ export function UserProfileLoading() {
         <Card className="w-full border-border/40 bg-card/50 backdrop-blur-xl">
             <CardContent className="p-6 sm:p-8">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                    <Skeleton className="h-[120px] w-[120px] shrink-0 rounded-full" />
+                    <Skeleton className="h-[120px] w-[120px] shrink-0 rounded-[22%]" />
                     <div className="flex flex-col flex-1 items-center sm:items-start gap-3">
                         <div className="space-y-2">
                             <div className="flex items-center justify-center sm:justify-start gap-3">
