@@ -15,6 +15,8 @@ import {withErrorCatch} from "components/common/withErrorCatch";
 
 dayjs.extend(LocalizedFormat);
 
+const MAX_RANGE_YEARS = 1;
+
 interface DateTimePickerProps {
     value: Dayjs;
     onChange: (date: Dayjs) => void;
@@ -71,11 +73,12 @@ function SmallDatePicker({ value, onChange, label, disableFuture, maxDateTime, m
                     <Calendar
                         mode="single"
                         selected={value.toDate()}
+                        defaultMonth={value.toDate()}
                         onSelect={handleDateSelect}
                         disabled={(date) => {
                             if (disableFuture && dayjs(date).isAfter(dayjs())) return true;
                             if (maxDateTime && dayjs(date).isAfter(maxDateTime)) return true;
-                            if (minDateTime && dayjs(date).isBefore(minDateTime)) return true;
+                            if (minDateTime && dayjs(date).isBefore(minDateTime, 'day')) return true;
                             return false;
                         }}
                         initialFocus
@@ -133,6 +136,18 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
         setShowApply(false);
     };
 
+    const handleStartChange = (value: Dayjs) => {
+        setLocalStart(value);
+        const latestEnd = value.add(MAX_RANGE_YEARS, 'year');
+        if (localEnd.isAfter(latestEnd)) setLocalEnd(latestEnd);
+    };
+
+    const handleEndChange = (value: Dayjs) => {
+        setLocalEnd(value);
+        const earliestStart = value.subtract(MAX_RANGE_YEARS, 'year');
+        if (localStart.isBefore(earliestStart)) setLocalStart(earliestStart);
+    };
+
     const handleGoLive = () => {
         goLive();
         setShowApply(false);
@@ -146,18 +161,18 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                             <SmallDatePicker
                                 value={localStart}
-                                onChange={(value) => setLocalStart(dayjs(value))}
+                                onChange={handleStartChange}
                                 label={t('start')}
                                 disableFuture
-                                maxDateTime={localEnd ?? null}
+                                maxDateTime={localEnd}
                             />
                             <span className="hidden sm:inline-block text-2xl mx-3">-</span>
                             <SmallDatePicker
                                 label={t('end')}
                                 value={localEnd}
-                                onChange={(value) => setLocalEnd(dayjs(value))}
+                                onChange={handleEndChange}
                                 disableFuture
-                                minDateTime={localStart ?? null}
+                                minDateTime={localStart}
                             />
                         </div>
                     </div>
