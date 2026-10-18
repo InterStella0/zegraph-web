@@ -313,6 +313,8 @@ pub(crate) async fn global_map_page(
     }
 
     let names: Vec<String> = maps.iter().map(|m| m.map.clone()).collect();
+    // The `nw` nomination-window join is copied in get_maps_last_session and MapBasicQuery
+    // (workers/map.rs); query! only takes literals, so change all three together.
     let servers = sqlx::query_as!(DbGlobalMapServerRow, r#"
         WITH open_sessions AS (
             SELECT s.server_id, cur.map
@@ -568,6 +570,8 @@ impl MapApi{
         let map_target = search_map.unwrap_or_default();
         let filtering = filter.map(|e| e.to_string()).unwrap_or("all".into());
         let user_id = user.map(|e| e.id);
+        // The `nw` nomination-window join is copied in global_map_page and MapBasicQuery
+        // (workers/map.rs); query! only takes literals, so change all three together.
         let rows = or_ise!(sqlx::query_as!(DbServerMap,
 			"SELECT
                 COUNT(*) OVER() total_maps,

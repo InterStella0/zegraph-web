@@ -732,6 +732,7 @@ fn pfp_missing_key(player_id: &i64) -> String {
 const STEAM_ITEMS_URL: &str = "https://api.steampowered.com/IPlayerService/GetProfileItemsEquipped/v1/";
 const STEAM_ITEMS_CDN: &str = "https://shared.fastly.steamstatic.com/community_assets/images/";
 const STEAM_ITEMS_TTL: u64 = 12 * HOUR;
+const STEAM_ITEMS_RETRY_TTL: u64 = 5 * 60;
 
 /// One equipped slot; Steam sends `{}` for an empty one, so every field is optional.
 #[derive(Deserialize, Default)]
@@ -811,9 +812,25 @@ impl From<SteamEquippedItems> for SteamProfileItems {
     }
 }
 
-/// The Steam cosmetics a player has equipped, cached for half a day.
+/// The Steam cosmetics a player has equipped, cached for half a day. A failed lookup is remembered
+/// for a few minutes, so while Steam is down or rate limiting, profile views don't keep asking it.
 pub async fn get_steam_profile_items(cache: &FastCache, steam_id: i64) -> Result<SteamProfileItems, ErrorCode> {
-    let callable = || fetch_steam_profile_items(steam_id);
+    let failed_key = format!("gfl-ze-watcher:steam_items_failed:{steam_id}");
+    let callable = || async {
+        if redis_key_exists(&cache.redis_pool, &failed_key).await {
+            return Err(ErrorCode::InternalServerError);
+        }
+        let items = fetch_steam_profile_items(steam_id).await;
+        if items.is_err() {
+            if let Ok(mut conn) = cache.redis_pool.get().await {
+                let saved: RedisResult<()> = conn.set_ex(&failed_key, 1, STEAM_ITEMS_RETRY_TTL).await;
+                if let Err(e) = saved {
+                    tracing::warn!("Failed to store Steam items failure marker {}: {}", failed_key, e);
+                }
+            }
+        }
+        items
+    };
     cached_response(&format!("steam_items:{steam_id}"), cache, STEAM_ITEMS_TTL, callable)
         .await
         .map(|result| result.result)

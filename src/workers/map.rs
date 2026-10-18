@@ -339,6 +339,8 @@ worker_query! {
 worker_query! {
     MapBasicQuery<DbMapInfo> => MapInfo, HOUR, Light,
     |self, ctx| format!("map_info_data:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
+        // The `nw` nomination-window join is copied in global_map_page and get_maps_last_session
+        // (routers/maps.rs); query! only takes literals, so change all three together.
         sqlx::query_as!(DbMapInfo, "
             SELECT sm.map AS name,
                    sm.first_occurrence,
