@@ -46,8 +46,6 @@ export async function fetchGlobalContinents(signal?: AbortSignal): Promise<Conti
         .catch(() => null) as Promise<ContinentStatistics | null>;
 }
 
-// Percentage change between the first and last points of a series. Returns null when it
-// can't be computed (too few points, or first value is 0).
 export function computeTrend(data: CommunityCountData[]): number | null {
     if (!data || data.length < 2) return null;
     const first = data[0].player_count;

@@ -20,7 +20,7 @@ dayjs.extend(relativeTime);
 
 const POLL_INTERVAL = 10_000;
 const BUCKET_COUNT = 90;
-const BUCKET_MINUTES = 24 * 60 / BUCKET_COUNT; // ~16 min each
+const BUCKET_MINUTES = 24 * 60 / BUCKET_COUNT;
 
 function getServerStatus(server: FetchStatusServerGroupTruncated) {
     let hasError = false, hasOutage = false, hasData = false;
@@ -59,10 +59,8 @@ function bucketLabel(b: FetchStatusBucket): string {
 }
 
 const UptimeBar = memo(function UptimeBar({ buckets }: { buckets: FetchStatusBucket[] }) {
-    // hovered bucket index + pointer x relative to the bar (for tooltip placement)
     const [hover, setHover] = useState<{ idx: number; x: number } | null>(null);
 
-    // color is needed for every div on every render; precompute cheaply.
     const colors = useMemo(() => buckets.map(bucketColor), [buckets]);
 
     const handleMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
@@ -78,7 +76,6 @@ const UptimeBar = memo(function UptimeBar({ buckets }: { buckets: FetchStatusBuc
     const clear = useCallback(() => setHover(null), []);
 
     const hovered = hover ? buckets[hover.idx] : null;
-    // dayjs formatting is done only for the hovered bucket, not all 90 every render.
     let tooltip: { time: string; label: string; firstError: string | null } | null = null;
     if (hovered) {
         const minutesFromNow = (BUCKET_COUNT - 1 - hovered.bucket_index) * BUCKET_MINUTES;

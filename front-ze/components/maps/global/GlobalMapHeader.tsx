@@ -63,7 +63,6 @@ function GlobalMapHeaderDisplay({ loggedIn }: { loggedIn: boolean }) {
                     )}
                 </div>
 
-                {/* Top-left status across servers and categories */}
                 <div className="absolute top-0 left-0 p-2 sm:p-4 flex flex-col items-start">
                     {map && <GlobalMapStatusChip map={map} />}
                     {map?.is_casual && !map.is_tryhard && <OverlayBadge spaced color="text-green-500">{t('casual')}</OverlayBadge>}
@@ -73,7 +72,6 @@ function GlobalMapHeaderDisplay({ loggedIn }: { loggedIn: boolean }) {
                     {map?.has_lasers && <OverlayBadge spaced color="text-blue-400">{t('hasLasers')}</OverlayBadge>}
                 </div>
 
-                {/* Top-right not ready warning, favorite and 3D button */}
                 <div className="absolute top-0 right-0 p-2 sm:p-4 flex flex-col gap-2 items-end">
                     {notReady && (
                         <OverlayBadge color="text-destructive" icon={AlertTriangle} tooltip={t('stillCalculating')}>

@@ -70,7 +70,6 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
         series: r.v.regions.map(e => ({key: e.region_name, label: e.region_name, seconds: e.total_play_duration})),
     })), [regions])
 
-    // Generate SEO summary
     const summary = useMemo(() => {
         if (!regions || regions.length === 0) {
             return t('noData');
@@ -85,7 +84,6 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
         const mostActiveDay = Array.from(dayTotals.entries())
             .sort((a, b) => b[1] - a[1])[0];
 
-        // Aggregate by region to find most active region
         const regionTotals = new Map<string, number>();
         regions.forEach(r => {
             for (const region of r.v.regions){

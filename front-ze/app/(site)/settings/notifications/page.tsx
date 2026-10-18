@@ -104,7 +104,6 @@ export default function NotificationSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Enable/Disable Notifications */}
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-medium">{t('enablePush')}</h3>
@@ -132,7 +131,6 @@ export default function NotificationSettingsPage() {
             )}
           </div>
 
-          {/* Permission Status */}
           <div className="pt-4 border-t">
             <p className="text-sm text-muted-foreground">
               {t('permissionStatus')} <span className="font-medium">{permission}</span>
@@ -141,7 +139,6 @@ export default function NotificationSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Notification Preferences */}
       {isSubscribed && preferences && (
         <Card>
           <CardHeader>

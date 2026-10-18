@@ -19,23 +19,14 @@ import GlobalMapsMobileView from "./GlobalMapsMobileView";
 import {GLOBAL_MAPS_DEFAULT_SORT, GLOBAL_MAPS_PAGE_SIZE} from "./constants";
 
 const GLOBAL_TABS: FilterTypes[] = ['all', 'casual', 'tryhard', 'lasers', 'playing', 'favorites'];
-// Only metrics with a column in the global table; there is no plain "Hours" column.
 const GLOBAL_SORT_OPTIONS: SortByIndex[] = ['HighestCumHour', 'UniquePlayers', 'FrequentlyPlayed', 'LastPlayed'];
 const ALL_GAMES = 'all';
 const SEARCH_DEBOUNCE_MS = 600;
-// Matches the backend's own cache on these pages.
 const PAGE_CACHE_TTL_MS = 60_000;
 
-// Pages already fetched this session, keyed by their query, so stepping back is instant and the
-// next page can load ahead of the click. Module-level so it outlives leaving /maps and coming back.
-// Only effects write to it, so the server render never sees entries.
 const pageCache = new Map<string, {data: GlobalMapPaginated, at: number}>();
 const pageRequests = new Map<string, Promise<GlobalMapPaginated>>();
-// Favorite toggles made this session. They win over is_favorite on every copy of a page, whether it
-// came from the cache, is the page still on screen, or was fetched before the toggle landed.
 const favoriteOverrides = new Map<string, boolean>();
-// Bumped on each toggle, so a favorites-filter request that started earlier is not cached with the
-// old list.
 let favoritesVersion = 0;
 
 function cachedPage(key: string): GlobalMapPaginated | undefined {
@@ -43,8 +34,6 @@ function cachedPage(key: string): GlobalMapPaginated | undefined {
     return entry && Date.now() - entry.at < PAGE_CACHE_TTL_MS ? entry.data : undefined;
 }
 
-// Shares one request per page, so a click on a page that is still prefetching waits for it
-// instead of asking again.
 function loadPage(key: string): Promise<GlobalMapPaginated> {
     const cached = cachedPage(key);
     if (cached) return Promise.resolve(cached);
@@ -77,7 +66,6 @@ function pageKey(page: number, sortBy: SortByIndex, searchTerm: string, filterMo
 function recordFavorite(mapName: string, isFavorite: boolean) {
     favoriteOverrides.set(mapName, isFavorite);
     favoritesVersion++;
-    // Which maps a favorites page holds has changed, so those pages have to be fetched again.
     for (const key of pageCache.keys()) {
         if (JSON.parse(key).filter === 'Favorite') pageCache.delete(key);
     }
@@ -144,7 +132,6 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
     const [autocompleteOptions, setAutocompleteOptions] = useState<{map: string}[]>([]);
     const [autocompleteLoading, setAutocompleteLoading] = useState<boolean>(false);
     const [loginDialogOpen, setLoginDialogOpen] = useState<boolean>(false);
-    // Tailwind's md breakpoint. Rendering only the visible layout halves the work of each page change.
     const isDesktop = useMediaQuery('(min-width: 48rem)');
 
     useEffect(() => {
@@ -186,8 +173,6 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
     const filterMode = getFilterMode(filterTab);
     const key = pageKey(page, sortBy, searchTerm, filterMode, game);
     const [initialKey] = useState(key);
-    // The last page that finished loading. It stays on screen, dimmed, until the requested one
-    // arrives, so the table and its pagination never collapse to skeletons between pages.
     const [shown, setShown] = useState<{key: string, data: GlobalMapPaginated}>({key: initialKey, data: initialData});
     const [failedKey, setFailedKey] = useState<string | null>(null);
     const cached = cachedPage(key);
@@ -218,14 +203,12 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
         };
     }, [key]);
 
-    // Fetch the next page once this one is showing, so Next is usually instant.
     useEffect(() => {
         if (loading || page + 1 >= totalPages) return;
         const nextKey = pageKey(page + 1, sortBy, searchTerm, filterMode, game);
         loadPage(nextKey).catch(() => {});
     }, [loading, page, totalPages, sortBy, searchTerm, filterMode, game]);
 
-    // favoriteOverrides is module state, so favoritesTick is what tells this to recompute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const favorites = useMemo(() => favoritesOf(data), [data, favoritesTick]);
 

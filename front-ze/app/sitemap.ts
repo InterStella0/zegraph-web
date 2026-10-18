@@ -56,7 +56,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         })
     }
 
-    // Each map also has one page across every server, last modified when any server last played it.
     const globalMaps = new Map<string, string | null>()
     for (const map of data.maps) {
         const map_name = sanitizeUrl(map.map_name).trim()

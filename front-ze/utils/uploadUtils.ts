@@ -1,8 +1,8 @@
 import { fetchApiUrl } from './generalUtils';
 import { Map3DModel, Character3DModel } from '../types/maps';
 
-export const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
-export const CHUNKED_UPLOAD_THRESHOLD = 50 * 1024 * 1024; // 50MB
+export const CHUNK_SIZE = 10 * 1024 * 1024;
+export const CHUNKED_UPLOAD_THRESHOLD = 50 * 1024 * 1024;
 
 export interface UploadProgress {
   totalChunks: number;
@@ -82,13 +82,11 @@ async function uploadChunkWithRetry(
         throw error;
       }
 
-      // Don't retry on client errors (400-499)
       if (error instanceof Error && 'status' in error) {
         const status = (error as any).status;
         if (status >= 400 && status < 500) throw error;
       }
 
-      // Exponential backoff: 1s, 2s, 3s
       if (attempt < maxRetries - 1) {
         const delay = (attempt + 1) * 1000;
         if (!quiet) {

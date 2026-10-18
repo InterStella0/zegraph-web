@@ -18,8 +18,6 @@ import { fetchApiUrl } from 'utils/generalUtils';
 import { sendJson } from 'lib/sendJson';
 import { AdminHeader, AdminSpinner, EmptyRow, Field, FormDialog, RowActions, useDialogTarget, useResetForm, useSave } from '../components/AdminUI';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface AdminCommunity {
   id: string;
   name: string | null;
@@ -64,8 +62,6 @@ const GAME_OPTIONS: { value: string; label: string }[] = [
   { value: '730_csgo', label: 'CS:GO (730)' },
   { value: '240', label: 'CS:S (240)' },
 ];
-
-// ─── Community dialog ─────────────────────────────────────────────────────────
 
 function CommunityDialog({
   open, onOpenChange, community, onSuccess,
@@ -160,8 +156,6 @@ function CommunityDialog({
   );
 }
 
-// ─── Server Browser dialog ────────────────────────────────────────────────────
-
 function ServerBrowserDialog({
   open, onOpenChange, entry, onSuccess,
 }: {
@@ -239,8 +233,6 @@ function ServerBrowserDialog({
   );
 }
 
-// ─── Edit server name dialog ──────────────────────────────────────────────────
-
 function EditServerNameDialog({
   open, onOpenChange, server, onSuccess,
 }: {
@@ -301,8 +293,6 @@ function EditServerNameDialog({
     </FormDialog>
   );
 }
-
-// ─── Edit server metadata dialog ──────────────────────────────────────────────
 
 function EditMetadataDialog({
   open, onOpenChange, server, onSuccess,
@@ -377,8 +367,6 @@ function EditMetadataDialog({
   );
 }
 
-// ─── Set community dialog ─────────────────────────────────────────────────────
-
 function SetCommunityDialog({
   open, onOpenChange, server, communities, onSuccess,
 }: {
@@ -426,8 +414,6 @@ function SetCommunityDialog({
     </FormDialog>
   );
 }
-
-// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ServersAdminPage() {
   const [communities, setCommunities] = useState<AdminCommunity[]>([]);

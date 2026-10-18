@@ -35,7 +35,6 @@ export default function MatchScoreChart(
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
 
-    // Generate SEO summary
     const summary = useMemo(() => {
         if (!maps || maps.length === 0) {
             return t('noMatchScoreData');

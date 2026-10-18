@@ -8,7 +8,7 @@ interface ModelCache {
 }
 
 const CACHE_VERSION = 3
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000 // 7 days
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000
 
 export async function getCachedModelData(url: string): Promise<ModelCache | null> {
   try {

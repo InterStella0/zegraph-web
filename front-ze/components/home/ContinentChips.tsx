@@ -1,9 +1,6 @@
 'use client'
 import {ContinentStatistics} from "types/players";
 
-// Same continent → color mapping as PlayerContinentCounter, kept in sync so
-// continents look the same everywhere on the site. Values must stay 6-digit hex
-// because the chip background is derived by appending an alpha byte.
 const CONTINENT_COLORS: Record<string, string> = {
     "North America": "#4CAF50",
     "South America": "#8BC34A",

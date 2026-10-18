@@ -52,28 +52,6 @@ pub fn auto_serde_with(_attr: TokenStream, item: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-/// Derive macro that generates `impl Into<Target> for Self`.
-/// The thing inside models.rs got so bloat i needed a macro for it.
-/// 
-/// Struct attribute:
-///   `#[db_into(TargetType)]`: required
-///
-/// Field attributes (combinable):
-///   _(none)_:`self.field` (always)
-///   `#[unwrap_default]`: `self.field.unwrap_or_default()`
-///   `#[default(expr)]`: `self.field.unwrap_or(expr)`
-///   `#[method(name)]`: `self.field.name()`
-///   `#[cast(Type)]`:`self.field.unwrap_or_default() as Type` (or bare `as Type`)
-///   `#[default(expr)] #[cast(T)]`: `self.field.unwrap_or(expr) as T`
-///   `#[rename(target_field)]`: maps to `target_field:` in the target struct
-///   `#[skip]`: excluded from the impl
-///   `#[expr(tokens)]`: `tokens` verbatim (escape hatch)
-///
-/// Struct-level attribute for synthetic target fields with no source counterpart:
-///   `#[extra(field = expr)]`: emits `field: expr` — can repeat for multiple fields
-///
-/// `#[rename]` can be combined with any value attribute.
-
 #[proc_macro_derive(DbInto, attributes(db_into, extra, default, method, rename, skip, expr, cast, unwrap_default))]
 pub fn db_into_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -102,7 +80,6 @@ pub fn db_into_derive(input: TokenStream) -> TokenStream {
 
     let mut field_inits = Vec::new();
 
-    // Collect #[extra(name = expr)] from struct-level attributes
     for attr in &ast.attrs {
         if attr.path().is_ident("extra") {
             let extras = match attr.parse_args_with(
@@ -130,7 +107,6 @@ pub fn db_into_derive(input: TokenStream) -> TokenStream {
         let target_name: Ident =
             get_rename(&field.attrs).unwrap_or_else(|| field_name.clone());
 
-        // #[expr(tokens)] verbatim escape hatch
         if let Some(raw) = get_expr_tokens(&field.attrs) {
             field_inits.push(quote! { #target_name: #raw, });
             continue;
@@ -139,7 +115,6 @@ pub fn db_into_derive(input: TokenStream) -> TokenStream {
         let cast_ty = get_cast_type(&field.attrs);
         let opt = is_option(field_type);
 
-        // #[method(name)] call self.field.name(), then optionally cast
         if let Some(method) = get_method(&field.attrs) {
             let val = quote! { self.#field_name.#method() };
             let val = apply_cast(val, &cast_ty);
@@ -147,7 +122,6 @@ pub fn db_into_derive(input: TokenStream) -> TokenStream {
             continue;
         }
 
-        // #[default(expr)] unwrap_or(expr), then optionally cast
         if let Some(default_expr) = get_default_expr(&field.attrs) {
             let val = if opt {
                 quote! { self.#field_name.unwrap_or(#default_expr) }
@@ -159,7 +133,6 @@ pub fn db_into_derive(input: TokenStream) -> TokenStream {
             continue;
         }
 
-        // #[unwrap_default] unwrap_or_default, then optionally cast
         if has_attr(&field.attrs, "unwrap_default") {
             let val = quote! { self.#field_name.unwrap_or_default() };
             let val = apply_cast(val, &cast_ty);
@@ -167,7 +140,6 @@ pub fn db_into_derive(input: TokenStream) -> TokenStream {
             continue;
         }
 
-        // #[cast] alone — unwrap_or_default then cast
         if let Some(ref ty) = cast_ty {
             let val = if opt {
                 quote! { self.#field_name.unwrap_or_default() as #ty }
@@ -178,7 +150,6 @@ pub fn db_into_derive(input: TokenStream) -> TokenStream {
             continue;
         }
 
-        // Type-inferred method (OffsetDateTime → to_utc_time, etc.)
         if let Some(inferred) = infer_method(field_type) {
             let val = quote! { self.#field_name.#inferred() };
             let val = apply_cast(val, &cast_ty);
@@ -186,7 +157,6 @@ pub fn db_into_derive(input: TokenStream) -> TokenStream {
             continue;
         }
 
-        // True fallthrough: identity
         field_inits.push(quote! { #target_name: self.#field_name, });
     }
 
@@ -202,8 +172,6 @@ pub fn db_into_derive(input: TokenStream) -> TokenStream {
 
     expanded.into()
 }
-
-// ── helpers ───────────────────────────────────────────────────────────────────
 
 struct ExtraField {
     name: Ident,

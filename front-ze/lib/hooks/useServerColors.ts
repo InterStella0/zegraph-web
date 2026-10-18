@@ -4,11 +4,6 @@ import {color} from 'chart.js/helpers'
 import {useServerMap} from 'components/ui/ServerProvider'
 import {useCommunityColors} from 'lib/hooks/useCommunityColors'
 
-/**
- * Stable per-server colors. Each server takes its community's color (see `useCommunityColors`);
- * a community's second and later servers, in the order given, get alternately lighter and darker
- * shades of it so servers of one community stay apart.
- */
 export function useServerColors(serverIds: string[]): Record<string, string> {
     const {serversMapped} = useServerMap()
     const servers = serverIds.map(id => ({id, server: serversMapped.get(id)}))

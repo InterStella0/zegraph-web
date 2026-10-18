@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
-/*---break---*/
 @custom-variant dark (&:is(.dark *));
 html {
     scroll-behavior: smooth;
@@ -93,7 +92,6 @@ p:not(.prose *, .prose) {
 
 body {
     margin: 0;
-    /*display: flex;*/
     min-width: 320px;
     width: 100%;
     min-height: 100vh;
@@ -104,10 +102,6 @@ body {
         display: none !important;
     }
 }
-/*.sidebar{*/
-/*    display: none !important;*/
-/*}*/
-/*---break---*/
 @theme inline {
     --radius-sm: calc(var(--radius) - 4px);
     --radius-md: calc(var(--radius) - 2px);
@@ -194,8 +188,6 @@ body {
     }
 }
 
-/* Translate percentages are relative to the bar itself, which is a third of its track: it has to
-   travel 300% of its own width to clear the far edge, or it snaps back from the middle. */
 @keyframes progress-indeterminate {
     0% {
         transform: translateX(-100%);
@@ -205,9 +197,6 @@ body {
     }
 }
 
-/* Page transitions, driven by components/ui/PageTransition.tsx. The outgoing page fades out
-   quickly and the incoming one fades in just behind it, so the two never sit on top of each other
-   at full strength. Browsers without the View Transitions API simply navigate without them. */
 @keyframes page-exit {
     to {
         opacity: 0;
@@ -229,9 +218,6 @@ body {
     animation: page-enter 220ms ease-out 60ms both;
 }
 
-/* The app bar is its own snapshot so it never fades or slides with the page: it swaps straight
-   to the incoming page's bar and stays above the page snapshots, which can reach under it when the
-   page is scrolled. */
 .site-header {
     view-transition-name: site-header;
 }
@@ -255,7 +241,6 @@ body {
         animation: none;
     }
 }
-/*---break---*/
 .dark {
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
@@ -295,7 +280,6 @@ body {
     --sidebar-ring: oklch(0.556 0.05 330);
 }
 
-/*---break---*/
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -330,7 +314,6 @@ body {
     --card: oklch(0.205 0 89.876) !important;
 }
 
-/* SPECIFICALLY FOR MARKDOWN :sleep: */
 h1 {
     font-size: x-large;
     font-weight: bolder;

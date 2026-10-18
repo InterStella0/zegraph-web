@@ -113,7 +113,7 @@ export default function SessionPlayedGraph({ serverId, sessionId, map }: { serve
                 const chart = context.chart;
                 const { ctx, chartArea } = chart;
 
-                if (!chartArea) return; // initial
+                if (!chartArea) return;
                 let gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
                 gradient.addColorStop(1, gradientColor1);
                 gradient.addColorStop(0.7, gradientColor2);

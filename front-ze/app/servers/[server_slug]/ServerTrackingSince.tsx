@@ -28,7 +28,6 @@ export default function ServerTrackingSince({ trackingSince }: { trackingSince: 
                     <InfoTooltip text={t('trackingSinceTooltip')} />
                 </div>
                 <p className="mt-2">{formatted}</p>
-                {/* fromNow() is time-of-render dependent, so server and client can disagree */}
                 <p className="text-xs text-muted-foreground" suppressHydrationWarning>
                     {dayjs(trackingSince).fromNow()}
                 </p>

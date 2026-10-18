@@ -132,13 +132,11 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
         }
     };
 
-    // Generate SEO summary
     const summary = useMemo(() => {
         if (!detail || detail.length === 0) {
             return t('noData');
         }
 
-        // Transform data to match helper function interface
         const totalSessions = detail.reduce((sum, d) => sum + d.session_count, 0);
         const sessionBuckets = detail.map(d => ({
             range: labels[d.session_range],

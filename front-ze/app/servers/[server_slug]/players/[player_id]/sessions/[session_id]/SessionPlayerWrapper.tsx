@@ -14,7 +14,6 @@ export default function SessionPlayerWrapper({ sessionPromise }: { sessionPromis
     const serverData = use(sessionPromise)
     const [data, setData] = useState<SessionData>(serverData)
 
-    // Preserve 65s polling for live sessions
     useEffect(() => {
         if (data.sessionInfo.ended_at !== null) return
 

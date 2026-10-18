@@ -8,8 +8,6 @@ type SidebarContextData = {
     setDisplayCommunity: (value: boolean) => void
 }
 
-// Lets the app bar (under the [server_slug] segment) open the mobile sidebar
-// sheet, which lives up here so it survives server navigation.
 const SidebarContext = createContext<SidebarContextData>({ setDisplayCommunity: () => {} })
 
 export function useSidebar() {

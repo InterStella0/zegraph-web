@@ -86,7 +86,6 @@ impl CharacterApi {
         TokenBearer(user_token): TokenBearer,
         multipart: poem::web::Multipart,
     ) -> Response<Character3DModel> {
-        // Max 500MB per
         require!(check_superuser(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let mut multipart = multipart;

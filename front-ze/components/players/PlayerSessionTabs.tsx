@@ -12,8 +12,6 @@ type SessionTab = 'sessions' | 'playedWith';
 export default function PlayerSessionTabs({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed> }): ReactElement {
     const t = useTranslations('players');
     const [tab, setTab] = useState<SessionTab>('sessions');
-    // Both panels stay mounted once shown, so switching tabs keeps their filters and page. Played with
-    // only mounts on first open, so its list is not fetched for visitors who never look at it.
     const [playedWithOpened, setPlayedWithOpened] = useState(false);
 
     const changeTab = (value: string) => {
@@ -21,7 +19,6 @@ export default function PlayerSessionTabs({ serverPlayerPromise }: { serverPlaye
         if (value === 'playedWith') setPlayedWithOpened(true);
     };
 
-    // The tab list stands in for each panel's title, so it shares a row with that panel's own controls.
     const heading = <div className="flex items-center gap-2">
         <TabsList>
             <TabsTrigger value="sessions">{t('sessions.title')}</TabsTrigger>

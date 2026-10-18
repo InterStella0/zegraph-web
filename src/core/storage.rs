@@ -221,8 +221,6 @@ fn join_url(base: &str, key: &str) -> String {
     format!("{base}/{key}")
 }
 
-/// Supported image uploads. Returns `None` for anything else so callers reject
-/// the upload instead of storing it under a wrong extension.
 pub(crate) fn image_ext_from_content_type(content_type: &str) -> Option<&'static str> {
     let content_type = content_type
         .split(';')
@@ -252,8 +250,6 @@ pub(crate) enum MediaKind {
     Video,
 }
 
-/// Media accepted in announcements: the extension to store under, and whether it renders as an
-/// image or a video.
 pub(crate) fn media_ext_from_content_type(content_type: &str) -> Option<(&'static str, MediaKind)> {
     let content_type = content_type
         .split(';')
@@ -269,8 +265,6 @@ pub(crate) fn media_ext_from_content_type(content_type: &str) -> Option<(&'stati
     }
 }
 
-/// Extension implied by the file's leading bytes, so a mislabelled upload can't be stored under
-/// a media extension it isn't.
 pub(crate) fn sniff_media_ext(bytes: &[u8]) -> Option<&'static str> {
     if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         Some("png")
@@ -439,8 +433,6 @@ impl CharacterStorage {
             .await
     }
 
-    /// Extension of a thumbnail we stored ourselves, or `None` when `stored` points
-    /// somewhere we don't own (an external URL, a stale format).
     fn stored_thumbnail_ext(&self, model_id: &str, stored: &str) -> Option<&'static str> {
         let prefix = self.ns.public_url(&Self::thumbnail_path(model_id, ""));
         let ext = stored.trim().strip_prefix(&prefix)?;
@@ -454,8 +446,6 @@ impl CharacterStorage {
         self.ns.delete(&Self::thumbnail_path(model_id, ext)).await
     }
 
-    /// Deletes the thumbnail a model used to have. No-op when the previous thumbnail
-    /// lives at the key we just wrote, which would otherwise delete the fresh upload.
     pub async fn delete_previous_thumbnail(
         &self,
         model_id: &str,
@@ -543,8 +533,6 @@ impl AnnouncementStorage {
             .await
     }
 
-    /// Deletes uploads older than `grace` that no announcement text mentions. The grace period
-    /// keeps media uploaded into an editor that hasn't been saved yet.
     pub async fn delete_unreferenced(&self, texts: &[String], grace: Duration) -> Result<usize, String> {
         let now = SystemTime::now();
         let mut deleted = 0;

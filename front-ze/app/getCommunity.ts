@@ -16,7 +16,7 @@ export class CommunitiesData{
         }
         for (const community of communities){
             for (const server of community.servers){
-                mapping.set(String(server.id), server);  // ensure server ID takes priority over slug, in case slug somehow overwrote id.
+                mapping.set(String(server.id), server);
             }
         }
         this.serversMapped = mapping;

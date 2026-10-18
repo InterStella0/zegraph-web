@@ -30,10 +30,8 @@ export function URI(endpoint: string, backend: boolean = false): string{
         }
     else
         if (isOnServer) {
-            // Server-side: use absolute URL to frontend service
             return FRONTEND_URL + NEXTAPI_ROOT + endpoint;
         } else {
-            // Client-side: use relative path
             return NEXTAPI_ROOT + endpoint;
         }
 }
@@ -116,7 +114,6 @@ export function fetchServerUrl(serverId: string, endpoint: string, options = {},
 export function fetchApiServerUrl(serverId: string, endpoint: string, options = {}, errorOnStillCalculate = true){
     return fetchApiUrl(`/servers/${serverId}${endpoint}`, options, errorOnStillCalculate)
 }
-/** A map's endpoint on one server, or across every server when `serverId` is null. */
 export function fetchMapUrl(serverId: string | null, mapName: string, endpoint: string, options = {}, errorOnStillCalculate = true){
     return serverId
         ? fetchServerUrl(serverId, `/maps/${mapName}${endpoint}`, options, errorOnStillCalculate)
@@ -131,12 +128,8 @@ function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// next-auth v4 session cookie, optionally __Secure- prefixed and chunked (.0, .1, ...) when large.
 const SESSION_COOKIE = /^(__Secure-)?next-auth\.session-token(\.\d+)?$/;
 
-// Presence only, no decrypt: a stale cookie just keeps the request on the Next proxy, which
-// resolves the real session itself. The client can't read the httpOnly cookie, so it reads the
-// flag the root layout renders on <html> instead.
 export async function hasSession(): Promise<boolean> {
     if (typeof window !== 'undefined')
         return document.documentElement.dataset.auth === "1";
@@ -150,15 +143,12 @@ export async function fetchUrl(endpoint: string, options: any = {}, errorOnStill
     if (options?.params) {
         endpoint = endpoint + '?' + new URLSearchParams(options.params).toString();
     }
-    // The Next proxy only exists to attach the session's backend JWT. Anonymous reads skip it and
-    // hit the backend directly (through /data/api in the browser, picking up nginx/edge caching).
-    // Writes stay on the proxy: several of those routes map to a different backend path.
     const isGet = (options?.method ?? "GET").toUpperCase() === "GET";
     if (options?.backend && isGet && !(await hasSession()))
         options = {...options, backend: false};
 
     const isOnServer = typeof window === 'undefined';
-    if (isOnServer && options?.backend) { // STRICTLY ON THE SERVER
+    if (isOnServer && options?.backend) {
         const cookieStore = await cookies();
         options.headers = {
             ...options.headers,
@@ -199,7 +189,6 @@ export async function fetchUrl(endpoint: string, options: any = {}, errorOnStill
             }
 
             if (rawOutput)
-                // Raw output can't be parsed to json.
                 return await response.text();
             const json = await response.json();
 
@@ -312,22 +301,16 @@ export function secondsToMins(seconds: number): string{
     return (seconds / 60).toFixed(2)
 }
 export const InfractionFlags = Object.freeze({
-    // Issued by system
     SYSTEM: 1n << 0n,
 
-    // Scope
     ALL_SERVERS: 1n << 1n,
     COMMUNITY: 1n << 2n,
-    // Otherwise: Only Origin Server
 
-    // Where it was issued
     VPN: 1n << 4n,
     WEB: 1n << 5n,
 
-    // Has been removed
     INFRACTION_REMOVED: 1n << 6n,
 
-    // Restriction
     VOICE: 1n << 7n,
     TEXT: 1n << 8n,
     BAN: 1n << 9n,
@@ -337,7 +320,6 @@ export const InfractionFlags = Object.freeze({
     AUTO_TIER: 1n << 16n,
     KNOCKBACK: 1n << 20n,
 
-    // Time
     PERMANENT: 1n << 3n,
     SESSION: 1n << 12n,
     ONLINE_DECREMENT: 1n << 13n,

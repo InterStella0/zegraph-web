@@ -8,7 +8,6 @@ import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/Map
 import {useServerMap} from "components/ui/ServerProvider";
 
 export type MapScope = {
-    /** The server whose map page this is; null on the global map page. */
     server: Server | null,
     fetchMap: (endpoint: string, options?: object) => Promise<any>,
     sessionHref: (session: ServerMapPlayed) => string,
@@ -16,10 +15,6 @@ export type MapScope = {
     mapHref: (map: string) => string,
 }
 
-/**
- * Where a map component's data and links come from. Inside the servers layout it is that server;
- * anywhere else there is no server, so endpoints span every server and links go to global pages.
- */
 export function useMapScope(): MapScope {
     const server = useServerData()?.server ?? null
     const { name } = useMapContext<unknown>()

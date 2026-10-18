@@ -22,7 +22,6 @@ type PlayerTableRowProps = {
     player: ExtendedPlayerBrief,
     timeUnit?: "h" | "m",
     showRank?: boolean,
-    /** Where the name links; defaults to the player on the current server. */
     href?: string,
 }
 

@@ -12,7 +12,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const FIRST_YEAR = 2024;
 export const SHORT_RANGE_DAYS = 31;
 
-/** `YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range in UTC; null is All time. */
 export type Period = string | null;
 
 type PeriodValue = {
@@ -50,7 +49,6 @@ function parseDay(value: string): Date | null {
     return date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? date : null;
 }
 
-/** The UTC midnights of a range's first and last day, or null when the period is not a range. */
 export function splitRange(period: string): { from: Date, to: Date } | null {
     const parts = period.split('..');
     if (parts.length !== 2) return null;
@@ -63,7 +61,6 @@ export function rangePeriod(from: Date, to: Date): string {
     return `${from.toISOString().slice(0, 10)}..${to.toISOString().slice(0, 10)}`;
 }
 
-/** The number of days in a range, counting both ends. */
 export function rangeDays(range: { from: Date, to: Date }): number {
     return Math.round((range.to.getTime() - range.from.getTime()) / DAY_MS) + 1;
 }
@@ -72,7 +69,6 @@ export function addDays(date: Date, days: number): Date {
     return new Date(date.getTime() + days * DAY_MS);
 }
 
-/** Whether a period covers at most a month: a month, or a range of up to `SHORT_RANGE_DAYS`. */
 export function isShortPeriod(period: string): boolean {
     const range = splitRange(period);
     return range ? rangeDays(range) <= SHORT_RANGE_DAYS : splitPeriod(period).month !== null;
@@ -87,7 +83,6 @@ export function monthPeriod(year: number, month: number): string {
     return `${year}-${String(month).padStart(2, '0')}`;
 }
 
-/** Half-open UTC bounds of a period, `[start, end)`. */
 export function periodBounds(period: string): { start: Date, end: Date } {
     const range = splitRange(period);
     if (range) {
@@ -117,10 +112,6 @@ export function formatPeriodRange(locale: string, from: Date, to: Date): string 
     }).formatRange(from, to).replace(/[  ]/g, ' ');
 }
 
-/**
- * Reads the period from the `period` search param and loads the periods that have data.
- * `fetchPeriods` should be memoized; it is re-run whenever it changes.
- */
 export function PeriodProvider({ fetchPeriods, children }: {
     fetchPeriods: () => Promise<PeriodYear[]>,
     children: ReactNode,
@@ -172,7 +163,6 @@ export function usePeriodLabel(period: Period): string {
     return month === null ? String(year) : formatPeriodMonth(locale, year, month);
 }
 
-/** Names the period a card is showing, and flashes whenever the period changes. */
 export function PeriodChip({ className }: { className?: string }) {
     const { period, changes } = usePeriod();
     const label = usePeriodLabel(period);

@@ -16,7 +16,6 @@ export function NotificationBanner({ userPromise }: NotificationBannerProps) {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Check if user previously dismissed the banner
     const wasDismissed = localStorage.getItem('notification-banner-dismissed');
     if (wasDismissed) {
       setDismissed(true);
@@ -36,11 +35,6 @@ export function NotificationBanner({ userPromise }: NotificationBannerProps) {
     }
   };
 
-  // Don't show banner if:
-  // - Not supported
-  // - User not logged in
-  // - Permission already granted and subscribed
-  // - User dismissed
   if (!isSupported || !user || dismissed || (permission === 'granted' && isSubscribed)) {
     return null;
   }

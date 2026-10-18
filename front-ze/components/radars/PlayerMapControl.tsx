@@ -29,14 +29,12 @@ const PlayerMapControl = () => {
     const handleMapClick = async (e: LeafletMouseEvent) => {
         const latlng = e.latlng;
 
-        // Reset states for new location
         setCountryData(null);
         setPlayerData([]);
         setTotalPlayers(0);
         setPage(0);
         setError(null);
 
-        // Set new location and loading state
         setClickedLocation(latlng);
         setIsLoading(true);
         try {
@@ -60,7 +58,6 @@ const PlayerMapControl = () => {
                 throw new Error("Unknown country selected");
             }
 
-            // Only process geometry if available
             if (result.geojson) {
                 const geometry = JSON.parse(result.geojson);
                 const countryGeoJson: CountryFeature = {
@@ -86,7 +83,6 @@ const PlayerMapControl = () => {
         }
     };
 
-    // Handle pagination
     const handlePageChange = async (newPage: number) => {
         if (!clickedLocation) return;
 

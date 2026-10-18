@@ -4,7 +4,6 @@ export type AppLocale = typeof LOCALES[number];
 export const DEFAULT_LOCALE: AppLocale = 'en';
 export const LOCALE_COOKIE = 'NEXT_LOCALE';
 
-// Language names are always shown in their own language, never translated.
 export const LOCALE_LABELS: Record<AppLocale, string> = {
     'en': 'English',
     'es': 'Español',

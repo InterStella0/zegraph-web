@@ -34,8 +34,6 @@ export const GET = () => forwardAnonymize(async session => ['/accounts/me/anonym
 export const POST = (req: Request) => forwardAnonymize(async session => {
     const { community_id, anonymize, hide_location, user_id } = await req.json();
 
-    // "me" keeps the self-service path; a numeric id targets another user and the backend
-    // enforces superuser there (and writes an audit row).
     const target = user_id ? encodeURIComponent(String(user_id)) : 'me';
     return [`/accounts/${target}/anonymize`, {
         method: "POST",

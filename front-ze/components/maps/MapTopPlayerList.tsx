@@ -92,8 +92,6 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
 
     useEffect(() => {
         const trimmed = searchInput.trim()
-        // Name suggestions come from one server's players; across every server the search still
-        // filters the list, just without suggestions.
         if (!server_id || trimmed.length < SUGGESTION_MIN_CHARS) {
             setSuggestions([])
             setSuggestionsLoading(false)

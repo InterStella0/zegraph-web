@@ -15,7 +15,6 @@ function toUtcDay(local: Date): Date {
     return new Date(Date.UTC(local.getFullYear(), local.getMonth(), local.getDate()));
 }
 
-/** A `YYYY-MM-DD` text input with a calendar button, for one UTC day between `min` and `max`. */
 export default function DateField({
     label, value, min, max, invalid, highlighted, pickLabel, onChange, onPick, onBlur,
 }: {

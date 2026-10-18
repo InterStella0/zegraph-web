@@ -23,7 +23,6 @@ target/
 .env.production
 .idea
 .vscode
-# Per-developer MCP server config (local IDE endpoints).
 .mcp.json
 # The offline query cache is generated, never committed — regenerate it against a live DB with
 # `./run-tests.sh --prepare` (or `cargo sqlx prepare -- --all-targets`). The directory itself is

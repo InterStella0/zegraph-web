@@ -13,7 +13,6 @@ import {Server} from "types/community.ts";
 
 dayjs.extend(relativeTime);
 
-// The tooltip surface is inverted from the page, so mid tones that read on either theme.
 export const STATUS_TONE = {
     playing: 'text-primary',
     ready: 'text-green-500',
@@ -36,7 +35,6 @@ function serverLabel(server: Server | undefined, fallback: string): string {
     return server?.community_shorten_name || server?.community_name || fallback;
 }
 
-/** One server's rotation state for the map: playing, removed, disabled, cooling down or ready. */
 export function useServerMapState(): (server: GlobalMapServer) => ServerState {
     const t = useTranslations('maps.table');
     const toDayjs = useLocalDayjs();
@@ -102,7 +100,6 @@ export default function GlobalMapStatusChip({ map }: { map: GlobalMapPlayed }) {
         </Badge>
     );
 
-    // Nothing is ready, so whatever is enabled is cooling down: by time, or by maps still to play.
     const enabled = active.filter(server => server.enabled);
     const soonest = enabled
         .filter(hasCooldown)

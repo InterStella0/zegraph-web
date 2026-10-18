@@ -71,18 +71,16 @@ export default function PlayTimeHeatmap({
     )
     const rawData = useMemo(() => sessionData ?? [], [sessionData])
 
-    // After rawData is loaded, notify parent of available periods
     useEffect(() => {
         if (rawData && rawData.length > 0 && onDataLoaded) {
             const years = [...new Set(rawData.map(d => dayjs.utc(d.bucket_time).year()))]
-                .sort((a, b) => b - a)  // Most recent first
+                .sort((a, b) => b - a)
             const months = [...new Set(rawData.map(d => dayjs.utc(d.bucket_time).month()))]
             onDataLoaded({ years, months, rawData })
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rawData])
 
-    // Filter data based on groupBy and selected period
     const filteredData = useMemo(() => {
         if (!rawData || rawData.length === 0) return []
 
@@ -115,7 +113,6 @@ export default function PlayTimeHeatmap({
         onChangeTotalPlayed(total)
     }, [filteredData, onChangeTotalPlayed]);
 
-    // Transform data based on groupBy
     useEffect(() => {
         if (!filteredData || filteredData.length === 0) {
             setHeatmapData([])
@@ -126,8 +123,6 @@ export default function PlayTimeHeatmap({
         const transformed: CalendarCell[] = []
 
         if (groupBy === 'daily') {
-            // GitHub-style calendar heatmap: x=date, y=day-of-week
-            // Create a map of existing data for quick lookup
             const dataMap = new Map<string, number>()
             filteredData.forEach(e => {
                 const iso = dayjs.utc(e.bucket_time).format("YYYY-MM-DD")
@@ -138,15 +133,12 @@ export default function PlayTimeHeatmap({
             const endOfYear = rangeTo ? dayjs.utc(rangeTo) : dayjs(`${selectedYear}-12-31`)
             transformed.push(...calendarCells(startOfYear, endOfYear, dataMap))
         } else if (groupBy === 'monthly') {
-            // Show daily breakdown for selected month
-            // Create a map of existing data for quick lookup
             const dataMap = new Map<string, number>()
             filteredData.forEach(e => {
                 const iso = dayjs.utc(e.bucket_time).format("YYYY-MM-DD")
                 dataMap.set(iso, e.hours)
             })
 
-            // Generate all days for the selected month
             const startOfMonth = dayjs(`${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`)
             const endOfMonth = startOfMonth.endOf('month')
             let currentDate = startOfMonth
@@ -156,14 +148,13 @@ export default function PlayTimeHeatmap({
                 const time = currentDate.format("DD")
                 data.push({
                     time,
-                    hours: dataMap.get(iso) || 0  // Use 0 for days without data
+                    hours: dataMap.get(iso) || 0
                 })
                 currentDate = currentDate.add(1, 'day')
             }
             setChartBarData(data)
             return
         } else if (groupBy === 'yearly') {
-            // Prepare bar chart data for yearly view
             const grouped = new Map<string, number>()
             let method;
             switch(sumMethodYearly){
@@ -182,13 +173,12 @@ export default function PlayTimeHeatmap({
                 grouped.set(groupKey, (grouped.get(groupKey) || 0) + e.hours)
             })
 
-            // Store as array for bar chart
             const yearlyData = Array.from(grouped.entries())
                 .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
                 .map(([time, hours]) => ({ time, hours }))
 
             setChartBarData(yearlyData)
-            return  // Don't set heatmapData for yearly view
+            return
         }
 
         setHeatmapData(transformed)
@@ -197,7 +187,6 @@ export default function PlayTimeHeatmap({
     const colors = useChartTheme();
     const dayNames = useWeekdayLabels();
 
-    // Max hours for color scaling
     const maxHours = useMemo(() => {
         return Math.max(...heatmapData.map(d => d.v), 1)
     }, [heatmapData])
@@ -213,7 +202,6 @@ export default function PlayTimeHeatmap({
         datasets: [calendarMatrixDataset(heatmapData, cols, ...heatCellColors(colors.heat, maxHours))]
     }), [heatmapData, maxHours, colors, cols])
 
-    // Generate SEO summaries at top level (not inside conditionals)
     const yearlySummary = useMemo(() => {
         if (chartBarData.length === 0) {
             return t('noYearlyData');
@@ -247,8 +235,6 @@ export default function PlayTimeHeatmap({
         return <Skeleton className="w-full h-[150px]" />
     }
 
-    // Remove empty state check for daily/monthly - we now show all days with 0 hours
-    // Only show empty state for yearly if no data at all
     if (groupBy === 'yearly' && rawData.length === 0) {
         return (
             <div className="flex flex-col justify-center items-center p-4 h-[280px] text-muted-foreground">
@@ -257,7 +243,6 @@ export default function PlayTimeHeatmap({
         )
     }
 
-    // Yearly view: render bar chart instead of matrix
     if (groupBy === 'yearly' || groupBy === "monthly") {
         if (chartBarData.length === 0) {
             return (
@@ -322,7 +307,6 @@ export default function PlayTimeHeatmap({
         )
     }
 
-    // Matrix chart rendering for daily/monthly views
     if (heatmapData.length === 0) {
         return (
             <div className="flex justify-center items-center p-4 h-[150px] text-muted-foreground">

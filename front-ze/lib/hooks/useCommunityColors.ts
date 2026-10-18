@@ -4,16 +4,6 @@ import {getCommunityColor, nameHashColor} from 'utils/communityColor'
 
 export type ColorableCommunity = {key: string, name: string, icon_url?: string | null}
 
-/**
- * Stable per-community colors, keyed by whatever `key` the caller supplies.
- *
- * The returned map is always fully populated: entries start on the synchronous name-hash
- * color and are replaced in place once the icon's dominant color resolves (see
- * `getCommunityColor`). Callers never see `undefined`, and nothing blocks on the network.
- *
- * The effect keys on a serialized signature rather than array identity, so passing a freshly
- * mapped array on every render is fine.
- */
 export function useCommunityColors(communities: ColorableCommunity[]): Record<string, string> {
     const [resolved, setResolved] = useState<Record<string, string>>({})
 

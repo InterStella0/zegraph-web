@@ -19,7 +19,6 @@ dayjs.extend(utc);
 ChartJS.register(MatrixController, MatrixElement,
     TimeScale, TooltipChart, CategoryScale, LinearScale, Title, MatrixController, BarController, BarElement, Legend);
 
-/** One series' time on a day, e.g. a region or a server. */
 export type HeatSeries = { key: string, label: string, seconds: number }
 export type HeatDay = { date: string, series: HeatSeries[] }
 
@@ -27,7 +26,6 @@ type HeatCell = {
     x: string,
     y: string,
     d: string,
-    /** Largest first, so the first one is the day's dominant series. */
     v: HeatSeries[],
     total: number,
 }
@@ -36,18 +34,12 @@ type MapDailyHeatmapProps = {
     days: HeatDay[],
     loading: boolean,
     colorOf: (key: string | undefined) => string,
-    /** Series order in the short-period bar chart and its legend; unlisted series go last. */
     order: string[],
-    /** Background and border alpha of a day's cell, from its total hours. */
     cellAlpha: (hours: number, hasData: boolean) => [number, number],
     yTitle: string,
     formatValue: (seconds: number) => string,
 }
 
-/**
- * A year-style calendar of days colored by each day's dominant series, or a stacked bar chart per
- * day when the selected period is short.
- */
 export default function MapDailyHeatmap({ days, loading, colorOf, order, cellAlpha, yTitle, formatValue }: MapDailyHeatmapProps) {
     const locale = useLocale();
     const { period } = usePeriod()

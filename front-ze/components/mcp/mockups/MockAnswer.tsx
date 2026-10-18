@@ -7,14 +7,12 @@ import {MockFrame, MockScene, MockVariant} from './primitives';
 
 const ANSWER = [700, 1500, 3400] as const;
 
-// Recognizable ZE communities; the player counts are illustrative rather than live data.
 const ROWS = [
     ['GFL', '62/64'],
     ['Mapeadores', '57/64'],
     ['Nide', '41/64'],
 ] as const;
 
-/** What success looks like: the assistant answering a question with ZE Graph data. */
 export function MockAnswer({variant}: { variant: MockVariant }) {
     const t = useTranslations('mcp.mock');
     const claude = variant === 'claude';

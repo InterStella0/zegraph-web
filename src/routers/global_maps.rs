@@ -20,7 +20,6 @@ use crate::routers::maps::{assemble_global_maps, global_map_page, map_musics};
 const GLOBAL_MAP_SESSIONS_PAGE_SIZE: i64 = 5;
 const GLOBAL_MAP_PLAYERS_PAGE_SIZE: i64 = 10;
 
-/// The map name, as long as some server has played it.
 async fn get_global_map(pool: &Pool<Postgres>, cache: &FastCache, map_name: &str) -> Option<String> {
     let func = || sqlx::query_scalar!("
         SELECT map
@@ -34,7 +33,6 @@ async fn get_global_map(pool: &Pool<Postgres>, cache: &FastCache, map_name: &str
     cached_response(&key, cache, 6 * HOUR, func).await.map(|s| s.result).ok()
 }
 
-/// Like the per-server key, but from the last two completed sessions on any server.
 async fn get_global_map_cache_key(pool: &Pool<Postgres>, cache: &FastCache, map_name: &str) -> CacheKey {
     let func = || sqlx::query_as!(DbMapLastPlayed, "
         SELECT started_at last_played
@@ -64,7 +62,6 @@ async fn get_global_map_cache_key(pool: &Pool<Postgres>, cache: &FastCache, map_
     CacheKey { current, previous }
 }
 
-/// A map played on at least one server, resolved from the `map_name` path parameter.
 struct GlobalMapExtractor {
     pub map: String,
     pub cache_key: CacheKey,
@@ -144,9 +141,6 @@ impl GlobalMapApi {
     ) -> Response<MapAnalyze> {
         let pool = &*app.pool;
         let map_name = &extract.map;
-        // Each server row averages over its own player-session pairs, so `cum / avg` recovers that
-        // pair count and the combined average and dropoff rate come out exact. Player counts are
-        // sampled in time buckets, so they are weighted by wall-clock time instead.
         let func = || sqlx::query_as!(DbMapAnalyze, r#"
             WITH rows AS (
                 SELECT
@@ -321,8 +315,6 @@ impl GlobalMapApi {
         let name_pattern = player_name.as_ref()
             .map(|n| format!("%{}%", n.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")));
 
-        // `player_map_rank` already leaves bots out and is indexed by (server, map); time on every
-        // server is then summed per main account. Online and last-played cover the alts too.
         let sql_func = || sqlx::query_as!(DbPlayerBrief, r#"
             WITH totals AS (
                 SELECT COALESCE(p.associated_player_id, p.player_id) AS player_id,
@@ -417,7 +409,6 @@ impl GlobalMapApi {
         let mut players: Vec<PlayerBrief> = rows.iter_into();
         let anonymizer = BriefAnonymizer::global(app, user_token.as_ref().map(|t| t.id)).await;
         if player_name.is_some() {
-            // Name search: an anonymized player must not be discoverable by typing their name.
             anonymizer.retain_visible(&mut players);
         } else {
             anonymizer.apply(&mut players);

@@ -41,8 +41,6 @@ export function useMapNotifications(isLoggedIn: boolean): UseMapNotificationsRes
     }, [fetchSubscriptions]);
 
     const getSubscriptionType = useCallback((mapName: string, serverId: string): 'server' | 'all' | null => {
-        // Find a subscription for this map
-        // Prefer server-specific subscription over all-servers subscription
         const serverSub = subscriptions.find(
             sub => sub.map_name === mapName && sub.server_id === serverId && !sub.triggered
         );

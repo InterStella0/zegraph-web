@@ -169,7 +169,6 @@ export function CurrentMatchSkeleton({ className = "mb-6" }: { className?: strin
 export function CurrentMatchDisplay({ server, mapImage, currentMatch, continentData, user, className = "mb-6", showServer = false }: {
     server: Server, mapImage: string | null, currentMatch: ServerMapMatch, continentData: ContinentStatistics, user: SteamProfile | null,
     className?: string,
-    /** Show which community and server the match is on; for pages that span several servers. */
     showServer?: boolean,
 }) {
     const t = useTranslations('servers.currentMatch');
@@ -220,10 +219,8 @@ export function CurrentMatchDisplay({ server, mapImage, currentMatch, continentD
             }
 
             toast.success(t('notificationsEnabled'));
-            // Continue to map subscription below
         }
 
-        // Subscribe to map changes
         setFlowState('subscribing-map');
         setLoading(true);
         try {

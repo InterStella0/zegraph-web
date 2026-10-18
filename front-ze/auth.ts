@@ -12,7 +12,6 @@ import {STEAM_PROVIDER_ID} from "next-auth-steam";
 import {BACKEND_DOMAIN} from "utils/generalUtils.ts";
 import {SteamProfile} from "types/steam";
 
-// Custom session type that extends NextAuth Session
 export interface SteamSession extends Session {
     user: {
         steam: SteamProfile;

@@ -122,7 +122,6 @@ function GraphToolbarControl({ setShowPlayersAction }: { setShowPlayersAction: D
         };
     }, []);
 
-    // Check if apply button should show
     useEffect(() => {
         const shouldShow = localStart.isBefore(localEnd) &&
             !(localStart.isSame(globalStart) && localEnd.isSame(globalEnd));

@@ -15,11 +15,7 @@ export interface PlayerTableRank{
     mixed_playtime: number,
     total_playtime: number
     is_anonymous: boolean,
-    /** True when this player is anonymized for this community, even if you are allowed to see
-     *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
-     *  marker off this, not off `is_anonymous`. */
     hidden_from_others: boolean,
-    /** Flagged as a bot. Bots only show up in a name search, unranked (`rank` -1). */
     is_bot: boolean,
 }
 export type PlayersTableRanked = {
@@ -67,9 +63,6 @@ export interface PlayerBrief extends PlayerBase{
     last_played_ended: string | null,
     last_played_duration: number,
     is_anonymous: boolean,
-    /** True when this player is anonymized for this community, even if you are allowed to see
-     *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
-     *  marker off this, not off `is_anonymous`. */
     hidden_from_others: boolean,
 }
 
@@ -112,12 +105,9 @@ export interface DetailedPlayer extends PlayerBase{
     rank: number,
     ranks: PlayerRanks | null,
     associated_player_id: string | null,
-    /** These are a previous calculation, not the current one; a refresh is already queued. */
     is_stale: boolean,
-    /** End of the last session folded into these numbers. Null when they are current. */
     calculated_at: string | null,
     external_playtime?: ExternalPlaytime | null,
-    /** Flagged as a bot, so it is left out of rankings and `ranks` is null. */
     is_bot: boolean,
 }
 export interface ExternalPlaytime {
@@ -134,7 +124,6 @@ export interface DetailedPlayerInfo extends DetailedPlayer{
     online_since: string | null,
     last_played_duration: number | null,
 }
-/** A UTC year that has completed sessions, with the months (1-12) that have them. */
 export type PeriodYear = {
     year: number,
     months: number[],
@@ -176,7 +165,6 @@ export type PlayerSessionPage = {
     total_pages: number,
     rows: PlayerSession[]
 }
-/** A session from the cross-server list, which has to say which server it happened on. */
 export type GlobalPlayerSession = {
     id: string,
     player_id: string,
@@ -198,9 +186,6 @@ export type PlayerDetailSession = {
     started_at: string,
     ended_at: string | null,
     is_anonymous: boolean,
-    /** True when this player is anonymized for this community, even if you are allowed to see
-     *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
-     *  marker off this, not off `is_anonymous`. */
     hidden_from_others: boolean,
 }
 
@@ -245,14 +230,11 @@ export type NidePlayerStats = {
     kills_per_death: number | null,
     kills_per_minute: number | null,
     headshots: number | null,
-    /** Ratio, 0 to 1. */
     headshots_per_kill: number | null,
     shots_per_kill: number | null,
-    /** Percentage, 0 to 100. */
     weapon_accuracy: number | null,
     longest_kill_streak: number | null,
     longest_death_streak: number | null,
-    /** Seconds. */
     playtime: number | null,
     country: string | null,
     country_code: string | null,
@@ -261,7 +243,6 @@ export type NidePlayerStats = {
 
 export type MapeadoresPlayerStats = {
     name: string,
-    /** Seconds. */
     playtime: number,
     position: number,
     is_supporter: boolean,
@@ -277,7 +258,6 @@ export type PlayerSeen = {
     id: string,
     name: string,
     total_time_together: number,
-    /** `null` when the two players were never on the server together. */
     last_seen: string | null,
     is_anonymous: boolean,
     hidden_from_others: boolean,
@@ -322,9 +302,6 @@ export type SearchPlayer = {
     name: string,
     id: string,
     is_anonymous: boolean,
-    /** True when this player is anonymized for this community, even if you are allowed to see
-     *  the real name (you are them, a superuser, or a community admin). Render the `(Hidden)`
-     *  marker off this, not off `is_anonymous`. */
     hidden_from_others: boolean,
     is_bot: boolean,
 }
@@ -355,14 +332,9 @@ export type GlobalBriefPlayers = {
     players: GlobalPlayerBrief[],
 }
 
-/** Whether a name-tracked profile can be claimed, and where any claim on it stands. */
 export interface PlayerClaimState {
-    /** True when the server tracks by name, the profile is a name row, and it is not yet linked. */
     claimable: boolean,
-    /** True when a claim on this profile is awaiting review, from anyone. */
     pending: boolean,
-    /** Status of your own most recent claim on this profile, if you have made one. */
     own_status: 'pending' | 'approved' | 'rejected' | null,
-    /** The Steam ID this profile is already linked to, if any. */
     associated_player_id: string | null,
 }

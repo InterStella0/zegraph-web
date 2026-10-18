@@ -40,7 +40,6 @@ export default async function DonatePage() {
     <div className="min-h-screen py-12 px-3">
       <div className="container mx-auto max-w-10xl space-y-12">
 
-        {/* Page header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold">{t('title')}</h1>
@@ -55,7 +54,6 @@ export default async function DonatePage() {
           </Button>
         </div>
 
-        {/* Top + Recent + Special Thanks */}
         <Suspense fallback={<DonorsBoardLoading />}>
           <DonorsBoard
             topPromise={topPromise}
@@ -65,7 +63,6 @@ export default async function DonatePage() {
           />
         </Suspense>
 
-        {/* Why section */}
         <section className="rounded-2xl border border-border/50 bg-muted/20 p-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">

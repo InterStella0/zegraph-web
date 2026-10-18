@@ -104,7 +104,6 @@ function MapMusicSectionDisplay({ musics }: { musics: ServerMapMusic[] }) {
     const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
 
     const tracks = useMemo<MapMusicTrack[]>(() => musics.map(music => {
-        // Parse artist and title from "Artist - Title" format
         const separatorMatch = music.name.match(/\s+[-–—]\s+/);
         let artist: string | undefined;
         let title: string;
@@ -113,7 +112,6 @@ function MapMusicSectionDisplay({ musics }: { musics: ServerMapMusic[] }) {
             artist = music.name.substring(0, separatorMatch.index).trim();
             title = music.name.substring(separatorMatch.index + separatorMatch[0].length).trim();
         } else {
-            // No separator - treat entire name as title
             title = music.name.trim();
             artist = undefined;
         }
@@ -145,7 +143,6 @@ function MapMusicSectionDisplay({ musics }: { musics: ServerMapMusic[] }) {
         <>
             <Card className="p-3 sm:p-4">
                 <TooltipProvider>
-                    {/* Header */}
                     <div className="flex justify-between items-center mb-3 sm:mb-4">
                         <div className="flex items-center gap-2">
                             <Music className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -163,7 +160,6 @@ function MapMusicSectionDisplay({ musics }: { musics: ServerMapMusic[] }) {
                         </Tooltip>
                     </div>
 
-                    {/* Track grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
                         {tracks.slice(0, TRUNCATE_MUSIC).map((track, index) => (
                             <TrackCard

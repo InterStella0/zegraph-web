@@ -32,7 +32,6 @@ import {useCommunityColors} from 'lib/hooks/useCommunityColors';
 import {useTranslations} from 'next-intl';
 
 const MAX_SELECTED_COMMUNITIES = 8;
-// Synthetic to encompasses all communities
 const ALL_COMMUNITY_ID = 'all';
 
 ChartJS.register(LinearScale, PointElement, LineElement, TimeScale, Tooltip, Legend, Filler, zoomPlugin);
@@ -43,8 +42,6 @@ const TIME_OPTIONS: {labelKey: string, value: PopulationTimeType}[] = [
     {labelKey: 'interval1Day', value: 'OneDay'},
 ];
 
-// The backend returns at most 32 buckets, sized by time_type. So the visible window is
-// exactly 32 * interval, and we pin the x-axis to it (ending at the cursor).
 const BUCKET_COUNT = 32;
 const INTERVAL_MINUTES: Record<PopulationTimeType, number> = {
     TenMinutes: 10,
@@ -81,15 +78,12 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [communities]);
 
-    // The synthetic "all" entry leads the picker, ahead of the real communities.
     const selectableCommunities = useMemo(
         () => [{id: ALL_COMMUNITY_ID, name: t('allCommunities')}, ...communities],
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [communities, t],
     );
 
-    // Deliberately free of color: this memo is a dependency of the population fetch effect
-    // below, so letting an async color resolution change it would refetch every series.
     const selectedCommunities = useMemo(() => {
         return selectedIds
             .map(id => {
@@ -151,7 +145,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
                 };
                 if (flushTimer) clearTimeout(flushTimer);
                 if (--remaining === 0) {
-                    flush(); // last one in: no point waiting
+                    flush();
                     setLoading(false);
                 } else {
                     flushTimer = setTimeout(flush, 500);
@@ -170,7 +164,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
         panTimeout.current = setTimeout(() => {
             const now = dayjs();
             let next = dayjs(edge);
-            if (next.isAfter(now)) next = now; // don't scroll into the future
+            if (next.isAfter(now)) next = now;
             setCursor(next);
         }, 400);
     }, []);

@@ -12,16 +12,12 @@ import { cn } from "components/lib/utils";
 import {getIntervalCallback} from "utils/generalUtils.ts";
 import {useTranslations} from 'next-intl';
 
-// Extend dayjs with plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(localizedFormat);
 
 
 export const formatDateWMS = (date) => {
-    // My data is in +08 and QGIS Server decided that it doesnt care about timezone.
-    // https://github.com/qgis/QGIS/issues/58034
-    // return date.utc().tz('Asia/Kuala_Lumpur').format("YYYY-MM-DD HH:mm:ss");
     return date.toISOString()
 };
 
@@ -143,7 +139,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
     const getStepSizePercent = () => {
         const totalRange = endDate.diff(startDate);
 
-        const stepMs = STEP_MS[selectedInterval] || 60 * MINUTE_MS; // default to 1 hour
+        const stepMs = STEP_MS[selectedInterval] || 60 * MINUTE_MS;
 
         return (stepMs / totalRange) * 100;
     };
@@ -266,9 +262,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
         setCurrentTime(currentTime < newStartDate ? newStartDate : currentTime.add(0, 'ms'))
     };
 
-    // Function to get appropriate interval options based on selected range
     const getIntervalOptionsForRange = (rangeValue) => {
-        // Define which intervals are appropriate for each range
         const intervalMap = {
             'all': ['1month', '1week', '1day', '12hours', '6hours', '1hour', '30min', '10min'],
             '1year': ['1month', '1week', '1day', '12hours', '6hours', '1hour', '30min', '10min'],
@@ -279,10 +273,8 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
             '6hours': ['1hour', '30min', '10min']
         };
 
-        // Get list of valid interval values for this range
         const validIntervalValues = intervalMap[rangeValue] || ['1hour'];
 
-        // Filter the full intervals array to only include valid ones
         return [
             { label: t('interval10min'), value: '10min' },
             { label: t('interval30min'), value: '30min' },
@@ -308,7 +300,6 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
         }
     };
 
-    // Start/stop animation
     useEffect(() => {
         if (isPlaying) {
             if (isLive) {
@@ -326,7 +317,6 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
         };
     }, [isPlaying]);
 
-    // Handle live mode
     useEffect(() => {
         if (isLive) {
             if (isPlaying) {
@@ -349,7 +339,6 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
             updateWMSLayer(currentTime);
     }, [startDate, endDate]);
 
-    // Update slider position when current time changes
     useEffect(() => {
         const totalTime = endDate.diff(startDate);
         const elapsedTime = currentTime.diff(startDate);
@@ -357,14 +346,12 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
         setSliderValue(percentage);
     }, [currentTime]);
 
-    // Initialize available intervals based on default range
     useEffect(() => {
         const initialIntervals = getIntervalOptionsForRange(selectedRange)
         setAvailableIntervals(initialIntervals)
         updateDateRange(initialIntervals)
     }, []);
 
-    // Handle interval change
     const handleIntervalChange = (event) => {
         setChangeInterval(event.target.value);
         updateWMSLayer(currentTime);
@@ -382,7 +369,6 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
         updateWMSLayer(time);
     };
 
-    // Toggle live mode - shows current time
     const toggleLiveMode = () => {
         setIsLive(!isLive);
         if (!isLive) {
@@ -476,7 +462,6 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                 </div>
                 <div className="flex-1 w-full md:w-auto min-w-0 mt-2 md:mt-0">
                     <div className="relative h-[30px] w-full flex items-center mt-2">
-                        {/* Time Display */}
                         <div className="absolute -top-[18px] left-1/2 -translate-x-1/2 text-xs font-bold text-center whitespace-nowrap">
                             {isLive ? 'LIVE: ' : ''}{formatDateDisplay(currentTime)}{!isLive ? ` - ${formatDateDisplay(getTimeIncrement(currentTime))}` : ''}
                         </div>

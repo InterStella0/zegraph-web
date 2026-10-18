@@ -51,9 +51,6 @@ async function getMapInfoDetails(serverId: string, mapName: string): Promise<Ser
         toReturn.info = info
         toReturn.analyze = analyze
     }catch(e){
-        // Still calculating is the only "expected" failure here; a 404 (or
-        // anything else) means the map genuinely doesn't exist and callers
-        // need to see that instead of a silently blank page.
         if (e instanceof StillCalculate){
             toReturn.notReady = true
         }else{
@@ -137,9 +134,6 @@ export default async function Page({ params, searchParams }){
         const analyze = mapInfo.analyze;
         const info = mapInfo.info;
 
-        // A ZE map is a level, not a game: model it as a CreativeWork that is part of the
-        // Counter-Strike VideoGame. No aggregateRating here — playtime is not a 1-5 review
-        // score, and emitting one is a structured-data guidelines violation.
         jsonLd = {
             "@context": "https://schema.org",
             "@type": "CreativeWork",

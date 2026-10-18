@@ -185,7 +185,6 @@ export default function GlobalMapsTable({ mapsData, page, setPage, favorites, to
                         <TableHead/>
                     </TableRow>
                 </TableHeader>
-                {/* The previous page stays up, dimmed, while the next one loads. */}
                 <TableBody aria-busy={loading} className={cn("transition-opacity", loading && mapsData && "opacity-50")}>
                     {mapsData?.maps?.map(map => (
                         <GlobalMapRow key={map.map} map={map} favorites={favorites} toggleFavorite={toggleFavorite}/>

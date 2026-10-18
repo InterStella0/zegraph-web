@@ -36,7 +36,6 @@ type Metric = 'map' | 'player'
 const metricSeconds = (time: MapServerTime, metric: Metric) =>
     metric === 'map' ? time.map_duration : time.player_duration
 
-/** The p-th quantile of `values`, which must be sorted ascending. */
 function quantile(values: number[], p: number): number {
     if (values.length === 0) return 0
     return values[Math.min(values.length - 1, Math.floor(p * values.length))]
@@ -66,7 +65,6 @@ function MapServerBreakdownDisplay({ initialDataPromise }: MapServerBreakdownPro
         return server ? `${server.community_shorten_name || server.community_name} · ${server.name}` : serverId
     }, [serversMapped])
 
-    // Colors follow the all-time order (most player-hours first), so they don't move with the toggle.
     const serverIds = useMemo(() => {
         const ids = mapServers.map(server => server.server_id)
         for (const day of heat)
@@ -77,7 +75,6 @@ function MapServerBreakdownDisplay({ initialDataPromise }: MapServerBreakdownPro
     const colors = useServerColors(serverIds)
     const colorOf = useCallback((serverId: string | undefined) => (serverId && colors[serverId]) || 'grey', [colors])
 
-    // Only days with play come back, so the rest of the year is filled in as empty cells.
     const days = useMemo<HeatDay[]>(() => {
         if (heat.length === 0) return []
         const byDay = new Map(heat.map(day => [dayjs.utc(day.date).format('YYYY-MM-DD'), day.servers]))
@@ -96,7 +93,6 @@ function MapServerBreakdownDisplay({ initialDataPromise }: MapServerBreakdownPro
     }, [heat, metric, labelOf])
     const playedDays = useMemo(() => days.filter(day => day.series.length > 0), [days])
 
-    // Summed over servers a day easily passes a few hours, so cells scale to the busiest days.
     const scaleHours = useMemo(() => {
         const totals = playedDays
             .map(day => day.series.reduce((a, s) => a + s.seconds, 0) / 3600)
@@ -150,7 +146,6 @@ function MapServerBreakdownDisplay({ initialDataPromise }: MapServerBreakdownPro
             },
         },
         plugins: {
-            // The server list below doubles as the legend, with the same swatches.
             legend: {display: false},
             tooltip: {
                 ...heatmapTooltip(theme),

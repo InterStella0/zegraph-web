@@ -51,7 +51,6 @@ export function OverlayBadge({ color, icon: Icon, spaced, tooltip, suppressHydra
     );
 }
 
-/** Opens the map in the 3D viewer at `href`, or explains there is no model to show. */
 export function Map3DButton({ name, href }: { name: string, href: string }) {
     const t = useTranslations('maps.header');
     const router = useRouter()
@@ -94,10 +93,6 @@ export function Map3DButton({ name, href }: { name: string, href: string }) {
     )
 }
 
-/**
- * The bottom overlay of a map header: the map name and its playtime, sessions and players, with
- * `children` between the two.
- */
 export function MapHeaderStats({ name, analyze, children }: { name: string, analyze: MapAnalyze | null, children?: ReactNode }) {
     const t = useTranslations('maps.header');
     const locale = useLocale();
@@ -112,7 +107,6 @@ export function MapHeaderStats({ name, analyze, children }: { name: string, anal
             {children}
             <div className="flex flex-wrap gap-1 sm:gap-2 items-center">
                 <PeriodChip className="mr-2 sm:mr-4 mb-2 sm:mb-0 border-white/40 bg-white/15 text-white" />
-                {/* Total playtime */}
                 <div className="flex items-center mr-2 sm:mr-4 mb-2 sm:mb-0">
                     <Clock className="text-white h-3.5 w-3.5 sm:h-5 sm:w-5" />
                     {isLoading && (
@@ -133,7 +127,6 @@ export function MapHeaderStats({ name, analyze, children }: { name: string, anal
                     )}
                 </div>
 
-                {/* Sessions */}
                 <div className="flex items-center mr-2 sm:mr-4 mb-2 sm:mb-0">
                     <Users className="text-white h-3.5 w-3.5 sm:h-5 sm:w-5" />
                     {isLoading && (
@@ -154,7 +147,6 @@ export function MapHeaderStats({ name, analyze, children }: { name: string, anal
                     )}
                 </div>
 
-                {/* Last played */}
                 {!period && <div className="flex items-center mr-2 sm:mr-4 mb-2 sm:mb-0">
                     <RotateCcw className="text-white h-3.5 w-3.5 sm:h-5 sm:w-5" />
                     {isLoading && (
@@ -175,7 +167,6 @@ export function MapHeaderStats({ name, analyze, children }: { name: string, anal
                     )}
                 </div>}
 
-                {/* Unique players */}
                 <div className="flex items-center mb-2 sm:mb-0">
                     <User className="text-white h-3.5 w-3.5 sm:h-5 sm:w-5" />
                     {isLoading && (
@@ -241,7 +232,6 @@ function MapHeaderDisplay() {
                     )}
                 </div>
 
-                {/* Top-left cooldown badge */}
                 <div className="absolute top-0 left-0 p-2 sm:p-4">
                     {mapLeft > 0 ? (
                         <OverlayBadge color="text-amber-500" icon={AlarmClock}>{mapLeft} maps left</OverlayBadge>
@@ -264,7 +254,6 @@ function MapHeaderDisplay() {
                     )}
                 </div>
 
-                {/* Top-right not ready warning and 3D button */}
                 <div className="absolute top-0 right-0 p-2 sm:p-4 flex flex-col gap-2 items-end">
                     {notReady && (
                         <OverlayBadge color="text-destructive" icon={AlertTriangle} tooltip={t('stillCalculating')}>

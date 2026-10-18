@@ -22,7 +22,6 @@ fn split_segments(path: &str) -> impl Iterator<Item = &str> {
         .filter(|s| !s.is_empty())
 }
 
-/// A single route pattern, e.g. `/servers/{server_id}/maps/{map_name}/info`.
 #[derive(Debug, Clone)]
 pub struct RoutePattern {
     uri: &'static str,
@@ -43,8 +42,6 @@ impl RoutePattern {
         RoutePattern { uri, segments }
     }
 
-    /// Whether `path` is served by this pattern. Segment counts must agree, so neither a longer nor
-    /// a shorter path can match — the two failure modes of the crate this replaced.
     pub fn is_match(&self, path: &str) -> bool {
         let mut candidate = split_segments(path);
         let mut pattern = self.segments.iter();
@@ -58,7 +55,6 @@ impl RoutePattern {
         }
     }
 
-    /// The pattern as written, e.g. `/communities/{community_id}/unique_players`.
     pub fn uri(&self) -> &'static str {
         self.uri
     }
@@ -78,10 +74,6 @@ impl PartialOrd for RoutePattern {
     }
 }
 
-/// Orders by specificity, most specific greatest: leftmost differing segment decides, with a
-/// literal beating a wildcard, then more segments beats fewer. The final `uri` tie-break exists so
-/// the order is total and `cmp` returns `Equal` only for identical patterns, keeping it consistent
-/// with `Eq`.
 impl Ord for RoutePattern {
     fn cmp(&self, other: &Self) -> Ordering {
         self.segments
@@ -92,8 +84,6 @@ impl Ord for RoutePattern {
     }
 }
 
-/// Every registered pattern, sorted once so that the first match found for a path is also the most
-/// specific one.
 pub struct PatternTable {
     patterns: Vec<RoutePattern>,
 }
@@ -109,12 +99,10 @@ impl PatternTable {
             .chain(extra.iter().map(|path| RoutePattern::new(path)))
             .collect();
 
-        // Descending, so `find` returns the most specific match and can stop there.
         patterns.sort_by(|a, b| b.cmp(a));
         PatternTable { patterns }
     }
 
-    /// The most specific registered pattern serving `path`, or `None` if no route matches.
     pub fn find(&self, path: &str) -> Option<&RoutePattern> {
         self.patterns.iter().find(|pattern| pattern.is_match(path))
     }
@@ -140,7 +128,6 @@ mod tests {
         assert!(!pattern.is_match("/servers/1/maps/ze_test_map_v1/analyze"));
     }
 
-    /// A param spans exactly one segment, so a slash inside the candidate is not swallowed by it.
     #[test]
     fn param_does_not_span_a_slash() {
         let pattern = RoutePattern::new("/maps/{map_name}/3d");
@@ -148,21 +135,16 @@ mod tests {
         assert!(!pattern.is_match("/maps/ze/test/3d"));
     }
 
-    /// The reported crash: `uri-pattern-matcher` indexed its parts vector with the candidate's
-    /// segment index, so any path longer than the pattern panicked with an out-of-bounds index.
     #[test]
     fn longer_candidate_does_not_panic() {
         let pattern = RoutePattern::new("/a/{b}/c/{d}/e");
         assert!(!pattern.is_match("/a/1/c/2/e/extra/more"));
         assert!(!pattern.is_match("/a/1/c/2/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t"));
 
-        // Against a real pattern, with a path longer than any route the app registers.
         let real = RoutePattern::new("/servers/{server_id}/maps/{map_name}/info");
         assert!(!real.is_match("/servers/1/maps/a/b/c/d/e/f/g/h"));
     }
 
-    /// The other half of the same bug: matching stopped at the candidate's end, so a shorter path
-    /// matched a longer pattern as a prefix and got labelled with the wrong route.
     #[test]
     fn shorter_candidate_is_not_a_prefix_match() {
         let pattern = RoutePattern::new("/servers/{server_id}/maps/autocomplete");
@@ -185,8 +167,6 @@ mod tests {
         assert!(!pattern.is_match(""));
     }
 
-    /// The replaced crate compared a specificity *score*, which made unrelated routes with the same
-    /// wildcard layout compare equal — its own test asserted `/a/{b}/{c}/d == /api/{r}/{id}/details`.
     #[test]
     fn equality_is_pattern_identity_not_shape() {
         let a = RoutePattern::new("/a/{b}/{c}/d");
@@ -214,7 +194,6 @@ mod tests {
         PatternTable { patterns }
     }
 
-    /// Real `MapApi` patterns that overlap: the concrete route must win over the wildcard one.
     #[test]
     fn table_resolves_to_the_most_specific_match() {
         let table = table(&[

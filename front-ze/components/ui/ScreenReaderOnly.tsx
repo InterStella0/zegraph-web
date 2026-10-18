@@ -6,10 +6,6 @@ interface ScreenReaderOnlyProps {
   as?: 'div' | 'span' | 'p' | 'section';
 }
 
-/**
- * Component that renders content only visible to screen readers.
- * Uses Tailwind's sr-only class for accessibility.
- */
 export function ScreenReaderOnly({
   children,
   id,

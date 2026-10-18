@@ -46,7 +46,6 @@ export async function generateMetadata({ params }: {
     }
 
     const rank = global.rank
-    // Unranked players come back as total_ranked_players + 1, not null.
     if (rank && rank <= global.total_ranked_players){
         clauses.push(t('profileRank', {
             rank: formatOrdinal(rank), total: global.total_ranked_players.toLocaleString()

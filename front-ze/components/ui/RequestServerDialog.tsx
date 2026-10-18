@@ -98,7 +98,6 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
             }
         }
 
-        // Parse ip:port
         const parsedServers = [];
         for (const s of servers) {
             const lastColon = s.ipPort.lastIndexOf(':');
@@ -154,7 +153,6 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                     </DialogHeader>
 
                     <div className="grid gap-5 py-2">
-                        {/* Community Name */}
                         <div className="grid gap-2">
                             <Label htmlFor="communityName">
                                 Community Name <span className="text-destructive">*</span>
@@ -168,7 +166,6 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                             />
                         </div>
 
-                        {/* Community Icon URL */}
                         <div className="grid gap-2">
                             <Label htmlFor="iconUrl">Community Icon URL <span className="text-xs text-muted-foreground">(optional)</span></Label>
                             <Input

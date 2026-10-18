@@ -44,8 +44,8 @@ ChartJS.register(
 );
 
 const TIMEZONE_CHOSEN_FROM = "Asia/Kuala_Lumpur"
-const MAX_ZOOM_OUT_MS = 365 * 24 * 60 * 60 * 1000 // 1 year
-const MAX_EVENT_COUNT_HOURS = 24 // backend rejects event_count ranges wider than 1 day
+const MAX_ZOOM_OUT_MS = 365 * 24 * 60 * 60 * 1000
+const MAX_EVENT_COUNT_HOURS = 24
 const REGION_MAPPING = [
     { start: 18, end: 24, label: "Asia + EU" },
     { start: 0, end: 6, label: "EU + NA" },
@@ -180,7 +180,6 @@ function ServerGraphDisplay(
             setLoading(false);
             return;
         }
-        // Only show loading state if it takes longer than a second
         const timeout = setTimeout(() => setLoading(true), 1000);
         return () => clearTimeout(timeout);
     }, [state.loading, setLoading]);
@@ -188,9 +187,6 @@ function ServerGraphDisplay(
     useEffect(() => {
         if (lastSource !== DateSources.ZOOM && chartRef.current) {
             clearTimeout(zoomTimeoutRef.current);
-            // Pin the scale to the requested range, like a manual pan does.
-            // Deriving it from data/annotations (resetZoom) leaves it misaligned,
-            // and zoomScale fires no onZoomComplete echo.
             chartRef.current.zoomScale('x', { min: start.valueOf(), max: end.valueOf() }, 'none');
         }
     }, [timestamp, lastSource, start, end]);
@@ -215,9 +211,6 @@ function ServerGraphDisplay(
                         .then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count })))
                 ];
 
-                // Only fetch join/leave counts if date range is small enough.
-                // Fractional diff on purpose: end.diff(start, "day") truncates, so a 1.9 day
-                // range would read as 1 and get rejected by the backend.
                 if (end.diff(start, "hour", true) <= MAX_EVENT_COUNT_HOURS) {
                     promises.push(
                         fetchUrl(`/graph/${server_id}/event_count`, {
@@ -236,7 +229,6 @@ function ServerGraphDisplay(
                     promises.push(Promise.resolve([]), Promise.resolve([]));
                 }
 
-                // Only fetch maps if date range is small enough
                 if (end.diff(start, "day") <= 2) {
                     promises.push(
                         fetchUrl(`/graph/${server_id}/maps`, { params, signal })
@@ -299,7 +291,6 @@ function ServerGraphDisplay(
         const newStart = dayjs(xScale.min);
         const newEnd = dayjs(xScale.max);
 
-        // Debounce zoom updates
         clearTimeout(zoomTimeoutRef.current);
         zoomTimeoutRef.current = setTimeout(() => {
             setDates(newStart, newEnd, DateSources.ZOOM);
@@ -310,8 +301,6 @@ function ServerGraphDisplay(
         handleZoomChange(chart.scales.x);
     }, [handleZoomChange]);
 
-    // chartjs-plugin-zoom has no maxRange limit (only minRange), so cap
-    // zoom-out manually. Pan is unaffected: this only runs on zoom steps.
     const clampZoomOut = useCallback(({ chart }) => {
         const { min, max } = chart.scales.x;
         if (max - min > MAX_ZOOM_OUT_MS) {
@@ -323,7 +312,6 @@ function ServerGraphDisplay(
         }
     }, []);
 
-    // Update annotations
     useEffect(() => {
         if (!start.isBefore(end) || end.diff(start, "day") > 6) {
             annotationRef.current.annotations = state.data.mapAnnotations;
@@ -449,7 +437,6 @@ function ServerGraphDisplay(
         }
     )
 
-    // Generate SEO summary and table
     const summary = useMemo(() => {
         if (!state.data.playerCounts || state.data.playerCounts.length === 0) {
             return t('noServerData');

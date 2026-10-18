@@ -5,7 +5,6 @@ import {getServerAvatarText} from "components/ui/CommunitySelector";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {cn} from "components/lib/utils";
 
-/** A server as "community · server" with its community avatar, optionally linking to `href`. */
 export default function MapServerLabel({ serverId, href, className }: {
     serverId: string,
     href?: string,
@@ -16,7 +15,6 @@ export default function MapServerLabel({ serverId, href, className }: {
     const community = server?.community_name ?? serverId;
 
     const label = <>
-        {/* The server name gives way first, so the community stays readable. */}
         <span className="font-medium truncate shrink-0 max-w-[60%]">{community}</span>
         {server && <span className="text-muted-foreground truncate">· {server.name}</span>}
     </>;

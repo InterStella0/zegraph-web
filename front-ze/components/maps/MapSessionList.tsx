@@ -134,7 +134,6 @@ function SkeletonSessionGraph({ index }: { index: number }){
 function SessionGraph({ session }: { session: ServerMapPlayed }){
     const t = useTranslations('maps.sessionList');
     const { server, sessionHref } = useMapScope()
-    // Sessions on the global page come from every server, so each one is fetched from its own.
     const server_id = session.server_id
     const { name } = useMapContext()
     const toDayjs = useLocalDayjs()

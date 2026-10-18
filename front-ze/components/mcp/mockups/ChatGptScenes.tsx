@@ -8,7 +8,6 @@ import {MockButton, MockFrame, MockInput, MockScene, MockToggle, spot, TypeIn} f
 const DEV_MODE = [900, 1100, 1000, 2600] as const;
 const SETTINGS_NAV = ['general', 'notifications', 'personalization', 'plugins', 'dataControls', 'security'] as const;
 
-/** Settings → Plugins → Developer mode switched on. */
 export function ChatGptDevMode() {
     const t = useTranslations('mcp.mock');
     return (
@@ -77,7 +76,6 @@ export function ChatGptDevMode() {
 
 const NEW_PLUGIN = [800, 1000, 1800, 1000, 900, 1000, 2600] as const;
 
-/** Plugins → "+" → New Plugin, filled in with the URL and "No authentication". */
 export function ChatGptNewPlugin({mcpUrl}: { mcpUrl: string }) {
     const t = useTranslations('mcp.mock');
     return (
@@ -159,7 +157,6 @@ export function ChatGptNewPlugin({mcpUrl}: { mcpUrl: string }) {
 
 const CHAT_PICK = [900, 1000, 2600] as const;
 
-/** Typing "@" in a chat and picking ZE Graph. */
 export function ChatGptChatPick() {
     const t = useTranslations('mcp.mock');
     return (

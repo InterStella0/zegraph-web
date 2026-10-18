@@ -27,7 +27,6 @@ export function useGlobalPlaytime(userId: string, initial: GlobalPlaytimeSummary
                 const next: GlobalPlaytimeSummary = await fetchApiUrl(`/players/${userId}/global-playtime`, NO_CACHE);
                 if (!cancelled) setGlobal(next);
             } catch {
-                // Keep the last known values on the screen and try again on the next tick.
             }
         }, POLL_INTERVAL_MS);
 

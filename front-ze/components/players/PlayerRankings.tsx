@@ -52,7 +52,7 @@ const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => (
 );
 const SUGGESTION_MIN_CHARS = 3;
 const SUGGESTION_DEBOUNCE_MS = 300;
-const COMMIT_DEBOUNCE_MS = 3000; // preserves existing 3s tuning for the /players/table query
+const COMMIT_DEBOUNCE_MS = 3000;
 
 const rankingModes: RankingMode[] = [
     {id: 'total', labelKey: 'modeTotalTime', value: 'Total'},

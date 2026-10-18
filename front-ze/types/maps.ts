@@ -171,7 +171,6 @@ export type GlobalMapPaginated = {
     maps: GlobalMapPlayed[]
 }
 
-/** `/maps/{map}/info`: the map across every server, plus its Workshop metadata. */
 export type GlobalMapInfo = {
     map: GlobalMapPlayed,
     workshop_id: number | null,
@@ -180,7 +179,6 @@ export type GlobalMapInfo = {
 }
 export type GlobalMapDetail = MapDetail<GlobalMapInfo>
 
-/** Durations are in seconds: how long the map ran, and every player's time on it summed. */
 export type MapServerTime = {
     server_id: string,
     map_duration: number,
@@ -217,7 +215,6 @@ export interface ServerMapMusic{
     yt_source_name: string | null
 }
 
-// Music report types
 export interface ReportMapMusicDto {
   reason: 'video_unavailable' | 'wrong_video';
   details?: string;

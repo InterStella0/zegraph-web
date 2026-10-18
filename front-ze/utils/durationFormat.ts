@@ -1,7 +1,6 @@
 import humanizeDuration from 'humanize-duration';
 import {AppLocale} from 'i18n/config';
 
-// humanize-duration uses underscore-separated language codes.
 const HUMANIZE_LOCALE: Record<AppLocale, string> = {
     'en': 'en',
     'es': 'es',

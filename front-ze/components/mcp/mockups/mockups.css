@@ -1,8 +1,3 @@
-/* Palettes for the recreated Claude / ChatGPT screens on /mcp-setup. These are simplified
-   illustrations, so the colours only need to be recognisable, not exact. The dark Claude values are
-   sampled from the real settings modal; the light ones follow the same roles.
-   Claude-only roles: --m-field (inputs), --m-hover (menu highlight, secondary buttons),
-   --m-soft (secondary text), --m-link, --m-switch, --m-warn-bg / --m-warn-fg. */
 .mock-claude {
     --m-bg: #faf9f5;
     --m-panel: #f5f4ed;
@@ -71,7 +66,6 @@
     --m-knob: #0d0d0d;
 }
 
-/* The guide's own highlight: ZE Graph pink, so it never reads as part of the vendor UI. */
 .mock-frame {
     --m-ring: oklch(0.66 0.21 345);
 }
@@ -131,7 +125,6 @@
     to { opacity: 1; transform: none; }
 }
 
-/* The step guide: each step's panel eases in, and the active tab fills up as its scene plays. */
 .mock-step-in {
     animation: mock-step-in 320ms ease-out;
 }

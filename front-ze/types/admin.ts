@@ -1,10 +1,6 @@
-// Report status types
 export type ReportStatus = 'pending' | 'resolved' | 'dismissed';
 
-// Re-export music report types for admin usage
 export type { MapMusicReportAdmin, MapMusicReportsPaginated } from './maps';
-
-// ─── Server nomination request types ──────────────────────────────────────────
 
 export type ServerRequestStatus = 'pending' | 'approved' | 'rejected';
 
@@ -35,18 +31,12 @@ export interface ServerRequestsPaginated {
   requests: ServerRequestAdmin[];
 }
 
-// ─── Map metadata admin types ─────────────────────────────────────────────────
-
 export interface AdminMapServerEntry {
   server_id: string;
   server_name: string;
-  /** null = no override, inherits from global */
   is_tryhard: boolean | null;
-  /** null = no override, inherits from global */
   is_casual: boolean | null;
-  /** null = no override, inherits from global */
   workshop_id: number | null;
-  /** null = no override, inherits from global */
   resolved_workshop_id: number | null;
   no_noms: boolean;
   min_players: number | null;
@@ -80,23 +70,14 @@ export interface UpdateGlobalMapMetadataDto {
 export interface UpdateServerMapMetadataDto {
   server_id: string;
   map_name: string;
-  /** null = clear override (inherit from global) */
   is_tryhard: boolean | null;
-  /** null = clear override (inherit from global) */
   is_casual: boolean | null;
-  /** null = clear override (inherit from global) */
   workshop_id: number | null;
-  /** null = clear override (inherit from global) */
   resolved_workshop_id: number | null;
-  /** null = keep existing value */
   no_noms: boolean | null;
-  /** null = keep existing value */
   min_players: number | null;
-  /** null = no player limit */
   max_players: number | null;
 }
-
-// ─── Audit log admin types ────────────────────────────────────────────────────
 
 export type AuditLogAction = 'update_global' | 'update_server' | 'delete_map';
 
@@ -125,16 +106,12 @@ export interface AuditLogsResponse {
   logs: AuditLogEntry[];
 }
 
-// ─── Profile claim admin types ────────────────────────────────────────────────
-
 export type PlayerClaimStatus = 'pending' | 'approved' | 'rejected';
 
 export interface PlayerClaimAdmin {
   id: string;
-  /** Steam ID of the person making the claim. */
   user_id: string;
   claimer_name: string | null;
-  /** The name-tracked player row being claimed. */
   player_id: string;
   player_name: string | null;
   server_id: string;

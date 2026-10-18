@@ -82,7 +82,6 @@ export const getRounds = (graphMatch, sessionInfo) => {
         dayjs(a.occurred_at).isAfter(dayjs(b.occurred_at)) ? 1 : -1
     );
 
-    // Collect distinct score-change events; each one starts a new round.
     const changes = [];
     let prevHuman = 0;
     let prevZombie = 0;
@@ -101,8 +100,6 @@ export const getRounds = (graphMatch, sessionInfo) => {
 
     const sessionEnd = sessionInfo?.ended_at ?? sorted[sorted.length - 1].occurred_at;
 
-    // A round's line sits at its score change and the band extends to the right,
-    // up to the next change (or session end for the last one).
     return changes.map((match, i) => {
         const endAt = i + 1 < changes.length ? changes[i + 1].occurred_at : sessionEnd;
         return {
@@ -146,8 +143,6 @@ export const getRoundChangeAnnotations = (graphMatch, sessionInfo, isDark) => {
             }
         });
 
-        // Full-height transparent hover target covering the round's band (to the
-        // right of the line) that reveals a fuller label on hover.
         annotations.push({
             type: 'box',
             xMin: r.startMs,
@@ -211,7 +206,6 @@ export const getServerPopChartData = (serverGraph, isDark) => {
 };
 
 export const getMatchScoreChartData = (data, type) => {
-    // Theme colors
     const successColor = 'hsl(142, 71%, 45%)'; // Green for humans
     const errorColor = 'hsl(0, 84%, 60%)';     // Red for zombies
 

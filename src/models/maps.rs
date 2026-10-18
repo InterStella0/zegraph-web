@@ -153,7 +153,6 @@ pub struct DbMapBriefInfo{
     pub first_occurrence: OffsetDateTime,
 }
 
-/// A player's time on a map over one period, as cached for the period's top-players list.
 #[derive(Clone)]
 #[auto_serde_with]
 pub struct DbMapPeriodPlayer{

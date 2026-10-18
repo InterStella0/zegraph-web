@@ -692,7 +692,6 @@ impl ServerApi {
         let now = Utc::now();
         let entries: Vec<FetchStatusEntry> = response.result.iter_into();
 
-        // community_id -> (name, server_id -> (name, track_label -> [(fetched_at, ok, error)]))
         let mut comm_map: IndexMap<String, (String, IndexMap<String, (String, IndexMap<String, Vec<(DateTime<Utc>, bool, Option<String>)>>)>)> = IndexMap::new();
 
         for e in &entries {

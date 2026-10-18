@@ -11,7 +11,7 @@ export enum DateSources {
     LIVE
 }
 
-const LIVE_POLL_INTERVAL_MS = 150000; // 2.5 minutes
+const LIVE_POLL_INTERVAL_MS = 150000;
 
 const dateReducer = (state, action) => {
     switch (action.type) {
@@ -56,15 +56,9 @@ export function DateProvider({ children }) {
     const setDates = useCallback((start: dayjs.Dayjs, end: dayjs.Dayjs, source: DateSources) => {
         dispatch({ type: 'SET_DATES', start, end, source });
 
-        // Only update URL for non-zoom sources
         if (source !== DateSources.ZOOM) {
-            // setSearchParams({
-            //     start: start.toISOString(),
-            //     end: end.toISOString()
-            // });
         }
     }, [
-        // setSearchParams
     ]);
 
     const goLive = useCallback(() => {

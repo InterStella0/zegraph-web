@@ -13,7 +13,6 @@ use crate::models::servers::*;
 use super::{BackgroundWorker, Cacheable, MapContext, MapData, MapPeriodData, Query, WorkResult, WorkerQ, WorkerQuery};
 
 pub type MapBasicQuery<T> = WorkerQ<MapData, T>;
-/// A map session belongs to the period it started in, so each one counts towards exactly one month.
 pub type MapPeriodQuery<T> = WorkerQ<MapPeriodData, T>;
 
 impl<T> MapBasicQuery<T> {
@@ -249,8 +248,6 @@ worker_query! {
 worker_query! {
     MapBasicQuery<Vec<DbMapSessionDistribution>> => MapSessionDistribution, 30 * DAY, Heavy,
     |self, ctx| format!("sessions_distribution:{}:{}:{{session}}", ctx.data.server_id, ctx.data.map_name), {
-        // noted to be slow, but i dont think there is anyway to make it faster.
-        // possible session_range to be invalid if there is a new key.
         let _ = sqlx::query!("
             WITH params AS (
                 SELECT $2 AS map_target,
@@ -468,11 +465,6 @@ worker_query! {
               dropoff_rate = EXCLUDED.dropoff_rate,
               avg_players_per_session = EXCLUDED.avg_players_per_session;
         ", ctx.data.server_id, ctx.data.map_name).execute(&*ctx.pool).await;
-        // Distinct players across every server, alts merged, for the global /maps page. This body only
-        // runs when this server's map cache misses (a new session ended, or the cache expired), so the
-        // recount happens on every map end without the daily sweep repeating it for unchanged maps.
-        // Session players are collected first so alt accounts are only resolved for those players;
-        // about 0.1-0.3s for the busiest maps on a production-sized copy.
         let _ = sqlx::query!("
             WITH session_players AS (
                 SELECT DISTINCT pss.player_id
@@ -929,9 +921,6 @@ impl MapWorker {
         Ok(value.result.iter_into())
     }
 
-    /// The period's top players, filtered by `search` and ranked by their place in the full list,
-    /// with live online, last-played and anonymity details. Only the plain list request queues the
-    /// calculation: a search reads whatever is cached and never starts one.
     pub async fn get_period_top_players(
         &self, context: &MapContext, period: TimePeriod, search: Option<&str>,
     ) -> WorkResult<Vec<DbPlayerBrief>> {

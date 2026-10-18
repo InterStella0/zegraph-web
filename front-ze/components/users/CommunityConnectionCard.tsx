@@ -28,7 +28,6 @@ interface CommunityConnectionCardProps {
     settings: UserAnonymization | null;
     onToggleAnonymize: (communityId: string | number, type: "location" | "anonymous", value: boolean, settings: UserAnonymization | null) => void;
     showAnonymizeToggle?: boolean;
-    /** Session length that saturates a heatmap cell, shared across the whole profile. */
     scaleMax: number;
 }
 

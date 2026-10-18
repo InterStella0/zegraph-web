@@ -93,7 +93,7 @@ async fn consume(
 
         let payload = match pop(queue, &blocking_redis).await {
             Ok(Some(payload)) => payload,
-            Ok(None) => continue, // pop timed out
+            Ok(None) => continue,
             Err(e) => {
                 tracing::warn!("{queue}: pop failed: {e}");
                 tokio::time::sleep(Duration::from_secs(1)).await;

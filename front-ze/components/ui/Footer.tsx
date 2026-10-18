@@ -18,7 +18,6 @@ export default function Footer() {
             <FooterFab />
 
             <footer className="relative mt-auto w-full overflow-hidden border-t-1 py-6">
-                {/* Decorative background blobs */}
                 <div className="absolute -top-4 left-[10%] h-10 w-10 rounded-full" />
                 <div className="absolute -bottom-5 right-[15%] h-16 w-16 rounded-full" />
                 <div className="absolute left-[80%] top-[40%] h-6 w-6 rounded-full" />

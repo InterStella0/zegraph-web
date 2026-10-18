@@ -39,7 +39,6 @@ const mapEndpoint = (mapName: string, endpoint: string) => `/maps/${encodeURICom
 async function getGlobalMapDetail(mapName: string): Promise<GlobalMapDetail> {
     const detail: GlobalMapDetail = { name: mapName, info: null, analyze: null, notReady: false }
     try {
-        // Signed in, the info goes through the Next proxy so it can say whether this is a favorite.
         const [info, analyze] = await Promise.all([
             fetchApiUrl(mapEndpoint(mapName, '/info')),
             fetchUrl(mapEndpoint(mapName, '/analyze')),
@@ -47,7 +46,6 @@ async function getGlobalMapDetail(mapName: string): Promise<GlobalMapDetail> {
         detail.info = info
         detail.analyze = analyze
     } catch (e) {
-        // Still calculating is the only expected failure; anything else, a 404 included, must surface.
         if (e instanceof StillCalculate) {
             detail.notReady = true
         } else {
@@ -135,8 +133,6 @@ export default async function Page({ params }: { params: Promise<{ map_name: str
     if (detail.analyze && !detail.notReady) {
         const analyze = detail.analyze
         const info = detail.info
-        // A ZE map is a level, not a game: model it as a CreativeWork that is part of the
-        // Counter-Strike VideoGame. No aggregateRating here: playtime is not a 1-5 review score.
         jsonLd = {
             "@context": "https://schema.org",
             "@type": "CreativeWork",

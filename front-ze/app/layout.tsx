@@ -77,11 +77,7 @@ export default async function RootLayout({
     const user = getServerUser();
     const donorBanner = getDonorBanner();
     const locale = await getLocale();
-    // Read by fetchUrl in the browser to route anonymous reads straight to the backend. Cookie
-    // presence only (same check fetchUrl uses on the server), so the layout never waits on auth().
     const signedIn = await hasSession();
-    // AdSpot renders an <amp-ad> element, which needs the AMP runtime. Only pull in that
-    // third-party script when AdSpot will actually render one.
     const adsEnabled = process.env.NEXT_PUBLIC_AD_SHOW?.toUpperCase() !== "FALSE"
         && !!process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
         && !!process.env.NEXT_PUBLIC_ADSENSE_AD_SLOT;

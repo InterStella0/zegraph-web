@@ -13,7 +13,6 @@ const EMPTY_MAP: MapDetail<unknown> = {
     info: null
 }
 
-/** Holds a per-server `MapInfo`, or a `GlobalMapInfo` on the global map page. */
 export const MapContext = createContext<MapDetail<unknown>>(EMPTY_MAP)
 
 export function EmptyMapContext({ children }: { children: ReactNode }) {
@@ -27,7 +26,6 @@ export function MapContextProvider<I>({ value, children }: { value: Promise<MapD
     const [current, setCurrent] = useState<MapDetail<I>>(initial)
     const [retryTick, setRetryTick] = useState(0)
     const isFirstRun = useRef(true)
-    // Outside the servers layout there is no server, and the map's endpoints span every server.
     const serverId = useServerData()?.server?.id ?? null
     const { period } = usePeriod()
     const [periodAnalyze, setPeriodAnalyze] = useState<PeriodAnalyze | null>(null)
@@ -77,7 +75,6 @@ export function MapContextProvider<I>({ value, children }: { value: Promise<MapD
     return <MapContext.Provider value={shown}>{children}</MapContext.Provider>;
 }
 
-/** `I` is the info shape the caller expects: `MapInfo` on a server's page, `GlobalMapInfo` globally. */
 export function useMapContext<I = MapInfo>() {
     return useContext(MapContext) as MapDetail<I>;
 }

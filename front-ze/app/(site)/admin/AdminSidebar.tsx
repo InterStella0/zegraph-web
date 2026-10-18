@@ -75,7 +75,6 @@ function SidebarContent({ onNavigate, mapManagerOnly }: { onNavigate?: () => voi
         <div className="py-4">
           {sections.map((section) => (
             <div key={section.title} className="mb-6">
-              {/* Section Header */}
               <div className="px-6 mb-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <section.icon className="h-4 w-4" />
@@ -83,7 +82,6 @@ function SidebarContent({ onNavigate, mapManagerOnly }: { onNavigate?: () => voi
                 </div>
               </div>
 
-              {/* Section Items */}
               <div className="space-y-1 px-3">
                 {section.items.map((item) => {
                   const isActive = pathname === item.href;
@@ -123,7 +121,6 @@ export default function AdminSidebar({ mapManagerOnly }: { mapManagerOnly?: bool
 
   return (
     <>
-      {/* Mobile top bar */}
       <div className="min-[769px]:hidden flex items-center gap-3 px-4 h-14 border-b border-border/40 bg-background/95 backdrop-blur sticky top-0 z-10">
         <Button variant="ghost" size="icon" onClick={() => setIsOpen(true)}>
           <Menu className="h-5 w-5" />
@@ -131,14 +128,12 @@ export default function AdminSidebar({ mapManagerOnly }: { mapManagerOnly?: bool
         <h2 className="text-base font-bold">Admin Dashboard</h2>
       </div>
 
-      {/* Mobile drawer */}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetContent side="left" className="w-[280px] p-0">
           <SidebarContent onNavigate={() => setIsOpen(false)} mapManagerOnly={mapManagerOnly} />
         </SheetContent>
       </Sheet>
 
-      {/* Desktop sidebar */}
       <aside className="w-[280px] h-screen sticky top-0 left-0 border-r border-border/40 flex-shrink-0 max-[768px]:hidden">
         <SidebarContent mapManagerOnly={mapManagerOnly} />
       </aside>

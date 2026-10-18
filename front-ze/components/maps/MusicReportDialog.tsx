@@ -61,7 +61,6 @@ export default function MusicReportDialog({
             toast.success(t('submitSuccess'), {
                 description: t('submitSuccessDesc')
             });
-            // Reset and close
             setReason('');
             setDetails('');
             setYoutubeUrl('');

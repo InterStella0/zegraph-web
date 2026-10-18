@@ -18,7 +18,6 @@ export default function MapViewerRenderer({ map_name, modelMetadata, error }: {
     setSelectedRes(res)
   }
 
-  // Error state or no models available
   if (error || !modelMetadata || (!modelMetadata.high_res_model && !modelMetadata.low_res_model)) {
     return (
       <Card className="max-w-md p-8 text-center">
@@ -33,7 +32,6 @@ export default function MapViewerRenderer({ map_name, modelMetadata, error }: {
 
   const currentModel = selectedRes === 'high' ? modelMetadata.high_res_model : modelMetadata.low_res_model
 
-  // Show selection screen if no resolution selected yet
   if (!selectedRes || !currentModel) {
     return (
       <Card className="max-w-md p-8 text-center">

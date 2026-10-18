@@ -32,12 +32,7 @@ struct DbWorkerLastCalculated{
 
 pub type PlayerSessionQuery<T> = WorkerQ<PlayerSessionData, T>;
 pub type PlayerBasicQuery<T> = WorkerQ<PlayerData, T>;
-/// Queries scoped to a canonical player id rather than a (server, session) pair. Their cache keys
-/// carry no `{session}` placeholder; the global refresh job invalidates them instead (see
-/// `run_global_refresh`).
 pub type PlayerGlobalQuery<T> = WorkerQ<PlayerGlobalData, T>;
-/// Every period impl only reads: none of them touch the stored all-time tables or the
-/// `player_server_worker` watermarks.
 pub type PlayerPeriodQuery<T> = WorkerQ<PlayerPeriodData, T>;
 
 impl<T> PlayerSessionQuery<T> {
@@ -129,7 +124,6 @@ async fn calculate_db_player_map(ctx: &Query<PlayerData>, worker_type: &str) -> 
         }
         save_result = true;
     }else{
-        // when start session is None, it means the user hasnt completed a single session.
         plays = sqlx::query_as!(DbPlayerMapPlayed, "
                  WITH time_bounds AS (
                     SELECT
@@ -166,7 +160,6 @@ async fn calculate_db_player_map(ctx: &Query<PlayerData>, worker_type: &str) -> 
     }
 
     if worker_data.no_data || has_no_completed_session {
-        // Full recalc from scratch: replace existing totals to avoid double-counting
         let _ = sqlx::query!("
                     INSERT INTO website.player_map_time(player_id, server_id, map, total_playtime)
                     SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::INTERVAL[])
@@ -179,7 +172,6 @@ async fn calculate_db_player_map(ctx: &Query<PlayerData>, worker_type: &str) -> 
                     &played[..])
             .execute(&*ctx.pool).await?;
     } else {
-        // Incremental delta: add new sessions to existing cumulative total
         let _ = sqlx::query!("
                     INSERT INTO website.player_map_time(player_id, server_id, map, total_playtime)
                     SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::INTERVAL[])
@@ -215,7 +207,7 @@ worker_query! {
             release_redis_lock(&redis_pool, &lock_key, &lock_id).await;
             tracing::info!("LOCK RELEASED {}", &lock_key);
 
-            result?; // propagate error if any
+            result?;
         } else {
             tracing::warn!("SKIPPING RECALCULATION, LOCK HELD {}", &lock_key);
         }
@@ -375,7 +367,6 @@ struct PlaytimeSplit {
 }
 
 impl PlaytimeSplit {
-    /// Mirrors the `category_calc` CASE in the all-time detail query.
     fn category(&self) -> Option<String> {
         if self.total < Duration::from_secs(5 * 60 * 60) {
             return None;
@@ -689,25 +680,14 @@ const PLAYED_WITH_PAGE_SIZE: i64 = 20;
 pub const MIGHT_FRIENDS_WORKER: &str = "might_friends";
 const LIVE_SEARCH_MIN_CHARS: usize = 3;
 
-/// Escapes `LIKE` wildcards so user input matches literally.
 fn escape_like(value: &str) -> String {
     value.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
 }
 
 worker_query! {
-    /// Who a player has "played with" on a server, all-time: whoever overlapped the most with their
-    /// completed sessions. Only ever run on request (the `might_friends/calculate` route queues it);
-    /// the list route reads `website.player_server_relationship` directly and never calculates.
-    ///
-    /// Time together is symmetric, so each pair is also stored from the other side (`mirrored`): the
-    /// players in this list see this player in theirs without being calculated themselves. A mirror
-    /// only overwrites a row whose `last_seen` is no newer, so an older calculation never rolls back a
-    /// fresher one. It does not mark them calculated, so their own full calculation stays available.
-    // Nothing reads this cache entry back; the list route reads the table.
     PlayerBasicQuery<Vec<DbPlayerSeen>> => PlayerMightFriends, DAY, Heavy,
     |self, ctx| format!("player-might-friends:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
         if ctx.data.current_session == PLAYER_DEFAULT_KEY {
-            // No completed session yet, so nothing to overlap with.
             return Ok(vec![]);
         }
 
@@ -988,8 +968,6 @@ worker_query! {
         let maps_query: PlayerPeriodQuery<Vec<DbPlayerMapPlayed>> = PlayerPeriodQuery::raw(ctx.clone());
         let maps = maps_query.execute().await?;
 
-        // The most-played-maps view of this period is the same rows; filling its key here saves
-        // that route a second heavy job.
         if let Ok(json) = serde_json::to_string(&maps) {
             let (_, maps_key, _) = RefreshJob::for_session(&maps_query, &ctx.data.current_session, None);
             BackgroundWorker::new(ctx.cache.clone()).cache_raw(&maps_key, &json, maps_query.ttl()).await;
@@ -1191,8 +1169,6 @@ worker_query! {
 }
 
 worker_query! {
-    /// The period's "played with" top list: the same overlap calculation as the all-time
-    /// `might_friends` job, with the player's sessions clamped to the period and nothing saved.
     PlayerPeriodQuery<Vec<DbPlayerSeen>> => PlayerPeriodPlayedWith, period "played-with-v2", Heavy, |self, ctx| {
         let (start, end) = self.bounds();
 
@@ -1404,9 +1380,6 @@ impl PlayerWorker {
         })
     }
 
-    /// The period's "played with" list, paged and filtered from its cached top list. Only the plain
-    /// list request queues the calculation: a search reads whatever is cached and never starts
-    /// one, and never falls back to the live search the all-time list has.
     async fn get_period_played_with(
         &self, context: &PlayerContext, search: Option<&str>, page: i64, period: TimePeriod,
     ) -> WorkResult<PlayerMightFriendsPage> {
@@ -1464,8 +1437,6 @@ impl PlayerWorker {
         })
     }
 
-    /// Which of `player_ids` are anonymized in this server's community, read live so a cached
-    /// period list never outlives someone's opt-out.
     async fn anonymized_among(
         &self, context: &PlayerContext, player_ids: &[String],
     ) -> Result<std::collections::HashSet<String>, sqlx::Error> {
@@ -1501,8 +1472,6 @@ impl PlayerWorker {
         Ok(MightFriendsCalculateStatus::Queued)
     }
 
-    /// Time spent alongside every player on the server whose name contains `search` (lowercase),
-    /// calculated live, keeping only those who were ever on together, most time first.
     async fn search_played_with_live(
         &self, context: &PlayerContext, search: &str,
     ) -> Result<Vec<DbPlayerMightFriend>, sqlx::Error> {
@@ -1656,8 +1625,6 @@ impl PlayerWorker {
         Ok(detail)
     }
 
-    /// Playtime over one period. Ranks are all-time only, so they are left out rather than shown
-    /// beside numbers they do not describe.
     async fn get_period_detail(&self, context: &PlayerContext, period: TimePeriod) -> WorkResult<DetailedPlayer>{
         let cached: CachedResult<DbPlayerDetail> = self.query_player_period(context, period).await?;
         let mut detail: DetailedPlayer = cached.result.into();
@@ -1787,7 +1754,7 @@ impl PlayerWorker {
         let aliases: Vec<DbPlayerAlias> = self.query_player_execute(context).await?;
         let mut aliases_filtered = vec![];
         let mut last_seen = String::from("");
-        for alias in aliases{ // due to buggy impl lol
+        for alias in aliases{
             if alias.name != last_seen{
                 last_seen = alias.name.to_string();
                 aliases_filtered.push(alias);
@@ -1849,15 +1816,6 @@ impl PlayerWorker {
             .unwrap_or(0)
     }
 
-    /// Clears every cached view of the given players, after something changed what those views
-    /// would return for reasons the cache keys cannot see.
-    ///
-    /// Relinking is the case that needs it: `associated_player_id` decides which rows a profile
-    /// fans out to and which account owns its playtime, and it is baked into cached payloads
-    /// that live for tens of days under session-scoped keys. Dropping by player id catches all
-    /// of them — detail, aliases, ranks, the `player-data` row and the global aggregates.
-    ///
-    /// Over-matching is harmless here: an extra key just gets recomputed on next read.
     pub async fn invalidate_players(&self, player_ids: &[String]) {
         for player_id in player_ids {
             self.background_worker
@@ -1866,15 +1824,9 @@ impl PlayerWorker {
         }
     }
 
-    /// Queues a full playtime recalculation for one canonical account.
-    ///
-    /// Also called after `player.associated_player_id` changes: the merged numbers live behind
-    /// this worker's cache and in `website.player_global_playtime`, and neither notices a new
-    /// link on its own.
     pub async fn enqueue_global_refresh(&self, canonical_id: &str) {
         self.background_worker.enqueue_refresh_job(RefreshJob {
             kind: JobKind::PlayerGlobalPlaytime { canonical_id: canonical_id.to_string() },
-            // Nothing reads this key; it exists so the in-flight marker dedupes per player.
             cache_key: format!("global-playtime-refresh:{canonical_id}"),
             ttl: 0,
             priority: QueryPriority::Heavy,

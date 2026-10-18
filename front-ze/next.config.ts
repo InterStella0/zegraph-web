@@ -5,7 +5,6 @@ import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
-// HEAD is either a raw SHA (detached -- what actions/checkout leaves behind) or a symbolic ref.
 function resolveHead(gitDir: string): string {
     const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
     if (!head.startsWith('ref:')) return head;
@@ -14,7 +13,6 @@ function resolveHead(gitDir: string): string {
     const loose = path.join(gitDir, ref);
     if (fs.existsSync(loose)) return fs.readFileSync(loose, 'utf8').trim();
 
-    // A freshly cloned or gc'd repository keeps its refs in packed-refs instead of as loose files.
     const packed = path.join(gitDir, 'packed-refs');
     if (!fs.existsSync(packed)) return '';
     for (const line of fs.readFileSync(packed, 'utf8').split('\n')) {
@@ -24,14 +22,10 @@ function resolveHead(gitDir: string): string {
     return '';
 }
 
-// Read .git directly rather than shelling out to `git`: the dev container mounts the repository's
-// .git read-only but has no git binary, and plain fs works identically on the host. Walks up
-// because this runs from front-ze/, while .git sits at the repository root.
 function readCommitFromGitDir(start: string): string {
     for (let dir = start; ; dir = path.dirname(dir)) {
         const dotGit = path.join(dir, '.git');
         if (fs.existsSync(dotGit)) {
-            // A .git *file* points elsewhere (worktrees, submodules).
             const gitDir = fs.statSync(dotGit).isDirectory()
                 ? dotGit
                 : path.resolve(dir, fs.readFileSync(dotGit, 'utf8').replace(/^gitdir:/, '').trim());
@@ -41,8 +35,6 @@ function readCommitFromGitDir(start: string): string {
     }
 }
 
-// The production image has neither .git nor a mount for it (.dockerignore excludes it), so its SHA
-// arrives as the BUILD_COMMIT build arg. Empty means the footer hides the build line entirely.
 function resolveBuildCommit(): string {
     const fromEnv = process.env.BUILD_COMMIT?.trim();
     if (fromEnv) return fromEnv;
@@ -55,13 +47,10 @@ function resolveBuildCommit(): string {
 
 const nextConfig: NextConfig = {
     output: 'standalone',
-    // `next dev` blocks its dev resources for any origin other than localhost, so a page opened by
-    // LAN hostname or tailnet IP never hydrates. Comma-separated hosts from the local env; dev-only.
     allowedDevOrigins: (process.env.ALLOWED_DEV_ORIGINS ?? '')
         .split(',')
         .map(origin => origin.trim())
         .filter(Boolean),
-    // Inlined at build time through both webpack and turbopack, unlike a DefinePlugin.
     env: {
         NEXT_PUBLIC_BUILD_COMMIT: resolveBuildCommit(),
         NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
@@ -85,7 +74,6 @@ const nextConfig: NextConfig = {
         return []
     },
     async redirects() {
-        // The global profile moved out from under /users to sit with the rest of /players.
         return [
             {
                 source: '/users/:player_id/profile',
@@ -145,7 +133,6 @@ const nextConfig: NextConfig = {
         ]
     },
     experimental: {
-        // Opts the router into React's <ViewTransition>, used for page transitions.
         viewTransition: true,
         optimizePackageImports: [
             'lucide-react',
@@ -162,13 +149,11 @@ const nextConfig: NextConfig = {
         ],
     },
     webpack: (config, { isServer }) => {
-        // SVG loader for webpack builds
         config.module.rules.push({
             test: /\.svg$/i,
             use: ["@svgr/webpack"],
         });
 
-        // Add chunk splitting for better caching
         if (!isServer) {
             config.optimization.splitChunks = {
                 chunks: 'all',
