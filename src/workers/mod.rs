@@ -213,7 +213,6 @@ impl BackgroundWorker {
         }
     }
 
-    /// Whether a refresh job for `cache_key` is queued or running, per its inflight marker.
     pub async fn is_inflight(&self, cache_key: &str) -> bool {
         let Ok(mut conn) = self.cache.redis_pool.get().await else {
             return false;
@@ -222,7 +221,6 @@ impl BackgroundWorker {
         exists.unwrap_or(false)
     }
 
-    /// Reads a cached value without ever queueing a calculation for it.
     pub(crate) async fn peek<T>(&self, key: &str) -> Option<T>
     where
         T: DeserializeOwned,
@@ -262,8 +260,6 @@ impl BackgroundWorker {
         }
     }
 
-    /// Stores an already-serialized result. The consumer runs `dispatch`, which erases the concrete
-    /// `T` into JSON, so it has no typed value left to hand `cache_result`.
     pub async fn cache_raw(&self, key: &str, json_value: &str, ttl: u64) {
         let cache_key = format!("gfl-ze-watcher:{key}");
         self.cache.memory.insert(key.to_string(), json_value.to_string()).await;
@@ -282,13 +278,6 @@ impl BackgroundWorker {
         }
     }
 
-    /// Drops every cached entry whose key matches a redis glob, across both tiers.
-    ///
-    /// Most player views are cached per session (`…:{server}:{player}:{session}`) with TTLs in
-    /// the tens of days, so something that invalidates a player's whole history — relinking an
-    /// account, say — has no single key to target. Redis is the authority on which keys exist;
-    /// the memory tier is keyed on the bare key, so the same scan clears both.
-    ///
     /// `SCAN` walks the whole keyspace for a non-prefix pattern, so this is for rare
     /// administrative changes, not request handling.
     pub async fn drop_cached_matching(&self, pattern: &str) {
@@ -384,8 +373,6 @@ pub struct WorkerQ<D, T> {
     _phantom: std::marker::PhantomData<T>,
 }
 impl<D, T> WorkerQ<D, T> {
-    /// Rebuilds the query straight from its data, with no context to hand — the path a worker
-    /// process takes after deserializing a job.
     pub(crate) fn raw(context: Query<D>) -> Self {
         Self { context, _phantom: std::marker::PhantomData }
     }
@@ -410,9 +397,6 @@ impl PeriodData for MapPeriodData {
     fn scope(&self) -> (&str, &str, TimePeriod, bool) { (&self.server_id, &self.map_name, self.period, self.closed) }
 }
 
-/// Queries over one calendar period only read, so the result lives in the cache alone. A closed
-/// period cannot change, so its key carries no `{session}`; an open one is recalculated per
-/// completed session.
 impl<D: PeriodData, T> WorkerQ<D, T> {
     fn period_key(&self, kind: &str) -> String {
         let (server_id, subject, period, closed) = self.context.data.scope();
@@ -443,8 +427,6 @@ impl<D: PeriodData, T> WorkerQ<D, T> {
         (period.start().to_db_time(), period.end().to_db_time())
     }
 
-    /// The keys a period query reads: its current key and, for an open period only, the previous
-    /// session's key. A closed period's key has no session in it, so there is nothing to fall back to.
     fn period_keys(&self, cache_key: &CacheKey) -> (RefreshJob, String, Option<String>)
     where
         Self: WorkerQuery<T>,
@@ -461,8 +443,6 @@ pub struct PlayerData{
     pub current_session: String,
 }
 
-/// A player on a server over one calendar period. `closed` is fixed when the query is built, so a
-/// job and the key it fills always agree on whether the key is session-scoped.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlayerPeriodData{
     pub player_id: String,
@@ -484,8 +464,6 @@ pub struct MapData{
     pub server_id: String,
 }
 
-/// A map on a server over one calendar period, with `closed` fixed at build time as in
-/// `PlayerPeriodData`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MapPeriodData{
     pub map_name: String,
@@ -579,8 +557,6 @@ mod tests {
         assert_eq!(job.stale_key.as_deref(), Some("thing:server-1:player-1:before"));
     }
 
-    /// The guard that matters: when the session has not actually rolled over, the previous key and
-    /// the current key are the same string.
     #[test]
     fn an_unchanged_session_is_never_evicted() {
         let (job, current_key, fallback_key) = for_session("now", Some("now"));
@@ -625,8 +601,6 @@ mod tests {
         BackgroundWorker::new(fake_cache())
     }
 
-    /// Counts closure invocations so a "cache hit" assertion can prove the query never ran, rather
-    /// than only that the value came back correct.
     struct CountingQuery(Arc<AtomicUsize>);
 
     impl CountingQuery {
@@ -685,7 +659,6 @@ mod tests {
         assert_eq!(query.calls(), 1);
     }
 
-    /// The two tiers key differently, memory on the bare key, redis on the prefixed one.
     #[tokio::test]
     async fn the_memory_tier_is_keyed_on_the_bare_key() {
         let worker = worker();
@@ -743,8 +716,6 @@ mod tests {
         assert_eq!(worker.peek::<Vec<u8>>("peeked").await, Some(vec![3]));
     }
 
-    /// A miss must stay a miss: peek is what lets a search read a list without starting its
-    /// calculation, so it may not leave a queued job or an inflight marker behind.
     #[tokio::test]
     async fn peek_misses_without_queueing_anything() {
         let worker = worker();
@@ -785,7 +756,6 @@ mod tests {
         assert!(result.backup, "the alias is a fallback value, not a current one");
     }
 
-    /// Tier order matters: the alias is written by every refresh, so it can lag the session keys.
     #[tokio::test]
     async fn the_session_keys_are_preferred_over_the_latest_alias() {
         let worker = worker();

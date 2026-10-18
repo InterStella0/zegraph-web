@@ -6,11 +6,9 @@ use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
 use poem_openapi::types::{ParseError, ParseFromParameter, ParseResult, Type};
 use serde::{Deserialize, Serialize};
 
-/// The first year the data covers; collection started in February 2024.
 pub const FIRST_YEAR: i32 = 2024;
 pub const PERIOD_PATTERN: &str = r"^(all|\d{4}(-\d{2})?|\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2})$";
 
-/// A calendar year or month, or an inclusive range of days, in UTC, covering `[start, end)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TimePeriod {
     Year(i32),
@@ -19,8 +17,6 @@ pub enum TimePeriod {
 }
 
 impl TimePeriod {
-    /// Parses `YYYY`, `YYYY-MM` or `YYYY-MM-DD..YYYY-MM-DD`; `all` (or an empty value) means no
-    /// period.
     pub fn parse(value: &str, now: DateTime<Utc>) -> Result<Option<Self>, String> {
         let value = value.trim();
         if value.is_empty() || value.eq_ignore_ascii_case("all") {
@@ -82,7 +78,6 @@ impl TimePeriod {
         }
     }
 
-    /// The number of days in a range, counting both ends; `None` for a year or month.
     pub fn range_days(&self) -> Option<i64> {
         match *self {
             TimePeriod::Range(from, to) => Some((to - from).num_days() + 1),
@@ -115,7 +110,6 @@ impl TimePeriod {
         }
     }
 
-    /// Whether the period is entirely in the past, so its numbers can no longer change.
     pub fn is_closed(&self, now: DateTime<Utc>) -> bool {
         self.end() <= now
     }
@@ -131,7 +125,6 @@ fn day_start(date: NaiveDate) -> DateTime<Utc> {
     date.and_time(NaiveTime::MIN).and_utc()
 }
 
-/// The `period` query parameter: `all`, `YYYY`, `YYYY-MM` or `YYYY-MM-DD..YYYY-MM-DD`, in UTC.
 pub struct PeriodParam(pub Option<TimePeriod>);
 
 impl Type for PeriodParam {
@@ -186,7 +179,6 @@ pub struct DbPeriodMonth{
     pub month: i32,
 }
 
-/// Groups months sorted by year into one entry per year, keeping their order.
 pub fn group_periods(months: Vec<DbPeriodMonth>) -> Vec<PeriodYear> {
     let mut years: Vec<PeriodYear> = vec![];
     for row in months {

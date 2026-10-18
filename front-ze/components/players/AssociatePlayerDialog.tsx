@@ -22,14 +22,6 @@ import { PlayerName } from './PlayerName';
 const SUGGESTION_MIN_CHARS = 2;
 const SUGGESTION_DEBOUNCE_MS = 300;
 
-/**
- * Superuser-only control for setting `player.associated_player_id` by hand.
- *
- * Approving a claim takes the same backend path; this is the override for the cases a claim
- * cannot cover — linking on someone's behalf, correcting a mistake, or unlinking. The target is
- * normally a Steam ID from a different, Steam-tracked server, so the field takes a raw ID; the
- * name search is a convenience for merging two name rows on this same server.
- */
 export default function AssociatePlayerDialog(
     { serverId, playerId, playerName, associatedPlayerId }: {
         serverId: string,

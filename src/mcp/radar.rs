@@ -1,12 +1,3 @@
-//! `get_radar_map`, the one hand-written tool. Every other tool is derived from an `ApiTags::Mcp`
-//! route, but this one renders from the QGIS server rather than an API route, so it has no spec
-//! entry to derive from.
-//!
-//! It requests a WMS `GetMap` from `QGIS_WMS_URL` (nginx's FastCGI pass-through to QGIS) and
-//! returns the PNG as MCP image content. The whole WMS request is built here: only `GetMap`, and a
-//! `FILTER` built from the server's database ID, so a caller can narrow to one server but never to
-//! one player.
-
 use std::time::Duration;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
@@ -20,7 +11,6 @@ pub const NAME: &str = "get_radar_map";
 const DEFAULT_WIDTH: u64 = 1024;
 const MIN_SIDE: u64 = 64;
 const MAX_SIDE: u64 = 2048;
-/// Same cap as the radar page's time slider, which refuses windows longer than a day.
 const MAX_WINDOW: TimeDelta = TimeDelta::days(1);
 const RENDER_TIMEOUT: Duration = Duration::from_secs(30);
 const WORLD: [f64; 4] = [-180.0, -90.0, 180.0, 90.0];
@@ -75,8 +65,6 @@ struct RadarRequest {
     dark: bool,
 }
 
-/// `Err` is a protocol-level invalid-params message; everything past argument parsing is reported
-/// as a tool error so the model can correct itself.
 pub async fn call(app: &AppData, args: &Map<String, Value>) -> Result<Value, String> {
     let request = match parse_args(args)? {
         Ok(request) => request,
@@ -94,7 +82,6 @@ pub async fn call(app: &AppData, args: &Map<String, Value>) -> Result<Value, Str
         Ok(resp) => resp,
         Err(e) => return Ok(render_failed(&server.server_id, e.to_string())),
     };
-    // QGIS reports errors as a 200 XML ServiceException, so the content type is what tells.
     let is_png = resp.headers().get(reqwest::header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
         .is_some_and(|v| v.starts_with("image/png"));
@@ -121,8 +108,6 @@ fn render_failed(server_id: &str, detail: String) -> Value {
     tool_error("The map renderer failed; try again shortly.")
 }
 
-/// Outer `Err`: malformed arguments (JSON-RPC invalid params). Inner `Err`: well-formed but
-/// unacceptable values, reported as a tool error.
 fn parse_args(args: &Map<String, Value>) -> Result<Result<RadarRequest, String>, String> {
     if let Some(unknown) = args.keys().find(|k| !ARGS.contains(&k.as_str())) {
         return Err(format!("Unknown argument `{unknown}` for tool {NAME}"));
@@ -174,7 +159,6 @@ fn parse_args(args: &Map<String, Value>) -> Result<Result<RadarRequest, String>,
     })())
 }
 
-/// `min_lon,min_lat,max_lon,max_lat` in WGS84 degrees.
 fn parse_bbox(bbox: &str) -> Result<[f64; 4], String> {
     const SHAPE: &str = "`bbox` must be four numbers: min_lon,min_lat,max_lon,max_lat";
     let values: Vec<f64> = bbox.split(',')
@@ -195,16 +179,12 @@ fn parse_bbox(bbox: &str) -> Result<[f64; 4], String> {
 }
 
 fn wms_query(server_id: &str, request: &RadarRequest) -> Vec<(&'static str, String)> {
-    // Live players come from the plain view; a time window needs the temporal layer, which is the
-    // only one QGIS applies `TIME` to.
     let layer = if request.window.is_some() { "player_server_timed" } else { "player_server_mapped" };
     let [min_lon, min_lat, max_lon, max_lat] = request.bbox;
     let mut query = vec![
         ("SERVICE", "WMS".to_string()),
         ("VERSION", "1.1.1".to_string()),
         ("REQUEST", "GetMap".to_string()),
-        // countries_dark's `dark` style is the only one drawing outlines at world scale; the
-        // background colour carries the theme.
         ("LAYERS", format!("countries_dark,{layer}")),
         ("STYLES", "dark,default".to_string()),
         // 1.1.1 keeps EPSG:4326 in lon/lat order; 1.3.0 would flip it to lat/lon.
@@ -218,7 +198,6 @@ fn wms_query(server_id: &str, request: &RadarRequest) -> Vec<(&'static str, Stri
         ("FILTER", format!("{layer}:\"server_id\" = '{}'", server_id.replace('\'', "''"))),
     ];
     if let Some((start, end)) = request.window {
-        // The frontend sends the same UTC ISO form; see formatDateWMS in TemporalController.tsx.
         let fmt = |t: DateTime<Utc>| t.to_rfc3339_opts(SecondsFormat::Millis, true);
         query.push(("TIME", format!("{}/{}", fmt(start), fmt(end))));
     }

@@ -2,7 +2,6 @@ import {Chart as ChartJS, Filler, LinearScale, LineController, LineElement, Poin
 import {useEffect, useMemo, useRef, useState} from "react";
 import {fetchUrl} from "utils/generalUtils.ts";
 import {LazyLineChart as Line} from "components/graphs/LazyCharts";
-import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {GraphPlayerCount, ServerCountData} from "../../app/servers/[server_slug]/util.ts";
 import { useTheme } from "next-themes";
 
@@ -14,13 +13,12 @@ ChartJS.register(
     PointElement,
 );
 
-export default function SessionPlayedGraph({ sessionId, map }: { sessionId: number, map: string}){
+export default function SessionPlayedGraph({ serverId, sessionId, map }: { serverId: string, sessionId: number, map: string}){
     const [ playerCount, setPlayerCount ] = useState<GraphPlayerCount[]>(null)
     const graphRef = useRef<HTMLDivElement | null>(null);
     const observerRef = useRef<IntersectionObserver | null>(null);
     const [isVisible, setIsVisible] = useState<boolean>(false);
-    const { server } = useServerData()
-    const server_id = server.id;
+    const server_id = serverId;
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
     useEffect(() => {
@@ -115,7 +113,7 @@ export default function SessionPlayedGraph({ sessionId, map }: { sessionId: numb
                 const chart = context.chart;
                 const { ctx, chartArea } = chart;
 
-                if (!chartArea) return; // initial
+                if (!chartArea) return;
                 let gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
                 gradient.addColorStop(1, gradientColor1);
                 gradient.addColorStop(0.7, gradientColor2);

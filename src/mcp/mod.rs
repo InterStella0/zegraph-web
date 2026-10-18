@@ -1,15 +1,3 @@
-//! MCP (Model Context Protocol) endpoint exposing player, map and server data as tools.
-//!
-//! Speaks stateless Streamable HTTP: every message is a single JSON-RPC `POST /mcp` answered with
-//! `application/json`. There are no sessions and no SSE stream, so `GET`/`DELETE` are 405.
-//!
-//! Tools do not run queries of their own. Every GET route tagged `ApiTags::Mcp` becomes one (see
-//! [`tools`]); a call builds that route's request in memory and dispatches it to the API service
-//! in-process. The one exception is [`radar`], hand-written because it renders from QGIS rather
-//! than an API route. Caching, the worker "calculating" fallback and anonymization therefore behave
-//! exactly as they do for the website, and the caller's `Authorization` header is forwarded so a
-//! signed-in user sees what they would see there.
-
 mod radar;
 pub mod tools;
 
@@ -21,7 +9,6 @@ use url::Url;
 use crate::AppData;
 use tools::{tools_from_spec, ParamKind, ParamLoc, ToolDef};
 
-/// Newest first; the first entry is what an unrecognised client version falls back to.
 pub const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &["2025-11-25", "2025-06-18", "2025-03-26"];
 
 const PARSE_ERROR: i32 = -32700;
@@ -31,21 +18,19 @@ const INVALID_PARAMS: i32 = -32602;
 
 const INSTRUCTIONS: &str = "Read-only data from zegraph.xyz, which tracks CS Zombie Escape \
     servers across the western community. Call list_servers first to resolve a server_id (a \
-    server's readable_link works too). Player and map tools are scoped to one server. Graph tools \
+    server's readable_link works too). Player and map tools are scoped to one server, except the \
+    get_global_map_* and *_global tools, which span every server. Graph tools \
     return pre-bucketed series sized for charting. Players who anonymized themselves are hidden unless the request carries their own, or an admin's, bearer \
     token.";
 
 pub struct McpEndpoint {
     api: BoxEndpoint<'static>,
-    /// For the radar tool, which has no route to dispatch to.
     app: AppData,
     tools: Vec<ToolDef>,
     tools_json: Value,
 }
 
 impl McpEndpoint {
-    /// `api` is the route tree tools dispatch to and must already carry `AppData`; `spec` is its
-    /// OpenAPI document, which the tools are built from.
     pub fn new(api: impl Endpoint<Output = Response> + 'static, spec: &str, app: AppData) -> Self {
         let spec: Value = serde_json::from_str(spec).expect("poem-openapi emits valid JSON");
         let (tools, errors) = tools_from_spec(&spec);
@@ -129,8 +114,6 @@ impl Endpoint for McpEndpoint {
             ))));
         }
 
-        // A message without a method is the client answering a server request; one without an id
-        // is a notification. Neither expects a reply, and nothing here needs to act on them.
         let (Some(method), Some(id)) = (message.get("method").and_then(Value::as_str), id) else {
             return Ok(Response::builder().status(StatusCode::ACCEPTED).finish());
         };
@@ -188,7 +171,6 @@ fn initialize_result(params: &Value) -> Value {
     })
 }
 
-/// Renders a tool's arguments into the request path and query of the route it maps onto.
 fn build_uri(tool: &ToolDef, args: &Map<String, Value>) -> Result<String, String> {
     if let Some(unknown) = args.keys().find(|k| !tool.params.iter().any(|p| p.name == k.as_str())) {
         return Err(format!("Unknown argument `{unknown}` for tool {}", tool.name));
@@ -285,8 +267,6 @@ fn argument_to_string(name: &str, kind: &ParamKind, value: &Value) -> Result<Str
     }
 }
 
-/// Maps a route's response onto an MCP tool result. Failures the model can act on (not found,
-/// private, still calculating) are tool errors rather than protocol errors, per the MCP spec.
 fn tool_result(status: StatusCode, body: &str) -> Value {
     let (text, is_error) = match status {
         StatusCode::OK => match serde_json::from_str::<Value>(body) {
@@ -324,7 +304,6 @@ mod tests {
         value.as_object().cloned().expect("test args are an object")
     }
 
-    /// Tools as built from the real spec, so these tests also cover the derivation.
     fn spec_tools() -> Vec<ToolDef> {
         let spec: Value = serde_json::from_str(&crate::build_api_service().spec()).unwrap();
         tools_from_spec(&spec).0

@@ -7,7 +7,6 @@ const TINT = 'color-mix(in oklab, var(--primary) 22%, transparent)';
 const WEEK_SUNDAY = Date.UTC(2026, 0, 4);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** A UTC month as a count of months since year 0. */
 export function monthIndex(date: Date): number {
     return date.getUTCFullYear() * 12 + date.getUTCMonth();
 }

@@ -75,7 +75,6 @@ export default function McpSetupClient({mcpUrl}: { mcpUrl: string }) {
     const [tab, setTab] = useState<Tab>('claude');
     const b = (chunks: ReactNode) => <strong className="font-semibold">{chunks}</strong>;
 
-    // The tab lives in the hash, so /mcp-setup#chatgpt links straight to the ChatGPT steps.
     useEffect(() => {
         const sync = () => {
             const hash = window.location.hash.slice(1);

@@ -5,7 +5,8 @@ import {fetchServerUrl} from "utils/generalUtils.ts";
 import SessionPlayedGraph from "../graphs/SessionPlayedGraph.tsx";
 import PaginationPage from "../ui/PaginationPage.tsx";
 import {Users, Trophy, AlertTriangle} from "lucide-react";
-import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
+import {useMapScope} from "lib/hooks/useMapScope";
+import MapServerLabel from "components/maps/global/MapServerLabel";
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {useResource} from "lib/hooks/useResource";
@@ -32,15 +33,15 @@ function AllSessions({ initialDataPromise }: MapSessionListProps){
     const { period } = usePeriod();
     const [page, setPage] = useState<number>(0)
     const initialData = initialDataPromise ? use(initialDataPromise) : null
-    const { server } = useServerData()
-    const server_id = server.id
+    const { server, fetchMap } = useMapScope()
+    const server_id = server?.id ?? null
 
     useEffect(() => {
         setPage(0)
     }, [server_id, name, period])
 
     const { data, loading, error: fetchError } = useResource<ServerMapPlayedPaginated>(signal => name
-        ? fetchServerUrl(server_id, `/maps/${name}/sessions`, { params: { page, ...(period && { period }) }, signal })
+        ? fetchMap('/sessions', { params: { page, ...(period && { period }) }, signal })
         : null, [server_id, page, name, period], { initial: initialData ?? undefined, keepData: true, keepError: true, retryNotReady: true })
     const sessions = data?.maps ?? NO_SESSIONS
     const totalSessions = data?.total_sessions ?? 0
@@ -132,8 +133,8 @@ function SkeletonSessionGraph({ index }: { index: number }){
 
 function SessionGraph({ session }: { session: ServerMapPlayed }){
     const t = useTranslations('maps.sessionList');
-    const { server } = useServerData()
-    const server_id = server?.id
+    const { server, sessionHref } = useMapScope()
+    const server_id = session.server_id
     const { name } = useMapContext()
     const toDayjs = useLocalDayjs()
     const [ matchData, setMatchData ] = useState(null)
@@ -142,6 +143,7 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
         const sessionId = session.time_id
         fetchServerUrl(server_id, `/sessions/${sessionId}/match`)
             .then(setMatchData)
+            .catch(() => setMatchData(null))
     }, [server_id, session?.time_id]);
     const startedAt = toDayjs(session.started_at)
     const endedAt = session.ended_at? toDayjs(session.ended_at): toDayjs()
@@ -150,7 +152,10 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
         <div className="m-2">
             <div className="grid grid-cols-12 gap-2">
                 <div className="col-span-12 flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-0.5 m-2">
-                    <p className="text-sm sm:text-base">{t('sessionNumber', {id: session.time_id})}</p>
+                    <div className="flex flex-col min-w-0">
+                        <p className="text-sm sm:text-base">{t('sessionNumber', {id: session.time_id})}</p>
+                        {!server && <MapServerLabel serverId={session.server_id} />}
+                    </div>
                     <div className="flex flex-row items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                         <Tooltip>
                             <TooltipTrigger>
@@ -171,7 +176,7 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
                 </div>
                 <div className="col-span-full">
                     <div className="m-2 border border-border rounded-lg">
-                        <SessionPlayedGraph sessionId={session.time_id} map={name} />
+                        <SessionPlayedGraph serverId={server_id} sessionId={session.time_id} map={name} />
                     </div>
                 </div>
                 <div className="col-span-full">
@@ -181,7 +186,7 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
                             variant="outline"
                             size="sm"
                         >
-                            <Link href={`/servers/${server.gotoLink}/maps/${name}/sessions/${session?.time_id}`}>
+                            <Link href={sessionHref(session)}>
                                 <Users className="mr-2 h-4 w-4" />
                                 {t('matchInfo')}
                             </Link>

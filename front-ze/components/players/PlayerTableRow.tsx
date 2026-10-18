@@ -18,14 +18,20 @@ import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 
 dayjs.extend(relativeTime)
 
-function PlayerInformation(
-    { player, timeUnit = "h", showRank = false }: { player: ExtendedPlayerBrief, timeUnit?: "h" | "m", showRank?: boolean }
-) {
+type PlayerTableRowProps = {
+    player: ExtendedPlayerBrief,
+    timeUnit?: "h" | "m",
+    showRank?: boolean,
+    href?: string,
+    compact?: boolean,
+}
+
+function PlayerInformation({ player, timeUnit = "h", showRank = false, href, compact = false }: PlayerTableRowProps) {
     const t = useTranslations('players.card');
     const locale = useLocale();
     const { resolvedTheme } = useTheme();
     const isDarkMode = resolvedTheme === 'dark';
-    const { server } = useServerData()
+    const server = useServerData()?.server
 
     const isOnline = !!player.online_since;
 
@@ -46,20 +52,21 @@ function PlayerInformation(
                 isOnline && "border-l-4 border-l-green-500"
             )}
         >
-            <TableCell className="py-2 sm:py-3 pl-2 sm:pl-4">
+            <TableCell className={cn("py-2 sm:py-3 pl-2", !compact && "sm:pl-4")}>
                 <div className="flex items-center">
                     {showRank && (
                         <span className="w-8 sm:w-9 flex-shrink-0 text-center font-mono text-xs sm:text-sm text-muted-foreground">
                             #{player.rank}
                         </span>
                     )}
-                    <PlayerAvatar uuid={player.id} name={player.name} />
+                    <PlayerAvatar uuid={player.id} name={player.name} className="flex-shrink-0" />
 
-                    <div className="ml-2 sm:ml-4 min-w-0">
+                    <div className={cn("min-w-0", compact ? "ml-2 flex-1" : "ml-2 sm:ml-4")}>
                         <HoverPrefetchLink
-                            href={`/servers/${server.gotoLink}/players/${player.id}`}
+                            href={href ?? `/servers/${server.gotoLink}/players/${player.id}`}
                             className={cn(
-                                "font-semibold tracking-wide mb-1 max-w-[11rem] max-sm:max-w-[10rem] whitespace-nowrap overflow-hidden text-ellipsis inline-block text-sm sm:text-base",
+                                "font-semibold tracking-wide mb-1 whitespace-nowrap overflow-hidden text-ellipsis text-sm sm:text-base",
+                                compact ? "block max-w-full" : "inline-block max-w-[11rem] max-sm:max-w-[10rem]",
                                 "hover:underline transition-colors",
                                 isDarkMode ? "text-white" : "text-gray-900"
                             )}
@@ -90,12 +97,13 @@ function PlayerInformation(
             </TableCell>
             <TableCell
                 align="right"
-                className="py-2 sm:py-3 pr-2 sm:pr-6 align-middle"
+                className={cn("py-2 sm:py-3 pr-2 align-middle", !compact && "sm:pr-6")}
             >
                 <div
                     className={cn(
-                        "inline-flex items-center justify-center px-2 sm:px-3 py-1 sm:py-1.5 rounded min-w-[60px] sm:min-w-[90px]",
-                        "font-medium text-xs sm:text-sm",
+                        "inline-flex items-center justify-center py-1 sm:py-1.5 rounded",
+                        compact ? "px-2 text-xs" : "px-2 sm:px-3 min-w-[60px] sm:min-w-[90px] text-xs sm:text-sm",
+                        "font-medium",
                         isDarkMode
                             ? "bg-black/20 text-white"
                             : "bg-black/5 text-gray-900"
@@ -125,7 +133,7 @@ function PlayerRowError() {
     );
 }
 
-export function PlayerTableRowLoading({ showRank = false }: { showRank?: boolean } = {}) {
+export function PlayerTableRowLoading({ showRank = false, compact = false }: { showRank?: boolean, compact?: boolean } = {}) {
     const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
@@ -136,7 +144,7 @@ export function PlayerTableRowLoading({ showRank = false }: { showRank?: boolean
 
     return (
         <TableRow>
-            <TableCell className="py-2 sm:py-3 pl-2 sm:pl-4">
+            <TableCell className={cn("py-2 sm:py-3 pl-2", !compact && "sm:pl-4")}>
                 <div className="flex items-center">
                     {showRank && (
                         <span className="w-8 sm:w-9 flex-shrink-0 flex justify-center">
@@ -144,23 +152,23 @@ export function PlayerTableRowLoading({ showRank = false }: { showRank?: boolean
                         </span>
                     )}
                     <Skeleton className="w-[40px] h-[40px] rounded-full flex-shrink-0" />
-                    <div className="ml-2 sm:ml-4 min-w-0">
-                        <span className="font-semibold tracking-wide mb-1 inline-block text-sm sm:text-base">
+                    <div className={cn("min-w-0", compact ? "ml-2 flex-1" : "ml-2 sm:ml-4")}>
+                        <span className="font-semibold tracking-wide mb-1 inline-block max-w-full text-sm sm:text-base">
                             <Skeleton
-                                className="inline-block align-middle h-4 sm:h-5 max-w-[6rem] sm:max-w-none"
+                                className={cn("inline-block align-middle h-4 sm:h-5 max-w-[6rem]", compact ? "max-w-full" : "sm:max-w-none")}
                                 style={{ width: `${randomNameWidth}px` }}
                             />{'\u200b'}
                         </span>
                         <div className="text-[10px] sm:text-xs flex items-center">
                             <span>
-                                <Skeleton className="inline-block align-middle h-3 sm:h-3.5 w-24 sm:w-40" />{'\u200b'}
+                                <Skeleton className={cn("inline-block align-middle h-3 sm:h-3.5 w-24", !compact && "sm:w-40")} />{'\u200b'}
                             </span>
                         </div>
                     </div>
                 </div>
             </TableCell>
-            <TableCell align="right" className="py-2 sm:py-3 pr-2 sm:pr-6 align-middle">
-                <Skeleton className="inline-flex px-2 sm:px-3 py-1 sm:py-1.5 rounded min-w-[60px] sm:min-w-[90px] font-medium text-xs sm:text-sm">
+            <TableCell align="right" className={cn("py-2 sm:py-3 pr-2 align-middle", !compact && "sm:pr-6")}>
+                <Skeleton className={cn("inline-flex py-1 sm:py-1.5 rounded font-medium", compact ? "px-2 min-w-[48px] text-xs" : "px-2 sm:px-3 min-w-[60px] sm:min-w-[90px] text-xs sm:text-sm")}>
                     {'\u200b'}
                 </Skeleton>
             </TableCell>
@@ -168,12 +176,10 @@ export function PlayerTableRowLoading({ showRank = false }: { showRank?: boolean
     );
 }
 
-export default function PlayerTableRow(
-    { player, timeUnit = "h", showRank = false }: { player: ExtendedPlayerBrief, timeUnit?: "h" | "m", showRank?: boolean }
-) {
+export default function PlayerTableRow({ player, timeUnit = "h", showRank = false, href, compact = false }: PlayerTableRowProps) {
     return (
         <ErrorBoundary fallback={<PlayerRowError />}>
-            <PlayerInformation player={player} timeUnit={timeUnit} showRank={showRank} />
+            <PlayerInformation player={player} timeUnit={timeUnit} showRank={showRank} href={href} compact={compact} />
         </ErrorBoundary>
     );
 }

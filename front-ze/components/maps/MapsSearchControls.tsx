@@ -38,9 +38,7 @@ export default function MapsSearchControls({
     setSortBy: (sortBy: SortByIndex) => void,
     autocompleteOptions: {map: string}[],
     autocompleteLoading: boolean,
-    /** Extra controls placed after the sort select, e.g. a game filter. */
     children?: ReactNode,
-    /** Sort choices to offer; defaults to all of them. */
     sortOptions?: SortByIndex[],
 
 }) {

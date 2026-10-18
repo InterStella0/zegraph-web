@@ -248,8 +248,6 @@ impl EndpointMetrics {
 
     pub fn record(&self, key: String, elapsed: Duration) {
         let Ok(mut pending) = self.pending.lock() else {
-            // A poisoned lock means some other thread panicked mid-update. Metrics are not worth
-            // propagating that panic into the request path.
             return;
         };
         let entry = pending.entry(key).or_insert((0, 0));
@@ -321,7 +319,6 @@ impl EndpointMetrics {
         }
     }
 
-    /// Only a process that serves HTTP has anything to flush; `run_main` spawns this there.
     pub fn spawn_flusher(metrics: Arc<EndpointMetrics>, cache: Arc<FastCache>) {
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(METRICS_FLUSH_INTERVAL);
@@ -439,7 +436,6 @@ where
 
 pub const MAX_KEY_LIST: usize = 100;
 
-/// Comma-separated keys for a bulk lookup: blanks and duplicates dropped, 1 to 100 entries.
 pub struct KeyList(pub Vec<String>);
 
 impl Type for KeyList {
@@ -508,8 +504,6 @@ mod metrics_tests {
         assert_eq!(drained.get("GET /servers"), Some(&(1, 3000)));
     }
 
-    /// Sub-millisecond requests are the common case here, so they must survive the buffer rather
-    /// than rounding to zero on the way in — the whole reason the totals are microseconds.
     #[test]
     fn sub_millisecond_requests_are_not_rounded_away() {
         let metrics = EndpointMetrics::new();
@@ -527,7 +521,6 @@ mod metrics_tests {
         let drained = metrics.drain();
         assert!(metrics.drain().is_empty(), "a drain must not hand the same counts out twice");
 
-        // What a failed flush does, so a redis outage costs a delay rather than lost counts.
         metrics.restore(drained);
         metrics.record("GET /health".to_string(), Duration::from_micros(500));
         assert_eq!(metrics.drain().get("GET /health"), Some(&(2, 1000)));
@@ -563,7 +556,6 @@ mod calculating_header_tests {
         assert_eq!(header_of(response!(internal_server_error) as Response<String>), None);
     }
 
-    /// Every endpoint returns HTTP 200, this header has to exist.
     #[test]
     fn the_marker_does_not_change_the_status_code() {
         let calculating = (response!(calculating) as Response<String>)

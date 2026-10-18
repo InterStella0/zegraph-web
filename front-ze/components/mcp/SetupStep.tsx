@@ -19,11 +19,6 @@ type Progress = { step: number, duration: number | null, barDone: boolean, scene
 
 const fresh = (step: number): Progress => ({step, duration: null, barDone: false, sceneDone: false});
 
-/**
- * Step tabs over one panel holding the selected instruction and its app mockup. The mockups play
- * back to back: a step moves on once its scene has finished and its tab's progress bar has filled,
- * and the last step wraps round to the first. Playback pauses off screen and under reduced motion.
- */
 export default function SetupStep({steps}: { steps: SetupGuideStep[] }) {
     const t = useTranslations('mcp');
     const reduced = usePrefersReducedMotion();
@@ -49,8 +44,6 @@ export default function SetupStep({steps}: { steps: SetupGuideStep[] }) {
         setProgress(fresh((current + 1) % steps.length));
     }, [progress, current, steps.length]);
 
-    // Keep the active tab in view when the strip scrolls sideways on narrow screens. Only the strip
-    // scrolls; scrollIntoView would also drag the page.
     useEffect(() => {
         const list = listRef.current;
         const tab = list?.querySelector<HTMLElement>('[data-state="active"]');

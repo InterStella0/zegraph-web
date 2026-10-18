@@ -23,10 +23,8 @@ dayjs.extend(localizedFormat);
 
 ChartJS.register(LinearScale, PointElement, LineElement, LineController, TimeScale, Tooltip, Filler, Legend);
 
-// Deliberately slower than the fetch-status table's 10s.
 const POLL_INTERVAL = 30_000;
 
-/** Shared by the tiles and the up/down dot: `null` latency is unknown, not instant. */
 function tone(up: boolean) {
     return up
         ? { dot: "bg-green-500", text: "text-green-600 dark:text-green-400" }
@@ -215,11 +213,6 @@ function TopEndpoints({ traffic }: { traffic: NonNullable<ApiHealth["traffic"]> 
     );
 }
 
-/**
- * The two series sit on separate scales, so the pair has to survive being told apart by color
- * alone. The theme's own chart ramp is all one hue family and fails that; these steps are the
- * nearest pair that passes CVD separation against the card surface in both modes.
- */
 const SERIES_COLORS = {
     light: { responseTime: "oklch(0.50 0.18 335)", requestVolume: "oklch(0.72 0.12 305)" },
     dark: { responseTime: "oklch(0.66 0.19 340)", requestVolume: "oklch(0.52 0.16 300)" },
@@ -266,7 +259,6 @@ function GraphTile({ points }: { points: AvgGraphPoint[] }) {
             animation: false,
             responsive: true,
             maintainAspectRatio: false,
-            // Index mode, so one hover reports both series at the same bucket.
             interaction: { mode: "index" as const, intersect: false, axis: "x" as const },
             plugins: {
                 legend: {
@@ -282,14 +274,12 @@ function GraphTile({ points }: { points: AvgGraphPoint[] }) {
                     },
                 },
                 tooltip: {
-                    // A silent bucket has no row to report; without this it renders as a blank line.
                     filter: (ctx: { parsed: { y: number | null } }) => ctx.parsed.y !== null,
                     callbacks: {
                         title: (items: { parsed: { x: number } }[]) => {
                             const first = items[0];
                             return first ? dayjs(first.parsed.x).format("MMM D, HH:mm") : "";
                         },
-                        // Each series carries its own unit; the axis it belongs to says which.
                         label: (ctx: { parsed: { y: number | null }; dataset: { label?: string; yAxisID?: string } }) => {
                             const y = ctx.parsed.y;
                             if (y === null) return "";
@@ -323,7 +313,6 @@ function GraphTile({ points }: { points: AvgGraphPoint[] }) {
                     title: { display: true, text: t("seriesRequestVolume"), color: ink },
                     beginAtZero: true,
                     ticks: { maxTicksLimit: 6, color: ink },
-                    // Only the left scale draws gridlines; two interleaved grids read as noise.
                     grid: { drawOnChartArea: false },
                     border: { display: false },
                 },

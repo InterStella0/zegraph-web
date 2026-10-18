@@ -10,6 +10,58 @@
       "description": "Return up to 32 time-series buckets of unique player counts for one community or all communities combined. Use this to compare recent activity at 10-minute, hourly, or daily resolution.",
       "title": "Community Player Counts"
     },
+    "get_global_map_analysis": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use list_maps_global (with search_map) to resolve partial names."
+      },
+      "description": "Return a map's all-time performance summary across every server, including player drop-off, average session length, total playtime, session count, average player count, and distinct players with alt accounts merged. May report that it is still calculating; retry shortly.",
+      "title": "Map Performance Across All Servers"
+    },
+    "get_global_map_heat_servers": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use list_maps_global (with search_map) to resolve partial names."
+      },
+      "description": "Return a map's daily activity over the last year, split by server: for each UTC day and server, how long the map ran (map_duration) and the summed time of every player on it (player_duration), both in seconds. Suitable for a heatmap of where and when the map is played.",
+      "title": "Map Activity by Server"
+    },
+    "get_global_map_info": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use list_maps_global (with search_map) to resolve partial names."
+      },
+      "description": "Return one map's details across every server that has played it: classification, totals summed across servers, distinct players with alt accounts merged, live status, Workshop metadata, and each server's rotation state, cooldown and playtime. May report that it is still calculating; retry shortly.",
+      "title": "Map Details Across All Servers"
+    },
+    "get_global_map_player_types": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use list_maps_global (with search_map) to resolve partial names."
+      },
+      "description": "Return how all-time playtime on a map across every server is divided among player types, such as casual, tryhard, and mixed players.",
+      "title": "Map Playtime by Player Type Across All Servers"
+    },
+    "get_global_map_session_distribution": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use list_maps_global (with search_map) to resolve partial names."
+      },
+      "description": "Return the all-time distribution of session lengths for a map across every server, to show how long players typically remain connected while it is played.",
+      "title": "Map Session Lengths Across All Servers"
+    },
+    "get_global_map_sessions": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use list_maps_global (with search_map) to resolve partial names.",
+        "page": "Zero-based page number; each page contains 5 sessions."
+      },
+      "description": "List a map's play sessions across every server, newest first, with 5 sessions per page. Each result includes the server_id and session ID needed by the map-session tools.",
+      "title": "Map Play History Across All Servers"
+    },
+    "get_global_map_top_players": {
+      "arguments": {
+        "map_name": "Exact map name, e.g. ze_example_v1. Use list_maps_global (with search_map) to resolve partial names.",
+        "page": "Zero-based page number; each page contains up to 10 players.",
+        "player_name": "Optional case-insensitive player-name search containing at least 2 characters."
+      },
+      "description": "List players ranked by their total playtime on a map summed across every server, with alt accounts merged into the main account. Optionally search by player name; results contain up to 10 players per page. Player names respect each player's privacy setting.",
+      "title": "Top Players for a Map Across All Servers"
+    },
     "get_map_analysis": {
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",

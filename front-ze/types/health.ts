@@ -1,5 +1,4 @@
 export interface DependencyHealth {
-    /** "up" | "down" */
     status: string;
     latency_ms: number | null;
     error: string | null;
@@ -39,7 +38,6 @@ export interface AvgGraphPoint {
 }
 
 export interface ApiHealth {
-    /** "ok" | "degraded" */
     response: string;
     postgres: DependencyHealth;
     redis: DependencyHealth;

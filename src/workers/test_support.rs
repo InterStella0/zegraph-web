@@ -1,5 +1,3 @@
-//! Fixtures for the worker tests.
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,7 +16,6 @@ use super::player::{PlayerBasicQuery, PlayerGlobalQuery, PlayerPeriodQuery, Play
 use crate::core::period::TimePeriod;
 use super::{MapData, MapPeriodData, PlayerData, PlayerGlobalData, PlayerPeriodData, PlayerSessionData, Query};
 
-/// Port 1 is reserved and never listened on, so `connect_lazy` yields a pool that can be held
 const DEAD_POSTGRES: &str = "postgres://test:test@127.0.0.1:1/test";
 const DEAD_REDIS: &str = "redis://127.0.0.1:1/";
 
@@ -152,7 +149,6 @@ impl Fixture for PlayerGlobalData { fn fixture() -> Self { player_global_data() 
 impl Fixture for MapData { fn fixture() -> Self { map_data() } }
 impl Fixture for MapPeriodData { fn fixture() -> Self { map_period_data(true) } }
 
-/// The three constructors below go through the existing `raw` entry points
 pub fn player_query<T>() -> PlayerBasicQuery<T> {
     PlayerBasicQuery::raw(Query { pool: fake_pool(), cache: fake_cache(), data: player_data() })
 }

@@ -58,7 +58,6 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
 
     const colors = useChartTheme();
 
-    // Chart configuration
     const options = {
         responsive: true,
         maintainAspectRatio: false,
@@ -122,13 +121,11 @@ function RegionDistribution({ initialDataPromise, regionsPromise }: MapRegionDis
 
     const chartData = prepareChartData();
 
-    // Generate SEO summary
     const summary = useMemo(() => {
         if (!detail || detail.length === 0) {
             return t('noData');
         }
 
-        // Transform data to match helper function interface
         const totalDuration = detail.reduce((sum, r) => sum + r.total_play_duration, 0);
         const regionData = detail.map(r => ({
             region: r.region_name,

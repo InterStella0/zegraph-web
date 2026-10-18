@@ -124,7 +124,6 @@ export default async function Page({ params, searchParams }: {
         }
     })()
 
-    // Generate JSON-LD structured data for SEO
     const serverPlayer = await serverPlayerPromise;
     let jsonLd = null;
 
@@ -148,7 +147,6 @@ export default async function Page({ params, searchParams }: {
             }
         };
 
-        // Add ranking if available
         if (player.ranks?.server_playtime) {
             jsonLd["award"] = `${addOrdinalSuffix(player.ranks.server_playtime)} rank on ${server.community_name}`;
         }

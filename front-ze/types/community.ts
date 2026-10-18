@@ -5,8 +5,8 @@ export interface Server {
     name: string;
     players: number;
     max_players: number;
-    status: boolean; // online/offline
-    fullIp: string; // `${ip}:${port}`
+    status: boolean;
+    fullIp: string;
     readable_link?: string | null;
     gotoLink: string;
     community_id: string;
@@ -55,7 +55,6 @@ export interface LinkedName {
 export interface ProfileRecentSession {
     started_at: string;
     ended_at: string | null;
-    /** Session length in seconds; elapsed-so-far for a session still running. */
     duration: number;
 }
 
@@ -68,9 +67,7 @@ export interface ProfileServerEntry {
     last_played_duration: number | null;
     player: DetailedPlayer;
     linked_names: LinkedName[];
-    /** Linked name-tracked profiles on this server not yet merged. Only counted for the owner. */
     mergeable_count: number;
-    /** The player's last few sessions on this server, oldest first. */
     recent_sessions: ProfileRecentSession[];
 }
 
@@ -125,8 +122,6 @@ export interface ProfileResponse {
     summary: ProfileSummary;
     communities: ProfileCommunityDetail[];
     is_owner: boolean;
-    /** You may read and change this user's anonymization settings: you are them, or a superuser
-     *  acting on their behalf. A superuser's change is written to the audit log. */
     can_manage_anonymization: boolean;
     anonymization: UserAnonymization[] | null;
 }

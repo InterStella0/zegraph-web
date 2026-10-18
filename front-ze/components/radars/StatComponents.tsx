@@ -41,12 +41,10 @@ const CountryStatsControl = Control.extend({
         }
     },
     onAdd: function() {
-        // Create container for the control
         this._container = DomUtil.create('div', 'leaflet-control leaflet-bar country-stats-control');
         const container = this._container;
         container.style.display = 'none';
 
-        // Prevent map click events when interacting with the control
         L.DomEvent.disableClickPropagation(this._container);
         L.DomEvent.disableScrollPropagation(this._container);
 
@@ -177,7 +175,6 @@ const CountryStatsList = ({ reactData }) => {
                             </span>
                         </div>
 
-                        {/* Country list */}
                         {loading ? (
                             <>
                                 <div className="space-y-2">
@@ -222,7 +219,6 @@ const CountryStatsList = ({ reactData }) => {
                                     ))}
                                 </ul>
 
-                                {/* Pagination */}
                                 {totalPages > 1 && (
                                     <div className="flex justify-center items-center gap-1 mt-2">
                                         <Button

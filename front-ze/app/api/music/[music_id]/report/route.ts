@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { ReportMapMusicDto } from "types/maps";
 import { proxyToBackendChange } from "lib/apiProxy";
 
-// POST /api/music/[music_id]/report
 export async function POST(
     req: Request,
     context: { params: Promise<{ music_id: string }> }
@@ -10,7 +9,6 @@ export async function POST(
     try {
         const { music_id } = await context.params;
 
-        // Parse body
         const body: ReportMapMusicDto = await req.json();
 
         if (!body.reason) {

@@ -260,7 +260,6 @@ async fn read_recent_window(
         pipe.hgetall(count_key).hgetall(duration_key);
     }
 
-    // Replies come back in the order queued: count, duration, count, duration, …
     let replies: Vec<HashMap<String, i64>> = pipe.query_async(conn).await?;
     let mut counts = HashMap::new();
     let mut durations = HashMap::new();
@@ -370,8 +369,6 @@ fn build_avg_graph(
     durations: &[Option<i64>],
 ) -> Vec<AvgGraphPoint> {
     timestamps.iter().zip(counts.iter()).zip(durations.iter()).map(|((&timestamp, count), duration)| {
-        // One guard for both series, so a silent bucket breaks the volume line at the same
-        // point it breaks the response-time line instead of reading as zero traffic.
         let served = count.filter(|c| *c > 0);
         AvgGraphPoint {
             timestamp,
@@ -425,8 +422,6 @@ where
     Fut: Future<Output = ()>,
 {
     let mut ticker = interval(cadence);
-    // Tokio intervals tick immediately. The monitor is explicitly warmed before these loops are
-    // spawned, so consume that tick rather than doing the same I/O twice during startup.
     ticker.tick().await;
     loop {
         ticker.tick().await;
@@ -899,7 +894,6 @@ mod live_event_tests {
     async fn publishing_with_nobody_connected_is_not_fatal() {
         let hub = LiveEventHub::new();
         assert!(hub.publisher().send(event("player_activity")).is_err());
-        // The channel is still usable afterwards.
         let mut receiver = hub.events.subscribe();
         hub.publisher().send(event("player_activity")).expect("subscriber is listening");
         assert_eq!(receiver.recv().await.unwrap().channel, "player_activity");
@@ -1035,7 +1029,6 @@ mod traffic_tests {
         let traffic = summarize_traffic(
             hash(&[("GET /busy-lifetime", 900), ("GET /busy-now", 10)]),
             hash(&[("GET /busy-lifetime", 900), ("GET /busy-now", 10)]),
-            // Reversed in the window — the ranking must ignore this entirely.
             hash(&[("GET /busy-now", 500), ("GET /busy-lifetime", 1)]),
             hash(&[("GET /busy-now", 500), ("GET /busy-lifetime", 1)]),
             Some(1_700_000_000),
@@ -1079,8 +1072,6 @@ mod traffic_tests {
         assert_eq!(recent_zero_count.average_ms, 2.0);
     }
 
-    /// `HGETALL` returns an unordered map, so equal counts have to be broken deterministically or
-    /// the list reshuffles between two calls to a probe that runs every 10 seconds.
     #[test]
     fn the_list_is_capped_and_ordered_deterministically() {
         let entries: Vec<(String, i64)> = (0..TRAFFIC_TOP_N + 5)
@@ -1109,7 +1100,6 @@ mod traffic_tests {
         assert_ne!(metrics_bucket_keys(28_333_334).0, counts);
     }
 
-    /// The graph is a fixed 3-day window
     #[test]
     fn the_graph_is_864_points_oldest_first_with_nulls_for_silence() {
         let mut counts = vec![None; AVG_GRAPH_BUCKETS as usize];
@@ -1117,9 +1107,8 @@ mod traffic_tests {
 
         counts[0] = Some(2);
         durations[0] = Some(3_000);
-        // index 1 left None: a bucket with no traffic.
         let last = AVG_GRAPH_BUCKETS as usize - 1;
-        counts[last] = Some(1); // duration missing → half-written → 0.0, not NaN
+        counts[last] = Some(1);
 
         let timestamps: Vec<i64> = (0..AVG_GRAPH_BUCKETS as i64)
             .map(|i| i * AVG_GRAPH_BUCKET_SECS as i64)
@@ -1131,7 +1120,6 @@ mod traffic_tests {
         assert_eq!(graph[1].value, None);
         assert_eq!(graph[last].value, Some(0.0));
 
-        // The volume series rides along on the same guard, so its gaps line up with the average's.
         assert_eq!(graph[0].count, Some(2));
         assert_eq!(graph[1].count, None, "a silent bucket is unknown traffic, not zero traffic");
         assert_eq!(graph[last].count, Some(1));

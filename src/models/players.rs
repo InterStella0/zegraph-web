@@ -132,7 +132,6 @@ pub struct DbPlayerSeen{
     #[method(to_utc_optional)]
     pub last_seen: Option<OffsetDateTime>,
 }
-/// A stored row of `website.player_server_relationship`, with the friend's anonymization flag.
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
 #[db_into(PlayerSeen)]

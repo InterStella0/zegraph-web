@@ -153,7 +153,6 @@ pub struct DbMapBriefInfo{
     pub first_occurrence: OffsetDateTime,
 }
 
-/// A player's time on a map over one period, as cached for the period's top-players list.
 #[derive(Clone)]
 #[auto_serde_with]
 pub struct DbMapPeriodPlayer{
@@ -304,6 +303,9 @@ pub struct DbGlobalMapServerRow {
     pub min_players: Option<i16>,
     pub is_playing: bool,
     pub last_played: OffsetDateTime,
+    #[rename(total_time)]
+    pub total_playtime: PgInterval,
+    pub total_sessions: i32,
     #[rename(total_cum_time)]
     pub cum_player_hours: PgInterval,
 }
@@ -313,6 +315,24 @@ pub struct DbGlobalMapPage {
     pub total_maps: i64,
     pub maps: Vec<DbGlobalMapRow>,
     pub servers: Vec<DbGlobalMapServerRow>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct DbGlobalMapMeta {
+    pub workshop_id: Option<i64>,
+    pub creators: Option<String>,
+    pub file_bytes: Option<i64>,
+}
+
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(MapServerTime)]
+pub struct DbMapServerDate {
+    #[skip]
+    pub date: Option<OffsetDateTime>,
+    pub server_id: String,
+    pub map_duration: Option<PgInterval>,
+    pub player_duration: Option<PgInterval>,
 }
 
 #[cfg(test)]

@@ -376,7 +376,6 @@ impl PlayerApi{
         };
 
         let value: Vec<SearchPlayer> = result.iter_into();
-        // Lazy lol, who cares, they ain't gonna know about this one
         let filtered: Vec<SearchPlayer> = value.into_iter()
             .filter(|v| !(v.is_anonymous && v.name == "Anonymous"))
             .collect::<Vec<_>>();
@@ -570,13 +569,11 @@ impl PlayerApi{
 
         if !is_searching{
             for player_table in value.iter_mut(){
-                // Lazy lol, who cares, they ain't gonna know about this one
                 if player_table.is_anonymous && player_table.name == "Anonymous"{
                     (*player_table).id = uuid::Uuid::new_v4().to_string()
                 }
             }
         }else{
-            // Lazy lol, who cares, they ain't gonna know about this one
             value = value.into_iter()
                 .filter(|v| !(v.is_anonymous && v.name == "Anonymous"))
                 .collect::<Vec<_>>();
@@ -729,7 +726,6 @@ impl PlayerApi{
             },
             (None, Some(period)) => (period.start(), period.end()),
             (None, None) => {
-                // Date wont go past february. Im hardcoding this.
                 let start_date = Utc.with_ymd_and_hms(2024, 2, 1, 0, 0, 0).unwrap();
                 (start_date, Utc::now())
             }

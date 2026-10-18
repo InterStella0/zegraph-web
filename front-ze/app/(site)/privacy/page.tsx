@@ -23,7 +23,6 @@ export default async function PrivacyPage() {
           </p>
         </div>
 
-        {/* Section 1 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">1. Introduction</h2>
           <p className="text-foreground leading-relaxed">
@@ -34,7 +33,6 @@ export default async function PrivacyPage() {
           </p>
         </section>
 
-        {/* Section 2 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">2. About Us</h2>
           <p className="text-foreground leading-relaxed">
@@ -45,7 +43,6 @@ export default async function PrivacyPage() {
           </p>
         </section>
 
-        {/* Section 3 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">3. Who May Use This Service</h2>
           <p className="text-foreground leading-relaxed">
@@ -53,7 +50,6 @@ export default async function PrivacyPage() {
           </p>
         </section>
 
-        {/* Section 4 */}
         <section className="space-y-6">
           <h2 className="text-2xl font-semibold">4. Information We Collect</h2>
 
@@ -126,7 +122,6 @@ export default async function PrivacyPage() {
           </div>
         </section>
 
-        {/* Section 5 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">5. How We Use Your Information</h2>
           <p className="text-foreground leading-relaxed">
@@ -149,7 +144,6 @@ export default async function PrivacyPage() {
           </ul>
         </section>
 
-        {/* Section 6 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">6. Advertising</h2>
           <p className="text-foreground leading-relaxed">
@@ -157,7 +151,6 @@ export default async function PrivacyPage() {
           </p>
         </section>
 
-        {/* Section 7 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">7. Sharing of Information</h2>
           <p className="text-foreground leading-relaxed">
@@ -171,7 +164,6 @@ export default async function PrivacyPage() {
           </ul>
         </section>
 
-        {/* Section 8 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">8. Data Retention</h2>
           <p className="text-foreground leading-relaxed">
@@ -179,7 +171,6 @@ export default async function PrivacyPage() {
           </p>
         </section>
 
-        {/* Section 9 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">9. Security</h2>
           <p className="text-foreground leading-relaxed">
@@ -187,7 +178,6 @@ export default async function PrivacyPage() {
           </p>
         </section>
 
-        {/* Section 10 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">10. Third-Party Services</h2>
           <p className="text-foreground leading-relaxed">
@@ -214,7 +204,6 @@ export default async function PrivacyPage() {
           </ul>
         </section>
 
-        {/* Section 11 */}
         <section className="space-y-6">
           <h2 className="text-2xl font-semibold">11. Your Rights</h2>
 
@@ -318,7 +307,6 @@ export default async function PrivacyPage() {
           </div>
         </section>
 
-        {/* Section 12 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">12. Do Not Track</h2>
           <p className="text-foreground leading-relaxed">
@@ -326,7 +314,6 @@ export default async function PrivacyPage() {
           </p>
         </section>
 
-        {/* Section 13 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">13. Changes to This Policy</h2>
           <p className="text-foreground leading-relaxed">
@@ -334,7 +321,6 @@ export default async function PrivacyPage() {
           </p>
         </section>
 
-        {/* Section 14 */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">14. Contact Us</h2>
           <p className="text-foreground leading-relaxed">

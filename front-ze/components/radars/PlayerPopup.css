@@ -28,7 +28,6 @@
     height: 100%;
 }
 
-/* Fix MUI components within popup */
 .player-popup-container .MuiCard-root {
     box-shadow: none;
     border-radius: 0;
@@ -42,14 +41,12 @@
     padding-bottom: 12px; /* Override MUI's padding-bottom */
 }
 
-/* Remove scrollbar from the popup itself (we manage scrolling inside) */
 .custom-player-popup .leaflet-popup-scrolled {
     overflow: hidden;
     border-top: none;
     border-bottom: none;
 }
 
-/* Close button styling */
 .custom-player-popup .leaflet-popup-close-button {
     color: #666;
     padding: 6px 6px 0 0;

@@ -17,7 +17,6 @@ import type { UpdateMapMusicDto } from 'types/maps';
 export default function MusicReportsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('pending');
 
-  // Music editing state
   const [editingMusicId, setEditingMusicId] = useState<string | null>(null);
   const [youtubeVideoId, setYoutubeVideoId] = useState<string>('');
 

@@ -5,13 +5,8 @@ import {cn} from "components/lib/utils";
 
 type PlayerNameProps = {
     name: string,
-    /** The row is masked for this viewer — show "Anonymous" instead of the name. */
     isAnonymous?: boolean,
-    /** The player is anonymized for this community, but you are allowed to see the real name.
-     *  Shows the name with a muted "(Hidden)" so a player who just anonymized themselves doesn't
-     *  read their own visible name as the toggle having failed. */
     hiddenFromOthers?: boolean,
-    /** The player is flagged as a bot. Shows a "Bot" badge after the name. */
     isBot?: boolean,
     className?: string,
 }
@@ -26,10 +21,6 @@ export function BotBadge({ className }: { className?: string }) {
     );
 }
 
-/**
- * The single place a player's name is turned into display text. A plain <span>, so it drops into
- * the existing truncating/ellipsis wrappers without changing any layout.
- */
 export function PlayerName({ name, isAnonymous = false, hiddenFromOthers = false, isBot = false, className }: PlayerNameProps) {
     const t = useTranslations('common');
 

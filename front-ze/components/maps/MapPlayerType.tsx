@@ -1,11 +1,11 @@
 'use client'
 import {use, useMemo} from "react";
-import {fetchServerUrl, secondsToHours} from "utils/generalUtils.ts";
+import {secondsToHours} from "utils/generalUtils.ts";
 import {LazyDoughnutChart as Doughnut} from 'components/graphs/LazyCharts';
 import { Chart as ChartJS, ArcElement, Legend } from 'chart.js';
 import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {PeriodChip, usePeriod} from "components/period/Period";
-import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
+import {useMapScope} from "lib/hooks/useMapScope";
 import {useResource} from "lib/hooks/useResource";
 import {MapPlayerTypeTime} from "types/players.ts";
 import { Card } from "components/ui/card";
@@ -29,12 +29,12 @@ function MapPlayerTypeDisplay({ initialDataPromise }: MapPlayerTypeProps) {
     const locale = useLocale();
     const { name } = useMapContext();
     const { period } = usePeriod();
-    const { server } = useServerData();
-    const server_id = server.id
+    const { server, fetchMap } = useMapScope();
+    const server_id = server?.id ?? null
     const theme = useChartTheme();
     const initialData = initialDataPromise ? use(initialDataPromise) : null
     const { data: fetched, loading, error } = useResource<MapPlayerTypeTime[]>(() => name
-        ? fetchServerUrl(server_id, `/maps/${name}/player_types`, period ? { params: { period } } : {})
+        ? fetchMap('/player_types', period ? { params: { period } } : {})
         : null, [server_id, name, period], { initial: initialData ?? undefined, retryNotReady: true, errorLog: 'Error fetching player types data:' });
     const playerTypes = fetched ?? [];
 

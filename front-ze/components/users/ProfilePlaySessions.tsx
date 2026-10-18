@@ -22,8 +22,6 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 function SessionSkeleton() {
-    // Widths are randomized so the placeholder rows don't look like a barcode, but only after
-    // mount — a random width during SSR would be a hydration mismatch.
     const [isClient, setIsClient] = useState<boolean>(false);
     useEffect(() => {
         setIsClient(true);
@@ -42,15 +40,10 @@ function SessionSkeleton() {
     );
 }
 
-/**
- * Not a link, unlike the per-server session list: the session-detail route is scoped to one server
- * and this list spans all of them.
- */
 function SessionRow({ session }: { session: GlobalPlayerSession }): ReactElement {
     const t = useTranslations('players.sessions');
     const toDayjs = useLocalDayjs();
     const serverName = session.server_name ?? t('unknownServer');
-    // getServerAvatarText indexes into the string, so it throws on an empty one.
     const avatarText = getServerAvatarText(session.community_name || serverName).toUpperCase();
 
     return (
@@ -100,11 +93,6 @@ export function ProfilePlaySessionsLoading(): ReactElement {
     );
 }
 
-/**
- * A player's sessions across every server, for the global profile page.
- *
- * `userId` may be the literal `"me"` — `fetchApiUrl` routes through `/api`, which attaches the JWT.
- */
 export default function ProfilePlaySessions({ userId, initialDataPromise }: {
     userId: string,
     initialDataPromise: Promise<GlobalPlayerSessionPage | null>,

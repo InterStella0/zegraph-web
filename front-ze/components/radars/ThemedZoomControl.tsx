@@ -34,11 +34,9 @@ export default function ThemedZoomControl() {
             }
         });
 
-        // Add the control to the map
         const control = new zoomControl();
         map.addControl(control);
 
-        // Cleanup when component unmounts
         return () => {
             map.removeControl(control);
         };

@@ -44,12 +44,10 @@ function LabeledSelect({ label, value, onValueChange, options }: {
 
 export default function PlayerDetailHourBar({ player, server }: { server: Server, player: PlayerInfo }) {
     const t = useTranslations('players.hourBar');
-    // Group by state (remove "weekly")
     const [groupByTime, setGroupByTime] = useState<"daily" | "monthly" | "yearly">("daily")
 
-    // Period selection state
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
-    const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth()) // 0-11
+    const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
     const [availableYears, setAvailableYears] = useState<number[]>(() => [new Date().getFullYear()])
     const [ totalPlayTime, setTotalPlayTime ] = useState<number>(0)
 
@@ -73,7 +71,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
     const handleDataLoaded = (data: { years: number[], months: number[], rawData: PlayerSessionTime[] }) => {
         setAvailableYears(data.years)
         if (data.years.length > 0) {
-            setSelectedYear(data.years[0])  // Most recent year
+            setSelectedYear(data.years[0])
         }
     }
 

@@ -1,6 +1,3 @@
-// Verifies every locale under messages/ has the same key set as en.json (the source of truth).
-// Missing keys aren't fatal (i18n/request.ts deep-merges English as a fallback) but should be
-// caught before they ship untranslated. Run with: bunx tsx scripts/check-messages.ts
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

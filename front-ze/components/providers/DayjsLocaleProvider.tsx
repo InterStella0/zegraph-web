@@ -27,10 +27,6 @@ const DAYJS_LOCALE: Record<AppLocale, string> = {
     'ko': 'ko',
 };
 
-// Sets the dayjs global locale during render so children (SSR included) format
-// dates in the active language. The global is module-wide: server components
-// must not rely on it — use next-intl's getFormatter() or an explicit
-// .locale() there instead.
 export function DayjsLocaleProvider({children}: {children: ReactNode}) {
     const locale = useLocale();
     const mapped = DAYJS_LOCALE[locale as AppLocale] ?? 'en';

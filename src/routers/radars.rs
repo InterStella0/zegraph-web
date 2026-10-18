@@ -50,7 +50,7 @@ fn interval_to_date(start: &DateTime<Utc>, interval: &TimeInterval) -> DateTime<
         TimeInterval::Hour12 => TimeDelta::hours(12),
         TimeInterval::Day1 => TimeDelta::days(1),
         TimeInterval::Week1 => TimeDelta::weeks(1),
-        TimeInterval::Month1 => TimeDelta::days(30) // Dont care, assume 30 days
+        TimeInterval::Month1 => TimeDelta::days(30)
     };
     start.add(offset)
 }

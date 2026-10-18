@@ -52,17 +52,13 @@ fn read_vapid_keys_from_pem() -> Result<(String, String), Box<dyn std::error::Er
     let private_pem = std::fs::read_to_string(&private_path)?;
     let public_pem = std::fs::read_to_string(&public_path)?;
 
-    // Extract base64 content from PEM (strip header/footer)
     let public_key_base64: String = public_pem
         .lines()
         .filter(|line| !line.starts_with("-----"))
         .collect();
 
-    // Decode from standard base64
     let spki_bytes = general_purpose::STANDARD.decode(&public_key_base64)?;
 
-    // PEM contains SPKI structure. For P-256, the raw 65-byte EC point starts at byte 26.
-    // SPKI = 26 bytes ASN.1 header + 65 bytes uncompressed EC point (0x04 + 32 bytes X + 32 bytes Y)
     const SPKI_HEADER_LEN: usize = 26;
     const RAW_KEY_LEN: usize = 65;
 
@@ -76,7 +72,6 @@ fn read_vapid_keys_from_pem() -> Result<(String, String), Box<dyn std::error::Er
 
     let raw_public_key = &spki_bytes[SPKI_HEADER_LEN..];
 
-    // Re-encode as URL-safe base64 (no padding) - required by Web Push API
     let public_key_url_safe = general_purpose::URL_SAFE_NO_PAD.encode(raw_public_key);
 
     Ok((public_key_url_safe, private_pem))
@@ -199,7 +194,6 @@ impl PushNotificationService {
                     warn!("{}", error_msg);
                     self.log_notification(&subscription, &title, &body, notification_type, false, Some(e.to_string()), None).await;
 
-                    // Clean up dead subscriptions (410 Gone or 404 Not Found)
                     if e.to_string().contains("410") || e.to_string().contains("404") {
                         self.remove_subscription(subscription.id).await.ok();
                     }
@@ -255,22 +249,18 @@ impl PushNotificationService {
             "url": url.unwrap_or("/"),
         });
 
-        // Build image URL for map notifications
         let mut image_url: Option<String> = None;
 
         if notification_type == NotificationType::MapSpecific && let Some(server_id_val) = server_id {
             if is_map_notify {
-                // map_notify: specific map subscription - show Join Now / Map Info buttons
                 payload_data["notificationType"] = json!("map_notify");
                 payload_data["serverId"] = json!(server_id_val);
                 if let Some(map) = map_name {
                     payload_data["mapName"] = json!(map);
                     payload_data["mapInfoUrl"] = json!(format!("/servers/{}/maps/{}", server_id_val, map));
-                    // Use medium thumbnail for notification image
                     image_url = Some(format!("/thumbnails/medium/{}.jpg", map));
                 }
             } else {
-                // map_change: any map change subscription - show Wait for Another / Dismiss buttons
                 payload_data["notificationType"] = json!("map_change");
                 payload_data["allowResubscribe"] = json!(true);
                 payload_data["serverId"] = json!(server_id_val);
@@ -307,7 +297,6 @@ impl PushNotificationService {
                 warn!("{}", error_msg);
                 self.log_notification(&subscription, title, body, notification_type, false, Some(e.to_string()), None).await;
 
-                // Clean up dead subscriptions (410 Gone or 404 Not Found)
                 if e.to_string().contains("410") || e.to_string().contains("404") {
                     self.remove_subscription(subscription.id).await.ok();
                 }

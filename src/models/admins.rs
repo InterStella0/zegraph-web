@@ -296,17 +296,14 @@ pub struct DbMapMusicReportFull {
     pub resolved_at: Option<OffsetDateTime>,
     #[rename(created_at)]
     pub timestamp: OffsetDateTime,
-    // Joined fields from map_music
     #[default("Unknown Track".to_string())]
     pub music_name: Option<String>,
     #[default(0.0)]
     pub music_duration: Option<f64>,
     #[default("Unknown".to_string())]
     pub music_source: Option<String>,
-    // Reporter/resolver info
     pub reporter_name: Option<String>,
     pub resolver_name: Option<String>,
-    // Associated maps (aggregated)
     #[unwrap_default]
     pub associated_maps: Option<Vec<String>>,
     #[skip]
@@ -588,14 +585,14 @@ pub struct DbAdminMapRow {
     pub global_is_tryhard: Option<bool>,
     pub global_is_casual: Option<bool>,
     pub global_has_lasers: Option<bool>,
-    pub global_workshop_id: Option<i64>,  // nullable because LEFT JOIN (no map_metadata row)
+    pub global_workshop_id: Option<i64>,
     pub global_resolved_workshop_id: Option<i64>,
 }
 
 pub struct DbAdminMapServerRow {
     pub map_name: String,
     pub server_id: String,
-    pub server_name: Option<String>,  // server.server_name
+    pub server_name: Option<String>,
     pub is_tryhard: Option<bool>,
     pub is_casual: Option<bool>,
     pub workshop_id: Option<i64>,

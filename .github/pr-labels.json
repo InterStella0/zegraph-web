@@ -8,95 +8,44 @@
   },
   "labels": [
     {
-      "name": "bug",
-      "color": "d73a4a",
-      "description": "Something isn't working",
-      "instructions": "Does this PR fix a bug, i.e. correct behaviour that was wrong? Judge from `title`, `body` and `diff`.",
-      "criteria": {"true": "It corrects incorrect behaviour, a crash, or an error.", "false": "It adds, restructures or documents without fixing anything broken."}
+      "name": "frontend",
+      "color": "168700",
+      "description": "Changes the Next.js frontend",
+      "instructions": "Does this PR change frontend code or assets under front-ze/, such as .ts, .tsx, .js or .css files, translations, or package.json? Use `files`.",
+      "criteria": {
+        "true": "Files under front-ze/ change.",
+        "false": "Nothing under front-ze/ changes."
+      }
     },
     {
-      "name": "enhancement",
-      "color": "a2eeef",
-      "description": "New feature or request",
-      "instructions": "Does this PR add a new user-facing feature or capability, such as a new endpoint, page, option or visualisation? Judge from `title`, `body` and `diff`.",
-      "criteria": {"true": "Users or API clients can do something they could not before.", "false": "No new capability; it only fixes, refactors, documents or maintains."}
+      "name": "backend",
+      "color": "000000",
+      "description": "Changes the Rust backend",
+      "instructions": "Does this PR change Rust backend code, i.e. *.rs files under src/, serde_macros/ or pfp-provider/, or Cargo.toml / Cargo.lock? Use `files`.",
+      "criteria": {
+        "true": "Rust code or Cargo files change.",
+        "false": "No Rust code or Cargo files change."
+      }
     },
     {
       "name": "documentation",
       "color": "0075ca",
       "description": "Improvements or additions to documentation",
       "instructions": "Does this PR change documentation, such as *.md files, CLAUDE.md, README, or substantial doc comments? Use `files` and `diff`.",
-      "criteria": {"true": "Documentation is added or edited.", "false": "No documentation changes."}
-    },
-    {
-      "name": "refactor",
-      "color": "fbca04",
-      "description": "Restructures code without changing behaviour",
-      "instructions": "Is a substantial part of this PR restructuring, deduplicating, renaming or removing dead code while keeping behaviour the same? Judge from `title`, `body` and `diff`.",
-      "criteria": {"true": "Significant code is reorganised or removed with behaviour intended to stay the same.", "false": "Changes are mainly new behaviour, fixes, docs or config."}
-    },
-    {
-      "name": "performance",
-      "color": "f9d0c4",
-      "description": "Makes something faster or lighter",
-      "instructions": "Is a stated or evident goal of this PR to improve speed, memory, query cost, caching, bundle size or load time? Judge from `title`, `body` and `diff`.",
-      "criteria": {"true": "It targets performance, e.g. caching, query or index tuning, batching, streaming, lazy loading.", "false": "Performance is not a goal of the change."}
-    },
-    {
-      "name": "security",
-      "color": "b60205",
-      "description": "Touches authentication, authorisation or a vulnerability",
-      "instructions": "Does this PR change authentication, authorisation, tokens, sessions, permission checks, player anonymisation/privacy, input sanitisation, or fix a vulnerability? Use `files` and `diff`.",
-      "criteria": {"true": "Security- or privacy-relevant logic is changed.", "false": "No security- or privacy-relevant logic is touched."}
-    },
-    {
-      "name": "dependencies",
-      "color": "0366d6",
-      "description": "Pull requests that update a dependency file",
-      "instructions": "Does this PR add, remove or change the version of a dependency in Cargo.toml, Cargo.lock, front-ze/package.json, front-ze/bun.lock, or a Dockerfile base image? Use `files` and `diff`.",
-      "criteria": {"true": "A dependency or base image is added, removed or changes version.", "false": "No dependency changes."}
-    },
-    {
-      "name": "rust",
-      "color": "000000",
-      "description": "Pull requests that update rust code",
-      "instructions": "Does this PR change Rust backend code, i.e. *.rs files under src/ or serde_macros/, or Cargo.toml? Use `files`.",
-      "criteria": {"true": "Rust code or Cargo.toml changes.", "false": "No Rust code changes."}
-    },
-    {
-      "name": "javascript",
-      "color": "168700",
-      "description": "Pull requests that update javascript code",
-      "instructions": "Does this PR change frontend code under front-ze/, such as .ts, .tsx, .js or .css files or package.json? Use `files`.",
-      "criteria": {"true": "Frontend code changes.", "false": "No frontend code changes."}
+      "criteria": {
+        "true": "Documentation is added or edited.",
+        "false": "No documentation changes."
+      }
     },
     {
       "name": "database",
       "color": "5319e7",
       "description": "Changes the database schema or SQL queries",
       "instructions": "Does this PR change the database schema (db.sql), add or alter SQL queries (sqlx query!/query_as! macros or raw SQL), or change materialised views, triggers or pg_cron jobs? Use `files` and `diff`.",
-      "criteria": {"true": "Schema or SQL changes.", "false": "No schema or SQL changes."}
-    },
-    {
-      "name": "ci",
-      "color": "ededed",
-      "description": "Changes GitHub Actions workflows or repo automation",
-      "instructions": "Does this PR change GitHub Actions workflows or other files under .github/? Use `files`.",
-      "criteria": {"true": "Files under .github/ change.", "false": "Nothing under .github/ changes."}
-    },
-    {
-      "name": "infrastructure",
-      "color": "c5def5",
-      "description": "Changes Docker, compose, nginx or deployment scripts",
-      "instructions": "Does this PR change deployment or infrastructure: Dockerfiles, compose*.yaml, nginx/, deployment/, redis.conf, qgis-server/, replication/, default*.env? Use `files`.",
-      "criteria": {"true": "Infrastructure or deployment files change.", "false": "No infrastructure or deployment files change."}
-    },
-    {
-      "name": "i18n",
-      "color": "bfdadc",
-      "description": "Changes translations or localisation",
-      "instructions": "Does this PR change translation files under front-ze/messages/ or the i18n setup under front-ze/i18n/? Use `files`.",
-      "criteria": {"true": "Translations or i18n configuration change.", "false": "No translation or i18n changes."}
+      "criteria": {
+        "true": "Schema or SQL changes.",
+        "false": "No schema or SQL changes."
+      }
     }
   ]
 }

@@ -1,18 +1,13 @@
 import { unstable_cache } from 'next/cache';
 import { fetchServerUrl, fetchUrl } from '../utils/generalUtils';
 
-/**
- * Cached server-side fetches with request deduplication
- * These deduplicate identical requests across all users
- */
-
 export const getCachedPlayerStats = unstable_cache(
   async (serverId: string) => {
     return fetchServerUrl(serverId, '/players/stats');
   },
   ['player-stats'],
   {
-    revalidate: 300, // 5 minutes
+    revalidate: 300,
     tags: ['player-stats']
   }
 );

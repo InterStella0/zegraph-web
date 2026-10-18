@@ -651,7 +651,9 @@
       "sessions": "세션",
       "lastPlayed": "마지막 플레이",
       "havePlayed": "이 맵을 플레이했습니다",
-      "loadError": "맵 헤더를 로드할 수 없습니다 :/"
+      "loadError": "맵 헤더를 로드할 수 없습니다 :/",
+      "allServers": "모든 서버",
+      "allServersTooltip": "모든 서버에서 이 맵 보기"
     },
     "analyze": {
       "stillCalculating": "아직 계산 중입니다. 나중에 다시 방문하세요~",
@@ -721,6 +723,24 @@
       "title": "전체 분포",
       "regions": "지역",
       "loadError": "지역 분포를 로드할 수 없습니다."
+    },
+    "serverBreakdown": {
+      "title": "서버별 분석",
+      "tooltipMap": "지난 1년 동안 각 서버에서 이 맵이 하루에 얼마나 플레이되었는지 보여줍니다. 각 날짜는 가장 많이 플레이한 서버의 색으로 표시됩니다.",
+      "tooltipPlayer": "지난 1년 동안 각 서버에서 이 맵을 플레이한 플레이어들의 하루 합계 시간입니다. 각 날짜는 플레이어 시간이 가장 많은 서버의 색으로 표시됩니다.",
+      "metric": "측정 기준",
+      "mapHours": "맵 시간",
+      "playerHours": "플레이어 시간",
+      "hours": "시간",
+      "noData": "서버별 데이터가 없습니다.",
+      "dataNotReady": "데이터가 준비되지 않았습니다.",
+      "somethingWrong": "문제가 발생했습니다",
+      "ariaLabel": "서버별 일일 플레이 시간 히트맵",
+      "summary": "히트맵은 {days}일 동안의 맵 플레이 패턴을 보여줍니다. 가장 활동적인 날: {day} ({dayHours}). 가장 활동적인 서버: {server} ({serverHours}).",
+      "distributionTitle": "서버별 분포",
+      "servers": "서버",
+      "allTime": "누적 {hours}",
+      "loadError": "서버별 분석을 로드할 수 없습니다!"
     },
     "music": {
       "reportIssue": "문제 보고",
@@ -1173,6 +1193,9 @@
     "mapRemoved": "맵이 {name}에서 제거되었습니다.",
     "mainlyPlayed": "주로 {region}에서 {hours}로 플레이되었습니다.",
     "mostActivePlayer": "이 맵에서 가장 활동적인 플레이어는 {hours}의 플레이 시간을 가진 {name}입니다.",
+    "globalMapTitle": "모든 서버의 {map}",
+    "globalMapCumulative": "{communities, plural, other {#개 커뮤니티}}의 {servers, plural, other {#개 서버}}에서 {hours}의 누적이 있습니다. {players}명의 플레이어가 플레이했습니다.",
+    "globalMapTopServer": "{server}에서 {hours}로 가장 많이 플레이되었습니다.",
     "roundsFinalScore": "{rounds}개 라운드를 플레이하여 최종 점수 {human}-{zombie}를 기록했습니다.",
     "roundsScore": "{rounds}개 라운드를 플레이하여 {human}-{zombie}의 점수를 기록했습니다.",
     "playingSince": "현재 {time} 이후부터 플레이 중입니다.",

@@ -36,7 +36,6 @@ export default function MapsList(
                         >
                             <div className="border rounded-lg p-4 hover:bg-accent transition-colors">
                                 <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-                                    {/* Left: Map info and score */}
                                     <div className="flex-1 space-y-2">
                                         <div className="flex items-center gap-3 flex-wrap">
                                             <h3 className="text-lg font-semibold group-hover:text-primary transition-colors">
@@ -67,7 +66,6 @@ export default function MapsList(
                                         )}
                                     </div>
 
-                                    {/* Right: Map image */}
                                     <div className="flex-shrink-0">
                                         {mapImages[map.map] ? (
                                             <Image

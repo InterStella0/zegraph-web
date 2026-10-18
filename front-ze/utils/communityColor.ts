@@ -43,8 +43,6 @@ export function nameHashColor(name: string): string {
     return hslToHex(hashString(name) % 360, 0.65, 0.5)
 }
 
-// Bucket center depends only on the bucket index, never on the raw pixels, so any
-// two runs that agree on the winning bucket produce byte-identical output.
 function bucketCenter(key: number): [number, number, number] {
     return [
         (((key >> 6) & 7) << 5) + 16,
@@ -53,14 +51,6 @@ function bucketCenter(key: number): [number, number, number] {
     ]
 }
 
-/**
- * Dominant color of raw RGBA pixel data (expected: 32x32 ImageData.data).
- * Canvas readback differs across browsers by a few units per channel, so pixels are
- * quantized into 32-step buckets: jitter only moves pixels sitting on a bucket
- * boundary, and large icon regions aggregate into one bucket, keeping the winner
- * stable. Ties break toward the lower bucket index. Returns null if every pixel
- * is transparent.
- */
 export function extractDominantColor(data: Uint8ClampedArray): string | null {
     const counts = new Uint32Array(512)
     let opaque = 0
@@ -85,7 +75,6 @@ export function extractDominantColor(data: Uint8ClampedArray): string | null {
         return winner
     }
 
-    // Prefer a vibrant bucket; fall back to any bucket for grayscale icons.
     let winner = pickWinner((s, l) => s >= 0.25 && l >= 0.15 && l <= 0.85)
     if (winner < 0) winner = pickWinner(() => true)
 
@@ -96,12 +85,6 @@ export function extractDominantColor(data: Uint8ClampedArray): string | null {
 
 const iconColorCache = new Map<string, Promise<string | null>>()
 
-/**
- * Dominant color of a remote icon. Browser only. Resolves null when the color
- * cannot be extracted (load failure, or a canvas tainted because the icon host
- * does not serve CORS headers) — callers should fall back to nameHashColor.
- * Results are deduped in-memory and persisted in localStorage per icon URL.
- */
 export function getIconDominantColor(iconUrl: string): Promise<string | null> {
     const cached = iconColorCache.get(iconUrl)
     if (cached) return cached
@@ -148,11 +131,6 @@ export function getIconDominantColor(iconUrl: string): Promise<string | null> {
     return promise
 }
 
-/**
- * One-call fallback chain: `color` is always available synchronously (name hash);
- * `promise` upgrades to the icon's dominant color when an icon exists and we're in
- * a browser, resolving to the name-hash color if extraction fails.
- */
 export function getCommunityColor(
     icon_url: string | null | undefined,
     name: string

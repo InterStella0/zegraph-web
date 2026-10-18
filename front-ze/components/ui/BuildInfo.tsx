@@ -6,13 +6,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "compon
 
 const REPO_URL = "https://github.com/InterStella0/zegraph-web";
 
-// Both are inlined at build time by next.config.ts, so they are the same string on the server and
-// on the client -- reading them at module scope is safe.
 const COMMIT = process.env.NEXT_PUBLIC_BUILD_COMMIT ?? "";
 const BUILD_TIME = process.env.NEXT_PUBLIC_BUILD_TIME ?? "";
 
-// Fixed UTC rather than a locale- or timezone-dependent render, which would hydrate differently
-// from what the server produced.
 function formatBuildTime(iso: string): string {
     if (!iso) return "";
     return `${iso.slice(0, 16).replace("T", " ")} UTC`;

@@ -51,10 +51,6 @@ fn announcement_media_limit(kind: MediaKind) -> u64 {
 }
 
 fn extract_youtube_id(url: &str) -> Option<String> {
-    // Handle different YouTube URL formats:
-    // - https://www.youtube.com/watch?v=VIDEO_ID
-    // - https://youtu.be/VIDEO_ID
-    // - Just VIDEO_ID (if user pastes only the ID)
 
     if url.contains("youtube.com/watch?v=") {
         url.split("v=")
@@ -67,7 +63,6 @@ fn extract_youtube_id(url: &str) -> Option<String> {
             .and_then(|s| s.split('?').next())
             .map(|s| s.to_string())
     } else {
-        // Assume it's already a video ID
         Some(url.to_string())
     }
 }
@@ -106,24 +101,13 @@ async fn resolve_canonical_player_id(
     ).fetch_optional(pool).await.ok().flatten()
 }
 
-/// What a link operation changed, so the caller knows whose caches and totals are now wrong.
 struct LinkChange {
-    /// The account this profile belonged to beforehand, if any. Its playtime shrinks.
     previous: Option<String>,
-    /// The account it belongs to now, if any. Its playtime grows.
     current: Option<String>,
-    /// Sessions moved onto `current` (positive) or back off it on unlink.
     sessions_moved: i64,
-    /// An unmerged profile already uses the name restored by an unlink.
     name_conflict: bool,
 }
 
-/// Points `player_id` at `target_steam_id` and merges it into that account, or unlinks it (and
-/// reverts its merge) when the target is `None`.
-///
-/// Shared by claim approval and the superuser override so both enforce the same invariants:
-/// links stay one hop deep, a profile never points at itself, and a name-tracked profile is
-/// always merged into the Steam account it links to.
 async fn set_associated_player(
     conn: &mut sqlx::PgConnection,
     player_id: &str,
@@ -132,7 +116,6 @@ async fn set_associated_player(
     claim_id: Option<Uuid>,
     steam_name: Option<&SteamName>,
 ) -> Result<LinkChange, LinkError> {
-    // Read the outgoing owner first: their aggregates have to be recomputed without this row.
     let previous = sqlx::query_scalar!(
         "SELECT associated_player_id FROM player WHERE player_id = $1",
         player_id,
@@ -221,7 +204,6 @@ async fn set_associated_player(
         merge_player(conn, player_id, &canonical, merged_by, claim_id, steam_name).await?.sessions_moved
     };
 
-    // Anything that pointed at this profile has to follow it, or it would become a second hop.
     sqlx::query!(
         "UPDATE player SET associated_player_id = $1 WHERE associated_player_id = $2",
         canonical,
@@ -237,9 +219,6 @@ async fn set_associated_player(
     Ok(LinkChange { previous, current: Some(canonical), sessions_moved, name_conflict: false })
 }
 
-/// Clears the caches a link change invalidated, then queues fresh playtime for both the account
-/// that gained the profile and the one that lost it.
-///
 /// Order matters: `BackgroundWorker::execute` serves a cached value rather than recomputing, so
 /// a refresh queued while the old entries are still present would simply re-read them and the
 /// profile would keep its pre-link shape until the (multi-week) TTLs expired.
@@ -252,8 +231,6 @@ async fn apply_link_side_effects(data: &AppData, player_id: &str, change: &LinkC
     }
 }
 
-/// Every account whose cached views a link change invalidates: the profile itself, whoever
-/// owned it before, and whoever owns it now.
 fn accounts_touched_by(player_id: &str, change: &LinkChange) -> Vec<String> {
     let mut ids = vec![player_id.to_string()];
     for id in [change.previous.as_deref(), change.current.as_deref()].into_iter().flatten() {
@@ -264,7 +241,6 @@ fn accounts_touched_by(player_id: &str, change: &LinkChange) -> Vec<String> {
     ids
 }
 
-/// Reads one claim back with the joined display names, for the admin queue's response.
 async fn fetch_player_claim(
     pool: &sqlx::Pool<sqlx::Postgres>,
     claim_id: Uuid,
@@ -549,7 +525,6 @@ enum UserRole {
 
 
 async fn get_user_role(data: &AppData, user_id: i64) -> Result<UserRole, ErrorCode> {
-    // Check if superuser
     let is_superuser = sqlx::query_scalar!(
         "SELECT website.is_superuser($1) ",
         user_id
@@ -685,11 +660,6 @@ async fn fetch_steam_info(steam_id: &i64) -> Result<SteamProfile, ErrorCode> {
     }
 }
 
-/// Current Steam persona name of `steam_id`, so a merge never names the account after a stale
-/// copy.
-///
-/// When Steam can't be reached or returns no profile, falls back to `None` if the site already
-/// has a name for the account, and fails only when it has none.
 async fn fetch_steam_name(data: &AppData, steam_id: &str) -> Result<Option<SteamName>, String> {
     let Ok(steam_user_id) = steam_id.parse::<i64>() else {
         return Err(format!("{steam_id} is not a valid Steam ID"));
@@ -731,8 +701,6 @@ async fn fetch_steam_name(data: &AppData, steam_id: &str) -> Result<Option<Steam
     Err(failure)
 }
 
-/// The Steam name a link of `player_id` to `target` would merge under, looked up for the account
-/// `target` resolves to. `None` when the link moves no sessions.
 async fn steam_name_for_link(
     data: &AppData,
     player_id: &str,
@@ -1091,9 +1059,6 @@ impl AccountsApi {
             .await
             .unwrap_or_default();
 
-        // A superuser can act on the owner's behalf, so they get the same settings payload and the
-        // same toggles. `is_owner` stays strictly "this is my own profile" - it also gates the name
-        // reveal below, which has different rules.
         let can_manage_anonymization = match requester_id {
             Some(id) => is_owner || check_superuser(app, id).await,
             None => false,
@@ -1257,8 +1222,6 @@ impl AccountsApi {
         ).await).into_iter().collect();
 
         let offset = PAGE_SIZE * page.unwrap_or(0) as i64;
-        // NULL bounds mean "no filter", so the whole history is listed rather than the per-server
-        // endpoint's hardcoded 2024-02-01 floor.
         let (start, end) = match datetime {
             Some(date) => (
                 Some(date.to_db_time()),
@@ -1376,9 +1339,6 @@ impl AccountsApi {
             return response!(err "Invalid community ID", ErrorCode::BadRequest);
         };
 
-        // Anonymization belongs to the canonical account, which is also the id the profile reads
-        // settings back under - writing the linked player's own id would create an orphan row that
-        // never takes effect.
         let user_id = resolve_canonical_player_id(&data.pool, &user_id.to_string())
             .await
             .and_then(|id| id.parse::<i64>().ok())
@@ -1399,7 +1359,6 @@ impl AccountsApi {
             return response!(err "Target user not found", ErrorCode::NotFound);
         }
 
-        // Read the row first so the audit entry can show what actually changed.
         let acting_for_other = requester_id != user_id;
         let previous = if acting_for_other {
             sqlx::query_as!(DbUserAnonymization,
@@ -1427,7 +1386,6 @@ impl AccountsApi {
         .await;
 
         let setting = or_ise!(result, e => "Failed to set anonymization: {}", e);
-        // A privacy flag changed by somebody other than its owner must be attributable.
         if acting_for_other {
             let changes = serde_json::json!({
                 "target_user_id": user_id.to_string(),
@@ -1815,7 +1773,6 @@ impl AccountsApi {
     ) -> Response<Announcement> {
         require!(check_superuser(data, user_token.id).await, "Unauthorized", ErrorCode::Forbidden);
 
-        // Validation
         if let MaybeUndefined::Value(ref title) = payload.title {
             if !(5..=200).contains(&title.chars().count()) {
                 return response!(err "Title must be 5-200 characters", ErrorCode::BadRequest);
@@ -2084,7 +2041,6 @@ impl AccountsApi {
         match result {
             Ok(Some(prefs)) => response!(ok prefs.into()),
             Ok(None) => {
-                // Create default preferences
                 let default_prefs = sqlx::query_as!(
                     DbNotificationPreferences,
                     r#"

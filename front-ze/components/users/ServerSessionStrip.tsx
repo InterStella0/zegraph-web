@@ -10,7 +10,6 @@ const CELLS = 7;
 
 interface ServerSessionStripProps {
     sessions: ProfileRecentSession[];
-    /** Duration in seconds that saturates a cell — profile-wide, so rows stay comparable. */
     scaleMax: number;
 }
 
@@ -18,8 +17,6 @@ export default function ServerSessionStrip({ sessions, scaleMax }: ServerSession
     const t = useTranslations('players.profile.connectionCard');
     const toDayjs = useLocalDayjs();
 
-    // Newest session sits in the rightmost cell, so short histories pad on the left and
-    // every server's strip stays aligned with the others.
     const recent = sessions.slice(-CELLS);
     const padding = CELLS - recent.length;
 

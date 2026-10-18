@@ -22,18 +22,10 @@ import { PlayerClaimState } from 'types/players';
 
 const NOTE_MAX = 500;
 
-/** Steam-tracked rows use the numeric Steam ID as their id; name rows do not. */
 function isSteamId(playerId: string): boolean {
     return /^\d+$/.test(playerId);
 }
 
-/**
- * Lets a player ask a moderator to link a name-tracked profile to their Steam account.
- *
- * Only meaningful on servers that track players by name (`server.byId === false`), where one
- * person is spread across several `player` rows. Approving the claim sets
- * `player.associated_player_id`, which is what makes the Steam and global-profile links appear.
- */
 export default function PlayerClaimButton(
     { serverId, playerId, byId, associatedPlayerId, user }: {
         serverId: string,
@@ -50,7 +42,6 @@ export default function PlayerClaimButton(
     const [note, setNote] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
-    // Cheap local checks first, so a Steam-tracked or already-linked profile never costs a request.
     const possible = !byId && !associatedPlayerId && !isSteamId(playerId);
 
     const refresh = useCallback(async () => {

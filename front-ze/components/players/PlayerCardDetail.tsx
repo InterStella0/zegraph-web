@@ -220,7 +220,7 @@ export default function PlayerCardDetail({ serverPlayerPromise, userPromise }: {
     const {server, player } = usePatchedPlayer(serverPlayerPromise)
     const user = use(userPromise)
     if (player instanceof StillCalculate)
-        return null // Should not reach here
+        return null
 
     return (
         <Card className="w-full">

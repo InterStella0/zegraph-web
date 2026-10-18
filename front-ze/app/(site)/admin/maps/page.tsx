@@ -214,8 +214,6 @@ function ManageModelsDialog({
   )
 }
 
-// ─── ServerEditor ─────────────────────────────────────────────────────────────
-
 function ServerEditor({
   map,
   onSaved,
@@ -343,8 +341,6 @@ function ServerEditor({
     </div>
   )
 }
-
-// ─── EditMapDialog ────────────────────────────────────────────────────────────
 
 function EditMapDialog({
   map,
@@ -500,7 +496,6 @@ function MapManagementCard({
 
   return (
     <div className="rounded-xl border overflow-hidden bg-card relative group">
-      {/* Thumbnail */}
       <div className="aspect-video relative bg-muted">
         {imageUrl === undefined ? (
           <Skeleton className="absolute inset-0 rounded-none" />
@@ -517,7 +512,6 @@ function MapManagementCard({
           />
         )}
 
-        {/* Cog button overlay */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -549,13 +543,11 @@ function MapManagementCard({
         </DropdownMenu>
       </div>
 
-      {/* Info section */}
       <div className="p-3 space-y-2">
         <p className="font-mono text-xs truncate text-foreground" title={entry.map_name}>
           {entry.map_name}
         </p>
 
-        {/* Metadata badges */}
         <div className="flex flex-wrap gap-1">
           {entry.global_is_tryhard === true && (
             <Badge className="text-xs px-1.5 py-0 bg-red-600 text-white">Tryhard</Badge>
@@ -570,7 +562,6 @@ function MapManagementCard({
           )}
         </div>
 
-        {/* 3D model status + server count */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <Badge
             variant={models?.low_res_model ? 'secondary' : 'outline'}
@@ -597,15 +588,11 @@ function MapManagementCard({
   )
 }
 
-// ─── Dialog union type ────────────────────────────────────────────────────────
-
 type ActiveDialog =
   | { type: 'metadata'; entry: AdminMapEntry }
   | { type: 'models'; entry: AdminMapEntry; models: MapWithModels }
   | { type: 'delete'; mapName: string }
   | null
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 50
 
@@ -695,7 +682,6 @@ export default function MapManagementPage() {
         </p>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
@@ -706,7 +692,6 @@ export default function MapManagementPage() {
         />
       </div>
 
-      {/* Card grid */}
       {loadingMeta ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
@@ -738,7 +723,6 @@ export default function MapManagementPage() {
 
       <AdminPagination page={page} setPage={setPage} total={total} pageSize={PAGE_SIZE} noun="maps" />
 
-      {/* Dialogs */}
       <EditMapDialog
         map={activeDialog?.type === 'metadata' ? activeDialog.entry : null}
         open={activeDialog?.type === 'metadata'}

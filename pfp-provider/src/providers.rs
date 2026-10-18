@@ -88,7 +88,6 @@ struct Player {
 
 #[derive(Serialize, Deserialize)]
 struct Data {
-    // Error responses still carry a `data` object, just an empty one.
     pub player: Option<Player>,
 }
 
@@ -114,7 +113,6 @@ impl Provider for PlayerDb {
 
         let response: PlayerDbResponse = self.client.get(&url).send().await?.json().await?;
         if !response.success{
-            // A rejected id is a definitive "no picture", not a provider failure.
             if response.code == "steam.invalid_id"{
                 return Ok(String::new());
             }

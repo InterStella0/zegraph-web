@@ -51,7 +51,6 @@ export function StarryBackground() {
     const themeRef = useRef<string>('dark');
     const { resolvedTheme } = useTheme();
 
-    // Keep theme in a ref so the animation loop can read it without re-initializing
     useEffect(() => {
         themeRef.current = resolvedTheme ?? 'dark';
     }, [resolvedTheme]);
@@ -85,11 +84,11 @@ export function StarryBackground() {
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const lerp = 0.03 * timeScale; // slower follow for more delay
+            const lerp = 0.03 * timeScale;
             smoothMouseRef.current.x += (mouseRef.current.x - smoothMouseRef.current.x) * lerp;
             smoothMouseRef.current.y += (mouseRef.current.y - smoothMouseRef.current.y) * lerp;
 
-            const parallaxStrength = [15, 35, 60]; // pixels of movement
+            const parallaxStrength = [15, 35, 60];
 
             const mouseOffsetX = (smoothMouseRef.current.x - 0.5) * 2;
             const mouseOffsetY = (smoothMouseRef.current.y - 0.5) * 2;

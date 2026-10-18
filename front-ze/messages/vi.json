@@ -651,7 +651,9 @@
       "sessions": "Phiên",
       "lastPlayed": "Được chơi lần cuối",
       "havePlayed": "đã chơi bản đồ này",
-      "loadError": "Không thể tải tiêu đề bản đồ :/"
+      "loadError": "Không thể tải tiêu đề bản đồ :/",
+      "allServers": "Tất cả máy chủ",
+      "allServersTooltip": "Xem bản đồ này trên mọi máy chủ"
     },
     "analyze": {
       "stillCalculating": "Vẫn đang tính toán, dữ liệu chưa sẵn sàng. Quay lại sau~",
@@ -721,6 +723,24 @@
       "title": "Phân bố tổng thể",
       "regions": "CÁC KHU VỰC",
       "loadError": "Không thể tải phân bố theo khu vực."
+    },
+    "serverBreakdown": {
+      "title": "Chi tiết theo máy chủ",
+      "tooltipMap": "Thời gian bản đồ này được chơi trên mỗi máy chủ mỗi ngày trong năm qua. Mỗi ngày mang màu của máy chủ chơi nhiều nhất.",
+      "tooltipPlayer": "Tổng thời gian người chơi trên bản đồ này ở mỗi máy chủ mỗi ngày trong năm qua. Mỗi ngày mang màu của máy chủ có nhiều giờ người chơi nhất.",
+      "metric": "Thước đo",
+      "mapHours": "Giờ bản đồ",
+      "playerHours": "Giờ người chơi",
+      "hours": "Giờ",
+      "noData": "Không có dữ liệu theo máy chủ.",
+      "dataNotReady": "Dữ liệu chưa sẵn sàng.",
+      "somethingWrong": "Có gì đó không đúng",
+      "ariaLabel": "Bản đồ nhiệt thời gian chơi hằng ngày theo máy chủ",
+      "summary": "Bản đồ nhiệt cho thấy các mẫu chơi bản đồ trong {days} ngày. Ngày hoạt động nhất: {day} với {dayHours}. Máy chủ hoạt động nhất: {server} với {serverHours}.",
+      "distributionTitle": "Phân bố theo máy chủ",
+      "servers": "CÁC MÁY CHỦ",
+      "allTime": "{hours} tổng cộng",
+      "loadError": "Không thể tải chi tiết theo máy chủ!"
     },
     "music": {
       "reportIssue": "Báo cáo vấn đề",
@@ -1173,6 +1193,9 @@
     "mapRemoved": "Bản đồ đã bị xóa khỏi {name}.",
     "mainlyPlayed": "Chủ yếu được chơi trong {region} với {hours}.",
     "mostActivePlayer": "Người chơi hoạt động nhất trên bản đồ này là {name} với thời gian chơi {hours}.",
+    "globalMapTitle": "{map} trên tất cả máy chủ",
+    "globalMapCumulative": "Nó có tổng cộng {hours} trên {servers, plural, other {# máy chủ}} thuộc {communities, plural, other {# cộng đồng}}. Được chơi bởi {players} người chơi.",
+    "globalMapTopServer": "Được chơi nhiều nhất trên {server} với {hours}.",
     "roundsFinalScore": "Đã chơi {rounds} raund với điểm cuối cùng {human}-{zombie}.",
     "roundsScore": "Đã chơi {rounds} raund với điểm {human}-{zombie}.",
     "playingSince": "Hiện đang chơi nó từ {time}.",

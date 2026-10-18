@@ -35,7 +35,6 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
     const [loginDialogOpen, setLoginDialogOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
-    // Sync with prop when it changes (e.g., after page navigation or data refresh)
     useEffect(() => {
         setSubscriptionType(notifySubscriptionType);
     }, [notifySubscriptionType]);
@@ -75,7 +74,6 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
                 }),
             });
 
-            // Auto-enable map_specific_enabled preference to ensure notifications work
             try {
                 await fetchApiUrl('/accounts/me/push/preferences', {
                     method: 'PUT',
@@ -83,7 +81,6 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
                     body: JSON.stringify({ map_specific_enabled: true }),
                 });
             } catch (err) {
-                // Non-fatal - subscription already succeeded
                 console.warn('Failed to auto-enable map_specific_enabled preference:', err);
             }
 

@@ -36,7 +36,6 @@ const PlayerPopupContent = ({
                                 onPageChange
                             }: PlayerPopupContentProps) => {
     const t = useTranslations('radar.popup');
-    // Handle error display
     if (error) {
         return (
             <Card className="border-0 shadow-none p-1 card-solid">
@@ -103,7 +102,6 @@ const PlayerPopupContent = ({
     );
 };
 
-// Loading indicator component
 const LoadingState = () => {
     const t = useTranslations('radar.popup');
     return (
@@ -116,7 +114,6 @@ const LoadingState = () => {
     );
 };
 
-// Country header with flag and info
 interface CountryHeaderProps {
     countryData: CountryFeature | null;
     position: LatLng;
@@ -145,7 +142,6 @@ const CountryHeader = ({ countryData, position }: CountryHeaderProps) => {
     );
 };
 
-// Player list component - now using PlayerAvatar and more compact
 interface PlayerListProps {
     players: CountryPlayer[];
 }

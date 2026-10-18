@@ -23,10 +23,8 @@ import {withErrorCatch} from "components/common/withErrorCatch";
 dayjs.extend(relativeTime);
 
 const SEARCH_DEBOUNCE_MS = 300;
-// The backend only falls back to a live search across the whole server from this length on.
 const LIVE_SEARCH_MIN_CHARS = 3;
 const POLL_INTERVAL_MS = 5000;
-// The job takes well under a second even for the heaviest players; this only bounds a stuck queue.
 const MAX_POLLS = 60;
 const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
 
@@ -138,7 +136,6 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
         loadRef.current = load;
     }, [load]);
 
-    // A calculation was queued: keep re-reading the list until the job is no longer in flight.
     useEffect(() => {
         if (!polling) return;
         let polls = 0;
@@ -178,7 +175,6 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
 
     const isCalculating = polling || requesting || !!data?.is_calculating;
     const neverCalculated = !period && data !== null && data.calculated_at === null;
-    // Never calculated itself, but other players' calculations already shared rows with this one.
     const partial = neverCalculated && hasStoredRows;
     const canCalculate = data !== null && data.is_stale && !isCalculating;
     const calculateLabel = isCalculating
@@ -235,7 +231,6 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
                     {data?.live_search && data.rows.length > 0 && (
                         <p className="text-xs text-muted-foreground mb-1">{t('liveSearch')}</p>
                     )}
-                    {/* Shorter than the sessions list by the search box and footer, so both tabs are the same height. */}
                     <div className="flex-1 max-h-[470px] overflow-y-auto">
                         {loading && !data && Array.from({length: 20}).map((_, i) =>
                             <PlayedWithSkeletonRow key={i} index={i} />

@@ -208,7 +208,6 @@ function PlayerTopMapDisplay({ serverPlayerPromise }: { serverPlayerPromise: Pro
         }]
     };
 
-    // Generate SEO summary
     const summary = useMemo(() => {
         if (maps.length === 0) {
             return t('noData');

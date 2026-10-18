@@ -5,19 +5,11 @@ import {cn} from 'components/lib/utils';
 import './mockups.css';
 
 export type MockVariant = 'claude' | 'chatgpt';
-/** Where the fake cursor should be during a phase: a `data-mock` target inside the scene. */
 export type CursorCue = { target: string, click?: boolean } | null;
 
-// Keep this in sync with the transform transition in mockups.css. The small settling buffer makes
-// sure the cursor is visibly at rest before the target reacts.
 const CURSOR_TRAVEL_MS = 650;
 const CURSOR_SETTLE_MS = CURSOR_TRAVEL_MS + 50;
 
-/**
- * Set by a guide that plays its scenes back to back. A scene inside it plays once instead of
- * looping, holds its last phase and calls `onDone`; `onDuration` gets its expected running time up
- * front so the guide can draw a progress bar. Visibility is the guide's job here: it passes `paused`.
- */
 export type MockPlaybackControl = {
     paused: boolean,
     onDone: () => void,
@@ -38,11 +30,6 @@ export function usePrefersReducedMotion() {
     return reduced;
 }
 
-/**
- * A scene is a looping sequence of phases, each held for `durations[i]` ms. It only plays while on
- * screen, and plays once under a `MockPlayback` guide. With reduced motion it stays on the last
- * phase, so that phase should be the most instructive still frame.
- */
 export function MockScene({label, durations, cursor, className, children}: {
     label: string,
     durations: readonly number[],
@@ -61,7 +48,6 @@ export function MockScene({label, durations, cursor, className, children}: {
     const onDone = playback?.onDone;
     const onDuration = playback?.onDuration;
 
-    // An upper bound: every change of cursor target may hold the next phase until the cursor lands.
     useEffect(() => {
         if (!onDuration) return;
         let total = 0;
@@ -97,8 +83,6 @@ export function MockScene({label, durations, cursor, className, children}: {
                 nextCue?.target && ref.current?.querySelector(`[data-mock="${nextCue.target}"]`),
             );
 
-            // Let the cursor lead interactions whenever its destination is already on screen. This
-            // prevents buttons, toggles and menus from reacting while the pointer is still en route.
             setCursorPhase(next);
             if (targetChanged && targetExists) {
                 setDelayedClickPhase(null);
@@ -106,8 +90,6 @@ export function MockScene({label, durations, cursor, className, children}: {
                 return;
             }
 
-            // Some destinations are introduced by the next phase (for example, an item inside a
-            // menu that has just opened). Render those first, then delay only their click ripple.
             setDelayedClickPhase(targetChanged && !targetExists ? next : null);
             setPhase(next);
         }, durations[phase]);
@@ -122,7 +104,6 @@ export function MockScene({label, durations, cursor, className, children}: {
     const cursorCue = reduced ? null : cursor?.(cursorPhase) ?? null;
     const cue = cursorCue && {
         ...cursorCue,
-        // A click belongs at the destination, not at the beginning of the cursor's journey.
         click: cursorCue.click && phase === cursorPhase,
     };
 
@@ -149,8 +130,6 @@ function MockCursor({sceneRef, cue, phase, clickDelay}: {
     const [transitionReady, setTransitionReady] = useState(false);
     const target = cue?.target;
 
-    // Place a newly mounted cursor directly on its starting cue. Subsequent target changes animate;
-    // otherwise every scene appears to fly in from the top-left fallback position.
     useEffect(() => {
         if (!pos || transitionReady) return;
         const id = requestAnimationFrame(() => setTransitionReady(true));
@@ -168,8 +147,6 @@ function MockCursor({sceneRef, cue, phase, clickDelay}: {
             setPos({x: r.left - s.left + Math.min(r.width * 0.6, 40), y: r.top - s.top + r.height * 0.6});
         };
         measure();
-        // A scene can be swapped in under the same guide slot. Measure again after that commit so
-        // its first cue is resolved against the new scene rather than the outgoing one.
         const frame = requestAnimationFrame(measure);
         const observer = new ResizeObserver(measure);
         observer.observe(scene);
@@ -201,7 +178,6 @@ function MockCursor({sceneRef, cue, phase, clickDelay}: {
     );
 }
 
-/** Window chrome with a fake address bar and an optional left sidebar. */
 export function MockFrame({variant, address, sidebar, children, className, bodyClassName}: {
     variant: MockVariant,
     address: string,
@@ -238,12 +214,10 @@ export function MockFrame({variant, address, sidebar, children, className, bodyC
     );
 }
 
-/** Pulsing highlight around whatever the user should click in this step. */
 export function spot(on: boolean) {
     return on ? 'mock-spotlight' : '';
 }
 
-/** Text that types itself in while `state` is 'typing'. */
 export function TypeIn({text, state, placeholder, ms = 1200, className}: {
     text: string,
     state: 'empty' | 'typing' | 'done',

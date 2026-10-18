@@ -4,10 +4,12 @@ import {useLocale, useTranslations} from 'next-intl';
 import {secondsToHours} from "utils/generalUtils";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
+import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {GlobalMapPaginated, GlobalMapPlayed} from "types/maps.ts";
 import GlobalMapStatusChip from "./GlobalMapStatusChip";
 import CommunityAvatarStack from "./CommunityAvatarStack";
 import {FavoriteButton, GlobalMapChips, globalMapImage, LastPlayed} from "./GlobalMapsTable";
+import {cn} from "components/lib/utils";
 import {GLOBAL_MAPS_PAGE_SIZE} from "./constants";
 
 function GlobalMapCardSkeleton({ index }: { index: number }) {
@@ -55,7 +57,12 @@ function GlobalMapCard({ map, favorites, toggleFavorite }: {
         <div className="border border-border rounded-lg bg-card p-4" style={{opacity: inRotation ? 1 : 0.6}}>
             <div className="flex justify-between items-start mb-4">
                 <div className="flex-1 min-w-0 mr-4">
-                    <span className="block font-bold text-base leading-tight mb-2 truncate">{map.map}</span>
+                    <HoverPrefetchLink
+                        href={`/maps/${map.map}`}
+                        className="block font-bold text-base leading-tight mb-2 truncate hover:text-primary transition-colors"
+                    >
+                        {map.map}
+                    </HoverPrefetchLink>
                     <div className="mb-2">
                         <GlobalMapChips map={map}/>
                     </div>
@@ -99,11 +106,11 @@ export default function GlobalMapsMobileView({ mapsData, page, setPage, favorite
 
     return (
         <>
-            <div className="space-y-4">
-                {!loading && mapsData?.maps?.map(map => (
+            <div aria-busy={loading} className={cn("space-y-4 transition-opacity", loading && mapsData && "opacity-50")}>
+                {mapsData?.maps?.map(map => (
                     <GlobalMapCard key={map.map} map={map} favorites={favorites} toggleFavorite={toggleFavorite}/>
                 ))}
-                {loading && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, index) =>
+                {!mapsData && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, index) =>
                     <GlobalMapCardSkeleton key={index} index={index}/>
                 )}
                 {!loading && total === 0 && (

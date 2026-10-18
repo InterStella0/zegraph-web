@@ -1,16 +1,10 @@
 use sqlx::PgConnection;
 use uuid::Uuid;
 
-/// Whether a `player_id` is a Steam ID rather than a name-tracked row.
-///
-/// Name-tracked servers give each name its own UUID-shaped row; Steam-tracked ones use the
-/// numeric Steam ID as the primary key. The same distinction is drawn in SQL elsewhere with
-/// `player_id ~ '^[0-9]+$'`.
 pub(crate) fn is_steam_id(player_id: &str) -> bool {
     !player_id.is_empty() && player_id.bytes().all(|b| b.is_ascii_digit())
 }
 
-/// Why a link could not be made. `User` carries wording meant for the moderator.
 pub(crate) enum LinkError {
     User(String),
     Internal,
@@ -20,8 +14,6 @@ pub(crate) fn merged_name(merge_id: Uuid, name: &str) -> String {
     format!("[merged_{merge_id}] {name}")
 }
 
-/// A persona name fetched from Steam, kept with the ID it belongs to so it can't name the wrong
-/// account when a link resolves to a different canonical ID.
 pub(crate) struct SteamName {
     pub steam_id: String,
     pub name: String,
@@ -44,12 +36,6 @@ fn internal(context: String) -> impl FnOnce(sqlx::Error) -> LinkError {
     }
 }
 
-/// Moves every session of the name-tracked `fake_id` onto `steam_id` and leaves the fake behind
-/// as a renamed tombstone pointing at it.
-///
-/// Must run inside the caller's transaction. Names the Steam `player` row after `steam_name`,
-/// falling back to `website.steam_user` and then to the row's current name, and records each
-/// moved session so `revert_merge` can put it back.
 pub(crate) async fn merge_player(
     conn: &mut PgConnection,
     fake_id: &str,
@@ -205,11 +191,6 @@ pub(crate) async fn merge_player(
     Ok(MergeOutcome { sessions_moved })
 }
 
-/// Undoes the active merge of `fake_id`: its recorded sessions go back, the alias added to the
-/// Steam account is removed and the original name is restored.
-///
-/// Leaves `associated_player_id` alone; the caller decides whether the profile is unlinked or
-/// merged somewhere else next. Returns `None` when the profile has no active merge.
 pub(crate) async fn revert_merge(
     conn: &mut PgConnection,
     fake_id: &str,

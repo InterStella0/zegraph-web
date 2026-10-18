@@ -35,8 +35,6 @@ export default function UserCommunityConnections({
     const t = useTranslations('players.profile.communities');
     const profile = use(profilePromise);
     const { communities, can_manage_anonymization: canManageAnonymization, anonymization } = profile;
-    // A superuser managing somebody else's profile must target that user explicitly; omitting it
-    // would write the superuser's own settings.
     const targetUserId = profile.is_owner ? undefined : profile.steamid;
 
     const initialSettings = new Map<string, UserAnonymization>();

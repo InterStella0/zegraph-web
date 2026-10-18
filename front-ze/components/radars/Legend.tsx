@@ -50,7 +50,7 @@ function WMSLegendImage({name, style = ""}){
                         }
                     }
                     setImage(`data:image/png;base64, ${node.icon}`)
-                    return // Just get first lol
+                    return
                 }
             })
 

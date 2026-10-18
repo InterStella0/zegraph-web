@@ -10,12 +10,8 @@ import {
 import {cn} from 'components/lib/utils';
 import {MockFrame, MockScene, MockToggle, spot, TypeIn} from './primitives';
 
-// The Claude scenes follow the real settings modal: a Settings / Customize sidebar, a Connectors
-// table, a two-page "Add custom connector" dialog, then the connector's own page.
-
 const OPEN_CONNECTORS = [900, 1100, 1200, 2600] as const;
 
-/** Settings → Connectors → "Add" menu with "Add custom connector". */
 export function ClaudeOpenConnectors() {
     const t = useTranslations('mcp.mock');
     return (
@@ -63,7 +59,6 @@ export function ClaudeOpenConnectors() {
 
 const ADD_CONNECTOR = [900, 1500, 2400, 1100, 2600] as const;
 
-/** Page one of "Add custom connector": the name and URL filled in, then Continue. */
 export function ClaudeAddConnector({mcpUrl}: { mcpUrl: string }) {
     const t = useTranslations('mcp.mock');
     return (
@@ -126,7 +121,6 @@ const AUTH_OPTIONS = [
     ['claudeNoSignIn', 'claudeNoSignInHint'],
 ] as const;
 
-/** Page two of the dialog: Authentication is already on "No sign-in", so it's just Add. */
 export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
     const t = useTranslations('mcp.mock');
     return (
@@ -184,7 +178,6 @@ export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
                             <ClaudeButton className="gap-1"><Plus className="size-3" /> {t('claudeAddHeader')}</ClaudeButton>
                         </div>
                         <ClaudeDialogFooter>
-                            {/* Preserve the cursor position from step 2's Continue click. */}
                             <ClaudeButton
                                 data-mock="continue-origin"
                                 primary
@@ -203,10 +196,8 @@ export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
 }
 
 const CONNECT = [1100, 900, 1200, 1100, 500, 2600] as const;
-// A few of the tool titles the server reports, as Claude lists them under Tool permissions.
 const TOOLS = ['Get server stats', 'List servers', 'Search players'] as const;
 
-/** The new connector's page: Connect, then optionally let its read-only tools run without asking. */
 export function ClaudeConnect({mcpUrl}: { mcpUrl: string }) {
     const t = useTranslations('mcp.mock');
     return (
@@ -306,7 +297,6 @@ export function ClaudeConnect({mcpUrl}: { mcpUrl: string }) {
     );
 }
 
-/** The per-tool allow / ask / block control; `value` is the index of the selected segment. */
 function ToolPermission({value}: { value: number }) {
     return (
         <span className="inline-flex overflow-hidden rounded-md border border-(--m-border)">
@@ -325,7 +315,6 @@ function ToolPermission({value}: { value: number }) {
 const CHAT_TOOLS = [900, 900, 1000, 900, 2600] as const;
 const CHAT_CONNECTORS = [['Gmail', false], ['ZE Graph', true], ['Google Drive', false]] as const;
 
-/** Chat composer → "+" → Connectors → ZE Graph switched on. */
 export function ClaudeChatTools() {
     const t = useTranslations('mcp.mock');
     return (
@@ -422,7 +411,6 @@ const NAV_GROUPS = [
     ['claudeCustomize', [['skills', ScrollText], ['connectors', Blocks], ['plugins', Plug]]],
 ] as const;
 
-/** The settings modal: sectioned sidebar on the left, the chosen page on the right. */
 function ClaudeSettings({address, active, children}: { address: string, active: string, children: ReactNode }) {
     const t = useTranslations('mcp.mock');
     return (
@@ -505,10 +493,6 @@ function ClaudeConnectorsPage({highlightAdd = false}: { highlightAdd?: boolean }
     );
 }
 
-/**
- * A dialog over the Connectors page. The dialog stays in flow so the frame grows to fit it; the
- * page behind is absolutely placed and clipped.
- */
 function ClaudeDialog({title, children}: { title: string, children: ReactNode }) {
     return (
         <div className="relative flex h-full items-center justify-center overflow-hidden p-3">
@@ -603,7 +587,6 @@ function ClaudeMenuRow({icon, trailing, active, children}: {
 
 const TILE_COLOURS: Record<string, string> = {GitHub: '#6e7681', Gmail: '#ea4335', 'Google Drive': '#1fa463'};
 
-/** Stand-in app icon: a letter tile in the service's colour, not its logo. */
 function AppTile({name}: { name: string }) {
     return (
         <span
@@ -620,7 +603,6 @@ function ZeLogo({className}: { className?: string }) {
     return <img src="/ze-logo.svg" alt="" className={cn('shrink-0 rounded-full', className)} />;
 }
 
-/** Claude's starburst mark, drawn as twelve rays. */
 function ClaudeSpark({className}: { className?: string }) {
     return (
         <svg viewBox="0 0 24 24" className={className} aria-hidden>

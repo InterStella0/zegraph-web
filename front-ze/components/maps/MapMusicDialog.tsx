@@ -8,7 +8,7 @@ import { Badge } from "../ui/badge";
 import {ScrollArea, ScrollBar} from "../ui/scroll-area";
 import { cn } from "../lib/utils";
 import { MapMusicTrack } from "types/maps";
-import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider.tsx";
+import {useMapScope} from "lib/hooks/useMapScope";
 import MusicReportDialog from "./MusicReportDialog";
 import { fetchApiUrl } from "utils/generalUtils";
 import {PlayerAvatar} from "components/players/PlayerAvatar.tsx";
@@ -30,7 +30,7 @@ export default function MapMusicDialog({
     initialTrackIndex = 0
 }: MapMusicDialogProps) {
     const t = useTranslations('maps.music');
-    const { server } = useServerData()
+    const { mapHref } = useMapScope()
     const [currentIndex, setCurrentIndex] = useState(initialTrackIndex);
     const trackRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const [reportDialogOpen, setReportDialogOpen] = useState(false);
@@ -40,14 +40,12 @@ export default function MapMusicDialog({
     const hasPrevious = currentIndex > 0;
     const hasNext = currentIndex < tracks.length - 1;
 
-    // Reset current index when dialog opens with a new initial track
     useEffect(() => {
         if (open) {
             setCurrentIndex(initialTrackIndex);
         }
     }, [open, initialTrackIndex]);
 
-    // Auto-scroll to current track when index changes
     useEffect(() => {
         const currentTrackElement = trackRefs.current[currentIndex];
         if (currentTrackElement) {
@@ -130,7 +128,6 @@ export default function MapMusicDialog({
                 </DialogHeader>
 
                 <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 flex-1 min-h-0 overflow-hidden">
-                    {/* Video Player */}
                     <div className="flex-1 min-w-0 flex flex-col">
                         {currentTrack.youtubeVideoId ? (
                             <div className="aspect-video w-full rounded-lg overflow-hidden bg-muted">
@@ -150,7 +147,6 @@ export default function MapMusicDialog({
                             </div>
                         )}
 
-                        {/* Track Info */}
                         <div className="mt-2 sm:mt-3 space-y-2">
                             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                                 {currentTrack.contexts.map((c, idx) => <Badge key={idx} className="text-xs">
@@ -177,7 +173,6 @@ export default function MapMusicDialog({
                                 </Badge>
                             </div>
 
-                            {/* Other Maps */}
                             {currentTrack.otherMaps.length > 0 && (
                                 <div className="flex items-start gap-1.5 sm:gap-2">
                                     <Link2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground mt-0.5 shrink-0" />
@@ -185,7 +180,7 @@ export default function MapMusicDialog({
                                         <span className="text-xs sm:text-sm text-muted-foreground">{t('alsoUsedIn')}</span>
                                         {currentTrack.otherMaps.map((map, idx) => (
                                             <Badge key={idx} variant="secondary" className="text-xs">
-                                                <HoverPrefetchLink href={`/servers/${server.gotoLink}/maps/${map}`}>
+                                                <HoverPrefetchLink href={mapHref(map)}>
                                                     {map}
                                                 </HoverPrefetchLink>
                                             </Badge>
@@ -196,7 +191,6 @@ export default function MapMusicDialog({
                         </div>
                     </div>
 
-                    {/* Track List Panel */}
                     <div className="lg:w-80 flex flex-col min-h-0 max-h-[40vh] lg:max-h-[80vh]">
                         <div className="flex items-center justify-between mb-2 sm:mb-3">
                             <h3 className="text-sm font-medium">{t('playlist')}</h3>

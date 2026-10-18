@@ -460,7 +460,6 @@ pub async fn listen_new_update(db_url: &str, port: &str) {
     }
 }
 
-/// The single Postgres `LISTEN` connection behind `/events/data-updates`.
 pub async fn live_events_listener(db_url: &str, app: AppData, events: broadcast::Sender<NewRowEvent>) {
     let mut attempt = 0;
 
@@ -480,8 +479,6 @@ pub async fn live_events_listener(db_url: &str, app: AppData, events: broadcast:
                             if !should_forward_live_event(&app, &event).await {
                                 continue;
                             }
-                            // `send` errors only when there are no subscribers, which is the
-                            // ordinary idle state of the live page. Nothing to do but drop it.
                             let _ = events.send(event);
                         }
                         Err(e) => {
@@ -631,8 +628,8 @@ async fn send_map_change_notifications(
             NotificationType::MapSpecific,
             Some(&url),
             Some(&server_id),
-            false,  // is_map_notify: false for map_change
-            None,   // map_name not needed for map_change
+            false,
+            None,
         ).await;
 
         match result {
@@ -698,7 +695,7 @@ async fn send_map_change_notifications(
             NotificationType::MapSpecific,
             Some(&url),
             Some(&server_id),
-            true,                   // is_map_notify: true for map_notify
+            true,
             Some(new_map_name),
         ).await;
 
@@ -754,7 +751,7 @@ pub async fn cleanup_unreferenced_announcement_media(pool: Arc<Pool<Postgres>>, 
 }
 
 pub async fn cleanup_stale_uploads(store_upload: String) {
-    let mut interval = tokio::time::interval(Duration::from_secs(3600)); // Run every hour
+    let mut interval = tokio::time::interval(Duration::from_secs(3600));
     loop {
         interval.tick().await;
 
@@ -765,7 +762,7 @@ pub async fn cleanup_stale_uploads(store_upload: String) {
         };
 
         let now = std::time::SystemTime::now();
-        let stale_threshold = Duration::from_secs(48 * 3600); // 48 hours
+        let stale_threshold = Duration::from_secs(48 * 3600);
 
         while let Ok(Some(entry)) = entries.next_entry().await {
             let path = entry.path();

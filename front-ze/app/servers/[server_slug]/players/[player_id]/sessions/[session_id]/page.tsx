@@ -72,9 +72,6 @@ export default async function Page({ params }){
     const { player_id, server_slug, session_id } = await params
     const server = await getServerSlugOrNotFound(server_slug);
 
-    // Resolve server-side (instead of streaming the promise into the client
-    // wrapper) so an invalid player_id/session_id 404s properly instead of a
-    // raw rejection crossing the server/client boundary.
     let sessionData
     try{
         sessionData = await getSessionData(server, player_id, session_id)

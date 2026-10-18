@@ -4,8 +4,6 @@ import {DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale} from './config';
 
 type Messages = Record<string, unknown>;
 
-// Overlay a locale's messages on top of English so missing keys fall back
-// to English instead of rendering raw message keys.
 function deepMerge(base: Messages, override: Messages): Messages {
     const result: Messages = {...base};
     for (const [key, value] of Object.entries(override)) {

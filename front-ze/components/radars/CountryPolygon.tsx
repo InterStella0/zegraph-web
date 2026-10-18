@@ -12,8 +12,8 @@ const CountryPolygon = ({ geoJsonData }) => {
 
     const geoJsonOptions = useMemo(() => ({
         style: geoJsonStyle,
-        interactive: false, // Make the polygon non-interactive/unclickable
-        bubblingMouseEvents: true // Ensure events bubble up to the map
+        interactive: false,
+        bubblingMouseEvents: true
     }), [geoJsonStyle]);
 
     if (!geoJsonData) {

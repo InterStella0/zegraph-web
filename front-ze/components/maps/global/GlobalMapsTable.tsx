@@ -13,14 +13,16 @@ import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import CategoryChip from "components/ui/CategoryChip.tsx";
 import {GAME_META} from "components/ui/ServerIndicator";
+import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {GlobalMapPaginated, GlobalMapPlayed} from "types/maps.ts";
 import GlobalMapStatusChip from "./GlobalMapStatusChip";
 import CommunityAvatarStack from "./CommunityAvatarStack";
+import {cn} from "components/lib/utils";
 import {GLOBAL_MAPS_PAGE_SIZE} from "./constants";
 
 dayjs.extend(relativeTime);
 
-export function globalMapImage(map: GlobalMapPlayed, size: 'small' | 'large'): string | null {
+export function globalMapImage(map: GlobalMapPlayed, size: 'small' | 'medium' | 'large' | 'extra_large'): string | null {
     return map.image ? withImageDomain({...map.image})[size] : null;
 }
 
@@ -115,7 +117,12 @@ function GlobalMapRow({ map, favorites, toggleFavorite }: {
                     </div>
                     <div className="min-w-0">
                         <div className="w-32 lg:w-56 xl:w-72 max-w-72">
-                            <span className="text-sm font-medium truncate block">{map.map}</span>
+                            <HoverPrefetchLink
+                                href={`/maps/${map.map}`}
+                                className="text-sm font-medium truncate block hover:text-primary transition-colors"
+                            >
+                                {map.map}
+                            </HoverPrefetchLink>
                         </div>
                         <div className="mt-1">
                             <GlobalMapChips map={map}/>
@@ -178,11 +185,11 @@ export default function GlobalMapsTable({ mapsData, page, setPage, favorites, to
                         <TableHead/>
                     </TableRow>
                 </TableHeader>
-                <TableBody>
-                    {!loading && mapsData?.maps?.map(map => (
+                <TableBody aria-busy={loading} className={cn("transition-opacity", loading && mapsData && "opacity-50")}>
+                    {mapsData?.maps?.map(map => (
                         <GlobalMapRow key={map.map} map={map} favorites={favorites} toggleFavorite={toggleFavorite}/>
                     ))}
-                    {loading && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, i) =>
+                    {!mapsData && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, i) =>
                         <GlobalMapRowSkeleton key={i} index={i}/>
                     )}
                 </TableBody>

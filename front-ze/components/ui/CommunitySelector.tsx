@@ -48,20 +48,14 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
     const [isMobile, setIsMobile] = useState(false);
     const {communities, serversMapped } = useContext(ServerProvider);
 
-    // The sidebar lives above the [server_slug] segment so it survives server
-    // navigation; the selected server comes from the URL instead of props.
     const slugPart = pathname.split('/')[2]
     const server = slugPart ? serversMapped.get(decodeURIComponent(slugPart)) ?? null : null
     const communitySelected = server?.community_id
     const openDrawer = displayCommunity
     const onClose = () => setDisplayCommunity(false)
 
-    // Seeded from the cookie server-side so the first frame is already correct;
-    // null = follow auto
     const [userPreference, setUserPreference] = useState<boolean | null>(initialCollapsed);
     const [autoCollapsed, setAutoCollapsed] = useState(false);
-    // Mobile sheet always shows the full layout; the saved preference still
-    // applies once back on desktop widths
     const isCollapsed = !isMobile && (userPreference !== null ? userPreference : autoCollapsed);
 
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -73,8 +67,6 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
         setAutoCollapsed(width < 1510 && width > 750);
     }, []);
 
-    // Layout effect so the real width (and any legacy localStorage-only
-    // preference, when no cookie was set yet) applies before first paint
     useLayoutEffect(() => {
         setIsClient(true);
         if (initialCollapsed === null) {
@@ -103,8 +95,6 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
         return () => window.removeEventListener('resize', checkWidth);
     }, [checkWidth]);
 
-    // Entering the auto-collapse zone (including loading in it) overrides an
-    // explicit "expanded" preference; a "collapsed" preference always sticks
     const prevAutoCollapsed = useRef(false);
     useEffect(() => {
         if (autoCollapsed && !prevAutoCollapsed.current) {
@@ -134,8 +124,6 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
         } else {
             const newCollapsedState = !isCollapsed;
 
-            // If toggling to match auto state, clear preference to follow auto
-            // Otherwise, set explicit preference
             if (newCollapsedState === autoCollapsed) {
                 setUserPreference(null);
             } else {

@@ -57,12 +57,10 @@ ChartJS.register(
 
 type Metric = 'hour' | 'joins'
 
-/** Width reserved for the y axis, so the line chart and the heat strip share an x origin. */
 const AXIS_GUTTER = 48
 
 const HEAT_ACCENT = { h: 300, s: 85, l: 62 }
 
-/** Hour labels under the heat strip: 00, 01, ... 23 — one per cell. */
 const ALL_HOURS = Array.from({length: 24}, (_, i) => i)
 
 function heatColor(alpha: number){
@@ -91,8 +89,6 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
         return {min: 0, max: yMax}
     }, [hours])
 
-    // Rotate the 24 buckets rather than remapping each point: a line chart needs its x
-    // values to stay in order, and a per-point remap leaves them shuffled.
     const online = useMemo(() => {
         const byUtcHour = new Map(heat.map(e => [e.hour_of_day, e]))
         const offsetHours = mode === "UTC" || !hydrated ? 0 : Math.round(dayjs().utcOffset() / 60)
@@ -178,7 +174,6 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
                 type: 'linear' as const,
                 min: -0.5,
                 max: 23.5,
-                // The hour labels live under the heat strip instead.
                 ticks: { display: false },
                 border: { display: false },
                 grid: { display: false },
@@ -218,7 +213,6 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
             borderColor: heatColor(1),
             backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D, chartArea?: { top: number, bottom: number } } }) => {
                 const { chartArea, ctx: canvas } = ctx.chart
-                // chartArea is undefined on the very first render pass.
                 if (!chartArea) return heatColor(0.2)
 
                 const gradient = canvas.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
@@ -265,14 +259,11 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
                 min: -0.5,
                 max: 23.5,
                 offset: false,
-                // min/max sit on half-hours so the end cells get padding, but that also
-                // seeds the generated ticks at -0.5, 1.5, ... — so name them outright.
                 afterBuildTicks: (axis: { ticks: { value: number }[] }) => {
                     axis.ticks = ALL_HOURS.map(value => ({ value }))
                 },
                 ticks: {
                     color: axisColor,
-                    // One label per cell, never thinned out.
                     autoSkip: false,
                     maxRotation: 0,
                     minRotation: 0,
@@ -342,7 +333,6 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
         };
     }, [hours, mode, isDark, t]);
 
-    // Generate SEO summary
     const summary = useMemo(() => {
         const timezoneSuffix = mode === "UTC" ? t('utcSuffix') : t('localTimeSuffix');
 

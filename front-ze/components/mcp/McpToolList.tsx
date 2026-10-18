@@ -32,11 +32,6 @@ function groupOf(name: string): Group {
     return 'servers';
 }
 
-/**
- * The live `tools/list` from the backend, so this page shows exactly the titles and descriptions
- * in `src/mcp/tool_docs.json` that assistants are given. Null when the backend can't be reached,
- * including during the production build.
- */
 async function getTools(): Promise<McpTool[] | null> {
     if (process.env.NEXT_PHASE === 'phase-production-build') return null;
     try {
@@ -54,7 +49,6 @@ async function getTools(): Promise<McpTool[] | null> {
     }
 }
 
-/** Renders `code` spans, and turns mentions of other tools into links to their entries. */
 function formatText(text: string, toolNames: Set<string>): ReactNode[] {
     return text.split(/(`[^`]+`|\b[a-z]+(?:_[a-z]+)+\b)/).map((part, index) => {
         const quoted = part.startsWith('`') && part.endsWith('`') && part.length > 1;

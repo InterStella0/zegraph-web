@@ -86,7 +86,6 @@ macro_rules! job_registry {
         #[derive(Clone, Serialize, Deserialize)]
         pub enum JobKind {
             $($variant($data),)*
-            /// Not a `WorkerQuery`
             PlayerGlobalPlaytime { canonical_id: String },
         }
 

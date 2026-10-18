@@ -195,15 +195,10 @@ fn handle_worker_map_result<T>(result: WorkResult<T>) -> Response<T>
 }
 
 const GLOBAL_MAPS_PAGE_SIZE: i64 = 25;
-/// Highest `page` served. About 1.5k maps is roughly 60 pages, so this only rejects nonsense.
 const GLOBAL_MAPS_MAX_PAGE: usize = 1_000;
-/// Pages past this are computed live instead of cached, so arbitrary `page` values can't flood the
-/// cache with keys.
 const GLOBAL_MAPS_CACHED_PAGES: usize = 100;
-/// Shortest search the global autocomplete answers; shorter ones would scan every map name.
 const GLOBAL_MAPS_MIN_AUTOCOMPLETE: usize = 2;
 
-/// Escapes `\`, `%` and `_` so a user's term matches literally inside `ILIKE '%' || $n || '%'`.
 fn escape_like(term: &str) -> String {
     term.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
 }
@@ -214,11 +209,9 @@ async fn global_map_exists(pool: &Pool<Postgres>, map_name: &str) -> Result<bool
     ).fetch_one(pool).await
 }
 
-/// One page of maps grouped by name across servers, plus the per-server rows of those maps.
-/// `user_id` is only read by the `favorite` filter, so pages without it are viewer-independent.
-async fn global_map_page(
+pub(crate) async fn global_map_page(
     pool: &Pool<Postgres>, game: Option<&str>, search: &str, filter: &str, sorted_by: &str,
-    user_id: Option<i64>, offset: i64,
+    user_id: Option<i64>, offset: i64, exact: Option<&str>,
 ) -> Result<DbGlobalMapPage, sqlx::Error> {
     let maps = sqlx::query_as!(DbGlobalMapRow, r#"
         WITH open_sessions AS (
@@ -252,7 +245,8 @@ async fn global_map_page(
             LEFT JOIN map_metadata mam ON mam.name = sm.map
             LEFT JOIN open_sessions os
                 ON os.server_id = sm.server_id AND os.map = sm.map
-            WHERE $1::TEXT IS NULL OR COALESCE(smd.game, '730_cs2') = $1
+            WHERE ($1::TEXT IS NULL OR COALESCE(smd.game, '730_cs2') = $1)
+              AND ($8::TEXT IS NULL OR sm.map = $8)
         ),
         maps AS (
             SELECT
@@ -309,7 +303,7 @@ async fn global_map_page(
             m.map
         LIMIT $6
         OFFSET $7
-    "#, game, search, filter, user_id, sorted_by, GLOBAL_MAPS_PAGE_SIZE, offset)
+    "#, game, search, filter, user_id, sorted_by, GLOBAL_MAPS_PAGE_SIZE, offset, exact)
         .fetch_all(pool)
         .await?;
 
@@ -343,6 +337,8 @@ async fn global_map_page(
             sm.min_players AS "min_players?",
             (os.server_id IS NOT NULL) AS "is_playing!",
             mp.last_played AS "last_played!",
+            mp.total_playtime AS "total_playtime!",
+            mp.total_sessions AS "total_sessions!",
             mp.cum_player_hours AS "cum_player_hours!"
         FROM server_map sm
         JOIN website.map_analyze mp
@@ -360,7 +356,93 @@ async fn global_map_page(
     Ok(DbGlobalMapPage { total_maps, maps, servers })
 }
 
-/// Thumbnail for a map name, trying each game in order (most played first).
+pub(crate) async fn assemble_global_maps(
+    data: &AppData, maps: Vec<DbGlobalMapRow>, servers: Vec<DbGlobalMapServerRow>, user_id: Option<i64>,
+) -> Vec<GlobalMapPlayed> {
+    let names: Vec<String> = maps.iter().map(|m| m.map.clone()).collect();
+    let favorites: Option<Vec<String>> = match user_id {
+        Some(_) if names.is_empty() => Some(vec![]),
+        Some(user_id) => sqlx::query_scalar!("
+            SELECT map
+            FROM website.user_favorite_global_maps
+            WHERE user_id = $1 AND map = ANY($2)
+        ", user_id, &names[..]).fetch_all(&*data.pool).await
+            .inspect_err(|e| tracing::warn!("Couldn't load global map favorites: {e}"))
+            .ok(),
+        None => None,
+    };
+
+    let mut servers_by_map: HashMap<String, Vec<DbGlobalMapServerRow>> = HashMap::new();
+    for server in servers {
+        servers_by_map.entry(server.map.clone()).or_default().push(server);
+    }
+
+    let images = get_map_images(&data.cache).await;
+    let mut names_by_game: HashMap<String, Vec<String>> = HashMap::new();
+    for image in &images {
+        names_by_game.entry(image.game_type.clone()).or_default().push(image.map_name.clone());
+    }
+
+    let mut result = Vec::with_capacity(maps.len());
+    for row in maps {
+        let map_servers = servers_by_map.remove(&row.map).unwrap_or_default();
+        let mut games: Vec<String> = vec![];
+        for server in &map_servers {
+            if !games.contains(&server.game) {
+                games.push(server.game.clone());
+            }
+        }
+        let image = global_map_image(&row.map, &games, &images, &names_by_game);
+        let mut map: GlobalMapPlayed = row.into();
+        map.is_favorite = favorites.as_ref().map(|favorites| favorites.contains(&map.map));
+        map.games = games;
+        map.servers = map_servers.iter_into();
+        map.image = image;
+        result.push(map);
+    }
+    result
+}
+
+pub(crate) async fn map_musics(pool: &Pool<Postgres>, map_name: &str) -> Result<Vec<DbAssociatedMapMusic>, sqlx::Error> {
+    sqlx::query_as!(DbAssociatedMapMusic,
+            "WITH form_associated_maps AS (
+                SELECT
+                    amm.map_name AS current_map,
+                    mm.*,
+                    COALESCE(
+                        ARRAY_AGG(amm2.map_name ORDER BY amm2.map_name)
+                            FILTER (WHERE amm2.map_name IS NOT NULL),
+                        ARRAY[]::text[]
+                    ) AS other_maps
+                FROM associated_map_music amm
+                JOIN map_music mm
+                    ON mm.id = amm.map_music_id
+                LEFT JOIN associated_map_music amm2
+                    ON amm.map_music_id = amm2.map_music_id
+                   AND amm.map_name <> amm2.map_name
+                WHERE amm.map_name = $1
+                GROUP BY amm.map_name, mm.id
+            )
+            SELECT amm.map_music_id AS id,
+                music_name,
+                duration,
+                youtube_music,
+                source,
+                map_name,
+                other_maps,
+                tags,
+                yt_source,
+                COALESCE(su.persona_name, NULL) AS yt_source_name
+            FROM associated_map_music amm
+            LEFT JOIN form_associated_maps fam ON fam.id=amm.map_music_id
+            LEFT JOIN website.steam_user su ON su.user_id=yt_source
+            WHERE amm.map_name = $1 AND music_name <> ''
+            ",
+        map_name)
+        .fetch_all(pool)
+        .await
+}
+
 fn global_map_image(
     map: &str, games: &[String], images: &[MapImage], names_by_game: &HashMap<String, Vec<String>>,
 ) -> Option<MapImage> {
@@ -581,59 +663,17 @@ impl MapApi{
 
         let cacheable = search.is_empty() && filtering != "favorite" && page < GLOBAL_MAPS_CACHED_PAGES;
         let DbGlobalMapPage { total_maps, maps, servers } = if cacheable {
-            let key = format!("global-maps-v1:{sorting}:{filtering}:{}:{page}", game.as_deref().unwrap_or("all"));
-            let func = || global_map_page(pool, game.as_deref(), &search, &filtering, &sorting, None, offset);
+            let key = format!("global-maps-v2:{sorting}:{filtering}:{}:{page}", game.as_deref().unwrap_or("all"));
+            let func = || global_map_page(pool, game.as_deref(), &search, &filtering, &sorting, None, offset, None);
             or_ise!(cached_response(&key, &data.cache, 60, func).await, e => "Error global maps: {e}").result
         } else {
             or_ise!(
-                global_map_page(pool, game.as_deref(), &search, &filtering, &sorting, user_id, offset).await,
+                global_map_page(pool, game.as_deref(), &search, &filtering, &sorting, user_id, offset, None).await,
                 e => "Error global maps: {e}"
             )
         };
 
-        let names: Vec<String> = maps.iter().map(|m| m.map.clone()).collect();
-        // A failed favorites lookup leaves `is_favorite` unknown rather than failing the whole page.
-        let favorites: Option<Vec<String>> = match user_id {
-            Some(_) if names.is_empty() => Some(vec![]),
-            Some(user_id) => sqlx::query_scalar!("
-                SELECT map
-                FROM website.user_favorite_global_maps
-                WHERE user_id = $1 AND map = ANY($2)
-            ", user_id, &names[..]).fetch_all(pool).await
-                .inspect_err(|e| tracing::warn!("Couldn't load global map favorites: {e}"))
-                .ok(),
-            None => None,
-        };
-
-        let mut servers_by_map: HashMap<String, Vec<DbGlobalMapServerRow>> = HashMap::new();
-        for server in servers {
-            servers_by_map.entry(server.map.clone()).or_default().push(server);
-        }
-
-        let images = get_map_images(&data.cache).await;
-        let mut names_by_game: HashMap<String, Vec<String>> = HashMap::new();
-        for image in &images {
-            names_by_game.entry(image.game_type.clone()).or_default().push(image.map_name.clone());
-        }
-
-        let mut result = Vec::with_capacity(maps.len());
-        for row in maps {
-            let map_servers = servers_by_map.remove(&row.map).unwrap_or_default();
-            let mut games: Vec<String> = vec![];
-            for server in &map_servers {
-                if !games.contains(&server.game) {
-                    games.push(server.game.clone());
-                }
-            }
-            let image = global_map_image(&row.map, &games, &images, &names_by_game);
-            let mut map: GlobalMapPlayed = row.into();
-            map.is_favorite = favorites.as_ref().map(|favorites| favorites.contains(&map.map));
-            map.games = games;
-            map.servers = map_servers.iter_into();
-            map.image = image;
-            result.push(map);
-        }
-
+        let result = assemble_global_maps(data, maps, servers, user_id).await;
         response!(ok GlobalMapPaginated { total_maps: total_maps as i32, maps: result })
     }
     /// Search played maps across every server by name, for autocomplete. Up to 20 substring matches;
@@ -733,45 +773,7 @@ impl MapApi{
     #[oai(path = "/servers/:server_id/maps/:map_name/musics", method = "get")]
     async fn get_maps_all_musics(
         &self, data: Data<&AppData>, extract: MapExtractor) -> Response<Vec<ServerMapMusic>>{
-        let pool = &*data.pool.clone();
-        let rows = or_ise!(sqlx::query_as!(DbAssociatedMapMusic,
-                "WITH form_associated_maps AS (
-                    SELECT
-                        amm.map_name AS current_map,
-                        mm.*,
-                        COALESCE(
-                            ARRAY_AGG(amm2.map_name ORDER BY amm2.map_name)
-                                FILTER (WHERE amm2.map_name IS NOT NULL),
-                            ARRAY[]::text[]
-                        ) AS other_maps
-                    FROM associated_map_music amm
-                    JOIN map_music mm
-                        ON mm.id = amm.map_music_id
-                    LEFT JOIN associated_map_music amm2
-                        ON amm.map_music_id = amm2.map_music_id
-                       AND amm.map_name <> amm2.map_name
-                    WHERE amm.map_name = $1
-                    GROUP BY amm.map_name, mm.id
-                )
-                SELECT amm.map_music_id AS id,
-                    music_name,
-                    duration,
-                    youtube_music,
-                    source,
-                    map_name,
-                    other_maps,
-                    tags,
-                    yt_source,
-                    COALESCE(su.persona_name, NULL) AS yt_source_name
-                FROM associated_map_music amm
-                LEFT JOIN form_associated_maps fam ON fam.id=amm.map_music_id
-                LEFT JOIN website.steam_user su ON su.user_id=yt_source
-                WHERE amm.map_name = $1 AND music_name <> ''
-                ",
-				extract.map.map)
-            .fetch_all(pool)
-            .await);
-
+        let rows = or_ise!(map_musics(&data.pool, &extract.map.map).await);
         response!(ok rows.iter_into())
     }
 
@@ -1061,7 +1063,13 @@ impl MapApi{
                     COALESCE(md.human_score, NULL) human_score,
                     COALESCE(md.occurred_at, NULL) occurred_at,
                     COALESCE(md.estimated_time_end, NULL) estimated_time_end,
-                    COALESCE(md.server_time_end, NULL) server_time_end,
+                    -- Servers that don't report timeleft (NiDE, Mapeadores...) get it stamped at the
+                    -- map's first round and carried forward, which reads as the last round all map.
+                    -- No real map ends by its first round, so treat that as unknown. A genuine last
+                    -- round (end at or before the current round) is later in the map and stays.
+                    CASE WHEN md.server_time_end > (
+                        SELECT MIN(f.occurred_at) FROM match_data f WHERE f.time_id = smp.time_id
+                    ) THEN md.server_time_end END server_time_end,
                     COALESCE(md.extend_count, NULL) extend_count,
                     LEAST((SELECT COUNT(DISTINCT player_id) FROM player_server_session p
                         WHERE p.server_id = smp.server_id
@@ -1442,7 +1450,6 @@ impl MapApi{
         }
         let anonymizer = BriefAnonymizer::new(app, &server_id, user_token.as_ref().map(|t| t.id)).await;
         if player_name.is_some() {
-            // Name search: an anonymized player must not be discoverable by typing their name.
             anonymizer.retain_visible(&mut players);
         } else {
             anonymizer.apply(&mut players);
@@ -1470,24 +1477,20 @@ impl MapApi{
         let pool = &*app.pool.clone();
         let user_id = user_token.id;
 
-        // Validate music_id is valid UUID
         let Ok(music_uuid) = uuid::Uuid::parse_str(&music_id) else {
             return response!(err "Invalid music ID", ErrorCode::BadRequest);
         };
 
-        // Validate reason
         if !["video_unavailable", "wrong_video"].contains(&payload.reason.as_str()) {
             return response!(err "Invalid reason. Must be 'video_unavailable' or 'wrong_video'", ErrorCode::BadRequest);
         }
 
-        // Optional: Validate YouTube URL format if provided
         if let Some(ref url) = payload.suggested_youtube_url {
             if !url.is_empty() && !url.contains("youtube.com") && !url.contains("youtu.be") {
                 return response!(err "Invalid YouTube URL format", ErrorCode::BadRequest);
             }
         }
 
-        // Get current youtube_music value for snapshot
         let Some(current_youtube_music) = or_ise!(sqlx::query_scalar!(
             "SELECT youtube_music FROM map_music WHERE id = $1",
             music_uuid
@@ -1497,7 +1500,6 @@ impl MapApi{
             return response!(err "Music track not found", ErrorCode::NotFound);
         };
 
-        // Insert report
         let result = sqlx::query!(
             "INSERT INTO website.report_map_music(music_id, user_id, reason, details, suggested_youtube_url, current_youtube_music)
              VALUES ($1, $2, $3, $4, $5, $6)",
@@ -1514,7 +1516,6 @@ impl MapApi{
         match result {
             Ok(_) => response!(ok "OK".into()),
             Err(e) => {
-                // Check for duplicate constraint violation
                 if e.to_string().contains("unique_pending_music_report") {
                     return response!(err "You already have a pending report for this music track", ErrorCode::BadRequest);
                 }
@@ -1589,7 +1590,6 @@ impl MapApi{
         &self,
         Data(app): Data<&AppData>,
     ) -> Response<Vec<MapWithModels>> {
-        // Get all unique maps
         let maps_result = sqlx::query_as!(
             DbMapName,
             "SELECT DISTINCT map as map_name FROM server_map_played ORDER BY map"
@@ -1599,7 +1599,6 @@ impl MapApi{
 
         let maps = or_ise!(maps_result);
 
-        // Get all 3D models
         let models_result = sqlx::query_as!(
             DbMap3DModel,
             "SELECT * FROM website.map_3d_model ORDER BY map_name, res_type"
@@ -1609,7 +1608,6 @@ impl MapApi{
 
         let models = models_result.unwrap_or_default();
 
-        // Build a map of map_name -> (low_res, high_res)
         let mut models_map: std::collections::HashMap<String, (Option<Map3DModel>, Option<Map3DModel>)> = std::collections::HashMap::new();
 
         for model in models {
@@ -1623,7 +1621,6 @@ impl MapApi{
             }
         }
 
-        // Build response
         let result: Vec<MapWithModels> = maps
             .into_iter()
             .map(|map| {
@@ -1784,10 +1781,8 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
         Json(req): Json<serde_json::Value>,
     ) -> Response<InitiateUploadResponse> {
-        // Check superuser permission
         require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
-        // Parse request
         let res_type = match req.get("res_type").and_then(|v| v.as_str()).and_then(ResType::parse) {
             Some(rt) => rt,
             None => return response!(err "Invalid res_type. Must be 'low' or 'high'", ErrorCode::BadRequest),
@@ -1823,7 +1818,6 @@ impl MapApi{
         TokenBearer(user_token): TokenBearer,
         upload: poem::web::Multipart,
     ) -> Response<ChunkUploadResponse> {
-        // Check superuser permission
         require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         chunked_upload::upload_chunk(&app.cache, &session_id, user_token.id, map_mismatch(&map_name), upload).await
@@ -1843,7 +1837,6 @@ impl MapApi{
         Path(session_id): Path<String>,
         TokenBearer(user_token): TokenBearer,
     ) -> Response<Map3DModel> {
-        // Check superuser permission
         require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         let (session, link_path) = match chunked_upload::assemble_and_store::<UploadSession, _>(
@@ -1854,7 +1847,6 @@ impl MapApi{
         };
         let file_size = session.total_size as i64;
 
-        // Insert/update database
         let result = sqlx::query_as!(
             DbMap3DModel,
             r#"
@@ -1906,7 +1898,6 @@ impl MapApi{
         Path(session_id): Path<String>,
         TokenBearer(user_token): TokenBearer,
     ) -> Response<String> {
-        // Check superuser permission
         require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
         chunked_upload::cancel(&app.cache, &session_id, user_token.id, map_mismatch(&map_name)).await
@@ -1923,15 +1914,12 @@ impl MapApi{
         Path(res_type): Path<String>,
         TokenBearer(user_token): TokenBearer,
     ) -> Response<String> {
-        // Check superuser permission
         require!(check_superuser_or_map_manager(&app, user_token.id).await, "Forbidden", ErrorCode::Forbidden);
 
-        // Validate res_type
         if res_type != "low" && res_type != "high" {
             return response!(err "Invalid res_type", ErrorCode::BadRequest);
         }
 
-        // Get model from database to find file path
         let model = sqlx::query_as!(
             DbMap3DModel,
             "SELECT * FROM website.map_3d_model WHERE map_name = $1 AND res_type = $2 ",
@@ -1945,13 +1933,10 @@ impl MapApi{
             return response!(err "Model not found", ErrorCode::NotFound);
         };
 
-        // Delete file from storage
         if let Err(e) = app.map_storage.delete(&map_name, &res_type).await {
             tracing::warn!("Failed to delete model from storage: {}", e);
-            // Continue with database deletion even if file deletion fails
         }
 
-        // Delete from database
         let result = sqlx::query!(
             "DELETE FROM website.map_3d_model WHERE map_name = $1 AND res_type = $2",
             map_name,

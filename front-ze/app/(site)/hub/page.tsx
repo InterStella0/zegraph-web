@@ -42,7 +42,6 @@ export default async function HubPage() {
     <div className="min-h-screen py-12 px-4">
       <div className="container mx-auto max-w-5xl space-y-10">
 
-        {/* Page header */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Compass className="w-6 h-6 text-primary" />
@@ -53,7 +52,6 @@ export default async function HubPage() {
           </p>
         </div>
 
-        {/* Links grid */}
         <Suspense fallback={<HubLinksLoading />}>
           <HubLinks linksPromise={linksPromise} />
         </Suspense>

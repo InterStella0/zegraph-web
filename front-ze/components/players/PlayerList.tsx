@@ -5,7 +5,6 @@ import PlayerTableRow, {PlayerTableRowLoading} from "./PlayerTableRow.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {Dayjs} from "dayjs";
 import {BriefPlayers, ExtendedPlayerBrief} from "types/players.ts";
-import {Card} from "components/ui/card.tsx";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "components/ui/table.tsx";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {withErrorCatch} from "components/common/withErrorCatch";
@@ -67,26 +66,26 @@ function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
     const totalPages = Math.ceil(totalPlayers / 70);
 
     return (
-        <Card className="w-full my-2">
+        <div className="w-full">
             <div className="max-h-[54vh] overflow-auto">
-                <Table>
-                    <TableHeader className="sticky top-0 bg-background">
+                <Table className="table-fixed">
+                    <TableHeader className="sticky top-0 bg-card z-10">
                         <TableRow>
                             <TableHead>{t('name')}</TableHead>
-                            <TableHead>{t('totalPlayTime')}</TableHead>
+                            <TableHead className="w-24 text-right whitespace-normal leading-tight">{t('totalPlayTime')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {(loading || pageDef !== currentPage || playersInfoResult == null) && Array
                             .from({length: 70})
-                            .map((_, index) => <PlayerTableRowLoading key={index}/>)
+                            .map((_, index) => <PlayerTableRowLoading key={index} compact/>)
                         }
                         {absoluteLoad && playersInfo.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={2}>{t('noPlayers')}</TableCell>
                             </TableRow>
                         )}
-                        {absoluteLoad && playersInfo.map(player => <PlayerTableRow player={player} key={player.id} />)}
+                        {absoluteLoad && playersInfo.map(player => <PlayerTableRow player={player} key={player.id} compact />)}
                     </TableBody>
                 </Table>
             </div>
@@ -96,7 +95,7 @@ function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
                     {t('pageInfo', {page: currentPage + 1, totalPages, totalPlayers})}
                 </div>
             </div>
-        </Card>
+        </div>
       );
 }
 type StartEndDates = {

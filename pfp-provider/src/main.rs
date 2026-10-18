@@ -112,7 +112,6 @@ impl Api {
             }
         }
 
-        // A provider blowing up means the upstreams are broken, not that the profile is missing.
         if had_error {
             ApiPfpResponse::InternalError
         } else {
@@ -172,7 +171,6 @@ async fn main(){
         .nest("/api", api_service)
         .with(Tracing);
 
-    // Start the server
     let addr = std::env::var("LISTEN_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());
     tracing::info!("Starting server at {}", addr);
 

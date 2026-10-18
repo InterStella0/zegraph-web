@@ -104,8 +104,6 @@ function GlobalPlayersOnlineDisplay({ initialDataPromise }: { initialDataPromise
         };
     }, []);
 
-    // The server is only shown as a community logo, so search stays the sole way to filter by
-    // server. Match the community name too, since that's what the logo actually identifies.
     const filteredPlayers = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
         if (!query) return players;

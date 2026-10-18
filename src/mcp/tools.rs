@@ -1,16 +1,6 @@
-//! Builds the MCP tool list from the generated OpenAPI spec and the checked-in MCP documentation.
-//!
-//! A route becomes a tool by carrying `tag = "ApiTags::Mcp"` and an `operation_id` in its
-//! `#[oai(...)]`; the operation ID is the tool name. Routing and the argument schema still come
-//! from OpenAPI. Human-facing titles, descriptions and argument descriptions come from
-//! `tool_docs.json`, which is synchronized explicitly with
-//! `SQLX_OFFLINE=true cargo run -- generate-mcp-docs` and can then be edited (or rewritten by an
-//! AI) without changing the API documentation.
-
 use serde_json::{json, Map, Value};
 use std::collections::BTreeSet;
 
-/// Name of `ApiTags::Mcp` as it appears in the spec.
 const MCP_TAG: &str = "Mcp";
 const TOOL_DOCS: &str = include_str!("tool_docs.json");
 
@@ -29,7 +19,6 @@ pub enum ParamKind {
     Number,
     Bool,
     Enum(Vec<String>),
-    /// RFC 3339 timestamp, passed through as a string.
     DateTime,
 }
 
@@ -39,7 +28,6 @@ pub struct Param {
     pub loc: ParamLoc,
     pub kind: ParamKind,
     pub required: bool,
-    /// JSON Schema advertised to clients, with any `$ref` already inlined.
     schema: Value,
 }
 
@@ -48,7 +36,6 @@ pub struct ToolDef {
     pub name: String,
     pub title: String,
     pub description: String,
-    /// Route path in OpenAPI form, e.g. `/servers/{server_id}/maps`.
     pub path: String,
     pub params: Vec<Param>,
 }
@@ -88,9 +75,6 @@ impl ToolDef {
     }
 }
 
-/// Every `Mcp`-tagged operation in `spec` as a tool, sorted by name. Operations that cannot be
-/// turned into a tool are skipped and reported in the second vector rather than failing startup;
-/// `mcp_tagged_routes_all_become_tools` asserts it is empty.
 pub fn tools_from_spec(spec: &Value) -> (Vec<ToolDef>, Vec<String>) {
     let docs: Value = match serde_json::from_str(TOOL_DOCS) {
         Ok(docs) => docs,
@@ -196,7 +180,6 @@ fn tool_from_operation(
             .find(|p| p["in"] == "path" && p["name"] == placeholder);
         let param = match declared {
             Some(declared) => param_from_spec(spec, declared, ParamLoc::Path)?,
-            // Read by a custom extractor through `raw_path_param`, so absent from the spec.
             None => Param {
                 name: placeholder.to_string(),
                 loc: ParamLoc::Path,
@@ -272,8 +255,6 @@ fn param_from_spec(spec: &Value, declared: &Value, loc: ParamLoc) -> Result<Para
         schema["minimum"] = json!(0);
     }
     if let Some(schema) = schema.as_object_mut() {
-        // API schema descriptions are deliberately not leaked into the separately maintained MCP
-        // docs. `with_argument_doc` installs the MCP-specific description after this returns.
         schema.remove("description");
     }
 
@@ -286,8 +267,6 @@ fn param_from_spec(spec: &Value, declared: &Value, loc: ParamLoc) -> Result<Para
     })
 }
 
-/// Creates the editable documentation catalog from the current OpenAPI document. This is only
-/// called by the explicit generator command; the server reads the checked-in result.
 pub fn generated_docs_from_spec(spec: &Value) -> Result<Value, Vec<String>> {
     let Some(paths) = spec["paths"].as_object() else {
         return Err(vec!["spec has no paths".to_string()]);
@@ -374,9 +353,6 @@ pub fn generated_docs_from_spec(spec: &Value) -> Result<Value, Vec<String>> {
     }
 }
 
-/// Merges a freshly generated catalog into an existing one. OpenAPI owns which tools and
-/// arguments exist, while the existing catalog owns the wording for entries that still exist.
-/// Consequently this adds new entries, removes stale entries, and leaves curated text alone.
 pub fn merge_generated_docs(mut generated: Value, existing: &Value) -> Value {
     let Some(generated_tools) = generated["tools"].as_object_mut() else {
         return generated;
@@ -445,7 +421,6 @@ fn default_argument_description(name: &str) -> String {
     format!("{}.", title_from_name(name))
 }
 
-/// Inlines a `#/components/schemas/...` reference; clients only ever see a self-contained schema.
 fn resolve(spec: &Value, schema: &Value) -> Value {
     match schema["$ref"]
         .as_str()

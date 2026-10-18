@@ -1,9 +1,3 @@
-// Credits:
-// - Solar position: low-precision formulas from The Astronomical Almanac (USNO / HMNAO), p. C5,
-//   via https://en.wikipedia.org/wiki/Position_of_the_Sun
-// - Greenwich mean sidereal time: Jean Meeus, Astronomical Algorithms, eq. 12.4
-// - Destination point on a sphere: Chris Veness, https://www.movable-type.co.uk/scripts/latlong.html
-// - Approach inspired by Leaflet.Terminator by Jörg Dietrich, https://github.com/joergdietrich/Leaflet.Terminator
 import type {LatLngTuple} from "leaflet";
 
 const RAD = Math.PI / 180;

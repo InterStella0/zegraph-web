@@ -26,19 +26,6 @@ const ServerGraph = dynamic(() => import("components/graphs/ServerGraph"), {
     ssr: false,
 });
 
-// The metadata row holds 1-4 cards (Data Source is always there; Tracking Since, Website and
-// Discord are conditional). Every breakpoint below is chosen so the description card plus the
-// metadata cards tile to exactly 12 columns with no leftover gap:
-//
-//   n | base        | sm             | lg             | xl
-//   1 | 12 | 12     | 12 | 12        | 9 + 3          | 10 + 2
-//   2 | 12 | 12,12  | 12 | 6+6       | 6 + 3+3        | 8  + 2x2
-//   3 | 12 | 12x3   | 12 | 4+4+4     | 12 | 4+4+4     | 6  + 2x3
-//   4 | 12 | 12x4   | 12 | 6+6,6+6   | 12 | 3+3+3+3   | 4  + 2x4
-//
-// The description only shares a row with the cards once there is room for both (lg for 1-2 cards,
-// xl for all of them); below that it takes a full row of its own. Tailwind cannot see interpolated
-// class names, so both sides have to be static lookups rather than computed strings.
 const DESC_SPAN = {
     1: "col-span-12 lg:col-span-9 xl:col-span-10",
     2: "col-span-12 lg:col-span-6 xl:col-span-8",

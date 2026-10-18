@@ -134,8 +134,6 @@ async fn server_community_id(app: &AppData, server_id: &str) -> Result<Option<Uu
     .map(Option::flatten)
 }
 
-/// Returns whether a viewer may see a player's activity in one community.
-/// Anonymization belongs to the canonical account, not an individual linked player row.
 pub async fn can_view_player_in_community(
     app: &AppData,
     player_id: &str,
@@ -254,18 +252,15 @@ impl BriefAnonymizer {
         };
         let reveal_all = check_superuser(app, viewer_id).await
             || is_community_admin_of_server(app, viewer_id, server_id).await;
-        let viewer_id = viewer_id.to_string();
-        let viewer_player_ids = sqlx::query_scalar::<_, String>(
-            "SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1",
-        )
-        .bind(&viewer_id)
-        .fetch_all(&*app.pool)
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .chain(std::iter::once(viewer_id))
-        .collect();
-        Self { reveal_all, viewer_player_ids }
+        Self { reveal_all, viewer_player_ids: viewer_player_ids(app, viewer_id).await }
+    }
+
+    pub async fn global(app: &AppData, viewer_id: Option<i64>) -> Self {
+        let Some(viewer_id) = viewer_id else {
+            return Self { reveal_all: false, viewer_player_ids: HashSet::new() };
+        };
+        let reveal_all = check_superuser(app, viewer_id).await;
+        Self { reveal_all, viewer_player_ids: viewer_player_ids(app, viewer_id).await }
     }
 
     fn reveal(&self, player_id: &str) -> bool {
@@ -274,10 +269,6 @@ impl BriefAnonymizer {
 
     pub fn apply<T: AnonRow>(&self, rows: &mut [T]) {
         for row in rows.iter_mut() {
-            // The raw opt-in bit, before the privilege check overwrites it. A revealed row keeps
-            // its real name but must still report that the public sees "Anonymous" here, otherwise
-            // a player who just anonymized themselves sees their own name and assumes the toggle
-            // did nothing.
             let hidden = row.is_anonymous();
             if hidden && !self.reveal(row.row_id()) {
                 row.mask();
@@ -290,10 +281,22 @@ impl BriefAnonymizer {
 
     pub fn retain_visible<T: AnonRow>(&self, rows: &mut Vec<T>) {
         rows.retain(|row| !(row.is_anonymous() && !self.reveal(row.row_id())));
-        // The retained rows still carry the raw flag; let apply settle both flags so the two entry
-        // points cannot drift.
         self.apply(rows);
     }
+}
+
+async fn viewer_player_ids(app: &AppData, viewer_id: i64) -> HashSet<String> {
+    let viewer_id = viewer_id.to_string();
+    sqlx::query_scalar::<_, String>(
+        "SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1",
+    )
+    .bind(&viewer_id)
+    .fetch_all(&*app.pool)
+    .await
+    .unwrap_or_default()
+    .into_iter()
+    .chain(std::iter::once(viewer_id))
+    .collect()
 }
 
 async fn is_community_admin_of_server(app: &AppData, user_id: i64, server_id: &str) -> bool {
@@ -369,7 +372,6 @@ impl<'a> FromRequest<'a> for OptionalAnonymousTokenBearer {
             return Ok(Self(None));
         };
 
-        // Explicitly only true if we know its user == player_id, or user == superuser, or user == community admin
         let authorized = check_player_anonymization_internal(data, player_id, server_id, &user_token)
             .await
             .map_err(|status| poem::Error::from_string("Access forbidden", status))?;
@@ -465,7 +467,7 @@ pub fn retain_peaks<T: PartialEq + Clone>(points: Vec<T>, max_points: usize,
             result.push(max_point.clone());
         }
         if chunk.len() > 1 {
-            result.push(chunk[chunk.len() - 1].clone()); // Last point
+            result.push(chunk[chunk.len() - 1].clone());
         }
     }
     result
@@ -487,7 +489,7 @@ impl PgIntervalNumber for Option<PgInterval> {
 }
 
 pub fn pg_interval_to_f64(interval: PgInterval) -> f64 {
-    let months_to_seconds = (interval.months as f64) * 30.0 * 86400.0; // Approximate month length
+    let months_to_seconds = (interval.months as f64) * 30.0 * 86400.0;
     let days_to_seconds = (interval.days as f64) * 86400.0;
     let micros_to_seconds = (interval.microseconds as f64) / 1_000_000.0;
 
@@ -635,7 +637,6 @@ pub async fn update_online_brief(
     }
 }
 
-/// The one HTTP client every outbound call shares.
 pub fn http_client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
@@ -964,7 +965,6 @@ where
     Ok(CachedResult::new_data(result))
 }
 
-/// Evicts a `cached_response` entry from both tiers, so the next request recomputes it.
 pub async fn drop_cached_response(cache: &FastCache, key: &str) {
     cache.memory.invalidate(key).await;
     if let Ok(mut conn) = cache.redis_pool.get().await {
@@ -1063,7 +1063,6 @@ mod anonymizer_tests {
 
     #[test]
     fn reveal_all_unmasks_every_row() {
-        // reveal_all stands in for superuser / community-admin of the server.
         let mut rows = vec![session("111", "RealName", true)];
         anonymizer(true, &["999"]).apply(&mut rows);
 
@@ -1092,8 +1091,6 @@ mod anonymizer_tests {
 
     #[test]
     fn retain_visible_settles_both_flags_on_the_rows_it_keeps() {
-        // The map top-players search path filters instead of masking; the rows that survive must
-        // come out with the same flag pairing apply() produces, not the raw opt-in bit.
         let mut rows = vec![
             session("111", "RealName", true),
             session("222", "Public", false),

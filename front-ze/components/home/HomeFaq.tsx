@@ -7,7 +7,6 @@ import {Community} from "types/community";
 
 const DISCORD_URL = "https://goes.queeniemella.cc/s/discord-zegraph";
 
-// CS2 first, then CS:GO, then CS:S. Games with no live server are omitted.
 const GAME_ORDER = ["730_cs2", "730_csgo", "240"];
 
 function gameLabels(communities: Community[]): string[] {
@@ -31,7 +30,6 @@ function richToPlain(node: React.ReactNode): string {
 
 const answerClass = "text-sm text-muted-foreground leading-relaxed";
 
-// A bullet like "Label: description" renders its label emphasised.
 function OwnerBullet({text}: {text: string}) {
     const idx = text.indexOf(": ");
     return <li className="flex gap-2">

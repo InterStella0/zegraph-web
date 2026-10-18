@@ -30,6 +30,7 @@ use dotenv::dotenv;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use crate::routers::maps::MapApi;
+use crate::routers::global_maps::GlobalMapApi;
 use crate::routers::misc::{HealthMonitor, LiveEventHub, MiscApi};
 use crate::routers::radars::RadarApi;
 use core::updater::*;
@@ -127,6 +128,7 @@ fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
         PlayerApi,
         GraphApi,
         MapApi,
+        GlobalMapApi,
         RadarApi,
         MiscApi,
         AccountsApi,
@@ -149,7 +151,6 @@ fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
         .server("https://zegraph.xyz/data/api")
 }
 
-/// Routes mounted outside the OpenAPI service, so absent from the spec.
 const NON_SPEC_PATTERNS: &[&str] = &["/mcp"];
 
 fn build_app(data: AppData, environment: &str, swagger_ui_enabled: bool) -> impl poem::Endpoint + use<> {
@@ -162,15 +163,12 @@ fn build_app(data: AppData, environment: &str, swagger_ui_enabled: bool) -> impl
         let ui = poem::endpoint::make_sync(move |_| poem::web::Html(html.clone()));
         route = route.nest("/ui", ui);
     }
-    // MCP tools are built from this second copy of the API's spec and dispatch to it in-process. It
-    // carries the app data but none of the outer middleware, so tool calls are logged and counted
-    // once, as `/mcp`.
     let mcp_service = build_api_service();
     let mcp_spec = mcp_service.spec();
     let mcp_api = Route::new().nest("/", mcp_service).data(data.clone());
     route = route.at("/mcp", McpEndpoint::new(mcp_api, &mcp_spec, data.clone()));
     route.nest("/", api_service)
-        .with(Cors::new()) // 600MB limit for large file uploads
+        .with(Cors::new())
         .with(PatternLogger::new(PatternTable::from_spec(&mcp_spec, NON_SPEC_PATTERNS)))
         .with(CookieSession::new(CookieConfig::default()))
         .data(data)
@@ -251,7 +249,6 @@ async fn run_main() {
 
     let live_events = Arc::new(LiveEventHub::new());
 
-    // Hour-chunked player count cache for short-span graph queries (memory only).
     let count_chunk_cache = Arc::new(Cache::builder()
         .time_to_live(Duration::from_secs(2 * DAY))
         .max_capacity(8192)
@@ -392,7 +389,6 @@ async fn init_precalculate(port: &str){
         });
     }
 }
-/// HTTP-level tests for the assembled app.
 #[cfg(test)]
 mod route_tests {
     use super::*;
@@ -405,9 +401,6 @@ mod route_tests {
 
     const TEST_SECRET: &str = "route-tests-secret";
 
-    /// `parse_user_from_token` reads `NEXTAUTH_SECRET` through `get_env`, which panics when unset,
-    /// and it does so on every call rather than once at startup. Tests share one process and run on
-    /// multiple threads, so the variable is set exactly once here instead of per test.
     fn init_env() {
         static ONCE: Once = Once::new();
         ONCE.call_once(|| unsafe {
@@ -417,8 +410,6 @@ mod route_tests {
 
     fn client() -> TestClient<impl poem::Endpoint> {
         init_env();
-        // "PRODUCTION" + swagger disabled so the swagger UI is not mounted; these tests assert
-        // on the API surface.
         TestClient::new(build_app(fake_app_data(), "PRODUCTION", false))
     }
 
@@ -438,7 +429,6 @@ mod route_tests {
         let claims = Claims {
             sub: "76561198000000001".to_string(),
             name: "route-test-user".to_string(),
-            // Far enough out that the suite cannot fail by sitting on a slow machine.
             exp: (chrono::Utc::now().timestamp() + 3600) as usize,
             iss: "ze-graph".to_string(),
         };
@@ -450,7 +440,6 @@ mod route_tests {
         .expect("minting a test token should not fail")
     }
 
-    /// Routes that require a bearer token and reject before touching the database.
     const PROTECTED: &[(&str, &str)] = &[
         ("GET", "/accounts/me"),
         ("GET", "/accounts/me/communities"),
@@ -505,9 +494,6 @@ mod route_tests {
         }
     }
 
-    /// `period` is declared before the player extractor, so a bad value is rejected by request
-    /// validation before any database lookup; a valid one goes on to the lookup, which 404s
-    /// against the dead test pool.
     #[tokio::test]
     async fn player_routes_validate_period_before_the_database() {
         let cli = client();
@@ -536,8 +522,6 @@ mod route_tests {
         }
     }
 
-    /// The map routes declare `period` before the map extractor too, so the same split holds: a bad
-    /// value is a 400 from request validation, a valid one reaches the map lookup and 404s.
     #[tokio::test]
     async fn map_routes_validate_period_before_the_database() {
         let cli = client();
@@ -571,9 +555,22 @@ mod route_tests {
         );
     }
 
-    /// The bulk lookups reject a missing, blank or over-long key list in request validation; a
-    /// valid list goes on to the server lookup (404 against the dead pool) or, for the unscoped
-    /// pfp route, to the handler.
+    #[tokio::test]
+    async fn global_map_routes_404_unknown_maps() {
+        let cli = client();
+        for route in [
+            "info", "analyze", "heat-servers", "sessions?page=0", "top_players", "sessions_distribution",
+            "player_types", "musics",
+        ] {
+            let path = format!("/maps/ze_test_map_v1/{route}");
+            assert_eq!(
+                send(&cli, "GET", &path, None).await,
+                poem::http::StatusCode::NOT_FOUND,
+                "GET {path} should reach the map lookup and 404",
+            );
+        }
+    }
+
     #[tokio::test]
     async fn bulk_routes_validate_key_list() {
         let cli = client();
@@ -603,13 +600,13 @@ mod route_tests {
         );
     }
 
-    /// Documents the shape of the public route surface. Unlike the test above this cannot detect
-    /// the poem-openapi regression, but it does catch a route being renamed or dropped outright.
     #[test]
     fn spec_exposes_expected_routes() {
         let paths = spec_paths();
         for expected in [
             "/servers/{server_id}/maps/{map_name}/info",
+            "/maps/{map_name}/info",
+            "/maps/{map_name}/heat-servers",
             "/graph/{server_id}/unique_players/players/{player_id}/sessions/{session_id}",
             "/players/{player_id}/profile",
             "/players/{player_id}/sessions",
@@ -619,10 +616,6 @@ mod route_tests {
         }
     }
 
-    /// The unit tests in `uri_pattern` cover the matcher itself; this one runs the *real* set of
-    /// ~150 patterns through it, which is where overlaps between routers show up. The long path is
-    /// the case that used to panic: `uri-pattern-matcher` indexed its parts vector by the
-    /// candidate's segment number, so any path longer than a pattern went out of bounds.
     #[test]
     fn pattern_table_resolves_real_routes() {
         let table = PatternTable::from_spec(&build_api_service().spec(), NON_SPEC_PATTERNS);
@@ -632,6 +625,9 @@ mod route_tests {
             ("/servers/1/maps/ze_test_map_v1/info", "/servers/{server_id}/maps/{map_name}/info"),
             ("/maps/all/3d", "/maps/all/3d"),
             ("/maps/ze_test_map_v1/3d", "/maps/{map_name}/3d"),
+            ("/maps/autocomplete", "/maps/autocomplete"),
+            ("/maps/ze_test_map_v1/info", "/maps/{map_name}/info"),
+            ("/maps/ze_test_map_v1/top_players", "/maps/{map_name}/top_players"),
             ("/graph/1/get_regions", "/graph/{server_id}/get_regions"),
             ("/servers/1/maps/images", "/servers/{server_id}/maps/images"),
             ("/servers/1/maps/ze_test_map_v1/images", "/servers/{server_id}/maps/{map_name}/images"),
@@ -654,11 +650,6 @@ mod route_tests {
         }
     }
 
-    /// The two rejection codes differ by design of the layering, not by intent: a *missing*
-    /// `Authorization` header is rejected by poem-openapi's security-scheme check before the
-    /// extractor runs (401), while a header that is present but does not yield a valid token is
-    /// rejected by `BearerAuthorization::from_request` itself (403). Both are pinned so a change to
-    /// either layer is visible rather than silent.
     const MISSING_TOKEN: poem::http::StatusCode = poem::http::StatusCode::UNAUTHORIZED;
     const INVALID_TOKEN: poem::http::StatusCode = poem::http::StatusCode::FORBIDDEN;
 
@@ -847,7 +838,7 @@ mod route_tests {
         let cli = client();
         let (_, body) = mcp(&cli, rpc(1, "tools/list", serde_json::Value::Null)).await;
         let tools = body["result"]["tools"].as_array().expect("a tools array");
-        assert_eq!(tools.len(), 41);
+        assert_eq!(tools.len(), 48);
         for tool in tools {
             assert_eq!(tool["inputSchema"]["type"], "object", "{tool:#}");
             assert!(tool["description"].as_str().is_some_and(|d| !d.is_empty()), "{tool:#}");
@@ -858,9 +849,6 @@ mod route_tests {
         }
     }
 
-    /// A route opts into MCP with `tag = "ApiTags::Mcp"`, and the tool list is derived from the spec.
-    /// Anything that stops a tagged route becoming a tool (no `operation_id`, not a GET, a param type
-    /// the derivation cannot send) is only logged at startup, so it is caught here instead.
     #[test]
     fn mcp_tagged_routes_all_become_tools() {
         let spec: serde_json::Value = serde_json::from_str(&build_api_service().spec()).unwrap();
@@ -875,8 +863,6 @@ mod route_tests {
         assert!(tools.iter().any(|t| t.name == "list_servers"), "INSTRUCTIONS points clients at list_servers");
     }
 
-    /// Proves tool calls reach the real route in-process: the player lookup runs, misses against
-    /// the dead pool, and the route's 404 comes back as a tool error rather than a protocol error.
     #[tokio::test]
     async fn mcp_tool_call_dispatches_to_route() {
         let cli = client();
@@ -891,8 +877,6 @@ mod route_tests {
         assert!(text.to_lowercase().contains("not found"), "got {text:?}");
     }
 
-    /// The hand-written radar tool is listed next to the derived ones and resolves its server before
-    /// touching QGIS; against the dead test pool that lookup misses.
     #[tokio::test]
     async fn mcp_radar_tool_is_listed_and_validates() {
         let cli = client();

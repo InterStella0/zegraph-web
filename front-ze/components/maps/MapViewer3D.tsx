@@ -683,7 +683,6 @@ function WalkControls({
       if (e.code === 'Space') {
         if (!pressed) return
         if (playerState.current.isOnLadder) {
-          // Jump off ladder
           playerState.current.isOnLadder = false
           playerState.current.velocity.y = JUMP_FORCE
         } else if (playerState.current.isOnGround && !playerState.current.isCrouching) {
@@ -703,14 +702,13 @@ function WalkControls({
 
     const raycaster = new Raycaster()
     const downVector = new Vector3(0, -1, 0)
-    const frameCount = state.clock.elapsedTime * 60 // Approximate frame number
+    const frameCount = state.clock.elapsedTime * 60
 
     const shouldRaycast = Math.floor(frameCount) !== raycastCache.current.frame
 
     if (shouldRaycast) {
       raycastCache.current.frame = Math.floor(frameCount)
 
-      // Ladder detection - check in front of player
       const forwardDir = new Vector3()
       camera.getWorldDirection(forwardDir)
       forwardDir.y = 0
@@ -718,7 +716,7 @@ function WalkControls({
 
       const ladderRaycaster = new Raycaster()
       ladderRaycaster.set(camera.position, forwardDir)
-      ladderRaycaster.far = 0.8 // Check 0.8 units in front
+      ladderRaycaster.far = 0.8
       const ladderIntersects = ladderRaycaster.intersectObjects(scene.children, true)
 
       raycastCache.current.ladderCheck.isNearLadder = ladderIntersects.some((hit) => {
@@ -751,9 +749,6 @@ function WalkControls({
       playerState.current.velocity.y = 0
     }
 
-    // Dismount ladder if:
-    // 1. Moving backward
-    // 2. No longer near a ladder (moved away sideways)
     if (playerState.current.isOnLadder) {
       if (moveState.current.backward || !isNearLadder) {
         playerState.current.isOnLadder = false
@@ -762,22 +757,15 @@ function WalkControls({
 
     playerState.current.isOnGround = raycastCache.current.groundCheck.isOnGround
 
-    // Handle gravity and ground snapping
     if (playerState.current.isOnLadder) {
-      // On ladder - no gravity, allow vertical movement
       playerState.current.velocity.y = 0
 
-      // Dismount if reached ground
       if (playerState.current.isOnGround && moveState.current.backward) {
         playerState.current.isOnLadder = false
       }
     } else if (playerState.current.isOnGround) {
       const groundY = raycastCache.current.groundCheck.groundY
 
-      // Snap to ground if:
-      // 1. Just landed (velocity.y < 0)
-      // 2. Crouch state changed (targetHeight changed)
-      // 3. Ground height changed (walking on slope)
       const heightChanged = Math.abs(targetHeight - playerState.current.previousTargetHeight) > 0.01
       const groundChanged = Math.abs(groundY - playerState.current.previousGroundY) > 0.01
 
@@ -788,7 +776,6 @@ function WalkControls({
         playerState.current.previousTargetHeight = targetHeight
       }
     } else {
-      // In the air - apply gravity
       playerState.current.velocity.y += GRAVITY * delta
     }
 
@@ -802,9 +789,7 @@ function WalkControls({
 
     const movement = new Vector3()
 
-    // Different movement on ladder
     if (playerState.current.isOnLadder) {
-      // On ladder: W/S = up/down, A/D = left/right
       if (moveState.current.forward) movement.y += 1
       if (moveState.current.backward) movement.y -= 1
       if (moveState.current.left) movement.add(right.clone().multiplyScalar(0.5))
@@ -814,11 +799,9 @@ function WalkControls({
         movement.normalize()
         movement.multiplyScalar(LADDER_CLIMB_SPEED * speed * delta)
 
-        // Apply movement directly on ladder (no collision detection)
         camera.position.add(movement)
       }
     } else {
-      // Normal movement
       if (moveState.current.forward) movement.add(direction)
       if (moveState.current.backward) movement.sub(direction)
       if (moveState.current.left) movement.add(right)
@@ -843,13 +826,11 @@ function WalkControls({
           const PLAYER_RADIUS = 0.3
           const COLLISION_DISTANCE = 0.6
 
-          // Test fewer points for better performance (reduced from 3x4 to 2x2)
           const heights = [0.2, targetHeight * 0.6]
-          const testAngles = [0, Math.PI / 2] // Just forward and sideways
+          const testAngles = [0, Math.PI / 2]
 
           const movementDirection = movement.clone().normalize()
 
-          // Check collisions at different heights and angles around the player
           for (const height of heights) {
             for (const angle of testAngles) {
               const offset = new Vector3(
@@ -864,7 +845,6 @@ function WalkControls({
               const collisions = raycaster.intersectObjects(scene.children, true)
 
               if (collisions.length > 0 && collisions[0].distance < COLLISION_DISTANCE) {
-                // Check if we hit a ladder
                 const obj = collisions[0].object
                 const isLadder =
                   obj.name.toLowerCase().includes('ladder') ||
@@ -873,9 +853,7 @@ function WalkControls({
 
                 if (isLadder) {
                   hitLadder = true
-                  // Don't block movement into ladders - let player walk through to attach
                 } else {
-                  // Hit a non-ladder object - block movement
                   canMove = false
                   break
                 }
@@ -885,7 +863,6 @@ function WalkControls({
           }
         }
 
-        // If we walked into a ladder, attach to it
         if (hitLadder && moveState.current.forward && !playerState.current.isOnLadder) {
           playerState.current.isOnLadder = true
           playerState.current.velocity.y = 0
@@ -898,7 +875,6 @@ function WalkControls({
       }
     }
 
-    // Apply vertical velocity (except when on ladder, which handles Y directly)
     if (!playerState.current.isOnLadder) {
       camera.position.y += playerState.current.velocity.y * delta
     }
@@ -989,7 +965,6 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
     const originalError = console.error
     console.error = (...args: any[]) => {
       if (typeof args[0] === 'string' && args[0].includes('The user has exited the lock before this request was completed')) {
-        // Suppress SecurityError
         return
       }
       originalError.apply(console, args)
@@ -1002,7 +977,6 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
   const handleControlModeChange = (mode: ControlMode) => {
     setControlMode(mode)
 
-    // Exit pointer lock when switching to orbit mode
     if (mode === 'orbit' && document.pointerLockElement) {
       document.exitPointerLock()
     }
@@ -1073,7 +1047,6 @@ export default function MapViewer3D({ mapName, resType, modelMetadata }: MapView
         break;
     }
     const handleWheel = (e: WheelEvent) => {
-      // Only intercept scroll when pointer lock is active
       if (controlMode !== 'orbit' && document.pointerLockElement) {
         e.preventDefault()
         setMoveSpeed((prev) => {
