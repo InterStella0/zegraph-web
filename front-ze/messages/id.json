@@ -491,7 +491,7 @@
         "neverVerified": "Total ini belum pernah diverifikasi.",
         "recalculatingPlaytime": "Menghitung ulang waktu bermain…",
         "playtimeOutOfDate": "Waktu bermain sudah kedaluwarsa",
-        "staleNoticeBody": "Anda telah bermain sejak angka ini dihitung, sehingga waktu bermain dan peringkat mungkin terlalu rendah. {verified}",
+        "staleNoticeBody": "Pemain ini telah bermain sejak angka ini dihitung, sehingga waktu bermain dan peringkat mungkin terlalu rendah. {verified}",
         "freshFiguresNote": "Angka terbaru akan muncul secara otomatis."
       },
       "communities": {

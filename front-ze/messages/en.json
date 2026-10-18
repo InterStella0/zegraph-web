@@ -491,7 +491,7 @@
         "neverVerified": "These totals have never been verified.",
         "recalculatingPlaytime": "Recalculating playtime…",
         "playtimeOutOfDate": "Playtime is out of date",
-        "staleNoticeBody": "You have played since these numbers were worked out, so playtime and rank may be too low. {verified}",
+        "staleNoticeBody": "This player has played since these numbers were worked out, so playtime and rank may be too low. {verified}",
         "freshFiguresNote": "Fresh figures will appear automatically."
       },
       "communities": {

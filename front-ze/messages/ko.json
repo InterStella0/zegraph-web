@@ -491,7 +491,7 @@
         "neverVerified": "이 합계는 아직 확인된 적이 없습니다.",
         "recalculatingPlaytime": "플레이 시간 재계산 중…",
         "playtimeOutOfDate": "플레이 시간이 오래되었습니다",
-        "staleNoticeBody": "이 수치가 계산된 이후 플레이하셨으므로 플레이 시간과 순위가 너무 낮을 수 있습니다. {verified}",
+        "staleNoticeBody": "이 수치가 계산된 이후 이 플레이어가 플레이했으므로 플레이 시간과 순위가 너무 낮을 수 있습니다. {verified}",
         "freshFiguresNote": "최신 수치가 자동으로 표시됩니다."
       },
       "communities": {

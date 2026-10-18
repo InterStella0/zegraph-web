@@ -491,7 +491,7 @@
         "neverVerified": "Estos totales nunca se han verificado.",
         "recalculatingPlaytime": "Recalculando tiempo de juego…",
         "playtimeOutOfDate": "El tiempo de juego está desactualizado",
-        "staleNoticeBody": "Has jugado desde que se calcularon estos números, por lo que el tiempo de juego y la clasificación pueden ser demasiado bajos. {verified}",
+        "staleNoticeBody": "Este jugador ha jugado desde que se calcularon estos números, por lo que el tiempo de juego y la clasificación pueden ser demasiado bajos. {verified}",
         "freshFiguresNote": "Las cifras actualizadas aparecerán automáticamente."
       },
       "communities": {

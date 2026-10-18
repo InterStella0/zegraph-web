@@ -491,7 +491,7 @@
         "neverVerified": "这些统计数据从未被验证过。",
         "recalculatingPlaytime": "正在重新计算游戏时长…",
         "playtimeOutOfDate": "游戏时长数据已过期",
-        "staleNoticeBody": "自上次计算这些数据以来您又进行了游戏，因此游戏时长和排名可能偏低。{verified}",
+        "staleNoticeBody": "自上次计算这些数据以来，该玩家又进行了游戏，因此游戏时长和排名可能偏低。{verified}",
         "freshFiguresNote": "最新数据将自动显示。"
       },
       "communities": {
