@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use poem_openapi::{Enum, Object, Union};
+use serde::{Deserialize, Serialize};
 use crate::api_models::maps::MapRank;
 use crate::api_models::misc::UserAnonymization;
 use crate::api_models::servers::BaseCommunity;
@@ -450,6 +451,26 @@ impl PlayerProfilePicture {
     }
 }
 
+/// Cosmetics a player has equipped on their Steam profile. Every URL is absolute; slots the
+/// player has nothing equipped in are null.
+#[derive(Object, Serialize, Deserialize, Clone, Default)]
+pub struct SteamProfileItems{
+    /// Transparent PNG (often animated) drawn over the avatar, slightly larger than it.
+    pub avatar_frame: Option<String>,
+    /// Animated GIF that Steam shows in place of the static avatar.
+    pub animated_avatar: Option<String>,
+    pub profile_background: Option<SteamProfileBackground>,
+    pub mini_profile_background: Option<SteamProfileBackground>,
+}
+
+/// A Steam profile background: a still image, plus videos when the background is animated.
+#[derive(Object, Serialize, Deserialize, Clone)]
+pub struct SteamProfileBackground{
+    pub image: String,
+    pub video_webm: Option<String>,
+    pub video_mp4: Option<String>,
+}
+
 /// An autocomplete search result.
 #[derive(Object)]
 pub struct SearchPlayer{
@@ -623,6 +644,9 @@ pub struct ProfileResponse {
     pub can_manage_anonymization: bool,
     /// Only populated when `can_manage_anonymization` is true.
     pub anonymization: Option<Vec<UserAnonymization>>,
+    /// Cosmetics equipped on the user's Steam profile. Null for users this site has never recorded,
+    /// and when Steam didn't answer in time; a later request picks up the cached result.
+    pub steam_items: Option<SteamProfileItems>,
 }
 
 /// Aggregate playtime/player/country counts for a server.

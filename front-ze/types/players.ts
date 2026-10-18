@@ -139,6 +139,17 @@ export type PlayerProfilePicture = {
     full: string,
     medium: string,
 }
+export type SteamProfileBackground = {
+    image: string,
+    video_webm: string | null,
+    video_mp4: string | null,
+}
+export type SteamProfileItems = {
+    avatar_frame: string | null,
+    animated_avatar: string | null,
+    profile_background: SteamProfileBackground | null,
+    mini_profile_background: SteamProfileBackground | null,
+}
 export type PlayerRegionTime = {
     id: number,
     name: string,
