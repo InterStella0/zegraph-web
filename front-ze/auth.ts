@@ -21,6 +21,25 @@ export interface SteamSession extends Session {
     banReason?: string | null;
 }
 
+async function fetchOwnProfile(steamId: string): Promise<SteamProfile | null> {
+    const token = jwt.sign(
+        { sub: steamId, type: 'access', name: "Unknown", iss: "ze-graph" },
+        process.env.NEXTAUTH_SECRET,
+        { expiresIn: '3m' }
+    );
+    try {
+        const response = await fetch(BACKEND_DOMAIN + '/accounts/me', {
+            headers: { "Authorization": `Bearer ${token}` },
+            cache: 'no-store',
+        })
+        const result = await response.json()
+        return result.msg === "OK" ? result.data : null
+    } catch (e) {
+        console.error('Failed to refresh Steam profile:', e)
+        return null
+    }
+}
+
 export function getAuthOptions(req?: NextRequest): AuthOptions {
     return {
         providers: req
@@ -87,9 +106,15 @@ export function getAuthOptions(req?: NextRequest): AuthOptions {
             ]
             : [],
         callbacks: {
-            jwt({ token, account, profile }) {
+            async jwt({ token, account, profile, trigger }) {
                 if (account?.provider === STEAM_PROVIDER_ID) {
                     token.steam = profile
+                }
+                // The Steam profile is copied into the token once at sign-in. SteamProfileRefresher
+                // asks for an update so a changed name or avatar reaches the navbar.
+                if (trigger === "update" && token.steam && token.sub) {
+                    const fresh = await fetchOwnProfile(token.sub)
+                    if (fresh) token.steam = fresh
                 }
                 const now = Math.floor(Date.now() / 1000);
                 // @ts-expect-error

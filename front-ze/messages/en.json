@@ -343,7 +343,7 @@
       "showingPrevious": "Showing previously calculated stats.",
       "fetchLatest": "Fetch latest",
       "refreshing": "Refreshing...",
-      "stillCalculating": "Still calculating — will update as soon as it lands."
+      "stillCalculating": "Still calculating, we will update as soon as it lands."
     },
     "rankings": {
       "title": "Player Rankings",
@@ -675,6 +675,7 @@
     "continentSubtitle": "Players location that was playing this session."
   },
   "nav": {
+    "discordCta": "Join our Discord for support or feedback",
     "communities": "Communities",
     "server": "Server",
     "players": "Players",

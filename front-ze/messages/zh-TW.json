@@ -675,6 +675,7 @@
     "continentSubtitle": "遊玩此場次的玩家所在位置。"
   },
   "nav": {
+    "discordCta": "加入我們的 Discord 取得支援或回饋",
     "communities": "社群",
     "server": "伺服器",
     "players": "玩家",

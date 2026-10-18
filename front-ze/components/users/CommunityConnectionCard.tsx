@@ -52,10 +52,11 @@ export function CommunityBadge({ community, className }: { community: ProfileCom
     );
 }
 
-function LinkedNamesPanel({ names }: { names: { name: string; total_playtime: number; is_current: boolean }[] }) {
+function LinkedNamesPanel({ names, mergeable }: { names: { name: string; total_playtime: number; is_current: boolean }[]; mergeable: boolean }) {
     const t = useTranslations('players.profile.connectionCard');
-    const [open, setOpen] = useState(false);
-    if (names.length <= 1) return null;
+    // A single name is only worth listing when it can be merged; the merge button needs it as context.
+    const [open, setOpen] = useState(mergeable);
+    if (names.length === 0 || (names.length === 1 && !mergeable)) return null;
 
     return (
         <Collapsible open={open} onOpenChange={setOpen} className="mt-2">
@@ -247,8 +248,11 @@ export default function CommunityConnectionCard({
                                         )}
                                     </div>
 
-                                    <LinkedNamesPanel names={serverPlayer.linked_names} />
-                                    {serverPlayer.mergeable_count > 0 && (
+                                    <LinkedNamesPanel
+                                        names={serverPlayer.linked_names}
+                                        mergeable={serverPlayer.mergeable_count > 0}
+                                    />
+                                    {serverPlayer.mergeable_count > 0 && serverPlayer.linked_names.length > 0 && (
                                         <MergeAccountsButton
                                             serverId={serverPlayer.server_id}
                                             serverName={serverPlayer.server_name}

@@ -707,6 +707,99 @@ async fn fetch_steam_info(steam_id: &i64) -> Result<SteamProfile, ErrorCode> {
     }
 }
 
+const PLAYERDB_USER_AGENT: &str = "ZE Graph (https://zegraph.xyz)";
+
+#[derive(Deserialize)]
+struct PlayerDbResponse {
+    success: bool,
+    data: Option<PlayerDbData>,
+}
+
+#[derive(Deserialize)]
+struct PlayerDbData {
+    player: PlayerDbPlayer,
+}
+
+#[derive(Deserialize)]
+struct PlayerDbPlayer {
+    meta: PlayerDbMeta,
+}
+
+#[derive(Deserialize)]
+struct PlayerDbMeta {
+    personaname: Option<String>,
+    profileurl: Option<String>,
+    avatar: Option<String>,
+    avatarmedium: Option<String>,
+    avatarfull: Option<String>,
+    avatarhash: Option<String>,
+}
+
+async fn fetch_playerdb_profile(steam_id: i64) -> Result<PlayerDbMeta, String> {
+    let resp = http_client()
+        .get(format!("https://playerdb.co/api/player/steam/{steam_id}"))
+        .header(reqwest::header::USER_AGENT, PLAYERDB_USER_AGENT)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let body = resp.json::<PlayerDbResponse>().await.map_err(|e| e.to_string())?;
+    match body.data {
+        Some(data) if body.success => Ok(data.player.meta),
+        _ => Err("playerdb has no profile".to_string()),
+    }
+}
+
+/// Re-pulls the signed-in user's name and avatar from playerdb.co once a week. The row is only
+/// written on first login otherwise, so the navbar avatar would never change.
+async fn refresh_steam_user_if_stale(data: &AppData, user_id: i64) {
+    let stale = sqlx::query_scalar!(
+        r#"SELECT (refreshed_at IS NULL OR refreshed_at < NOW() - INTERVAL '7 days') AS "stale!"
+           FROM website.steam_user WHERE user_id = $1"#,
+        user_id
+    )
+    .fetch_optional(&*data.pool)
+    .await;
+    if !matches!(stale, Ok(Some(true))) {
+        return;
+    }
+
+    let result = match fetch_playerdb_profile(user_id).await {
+        Ok(meta) => sqlx::query!(
+            "UPDATE website.steam_user SET
+                persona_name = COALESCE($2, persona_name),
+                profile_url = COALESCE($3, profile_url),
+                avatar = COALESCE($4, avatar),
+                avatar_medium = COALESCE($5, avatar_medium),
+                avatar_full = COALESCE($6, avatar_full),
+                avatar_hash = COALESCE($7, avatar_hash),
+                refreshed_at = NOW()
+             WHERE user_id = $1",
+            user_id,
+            meta.personaname,
+            meta.profileurl,
+            meta.avatar,
+            meta.avatarmedium,
+            meta.avatarfull,
+            meta.avatarhash,
+        )
+        .execute(&*data.pool)
+        .await,
+        Err(e) => {
+            tracing::warn!("Failed to refresh Steam profile {user_id} from playerdb: {e}");
+            // Try again in a day rather than on every request while playerdb is unreachable.
+            sqlx::query!(
+                "UPDATE website.steam_user SET refreshed_at = NOW() - INTERVAL '6 days' WHERE user_id = $1",
+                user_id
+            )
+            .execute(&*data.pool)
+            .await
+        }
+    };
+    if let Err(e) = result {
+        tracing::error!("Failed to update refreshed Steam profile {user_id}: {e}");
+    }
+}
+
 async fn fetch_steam_name(data: &AppData, steam_id: &str) -> Result<Option<SteamName>, String> {
     let Ok(steam_user_id) = steam_id.parse::<i64>() else {
         return Err(format!("{steam_id} is not a valid Steam ID"));
@@ -828,8 +921,9 @@ impl AccountsApi {
                 primary_clan_id,
                 time_created,
                 persona_state_flags,
-                comment_permission)
-             VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING
+                comment_permission,
+                refreshed_at)
+             VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW()) RETURNING
              user_id,
                 community_visibility_state AS \"community_visibility_state: CommunityVisibilityState\",
                 profile_state,
@@ -867,6 +961,7 @@ impl AccountsApi {
     /// The signed-in user's own Steam profile, including their superuser/map-manager role flags.
     #[oai(path="/accounts/me", method="get")]
     async fn get_user_info(&self, Data(data): Data<&AppData>, TokenBearer(user_token): TokenBearer) -> Response<SteamProfile>{
+        refresh_steam_user_if_stale(data, user_token.id).await;
         let Ok(user) = sqlx::query_as!(DbSteam,
             "SELECT user_id,
                 community_visibility_state AS \"community_visibility_state: CommunityVisibilityState\",

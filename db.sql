@@ -294,7 +294,9 @@ CREATE TABLE website.steam_user (
     primary_clan_id TEXT NOT NULL,
     time_created BIGINT NOT NULL,
     persona_state_flags INTEGER NOT NULL,
-    comment_permission BOOLEAN NOT NULL
+    comment_permission BOOLEAN NOT NULL,
+    -- Last playerdb.co pull of name/avatar; NULL means never, so /accounts/me refreshes it.
+    refreshed_at TIMESTAMPTZ
 );
 
 CREATE TABLE website.user_favorite_maps (

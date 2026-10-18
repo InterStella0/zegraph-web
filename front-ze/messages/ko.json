@@ -675,6 +675,7 @@
     "continentSubtitle": "이 세션을 플레이하던 플레이어의 위치."
   },
   "nav": {
+    "discordCta": "지원 및 피드백은 Discord에서",
     "communities": "커뮤니티",
     "server": "서버",
     "players": "플레이어",

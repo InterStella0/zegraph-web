@@ -675,6 +675,7 @@
     "continentSubtitle": "このセッションをプレイしていたプレイヤーの位置情報。"
   },
   "nav": {
+    "discordCta": "サポートやフィードバックはDiscordへ",
     "communities": "コミュニティ",
     "server": "サーバー",
     "players": "プレイヤー",
