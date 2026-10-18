@@ -11,9 +11,10 @@ const CELLS = 7;
 interface ServerSessionStripProps {
     sessions: ProfileRecentSession[];
     scaleMax: number;
+    color?: string;
 }
 
-export default function ServerSessionStrip({ sessions, scaleMax }: ServerSessionStripProps) {
+export default function ServerSessionStrip({ sessions, scaleMax, color = "rgb(236, 72, 153)" }: ServerSessionStripProps) {
     const t = useTranslations('players.profile.connectionCard');
     const toDayjs = useLocalDayjs();
 
@@ -42,8 +43,8 @@ export default function ServerSessionStrip({ sessions, scaleMax }: ServerSession
                             <Tooltip key={session.started_at}>
                                 <TooltipTrigger asChild>
                                     <div
-                                        className="size-4 rounded-[3px] bg-pink-500 transition-opacity hover:ring-1 hover:ring-pink-500/60"
-                                        style={{ opacity: 0.18 + 0.82 * Math.min(session.duration / scaleMax, 1) }}
+                                        className="size-4 rounded-[3px] transition-opacity hover:ring-1 hover:ring-foreground/40"
+                                        style={{ backgroundColor: color, opacity: 0.18 + 0.82 * Math.min(session.duration / scaleMax, 1) }}
                                         aria-label={cellLabel}
                                     />
                                 </TooltipTrigger>

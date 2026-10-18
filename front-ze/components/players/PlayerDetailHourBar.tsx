@@ -18,7 +18,7 @@ import type { PlayerSessionTime } from "./PlayTimeHeatmap";
 import { PeriodChip, splitPeriod, splitRange, usePlayerPeriod } from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 import { PlayerStatSuspense } from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 
-function LabeledSelect({ label, value, onValueChange, options }: {
+export function LabeledSelect({ label, value, onValueChange, options }: {
     label: string, value: string, onValueChange: (value: string) => void, options: [string, ReactNode][],
 }) {
     return (

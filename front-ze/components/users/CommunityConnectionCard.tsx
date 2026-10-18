@@ -1,34 +1,55 @@
 'use client';
 
-import { ProfileCommunityDetail, UserAnonymization } from "types/community";
-import { getServerAvatarText } from "../ui/CommunitySelector";
-import { secondsToHours } from "utils/generalUtils";
-import { HoverPrefetchLink } from "components/ui/HoverPrefetchLink";
-import { Card, CardContent } from "components/ui/card";
+import { UserAnonymization } from "types/community";
+import { formatNumber, secondsToHours } from "utils/generalUtils";
 import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 import { Switch } from "components/ui/switch";
 import { Label } from "components/ui/label";
-import { Separator } from "components/ui/separator";
 import { Badge } from "components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
 import { Button } from "components/ui/button";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "components/ui/dialog";
-import { Clock, ChevronDown, Info, Loader2, Merge } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Crosshair, Info, Loader2, Merge } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { color } from "chart.js/helpers";
 import { fetchApiUrl } from "utils/generalUtils";
+import { useLocalDayjs } from "lib/hooks/useHydrated";
+import { cn } from "components/lib/utils";
 import ServerSessionStrip from "./ServerSessionStrip";
+import { ProfileCommunity, useProfileCommunities } from "./ProfileContext";
+import { COLLAPSE, SWAP, stagger } from "./profileMotion";
 
 interface CommunityConnectionCardProps {
-    community: ProfileCommunityDetail;
+    community: ProfileCommunity;
+    share: number;
     settings: UserAnonymization | null;
     onToggleAnonymize: (communityId: string | number, type: "location" | "anonymous", value: boolean, settings: UserAnonymization | null) => void;
     showAnonymizeToggle?: boolean;
     scaleMax: number;
+    defaultOpen?: boolean;
+    index?: number;
+}
+
+export const CONNECTION_COLUMNS = "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] md:grid-cols-[2.5rem_minmax(0,1.2fr)_minmax(0,1fr)_7rem_1rem] items-center gap-x-4";
+
+export function CommunityBadge({ community, className }: { community: ProfileCommunity, className?: string }) {
+    return (
+        <Avatar className={cn("size-10", className)}>
+            {community.iconUrl && <AvatarImage src={community.iconUrl} alt={community.name} />}
+            <AvatarFallback
+                className="text-xs font-bold"
+                style={{ backgroundColor: color(community.color).alpha(0.18).rgbString(), color: community.color }}
+            >
+                {community.tag}
+            </AvatarFallback>
+        </Avatar>
+    );
 }
 
 function LinkedNamesPanel({ names }: { names: { name: string; total_playtime: number; is_current: boolean }[] }) {
@@ -42,7 +63,7 @@ function LinkedNamesPanel({ names }: { names: { name: string; total_playtime: nu
                 {t('linkedNames', { count: names.length })}
                 <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
             </CollapsibleTrigger>
-            <CollapsibleContent>
+            <CollapsibleContent className={COLLAPSE}>
                 <div className="mt-2 space-y-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
                     <div className="flex flex-wrap items-center gap-2">
                         {names.map((n) => (
@@ -118,57 +139,138 @@ function MergeAccountsButton({ serverId, serverName, count }: { serverId: string
 
 export default function CommunityConnectionCard({
     community,
+    share,
     settings,
     onToggleAnonymize,
     showAnonymizeToggle = false,
     scaleMax,
+    defaultOpen = false,
+    index = 0,
 }: CommunityConnectionCardProps) {
     const t = useTranslations('players.profile.connectionCard');
-    const totalPlaytime = community.servers.reduce(
-        (sum, s) => sum + s.player.total_playtime, 0
-    );
-    const isOnlineHere = community.servers.some(s => s.is_online);
-    const hasAnyPlaytime = totalPlaytime > 0;
+    const tFocus = useTranslations('players.profile.focus');
+    const locale = useLocale();
+    const toDayjs = useLocalDayjs();
+    const { focused, setFocused } = useProfileCommunities();
+    const [open, setOpen] = useState(defaultOpen);
+    const { detail } = community;
+    const isOnlineHere = detail.servers.some(s => s.is_online);
+    const hasAnyPlaytime = community.playtime > 0;
+    const lastPlayed = detail.servers
+        .map(s => s.last_played)
+        .filter(Boolean)
+        .sort()
+        .at(-1);
+    const isFocused = focused === community.id;
 
     return (
-        <Card className="border-border/40 bg-card/50 backdrop-blur-xl">
-            <CardContent className="p-4 sm:p-6">
-                <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <Avatar className="h-12 w-12 sm:h-14 sm:w-14">
-                                {community.icon_url && (
-                                    <AvatarImage src={community.icon_url} alt={community.name} />
-                                )}
-                                <AvatarFallback className="text-base sm:text-lg font-bold">
-                                    {getServerAvatarText(community.name)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                                <h3 className="text-base sm:text-xl font-semibold break-words">
-                                    {community.name}
-                                </h3>
-                                <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                    <div className="flex items-center gap-1">
-                                        <Clock className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-sm text-muted-foreground">
-                                            {secondsToHours(totalPlaytime)} {t('hoursUnit')}
+        <Collapsible
+            open={open}
+            onOpenChange={setOpen}
+            className={cn("border-t border-border/60 first:border-t-0", SWAP)}
+            style={stagger(index, 60)}
+        >
+            <CollapsibleTrigger className={cn(CONNECTION_COLUMNS, "w-full px-4 py-3 text-left transition-colors hover:bg-muted/40")}>
+                <CommunityBadge community={community} />
+                <span className="block min-w-0">
+                    <span className="block truncate font-semibold">{community.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground" suppressHydrationWarning>
+                        {t('serverCount', { count: detail.servers.length })}
+                        {" · "}
+                        {isOnlineHere
+                            ? <span className="text-green-500">{t('onlineNow')}</span>
+                            : lastPlayed
+                                ? t('lastPlayed', { time: toDayjs(lastPlayed).fromNow() })
+                                : t('noPlaytime')}
+                    </span>
+                </span>
+                <span className="col-span-2 col-start-2 row-start-2 mt-2 block min-w-0 md:col-span-1 md:col-start-auto md:row-start-auto md:mt-0">
+                    <span className="block text-sm">
+                        <span className="font-semibold tabular-nums">{secondsToHours(community.playtime, locale)}</span>
+                        <span className="text-xs text-muted-foreground"> {t('hoursUnit')} · {formatNumber(share * 100, 1, locale)}%</span>
+                    </span>
+                    <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                        <span className="block h-full origin-left rounded-full motion-safe:animate-bar-grow" style={{ width: `${share * 100}%`, backgroundColor: community.color }} />
+                    </span>
+                </span>
+                <span className="block text-right">
+                    {detail.rank ? (
+                        <>
+                            <span className="block font-bold tabular-nums" style={{ color: community.color }}>
+                                #{formatNumber(detail.rank.rank, 0, locale)}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                                {t('rankOf', { total: formatNumber(detail.rank.total_players, 0, locale) })}
+                            </span>
+                        </>
+                    ) : (
+                        <span className="block text-xs text-muted-foreground">{t('unranked')}</span>
+                    )}
+                </span>
+                <ChevronDown className={cn("hidden size-4 text-muted-foreground transition-transform md:block", open && "rotate-180")} />
+            </CollapsibleTrigger>
+
+            <CollapsibleContent className={COLLAPSE}>
+                <div className="space-y-2 px-4 pb-4 md:pl-[4.5rem]">
+                    {detail.servers.map((serverPlayer) => (
+                        <div
+                            key={serverPlayer.server_id}
+                            className="rounded-lg border border-border/60 bg-background/40 p-3 transition-all duration-200 hover:translate-x-1 hover:border-primary/50"
+                        >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                <div className="min-w-0 flex-1 space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {serverPlayer.player.total_playtime > 0 ? (
+                                            <Link
+                                                href={`/servers/${serverPlayer.server_id}/players/${serverPlayer.player.id}`}
+                                                className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
+                                            >
+                                                {serverPlayer.server_name}
+                                                <ArrowUpRight className="size-3.5" />
+                                            </Link>
+                                        ) : (
+                                            <p className="text-sm font-medium">{serverPlayer.server_name}</p>
+                                        )}
+                                        <Badge variant={serverPlayer.by_id ? "secondary" : "outline"} className="text-[10px]">
+                                            {serverPlayer.by_id ? t('steamId') : t('nameMatched')}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                            {serverPlayer.player.total_playtime > 0
+                                                ? `${secondsToHours(serverPlayer.player.total_playtime, locale)} ${t('hoursUnit')}`
+                                                : t('noPlaytime')}
                                         </span>
-                                    </div>
-                                    {isOnlineHere && (
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                                            <span className="text-sm text-green-500">
-                                                {t('onlineNow')}
+                                        {serverPlayer.is_online && (
+                                            <span className="flex items-center gap-1.5 text-xs text-green-500">
+                                                <span className="inline-block size-2 shrink-0 animate-pulse rounded-full bg-green-500" />
+                                                {t('onlineHere')}
                                             </span>
-                                        </div>
+                                        )}
+                                    </div>
+
+                                    <LinkedNamesPanel names={serverPlayer.linked_names} />
+                                    {serverPlayer.mergeable_count > 0 && (
+                                        <MergeAccountsButton
+                                            serverId={serverPlayer.server_id}
+                                            serverName={serverPlayer.server_name}
+                                            count={serverPlayer.mergeable_count}
+                                        />
                                     )}
+                                </div>
+
+                                <div className="shrink-0">
+                                    <ServerSessionStrip
+                                        sessions={serverPlayer.recent_sessions}
+                                        scaleMax={scaleMax}
+                                        color={community.color}
+                                    />
                                 </div>
                             </div>
                         </div>
+                    ))}
 
-                        {showAnonymizeToggle && hasAnyPlaytime && (
-                            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                    <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
+                        {showAnonymizeToggle && hasAnyPlaytime ? (
+                            <div className="flex flex-wrap gap-4">
                                 <div className="flex items-center gap-2">
                                     <Switch
                                         id={`hide-location-${community.id}`}
@@ -201,83 +303,22 @@ export default function CommunityConnectionCard({
                                     </Label>
                                 </div>
                             </div>
-                        )}
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-muted-foreground">
-                            {t('servers')}
-                        </h4>
-                        {community.servers.map((serverPlayer) => (
-                            <div
-                                key={serverPlayer.server_id}
-                                className={`pl-4 border-l-2 border-border rounded-sm p-2 -ml-2 transition-all duration-200 ${
-                                    serverPlayer.player.total_playtime > 0 ? 'hover:border-primary hover:translate-x-1' : ''
-                                }`}
-                            >
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                                    <div className="flex-1 min-w-0 space-y-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            {serverPlayer.player.total_playtime > 0 ? (
-                                                <HoverPrefetchLink
-                                                    href={`/servers/${serverPlayer.server_id}/players/${serverPlayer.player.id}`}
-                                                    className="text-sm font-medium hover:underline"
-                                                >
-                                                    {serverPlayer.server_name}
-                                                </HoverPrefetchLink>
-                                            ) : (
-                                                <p className="text-sm font-medium">
-                                                    {serverPlayer.server_name}
-                                                </p>
-                                            )}
-                                            <Badge variant={serverPlayer.by_id ? "secondary" : "outline"} className="text-[10px]">
-                                                {serverPlayer.by_id ? t('steamId') : t('nameMatched')}
-                                            </Badge>
-                                            {serverPlayer.is_online && (
-                                                <div className="flex items-center gap-1.5 text-xs text-green-500">
-                                                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
-                                                    <span>{t('onlineHere')}</span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {serverPlayer.player.total_playtime > 0 ? (
-                                            <div className="flex items-center gap-1">
-                                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                                                <span className="text-xs text-muted-foreground">
-                                                    {secondsToHours(serverPlayer.player.total_playtime)} {t('hoursUnit')}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-xs text-muted-foreground/60">
-                                                {t('noPlaytime')}
-                                            </span>
-                                        )}
-
-                                        <LinkedNamesPanel names={serverPlayer.linked_names} />
-                                        {serverPlayer.mergeable_count > 0 && (
-                                            <MergeAccountsButton
-                                                serverId={serverPlayer.server_id}
-                                                serverName={serverPlayer.server_name}
-                                                count={serverPlayer.mergeable_count}
-                                            />
-                                        )}
-                                    </div>
-
-                                    <div className="shrink-0">
-                                        <ServerSessionStrip
-                                            sessions={serverPlayer.recent_sessions}
-                                            scaleMax={scaleMax}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                        ) : <span />}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="self-start sm:self-auto"
+                            style={{ color: community.color }}
+                            onClick={() => setFocused(isFocused ? null : community.id)}
+                        >
+                            <Crosshair className="size-4" />
+                            {isFocused
+                                ? tFocus('unfocus', { community: community.tag })
+                                : tFocus('focusOn', { community: community.tag })}
+                        </Button>
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+            </CollapsibleContent>
+        </Collapsible>
     );
 }

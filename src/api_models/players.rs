@@ -255,6 +255,7 @@ pub struct GlobalPlayerSession{
     pub player_id: String,
     pub server_id: String,
     pub server_name: Option<String>,
+    pub community_id: Option<String>,
     pub community_name: Option<String>,
     pub community_icon_url: Option<String>,
     pub started_at: DateTime<Utc>,
@@ -266,6 +267,8 @@ pub struct GlobalPlayerSession{
 #[derive(Object)]
 pub struct GlobalPlayerSessionPage{
     pub total_pages: i64,
+    /// Sessions matching the request across every page.
+    pub total_rows: i64,
     pub rows: Vec<GlobalPlayerSession>
 }
 
@@ -274,6 +277,82 @@ pub struct GlobalPlayerSessionPage{
 pub struct PlayerSessionTime{
     pub bucket_time: DateTime<Utc>,
     pub hours: f64,
+}
+
+/// Hours a player spent in one community.
+#[derive(Object)]
+pub struct CommunityHours{
+    pub community_id: String,
+    pub hours: f64,
+}
+
+/// One day of a player's playtime across every server.
+#[derive(Object)]
+pub struct GlobalPlayerSessionTime{
+    pub bucket_time: DateTime<Utc>,
+    /// Hours across every community.
+    pub hours: f64,
+    /// Hours per community, largest first.
+    pub communities: Vec<CommunityHours>,
+}
+
+/// Session counts and lengths for a player across every server.
+#[derive(Object)]
+pub struct PlayerSessionStats{
+    pub total_sessions: i64,
+    /// Mean length in seconds of the finished sessions.
+    pub average_duration: Option<f64>,
+    /// Length in seconds of the longest finished session.
+    pub longest_duration: Option<f64>,
+    pub longest_started_at: Option<DateTime<Utc>>,
+}
+
+/// Seconds a player spent on a map in one community.
+#[derive(Object)]
+pub struct CommunityDuration{
+    pub community_id: String,
+    pub duration: f64,
+}
+
+/// A map a player has played, with their time summed across every server.
+#[derive(Object)]
+pub struct GlobalPlayerMap{
+    pub map: String,
+    /// Seconds across every community.
+    pub total_duration: f64,
+    /// Rank among every player on this map with time summed across servers, as of the last daily
+    /// refresh. Null until that refresh has seen the player on this map.
+    pub rank: Option<i32>,
+    pub total_players: Option<i32>,
+    /// Seconds per community, largest first.
+    pub communities: Vec<CommunityDuration>,
+}
+
+/// Seconds a player spent online in one community during one local hour of one weekday.
+#[derive(Object)]
+pub struct OnlineActivityBucket{
+    pub community_id: String,
+    /// ISO weekday, 1 = Monday through 7 = Sunday.
+    pub weekday: i32,
+    pub hour: i32,
+    pub seconds: f64,
+}
+
+/// How many distinct days a player was online on one weekday.
+#[derive(Object)]
+pub struct WeekdayActiveDays{
+    /// ISO weekday, 1 = Monday through 7 = Sunday.
+    pub weekday: i32,
+    pub days: i64,
+}
+
+/// When a player is online, by local hour and weekday, split by community.
+#[derive(Object)]
+pub struct PlayerOnlineActivity{
+    /// Timezone the hours and weekdays are in.
+    pub timezone: String,
+    pub buckets: Vec<OnlineActivityBucket>,
+    pub active_days: Vec<WeekdayActiveDays>,
 }
 
 
@@ -427,6 +506,23 @@ pub struct PlayerInfraction{
     pub admin_avatar: Option<String>
 }
 
+/// An infraction from any server a player has played on, with the server and community it was on.
+#[derive(Object)]
+pub struct GlobalPlayerInfraction{
+    pub id: String,
+    /// Which external system this infraction came from (e.g. GFLBans).
+    pub source: String,
+    /// Name of the admin who issued it.
+    pub by: String,
+    pub reason: Option<String>,
+    pub infraction_time: Option<DateTime<Utc>>,
+    /// Bitflags describing the infraction type, defined by the source system.
+    pub flags: i64,
+    pub admin_avatar: Option<String>,
+    pub server_id: String,
+    pub community_id: String,
+}
+
 #[derive(Object)]
 pub struct PlayerInfractionUpdate{
     pub id: String,
@@ -541,7 +637,33 @@ pub struct ProfileServerEntry {
     pub recent_sessions: Vec<ProfileRecentSession>,
 }
 
-pub type ProfileCommunityDetail = BaseCommunity<ProfileServerEntry>;
+/// A player's playtime rank within a community, with linked accounts summed together.
+#[derive(Object)]
+pub struct CommunityPlaytimeRank {
+    pub rank: i32,
+    /// Players with playtime in this community.
+    pub total_players: i32,
+}
+
+/// A community on a player's public profile and the player's detail on each of its servers.
+#[derive(Object)]
+pub struct ProfileCommunityDetail {
+    pub id: String,
+    pub name: String,
+    pub shorten_name: Option<String>,
+    pub icon_url: Option<String>,
+    /// As of the last daily refresh. Null until that refresh has seen the player here.
+    pub rank: Option<CommunityPlaytimeRank>,
+    pub servers: Vec<ProfileServerEntry>,
+}
+
+/// A player's rank on a map with their time summed across every server.
+#[derive(Object)]
+pub struct PlayerMapRank {
+    pub map: String,
+    pub rank: i32,
+    pub total_players: i32,
+}
 
 /// A player's best map ranking, and its position among every player's best rank.
 ///
@@ -624,6 +746,10 @@ pub struct ProfileSummary {
     pub last_online: Option<DateTime<Utc>>,
     pub last_session_duration: Option<f64>,
     pub best_rank: Option<GlobalMapRank>,
+    /// The player's best rank on a map with time summed across servers, as of the last daily
+    /// refresh: among maps they have more than 5 hours on, the one where their rank is the smallest
+    /// fraction of its players, ties going to the most playtime.
+    pub best_map_rank: Option<PlayerMapRank>,
     pub global: GlobalPlaytimeSummary,
 }
 

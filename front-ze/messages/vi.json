@@ -455,10 +455,7 @@
       "yearlySummary": "Hoạt động của người chơi trên {periods, plural, one {# khoảng thời gian} other {# khoảng thời gian}}. Tổng: {total} giờ. Đỉnh: {peak} giờ.",
       "matrixSummary": "Bản đồ nhiệt hoạt động người chơi cho thấy {total} giờ trên {days, plural, one {# ngày hoạt động} other {# ngày hoạt động}}. Hoạt động hàng ngày đỉnh: {peak} giờ.",
       "yearlyAriaLabel": "Bản đồ nhiệt hoạt động người chơi hàng năm",
-      "matrixAriaLabel": "Bản đồ nhiệt hoạt động người chơi {groupBy}",
-      "totalPlayTime": "Tổng thời gian chơi",
-      "hoursUnit": "giờ",
-      "inYear": "trong năm {year}"
+      "matrixAriaLabel": "Bản đồ nhiệt hoạt động người chơi {groupBy}"
     },
     "profile": {
       "header": {
@@ -474,25 +471,22 @@
         "ofTotalPlayers": "trong tổng số {total} người chơi",
         "notEnoughPlaytime": "Chưa tính toán",
         "shareProfile": "Chia sẻ hồ sơ",
-        "avatarAlt": "Ảnh đại diện của {name}"
+        "avatarAlt": "Ảnh đại diện của {name}",
+        "onlineOn": "Đang trực tuyến trên {community}",
+        "lastSeen": "lần cuối trực tuyến {time}",
+        "lastSeenOn": "lần cuối trực tuyến {time} trên {community}",
+        "neverSeen": "chưa từng trực tuyến",
+        "totalPlaytime": "Tổng thời gian chơi",
+        "hrs": "giờ",
+        "communitiesServers": "{communities, plural, other {# cộng đồng}} · {servers, plural, other {# máy chủ}}",
+        "globalChip": "Toàn cầu #{rank}",
+        "globalRankTooltip": "#{rank} trên {total} người chơi ở mọi cộng đồng",
+        "bestMapTooltip": "#{rank} trên {total} người chơi trên {map}, cộng dồn thời gian từ mọi máy chủ",
+        "communityRankTooltip": "#{rank} trên {total} người chơi trong {community}",
+        "playtimeByCommunity": "Thời gian chơi theo cộng đồng",
+        "mapStyle": "Kiểu bản đồ · mọi máy chủ"
       },
       "stats": {
-        "recalculating": "Đang tính lại",
-        "outOfDate": "Đã lỗi thời",
-        "never": "Chưa bao giờ",
-        "sessionHours": "Phiên {hours} giờ",
-        "unranked": "Chưa xếp hạng",
-        "notEnoughPlaytime": "Chưa tính toán",
-        "totalPlaytime": "Tổng thời gian chơi",
-        "hoursUnit": "giờ",
-        "acrossCommunities": "trên {count, plural, one {# cộng đồng} other {# cộng đồng}}",
-        "bestMapRank": "Xếp hạng bản đồ tốt nhất",
-        "communities": "Cộng đồng",
-        "joinedAndTracked": "đã tham gia & được theo dõi",
-        "servers": "Máy chủ",
-        "acrossAllCommunities": "trên tất cả các cộng đồng",
-        "lastOnline": "Trực tuyến lần cuối",
-        "onlineNow": "Đang trực tuyến",
         "lastVerified": "Xác minh lần cuối {ago}.",
         "neverVerified": "Các tổng số này chưa từng được xác minh.",
         "recalculatingPlaytime": "Đang tính lại thời gian chơi…",
@@ -502,7 +496,11 @@
       },
       "communities": {
         "heading": "Kết nối cộng đồng",
-        "empty": "Không tìm thấy kết nối cộng đồng nào."
+        "empty": "Không tìm thấy kết nối cộng đồng nào.",
+        "expandHint": "Mở rộng một cộng đồng để xem các máy chủ",
+        "community": "Cộng đồng",
+        "playtime": "Thời gian chơi",
+        "rank": "Hạng"
       },
       "connectionCard": {
         "linkedNames": "TÊN LIÊN KẾT · {count}",
@@ -517,7 +515,6 @@
         "sessionStripAria": "Thời lượng {count, plural, other {# phiên gần đây}} trên máy chủ này",
         "hideRadar": "Ẩn radar",
         "anonymize": "Ẩn danh",
-        "servers": "Máy chủ",
         "steamId": "Steam ID",
         "nameMatched": "Trùng tên",
         "noPlaytime": "Không có thời gian chơi",
@@ -529,7 +526,71 @@
           "cancel": "Hủy",
           "success": "Đã gộp {count, plural, other {# hồ sơ}} ({sessions} phiên)",
           "failed": "Không thể gộp tài khoản"
-        }
+        },
+        "serverCount": "{count, plural, other {# máy chủ}}",
+        "lastPlayed": "chơi lần cuối {time}",
+        "rankOf": "trên {total}",
+        "unranked": "Chưa xếp hạng"
+      },
+      "total": "tổng {count}",
+      "pageRange": "{from}–{to} trên {total}",
+      "history": {
+        "ariaLabel": "Thời gian chơi mỗi ngày trong năm {year}, tô màu theo cộng đồng",
+        "sessions": "Phiên",
+        "allTime": "mọi thời điểm",
+        "avgSession": "Phiên trung bình",
+        "longest": "dài nhất {duration}",
+        "bestStreak": "Chuỗi dài nhất",
+        "days": "{count, plural, other {# ngày}}",
+        "activeDays": "Ngày hoạt động",
+        "inYear": "trong năm {year}"
+      },
+      "focus": {
+        "focused": "Đang tập trung: {community}",
+        "clear": "Hiện mọi cộng đồng",
+        "focusOn": "Tập trung biểu đồ vào {community}",
+        "unfocus": "Bỏ tập trung {community}"
+      },
+      "maps": {
+        "title": "Bản đồ",
+        "subtitle": "Đã chơi {count, plural, other {# bản đồ}} trên mọi máy chủ",
+        "chart": "Biểu đồ",
+        "table": "Bảng",
+        "search": "Tìm bản đồ...",
+        "map": "Bản đồ",
+        "split": "Tỷ lệ",
+        "hours": "Giờ",
+        "hrs": "giờ",
+        "rank": "Hạng",
+        "noMaps": "Chưa chơi bản đồ nào.",
+        "noMatch": "Không có bản đồ nào khớp với \"{search}\".",
+        "rankTooltip": "#{rank} trên {total} người chơi trên bản đồ này, ở mọi máy chủ",
+        "ariaLabel": "Các bản đồ chơi nhiều nhất theo giờ, chia theo cộng đồng",
+        "summary": "Các bản đồ chơi nhiều nhất: {maps}.",
+        "hoursAxis": "Giờ"
+      },
+      "activity": {
+        "title": "Hoạt động trực tuyến",
+        "byHour": "Theo giờ",
+        "byWeekday": "Theo thứ",
+        "myTimezone": "Múi giờ của tôi",
+        "utc": "UTC",
+        "hourSubtitle": "Số giờ trực tuyến theo từng giờ trong ngày, chia theo cộng đồng",
+        "weekdaySubtitle": "Số giờ trung bình vào mỗi thứ đã chơi, chia theo cộng đồng",
+        "hourAxis": "Giờ trong ngày",
+        "hoursAxis": "Giờ trực tuyến",
+        "averageAxis": "Giờ trung bình",
+        "noData": "Chưa ghi nhận hoạt động nào.",
+        "hourSummary": "Hoạt động nhiều nhất khoảng {hour}:00, tổng cộng {hours} trực tuyến.",
+        "weekdaySummary": "Bận rộn nhất vào {day}, trung bình {hours} vào những ngày chơi.",
+        "busiest": "Bận rộn nhất <b>{day}</b>"
+      },
+      "infractions": {
+        "filter": "Lọc theo loại vi phạm",
+        "community": "Cộng đồng",
+        "reason": "Lý do",
+        "admin": "Quản trị viên",
+        "date": "Ngày"
       }
     },
     "playedWith": {

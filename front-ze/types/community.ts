@@ -71,8 +71,20 @@ export interface ProfileServerEntry {
     recent_sessions: ProfileRecentSession[];
 }
 
+export interface CommunityPlaytimeRank {
+    rank: number;
+    total_players: number;
+}
+
 export interface ProfileCommunityDetail extends CommunityBase {
+    rank: CommunityPlaytimeRank | null;
     servers: ProfileServerEntry[];
+}
+
+export interface PlayerMapRank {
+    map: string;
+    rank: number;
+    total_players: number;
 }
 
 export interface GlobalMapRank {
@@ -106,6 +118,7 @@ export interface ProfileSummary {
     last_online: string | null;
     last_session_duration: number | null;
     best_rank: GlobalMapRank | null;
+    best_map_rank: PlayerMapRank | null;
     global: GlobalPlaytimeSummary;
 }
 
@@ -127,7 +140,13 @@ export interface ProfileResponse {
     steam_items: SteamProfileItems | null;
 }
 
-export interface PlayerSessionTime {
+export interface CommunityHours {
+    community_id: string;
+    hours: number;
+}
+
+export interface GlobalPlayerSessionTime {
     bucket_time: string;
     hours: number;
+    communities: CommunityHours[];
 }

@@ -455,10 +455,7 @@
       "yearlySummary": "Aktiviti pemain merangkumi {periods, plural, other {# tempoh}}. Jumlah: {total} jam. Puncak: {peak} jam.",
       "matrixSummary": "Map haba aktiviti pemain menunjukkan {total} jam merangkumi {days, plural, other {# hari aktif}}. Aktiviti harian puncak: {peak} jam.",
       "yearlyAriaLabel": "Map haba aktiviti tahunan pemain",
-      "matrixAriaLabel": "Map haba aktiviti {groupBy} pemain",
-      "totalPlayTime": "Jumlah Masa Bermain",
-      "hoursUnit": "jam",
-      "inYear": "pada {year}"
+      "matrixAriaLabel": "Map haba aktiviti {groupBy} pemain"
     },
     "profile": {
       "header": {
@@ -474,25 +471,22 @@
         "ofTotalPlayers": "daripada {total} pemain",
         "notEnoughPlaytime": "Belum dikira",
         "shareProfile": "Kongsi Profil",
-        "avatarAlt": "Gambar profil {name}"
+        "avatarAlt": "Gambar profil {name}",
+        "onlineOn": "Dalam talian sekarang di {community}",
+        "lastSeen": "kali terakhir dilihat {time}",
+        "lastSeenOn": "kali terakhir dilihat {time} di {community}",
+        "neverSeen": "tidak pernah dilihat dalam talian",
+        "totalPlaytime": "Jumlah Masa Bermain",
+        "hrs": "jam",
+        "communitiesServers": "{communities, plural, one {# komuniti} other {# komuniti}} · {servers, plural, one {# pelayan} other {# pelayan}}",
+        "globalChip": "Global #{rank}",
+        "globalRankTooltip": "#{rank} daripada {total} pemain merentasi semua komuniti",
+        "bestMapTooltip": "#{rank} daripada {total} pemain di {map}, dengan masa dijumlahkan merentasi pelayan",
+        "communityRankTooltip": "#{rank} daripada {total} pemain di {community}",
+        "playtimeByCommunity": "Masa bermain mengikut komuniti",
+        "mapStyle": "Gaya map · semua pelayan"
       },
       "stats": {
-        "recalculating": "Mengira semula",
-        "outOfDate": "Lapuk",
-        "never": "Tidak pernah",
-        "sessionHours": "Sesi {hours} jam",
-        "unranked": "Tiada kedudukan",
-        "notEnoughPlaytime": "Belum dikira",
-        "totalPlaytime": "Jumlah Masa Bermain",
-        "hoursUnit": "jam",
-        "acrossCommunities": "merentasi {count, plural, one {# komuniti} other {# komuniti}}",
-        "bestMapRank": "Kedudukan Map Terbaik",
-        "communities": "Komuniti",
-        "joinedAndTracked": "menyertai & dijejaki",
-        "servers": "Pelayan",
-        "acrossAllCommunities": "merentasi semua komuniti",
-        "lastOnline": "Dalam Talian Terakhir",
-        "onlineNow": "Dalam talian sekarang",
         "lastVerified": "Terakhir disahkan {ago}.",
         "neverVerified": "Jumlah ini belum pernah disahkan.",
         "recalculatingPlaytime": "Mengira semula masa bermain…",
@@ -502,7 +496,11 @@
       },
       "communities": {
         "heading": "Sambungan Komuniti",
-        "empty": "Tiada sambungan komuniti dijumpai."
+        "empty": "Tiada sambungan komuniti dijumpai.",
+        "expandHint": "Kembangkan komuniti untuk melihat pelayannya",
+        "community": "Komuniti",
+        "playtime": "Masa bermain",
+        "rank": "Kedudukan"
       },
       "connectionCard": {
         "linkedNames": "NAMA BERTAUT · {count}",
@@ -517,7 +515,6 @@
         "sessionStripAria": "Tempoh {count, plural, other {# sesi terkini}} di pelayan ini",
         "hideRadar": "Sembunyikan Radar",
         "anonymize": "Nyahkenal pasti",
-        "servers": "Pelayan",
         "steamId": "Steam ID",
         "nameMatched": "Sepadan nama",
         "noPlaytime": "Tiada masa bermain",
@@ -529,7 +526,71 @@
           "cancel": "Batal",
           "success": "{count, plural, other {# profil}} digabungkan ({sessions} sesi)",
           "failed": "Tidak dapat menggabungkan akaun"
-        }
+        },
+        "serverCount": "{count, plural, one {# pelayan} other {# pelayan}}",
+        "lastPlayed": "kali terakhir bermain {time}",
+        "rankOf": "daripada {total}",
+        "unranked": "Tiada kedudukan"
+      },
+      "total": "{count} kesemuanya",
+      "pageRange": "{from}–{to} daripada {total}",
+      "history": {
+        "ariaLabel": "Masa bermain harian pada {year}, diwarnakan mengikut komuniti",
+        "sessions": "Sesi",
+        "allTime": "sepanjang masa",
+        "avgSession": "Purata sesi",
+        "longest": "paling lama {duration}",
+        "bestStreak": "Rentetan terbaik",
+        "days": "{count, plural, one {# hari} other {# hari}}",
+        "activeDays": "Hari aktif",
+        "inYear": "pada {year}"
+      },
+      "focus": {
+        "focused": "Fokus: {community}",
+        "clear": "Tunjukkan semua komuniti",
+        "focusOn": "Fokuskan carta pada {community}",
+        "unfocus": "Berhenti fokus pada {community}"
+      },
+      "maps": {
+        "title": "Map",
+        "subtitle": "{count, plural, one {# dimainkan} other {# dimainkan}} merentasi semua pelayan",
+        "chart": "Carta",
+        "table": "Jadual",
+        "search": "Cari map...",
+        "map": "Map",
+        "split": "Pecahan",
+        "hours": "Jam",
+        "hrs": "jam",
+        "rank": "Kedudukan",
+        "noMaps": "Belum ada map yang dimainkan.",
+        "noMatch": "Tiada map sepadan dengan \"{search}\".",
+        "rankTooltip": "#{rank} daripada {total} pemain di map ini, merentasi semua pelayan",
+        "ariaLabel": "Map paling banyak dimainkan mengikut jam, dipecahkan mengikut komuniti",
+        "summary": "Map paling banyak dimainkan: {maps}.",
+        "hoursAxis": "Jam"
+      },
+      "activity": {
+        "title": "Aktiviti dalam talian",
+        "byHour": "Mengikut jam",
+        "byWeekday": "Mengikut hari",
+        "myTimezone": "Zon Waktu Saya",
+        "utc": "UTC",
+        "hourSubtitle": "Jam dalam talian pada setiap jam dalam sehari, dipecahkan mengikut komuniti",
+        "weekdaySubtitle": "Purata jam pada setiap hari bermain, dipecahkan mengikut komuniti",
+        "hourAxis": "Jam dalam sehari",
+        "hoursAxis": "Jam dalam talian",
+        "averageAxis": "Purata jam",
+        "noData": "Belum ada aktiviti direkodkan.",
+        "hourSummary": "Paling aktif sekitar pukul {hour}:00, dengan {hours} dalam talian kesemuanya.",
+        "weekdaySummary": "Paling sibuk pada {day}, purata {hours} pada hari bermain.",
+        "busiest": "Paling sibuk <b>{day}</b>"
+      },
+      "infractions": {
+        "filter": "Tapis mengikut jenis pelanggaran",
+        "community": "Komuniti",
+        "reason": "Sebab",
+        "admin": "Admin",
+        "date": "Tarikh"
       }
     },
     "playedWith": {

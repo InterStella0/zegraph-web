@@ -455,10 +455,7 @@
       "yearlySummary": "玩家在 {periods} 個時段內的活動情形。總計：{total} 小時。峰值：{peak} 小時。",
       "matrixSummary": "玩家活動熱力圖顯示了 {days} 個活躍天內共 {total} 小時。單日最高活躍度：{peak} 小時。",
       "yearlyAriaLabel": "玩家年度活動熱力圖",
-      "matrixAriaLabel": "玩家 {groupBy} 活動熱力圖",
-      "totalPlayTime": "總遊玩時間",
-      "hoursUnit": "小時",
-      "inYear": "{year}年"
+      "matrixAriaLabel": "玩家 {groupBy} 活動熱力圖"
     },
     "profile": {
       "header": {
@@ -474,25 +471,22 @@
         "ofTotalPlayers": "共 {total} 名玩家",
         "notEnoughPlaytime": "尚未計算",
         "shareProfile": "分享個人檔案",
-        "avatarAlt": "{name} 的頭像"
+        "avatarAlt": "{name} 的頭像",
+        "onlineOn": "正在 {community} 上線",
+        "lastSeen": "最後上線 {time}",
+        "lastSeenOn": "最後上線 {time}（{community}）",
+        "neverSeen": "從未上線",
+        "totalPlaytime": "總遊玩時間",
+        "hrs": "小時",
+        "communitiesServers": "{communities, plural, other {# 個社群}} · {servers, plural, other {# 個伺服器}}",
+        "globalChip": "全域 #{rank}",
+        "globalRankTooltip": "所有社群 {total} 名玩家中第 {rank} 名",
+        "bestMapTooltip": "{map} 的 {total} 名玩家中第 {rank} 名（合計所有伺服器時間）",
+        "communityRankTooltip": "{community} 的 {total} 名玩家中第 {rank} 名",
+        "playtimeByCommunity": "各社群遊玩時間",
+        "mapStyle": "地圖風格 · 所有伺服器"
       },
       "stats": {
-        "recalculating": "重新計算中",
-        "outOfDate": "資料已過期",
-        "never": "從未",
-        "sessionHours": "{hours} 小時場次",
-        "unranked": "未排名",
-        "notEnoughPlaytime": "尚未計算",
-        "totalPlaytime": "總遊玩時間",
-        "hoursUnit": "小時",
-        "acrossCommunities": "跨 {count, plural, one {# 個社群} other {# 個社群}}",
-        "bestMapRank": "最佳地圖排名",
-        "communities": "社群",
-        "joinedAndTracked": "已加入並被追蹤",
-        "servers": "伺服器",
-        "acrossAllCommunities": "跨所有社群",
-        "lastOnline": "最後上線",
-        "onlineNow": "目前在線",
         "lastVerified": "最後驗證於 {ago}。",
         "neverVerified": "這些統計數據從未被驗證過。",
         "recalculatingPlaytime": "正在重新計算遊玩時間…",
@@ -502,7 +496,11 @@
       },
       "communities": {
         "heading": "社群關聯",
-        "empty": "未找到社群關聯。"
+        "empty": "未找到社群關聯。",
+        "expandHint": "展開社群以查看其伺服器",
+        "community": "社群",
+        "playtime": "遊玩時間",
+        "rank": "排名"
       },
       "connectionCard": {
         "linkedNames": "關聯名稱 · {count}",
@@ -517,7 +515,6 @@
         "sessionStripAria": "此伺服器最近 {count, plural, other {# 次連線}}的時長",
         "hideRadar": "隱藏雷達",
         "anonymize": "匿名化",
-        "servers": "伺服器",
         "steamId": "Steam ID",
         "nameMatched": "名稱相符",
         "noPlaytime": "無遊玩時間",
@@ -529,7 +526,71 @@
           "cancel": "取消",
           "success": "已合併 {count, plural, other {# 個資料}}（{sessions} 次遊戲紀錄）",
           "failed": "無法合併帳號"
-        }
+        },
+        "serverCount": "{count, plural, other {# 個伺服器}}",
+        "lastPlayed": "最後遊玩 {time}",
+        "rankOf": "共 {total} 人",
+        "unranked": "未排名"
+      },
+      "total": "共 {count}",
+      "pageRange": "第 {from}–{to} 筆，共 {total} 筆",
+      "history": {
+        "ariaLabel": "{year} 年每日遊玩時間，依社群著色",
+        "sessions": "工作階段",
+        "allTime": "全部時間",
+        "avgSession": "平均工作階段",
+        "longest": "最長 {duration}",
+        "bestStreak": "最長連續",
+        "days": "{count, plural, other {# 天}}",
+        "activeDays": "活躍天數",
+        "inYear": "{year} 年"
+      },
+      "focus": {
+        "focused": "已聚焦：{community}",
+        "clear": "顯示所有社群",
+        "focusOn": "圖表聚焦於 {community}",
+        "unfocus": "取消聚焦 {community}"
+      },
+      "maps": {
+        "title": "地圖",
+        "subtitle": "在所有伺服器上玩過 {count, plural, other {# 張地圖}}",
+        "chart": "圖表",
+        "table": "表格",
+        "search": "搜尋地圖...",
+        "map": "地圖",
+        "split": "占比",
+        "hours": "小時",
+        "hrs": "小時",
+        "rank": "排名",
+        "noMaps": "還沒有玩過任何地圖。",
+        "noMatch": "沒有與「{search}」相符的地圖。",
+        "rankTooltip": "所有伺服器上此地圖 {total} 名玩家中第 {rank} 名",
+        "ariaLabel": "依時間排列的常玩地圖，依社群區分",
+        "summary": "最常玩的地圖：{maps}。",
+        "hoursAxis": "小時"
+      },
+      "activity": {
+        "title": "線上活動",
+        "byHour": "依小時",
+        "byWeekday": "依星期",
+        "myTimezone": "我的時區",
+        "utc": "UTC",
+        "hourSubtitle": "一天中每個小時的線上時間，依社群區分",
+        "weekdaySubtitle": "每個遊玩日的平均時間（依星期），依社群區分",
+        "hourAxis": "時刻",
+        "hoursAxis": "線上時間",
+        "averageAxis": "平均時間",
+        "noData": "尚無活動紀錄。",
+        "hourSummary": "{hour}:00 左右最活躍，共上線 {hours}。",
+        "weekdaySummary": "{day}最活躍，遊玩日平均 {hours}。",
+        "busiest": "最活躍：<b>{day}</b>"
+      },
+      "infractions": {
+        "filter": "依違規類型篩選",
+        "community": "社群",
+        "reason": "原因",
+        "admin": "管理員",
+        "date": "日期"
       }
     },
     "playedWith": {

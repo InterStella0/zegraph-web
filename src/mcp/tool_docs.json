@@ -174,7 +174,7 @@
       "arguments": {
         "player_id": "Player ID (usually a Steam64 ID) returned by a player search tool, or `me` for the signed-in player."
       },
-      "description": "Return a player's daily playtime summed across all tracked servers. Use `player_id = \"me\"` for the signed-in player; activity from communities where the player chose privacy is omitted unless the requester has permission.",
+      "description": "Return a player's daily playtime summed across all tracked servers, with each day's hours also split by community ID. Use `player_id = \"me\"` for the signed-in player; activity from communities where the player chose privacy is omitted unless the requester has permission.",
       "title": "Global Player Playtime Heatmap"
     },
     "get_player_hours_of_day": {

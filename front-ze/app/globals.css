@@ -142,6 +142,7 @@ body {
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
     --animate-progress-indeterminate: progress-indeterminate 1.5s ease-in-out infinite;
+    --animate-bar-grow: bar-grow 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes stale-progress {
@@ -194,6 +195,12 @@ body {
     }
     100% {
         transform: translateX(300%);
+    }
+}
+
+@keyframes bar-grow {
+    from {
+        transform: scaleX(0);
     }
 }
 

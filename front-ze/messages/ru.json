@@ -455,10 +455,7 @@
       "yearlySummary": "Активность игрока за {periods, plural, one {# период} few {# периода} other {# периодов}}. Всего: {total} часов. Пик: {peak} часов.",
       "matrixSummary": "Тепловая карта активности игрока, показывающая {total} часов за {days, plural, one {# активный день} few {# активных дня} other {# активных дней}}. Пиковая суточная активность: {peak} часов.",
       "yearlyAriaLabel": "Ежегодная тепловая карта активности игрока",
-      "matrixAriaLabel": "Тепловая карта активности игрока {groupBy}",
-      "totalPlayTime": "Общее время игры",
-      "hoursUnit": "ч",
-      "inYear": "в {year}"
+      "matrixAriaLabel": "Тепловая карта активности игрока {groupBy}"
     },
     "profile": {
       "header": {
@@ -474,25 +471,22 @@
         "ofTotalPlayers": "из {total} игроков",
         "notEnoughPlaytime": "Не рассчитано",
         "shareProfile": "Поделиться профилем",
-        "avatarAlt": "Изображение профиля {name}"
+        "avatarAlt": "Изображение профиля {name}",
+        "onlineOn": "Сейчас в сети на {community}",
+        "lastSeen": "был в сети {time}",
+        "lastSeenOn": "был в сети {time} на {community}",
+        "neverSeen": "никогда не был в сети",
+        "totalPlaytime": "Общее время игры",
+        "hrs": "ч",
+        "communitiesServers": "{communities, plural, one {# сообщество} few {# сообщества} many {# сообществ} other {# сообщества}} · {servers, plural, one {# сервер} few {# сервера} many {# серверов} other {# сервера}}",
+        "globalChip": "Глобально #{rank}",
+        "globalRankTooltip": "#{rank} из {total} игроков во всех сообществах",
+        "bestMapTooltip": "#{rank} из {total} игроков на {map}, время суммировано по всем серверам",
+        "communityRankTooltip": "#{rank} из {total} игроков в {community}",
+        "playtimeByCommunity": "Время игры по сообществам",
+        "mapStyle": "Стиль карт · все серверы"
       },
       "stats": {
-        "recalculating": "Пересчитывается",
-        "outOfDate": "Устарело",
-        "never": "Никогда",
-        "sessionHours": "Сессия {hours} ч",
-        "unranked": "Без ранга",
-        "notEnoughPlaytime": "Не рассчитано",
-        "totalPlaytime": "Общее время игры",
-        "hoursUnit": "ч",
-        "acrossCommunities": "в {count, plural, one {# сообществе} other {# сообществах}}",
-        "bestMapRank": "Лучший рейтинг по карте",
-        "communities": "Сообщества",
-        "joinedAndTracked": "присоединился и отслеживается",
-        "servers": "Серверы",
-        "acrossAllCommunities": "по всем сообществам",
-        "lastOnline": "Последний раз в сети",
-        "onlineNow": "В сети сейчас",
         "lastVerified": "Последняя проверка {ago}.",
         "neverVerified": "Эти итоги ещё никогда не проверялись.",
         "recalculatingPlaytime": "Пересчёт времени игры…",
@@ -502,7 +496,11 @@
       },
       "communities": {
         "heading": "Связи сообществ",
-        "empty": "Связи с сообществами не найдены."
+        "empty": "Связи с сообществами не найдены.",
+        "expandHint": "Разверните сообщество, чтобы увидеть его серверы",
+        "community": "Сообщество",
+        "playtime": "Время игры",
+        "rank": "Место"
       },
       "connectionCard": {
         "linkedNames": "СВЯЗАННЫЕ ИМЕНА · {count}",
@@ -517,7 +515,6 @@
         "sessionStripAria": "Длительность {count, plural, one {# последней сессии} few {# последних сессий} many {# последних сессий} other {# последних сессий}} на этом сервере",
         "hideRadar": "Скрыть радар",
         "anonymize": "Анонимизировать",
-        "servers": "Серверы",
         "steamId": "Steam ID",
         "nameMatched": "Совпадение по имени",
         "noPlaytime": "Нет времени игры",
@@ -529,7 +526,71 @@
           "cancel": "Отмена",
           "success": "Объединено профилей: {count} (сессий: {sessions})",
           "failed": "Не удалось объединить аккаунты"
-        }
+        },
+        "serverCount": "{count, plural, one {# сервер} few {# сервера} many {# серверов} other {# сервера}}",
+        "lastPlayed": "последняя игра {time}",
+        "rankOf": "из {total}",
+        "unranked": "Без места"
+      },
+      "total": "всего {count}",
+      "pageRange": "{from}–{to} из {total}",
+      "history": {
+        "ariaLabel": "Время игры по дням в {year} году, цвет по сообществу",
+        "sessions": "Сессии",
+        "allTime": "за всё время",
+        "avgSession": "Средняя сессия",
+        "longest": "самая долгая {duration}",
+        "bestStreak": "Лучшая серия",
+        "days": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
+        "activeDays": "Активные дни",
+        "inYear": "в {year}"
+      },
+      "focus": {
+        "focused": "Фокус: {community}",
+        "clear": "Показать все сообщества",
+        "focusOn": "Сфокусировать графики на {community}",
+        "unfocus": "Снять фокус с {community}"
+      },
+      "maps": {
+        "title": "Карты",
+        "subtitle": "{count, plural, one {# карта сыграна} few {# карты сыграны} many {# карт сыграно} other {# карты сыграно}} на всех серверах",
+        "chart": "График",
+        "table": "Таблица",
+        "search": "Поиск карт...",
+        "map": "Карта",
+        "split": "Доли",
+        "hours": "Часы",
+        "hrs": "ч",
+        "rank": "Место",
+        "noMaps": "Карт пока не сыграно.",
+        "noMatch": "Нет карт, подходящих под \"{search}\".",
+        "rankTooltip": "#{rank} из {total} игроков на этой карте на всех серверах",
+        "ariaLabel": "Самые играемые карты по часам, по сообществам",
+        "summary": "Самые играемые карты: {maps}.",
+        "hoursAxis": "Часы"
+      },
+      "activity": {
+        "title": "Активность в сети",
+        "byHour": "По часам",
+        "byWeekday": "По дням недели",
+        "myTimezone": "Мой часовой пояс",
+        "utc": "UTC",
+        "hourSubtitle": "Часы в сети по времени суток, по сообществам",
+        "weekdaySubtitle": "Среднее время в игровые дни по дням недели, по сообществам",
+        "hourAxis": "Время суток",
+        "hoursAxis": "Часы в сети",
+        "averageAxis": "Среднее время",
+        "noData": "Активность пока не записана.",
+        "hourSummary": "Наиболее активен около {hour}:00, всего {hours} в сети.",
+        "weekdaySummary": "Самый активный день: {day}, в среднем {hours} в игровые дни.",
+        "busiest": "Самый активный день: <b>{day}</b>"
+      },
+      "infractions": {
+        "filter": "Фильтр по типу нарушения",
+        "community": "Сообщество",
+        "reason": "Причина",
+        "admin": "Админ",
+        "date": "Дата"
       }
     },
     "playedWith": {

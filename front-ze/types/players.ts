@@ -46,6 +46,11 @@ export type PlayerInfraction = {
 }
 
 
+export type GlobalPlayerInfraction = PlayerInfraction & {
+    server_id: string,
+    community_id: string,
+}
+
 export type PlayerInfractionUpdate = {
     id: string,
     infractions: PlayerInfraction[],
@@ -181,6 +186,7 @@ export type GlobalPlayerSession = {
     player_id: string,
     server_id: string,
     server_name: string | null,
+    community_id: string | null,
     community_name: string | null,
     community_icon_url: string | null,
     started_at: string,
@@ -188,7 +194,36 @@ export type GlobalPlayerSession = {
 }
 export type GlobalPlayerSessionPage = {
     total_pages: number,
+    total_rows: number,
     rows: GlobalPlayerSession[]
+}
+export type PlayerSessionStats = {
+    total_sessions: number,
+    average_duration: number | null,
+    longest_duration: number | null,
+    longest_started_at: string | null,
+}
+export type CommunityDuration = {
+    community_id: string,
+    duration: number,
+}
+export type GlobalPlayerMap = {
+    map: string,
+    total_duration: number,
+    rank: number | null,
+    total_players: number | null,
+    communities: CommunityDuration[],
+}
+export type OnlineActivityBucket = {
+    community_id: string,
+    weekday: number,
+    hour: number,
+    seconds: number,
+}
+export type PlayerOnlineActivity = {
+    timezone: string,
+    buckets: OnlineActivityBucket[],
+    active_days: { weekday: number, days: number }[],
 }
 export type PlayerDetailSession = {
     id: string,

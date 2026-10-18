@@ -23,7 +23,7 @@ const SOURCE_NAMES: Record<string, string> = {
     mapeadores: 'Mapeadores',
 };
 
-const SPLIT_SEGMENTS = [
+export const SPLIT_SEGMENTS = [
     { key: 'casual', className: 'bg-green-600' },
     { key: 'mixed', className: 'bg-blue-500' },
     { key: 'tryhard', className: 'bg-red-500' },
