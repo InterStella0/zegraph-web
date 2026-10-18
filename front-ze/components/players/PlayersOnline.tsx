@@ -20,7 +20,7 @@ const PlayerListSkeleton = ({ count = 20 }) => (
         {Array.from({ length: count }).map((_, index) => (
             <div key={index} className="py-1 flex items-center gap-3">
                 <div className="relative flex-shrink-0">
-                    <Skeleton className="w-[40px] h-[40px] rounded-[22%]" />
+                    <Skeleton className="w-[40px] h-[40px] rounded-[8%]" />
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">

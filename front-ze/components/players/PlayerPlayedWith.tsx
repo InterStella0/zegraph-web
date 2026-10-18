@@ -62,7 +62,7 @@ function PlayedWithRow({ player, server }: { player: PlayerSeen, server: Server 
 function PlayedWithSkeletonRow({ index }: { index: number }) {
     return (
         <div className="flex items-center gap-3 px-2 py-2 rounded-md">
-            <Skeleton className="w-[40px] h-[40px] rounded-[22%] flex-shrink-0" />
+            <Skeleton className="w-[40px] h-[40px] rounded-[8%] flex-shrink-0" />
             <div className="flex-1 min-w-0">
                 <div className="font-medium">
                     <Skeleton className="inline-block align-middle h-4" style={{width: `${5 + (index * 3) % 6}rem`}} />{'\u200b'}

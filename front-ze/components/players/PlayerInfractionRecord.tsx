@@ -183,7 +183,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
                                             alt={row.by}
                                             width={28}
                                             height={28}
-                                            className="w-7 h-7 mr-4 rounded-[22%]"
+                                            className="w-7 h-7 mr-4 rounded-[8%]"
                                         />
                                     }
                                     <p className="text-sm font-semibold">
