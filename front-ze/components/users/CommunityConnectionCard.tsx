@@ -52,11 +52,10 @@ export function CommunityBadge({ community, className }: { community: ProfileCom
     );
 }
 
-function LinkedNamesPanel({ names, mergeable }: { names: { name: string; total_playtime: number; is_current: boolean }[]; mergeable: boolean }) {
+function LinkedNamesPanel({ names }: { names: { name: string; total_playtime: number; is_current: boolean }[] }) {
     const t = useTranslations('players.profile.connectionCard');
-    // A single name is only worth listing when it can be merged; the merge button needs it as context.
-    const [open, setOpen] = useState(mergeable);
-    if (names.length === 0 || (names.length === 1 && !mergeable)) return null;
+    const [open, setOpen] = useState(false);
+    if (names.length <= 1) return null;
 
     return (
         <Collapsible open={open} onOpenChange={setOpen} className="mt-2">
@@ -248,11 +247,11 @@ export default function CommunityConnectionCard({
                                         )}
                                     </div>
 
-                                    <LinkedNamesPanel
-                                        names={serverPlayer.linked_names}
-                                        mergeable={serverPlayer.mergeable_count > 0}
-                                    />
-                                    {serverPlayer.mergeable_count > 0 && serverPlayer.linked_names.length > 0 && (
+                                    <LinkedNamesPanel names={serverPlayer.linked_names} />
+                                    {/* Only a fork (renamed under a second name) has anything to merge. With a
+                                        single name, merging would just turn that name into an alias and fork the
+                                        next join instead. */}
+                                    {serverPlayer.mergeable_count > 0 && serverPlayer.linked_names.length > 1 && (
                                         <MergeAccountsButton
                                             serverId={serverPlayer.server_id}
                                             serverName={serverPlayer.server_name}
