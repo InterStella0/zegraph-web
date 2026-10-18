@@ -804,7 +804,10 @@ async fn fetch_steam_profile_items(steam_id: i64) -> Result<SteamProfileItems, E
 impl From<SteamEquippedItems> for SteamProfileItems {
     fn from(items: SteamEquippedItems) -> Self {
         SteamProfileItems {
-            avatar_frame: steam_item_url(&items.avatar_frame.image_large),
+            // Despite the names, both frame images are the same size: image_small is the animated
+            // PNG and image_large a still of it.
+            avatar_frame: steam_item_url(&items.avatar_frame.image_small)
+                .or_else(|| steam_item_url(&items.avatar_frame.image_large)),
             animated_avatar: items.animated_avatar.animated_image(),
             profile_background: items.profile_background.background(),
             mini_profile_background: items.mini_profile_background.background(),
@@ -831,7 +834,8 @@ pub async fn get_steam_profile_items(cache: &FastCache, steam_id: i64) -> Result
         }
         items
     };
-    cached_response(&format!("steam_items:{steam_id}"), cache, STEAM_ITEMS_TTL, callable)
+    // v2: entries cached before frames switched to the animated image held the still.
+    cached_response(&format!("steam_items:v2:{steam_id}"), cache, STEAM_ITEMS_TTL, callable)
         .await
         .map(|result| result.result)
 }
@@ -1250,12 +1254,12 @@ mod steam_items_tests {
             "profile_background":{"communityitemid":"1","image_large":"items/1675200/bg.jpg","item_class":3,
                 "movie_webm":"items/1675200/bg.webm","movie_mp4":"items/1675200/bg.mp4"},
             "mini_profile_background":{"image_large":"items/534380/mini.jpg"},
-            "avatar_frame":{"image_small":"items/1675200/frame_s.png","image_large":"items/1675200/frame.png"},
+            "avatar_frame":{"image_small":"items/1675200/frame_anim.png","image_large":"items/1675200/frame_still.png"},
             "animated_avatar":{"image_small":"items/2861690/still.jpg","image_large":"items/2861690/anim.gif"},
             "profile_modifier":{"profile_colors":[{"style_name":"x","color":"rgba(0, 0, 0, 1)"}]}}}"#);
         let url = |p: &str| format!("{STEAM_ITEMS_CDN}{p}");
 
-        assert_eq!(items.avatar_frame, Some(url("items/1675200/frame.png")));
+        assert_eq!(items.avatar_frame, Some(url("items/1675200/frame_anim.png")));
         assert_eq!(items.animated_avatar, Some(url("items/2861690/anim.gif")));
         let bg = items.profile_background.unwrap();
         assert_eq!(bg.image, url("items/1675200/bg.jpg"));
@@ -1271,5 +1275,11 @@ mod steam_items_tests {
         let items = parse(r#"{"response":{"animated_avatar":
             {"image_small":"items/1/anim.gif","image_large":"items/1/still.jpg"}}}"#);
         assert_eq!(items.animated_avatar, Some(format!("{STEAM_ITEMS_CDN}items/1/anim.gif")));
+    }
+
+    #[test]
+    fn avatar_frame_falls_back_to_the_still() {
+        let items = parse(r#"{"response":{"avatar_frame":{"image_large":"items/1/frame_still.png"}}}"#);
+        assert_eq!(items.avatar_frame, Some(format!("{STEAM_ITEMS_CDN}items/1/frame_still.png")));
     }
 }
