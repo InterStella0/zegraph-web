@@ -4,8 +4,12 @@ import { fetchUrl } from "utils/generalUtils";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
+import { cn } from "components/lib/utils";
 
-function UserAvatarDisplay({ userId, name, width = 120, height = 120, className = "", pfpPromise = null }) {
+// Steam draws avatar frames this much larger than the avatar, centred on it.
+const FRAME_SCALE = 1.22;
+
+function UserAvatarDisplay({ userId, name, width = 120, height = 120, className = "", pfpPromise = null, frame = null, animatedAvatar = null }) {
     const t = useTranslations('players.profile.header');
     const [playerImage, setPlayerImage] = useState(null);
 
@@ -47,31 +51,62 @@ function UserAvatarDisplay({ userId, name, width = 120, height = 120, className 
     const avatarColor = getAvatarColor(name);
     const avatarKey = `avatar-${userId || 'user'}`;
 
+    // Frames are drawn for Steam's square avatars, so a framed avatar drops the rounding.
+    const shape = frame ? "rounded-none" : "";
+    const frameOffset = `${(1 - FRAME_SCALE) / 2 * 100}%`;
+
     return (
-        <Avatar
-            className={className}
-            style={{
-                width: `${width}px`,
-                height: `${height}px`,
-            }}
-        >
-            {playerImage?.full && (
-                <AvatarImage
-                    key={avatarKey}
-                    src={playerImage.full}
-                    alt={t('avatarAlt', { name })}
-                />
-            )}
-            <AvatarFallback
-                className="text-white font-semibold"
+        <div className="relative" style={{ width: `${width}px`, height: `${height}px` }}>
+            <Avatar
+                className={cn(className, shape)}
                 style={{
-                    backgroundColor: avatarColor,
-                    fontSize: `${width / 3}px`,
+                    width: `${width}px`,
+                    height: `${height}px`,
                 }}
             >
-                {name && name.length > 0 ? name.charAt(0).toUpperCase() : '?'}
-            </AvatarFallback>
-        </Avatar>
+                {playerImage?.full && (
+                    <AvatarImage
+                        key={avatarKey}
+                        src={playerImage.full}
+                        alt={t('avatarAlt', { name })}
+                    />
+                )}
+                {animatedAvatar && (
+                    // Layered over the static picture so it stays visible until the GIF loads.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={animatedAvatar}
+                        alt=""
+                        aria-hidden
+                        className="absolute inset-0 size-full object-cover"
+                    />
+                )}
+                <AvatarFallback
+                    className={cn("text-white font-semibold", shape)}
+                    style={{
+                        backgroundColor: avatarColor,
+                        fontSize: `${width / 3}px`,
+                    }}
+                >
+                    {name && name.length > 0 ? name.charAt(0).toUpperCase() : '?'}
+                </AvatarFallback>
+            </Avatar>
+            {frame && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={frame}
+                    alt=""
+                    aria-hidden
+                    className="pointer-events-none absolute max-w-none"
+                    style={{
+                        top: frameOffset,
+                        left: frameOffset,
+                        width: `${FRAME_SCALE * 100}%`,
+                        height: `${FRAME_SCALE * 100}%`,
+                    }}
+                />
+            )}
+        </div>
     );
 }
 

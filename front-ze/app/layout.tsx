@@ -13,6 +13,7 @@ import {PostHogProvider} from "./providers.tsx";
 import {AnnouncementsContainer} from "components/announcements/AnnouncementsContainer";
 import {NotificationBannerLoader} from "components/notifications/NotificationBannerLoader";
 import {DonorBanner} from "components/ui/DonorBanner";
+import SteamProfileRefresher from "components/ui/SteamProfileRefresher";
 import getServerUser from "./getServerUser";
 import getDonorBanner from "./getDonorBanner";
 import NextTopLoader from "nextjs-toploader";
@@ -113,6 +114,9 @@ export default async function RootLayout({
                                 </div>
                             </div>
                             <NotificationBannerLoader userPromise={user} />
+                            <Suspense fallback={null}>
+                                <SteamProfileRefresher userPromise={user} />
+                            </Suspense>
                             <Toaster />
                         </PostHogProvider>
                     </CommunityServerProvider>

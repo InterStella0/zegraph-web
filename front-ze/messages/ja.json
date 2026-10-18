@@ -455,10 +455,7 @@
       "yearlySummary": "{periods, plural, one {# 期間} other {# 期間}}のプレイヤーアクティビティ。合計：{total}時間。ピーク：{peak}時間。",
       "matrixSummary": "{days, plural, one {# 活動日} other {# 活動日}}にわたるプレイヤーアクティビティヒートマップ、合計{total}時間。ピーク日次アクティビティ：{peak}時間。",
       "yearlyAriaLabel": "年間プレイヤーアクティビティヒートマップ",
-      "matrixAriaLabel": "プレイヤー{groupBy}アクティビティヒートマップ",
-      "totalPlayTime": "合計プレイ時間",
-      "hoursUnit": "時間",
-      "inYear": "{year}年"
+      "matrixAriaLabel": "プレイヤー{groupBy}アクティビティヒートマップ"
     },
     "profile": {
       "header": {
@@ -474,25 +471,22 @@
         "ofTotalPlayers": "{total}人中",
         "notEnoughPlaytime": "未計算",
         "shareProfile": "プロフィールを共有",
-        "avatarAlt": "{name}のプロフィール画像"
+        "avatarAlt": "{name}のプロフィール画像",
+        "onlineOn": "{community}でオンライン中",
+        "lastSeen": "最終オンライン {time}",
+        "lastSeenOn": "最終オンライン {time}（{community}）",
+        "neverSeen": "オンライン記録なし",
+        "totalPlaytime": "総プレイ時間",
+        "hrs": "時間",
+        "communitiesServers": "{communities, plural, other {#コミュニティ}} · {servers, plural, other {#サーバー}}",
+        "globalChip": "グローバル #{rank}",
+        "globalRankTooltip": "全コミュニティの{total}人中 #{rank}",
+        "bestMapTooltip": "{map}の{total}人中 #{rank}（全サーバーの合計時間）",
+        "communityRankTooltip": "{community}の{total}人中 #{rank}",
+        "playtimeByCommunity": "コミュニティ別プレイ時間",
+        "mapStyle": "マップスタイル · 全サーバー"
       },
       "stats": {
-        "recalculating": "再計算中",
-        "outOfDate": "古いデータ",
-        "never": "なし",
-        "sessionHours": "{hours}時間のセッション",
-        "unranked": "ランク外",
-        "notEnoughPlaytime": "未計算",
-        "totalPlaytime": "合計プレイ時間",
-        "hoursUnit": "時間",
-        "acrossCommunities": "{count, plural, one {# コミュニティ} other {# コミュニティ}}にわたって",
-        "bestMapRank": "最高マップランク",
-        "communities": "コミュニティ",
-        "joinedAndTracked": "参加・追跡済み",
-        "servers": "サーバー",
-        "acrossAllCommunities": "すべてのコミュニティにわたって",
-        "lastOnline": "最終オンライン",
-        "onlineNow": "現在オンライン",
         "lastVerified": "最終確認：{ago}。",
         "neverVerified": "この合計はまだ確認されていません。",
         "recalculatingPlaytime": "プレイ時間を再計算中…",
@@ -502,7 +496,11 @@
       },
       "communities": {
         "heading": "コミュニティ接続",
-        "empty": "コミュニティ接続が見つかりません。"
+        "empty": "コミュニティ接続が見つかりません。",
+        "expandHint": "コミュニティを展開するとサーバーが表示されます",
+        "community": "コミュニティ",
+        "playtime": "プレイ時間",
+        "rank": "順位"
       },
       "connectionCard": {
         "linkedNames": "リンクされた名前 · {count}",
@@ -517,7 +515,6 @@
         "sessionStripAria": "このサーバーでの最近の{count, plural, other {#件のセッション}}の長さ",
         "hideRadar": "レーダーを非表示",
         "anonymize": "匿名化",
-        "servers": "サーバー",
         "steamId": "Steam ID",
         "nameMatched": "名前が一致",
         "noPlaytime": "プレイ時間なし",
@@ -529,7 +526,71 @@
           "cancel": "キャンセル",
           "success": "{count, plural, other {#件のプロフィール}}を統合しました（{sessions}セッション）",
           "failed": "アカウントを統合できませんでした"
-        }
+        },
+        "serverCount": "{count, plural, other {#サーバー}}",
+        "lastPlayed": "最終プレイ {time}",
+        "rankOf": "{total}人中",
+        "unranked": "ランク外"
+      },
+      "total": "合計 {count}",
+      "pageRange": "{total}件中 {from}–{to}",
+      "history": {
+        "ariaLabel": "{year}年の1日ごとのプレイ時間（コミュニティ別に色分け）",
+        "sessions": "セッション",
+        "allTime": "全期間",
+        "avgSession": "平均セッション",
+        "longest": "最長 {duration}",
+        "bestStreak": "最長連続日数",
+        "days": "{count, plural, other {#日}}",
+        "activeDays": "アクティブ日数",
+        "inYear": "{year}年"
+      },
+      "focus": {
+        "focused": "フォーカス中: {community}",
+        "clear": "すべてのコミュニティを表示",
+        "focusOn": "グラフを{community}に絞り込む",
+        "unfocus": "{community}の絞り込みを解除"
+      },
+      "maps": {
+        "title": "マップ",
+        "subtitle": "全サーバーで{count, plural, other {#マップ}}をプレイ",
+        "chart": "グラフ",
+        "table": "表",
+        "search": "マップを検索...",
+        "map": "マップ",
+        "split": "内訳",
+        "hours": "時間",
+        "hrs": "時間",
+        "rank": "順位",
+        "noMaps": "まだプレイしたマップはありません。",
+        "noMatch": "「{search}」に一致するマップはありません。",
+        "rankTooltip": "全サーバーでこのマップの{total}人中 #{rank}",
+        "ariaLabel": "プレイ時間の多いマップ（コミュニティ別）",
+        "summary": "よくプレイするマップ: {maps}。",
+        "hoursAxis": "時間"
+      },
+      "activity": {
+        "title": "オンライン状況",
+        "byHour": "時間帯別",
+        "byWeekday": "曜日別",
+        "myTimezone": "マイタイムゾーン",
+        "utc": "UTC",
+        "hourSubtitle": "時間帯ごとのオンライン時間（コミュニティ別）",
+        "weekdaySubtitle": "プレイした曜日ごとの平均時間（コミュニティ別）",
+        "hourAxis": "時刻",
+        "hoursAxis": "オンライン時間",
+        "averageAxis": "平均時間",
+        "noData": "まだアクティビティの記録はありません。",
+        "hourSummary": "{hour}:00頃が最も活発で、合計{hours}オンライン。",
+        "weekdaySummary": "最も活発なのは{day}曜日で、プレイした日の平均は{hours}。",
+        "busiest": "最も活発な曜日: <b>{day}</b>"
+      },
+      "infractions": {
+        "filter": "違反の種類で絞り込む",
+        "community": "コミュニティ",
+        "reason": "理由",
+        "admin": "管理者",
+        "date": "日付"
       }
     },
     "playedWith": {
@@ -614,6 +675,7 @@
     "continentSubtitle": "このセッションをプレイしていたプレイヤーの位置情報。"
   },
   "nav": {
+    "discordCta": "サポートやフィードバックはDiscordへ",
     "communities": "コミュニティ",
     "server": "サーバー",
     "players": "プレイヤー",
@@ -643,6 +705,8 @@
       "noNomsOnly": "ノミネーションなし",
       "hasLasers": "レーザー搭載",
       "minPlayers": "最小{count}人",
+      "maxPlayers": "最大{count}人",
+      "cooldownEndsIn": "クールダウン終了まで{time}",
       "dataNotReady": "データの準備ができていません。",
       "stillCalculating": "まだ計算中です。後でまた来てください~",
       "viewIn3d": "3Dで表示",
@@ -801,6 +865,10 @@
     "table": {
       "disabled": "無効",
       "mapsLeft": "{count}個のマップ残り",
+      "opensIn": "{time}後に解禁",
+      "opensAt": "ノミネート解禁 {time}",
+      "cooldownEndsAt": "クールダウン終了 {time}",
+      "nomWindow": "ノミネート可能 {start}–{end}",
       "playing": "プレイ中",
       "removed": "削除済み",
       "ready": "準備完了",

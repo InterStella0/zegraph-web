@@ -17,6 +17,12 @@ export const formatDuration = (start, end, withSeconds = false) => {
     return `${minutes}m`;
 };
 
+export const formatSeconds = (totalSeconds) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor(totalSeconds % 3600 / 60);
+    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+};
+
 export const formatTime = (timeStr, timeZone = undefined) => {
     return new Date(timeStr).toLocaleTimeString('en-US', {
         hour12: false,

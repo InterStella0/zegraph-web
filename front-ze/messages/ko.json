@@ -455,10 +455,7 @@
       "yearlySummary": "{periods, plural, one {# 기간} other {# 기간}} 동안의 플레이어 활동. 총합: {total}시간. 최고: {peak}시간.",
       "matrixSummary": "{days, plural, one {# 활성 날짜} other {# 활성 날짜}} 동안의 플레이어 활동 히트맵, 총 {total}시간. 최고 일일 활동: {peak}시간.",
       "yearlyAriaLabel": "연간 플레이어 활동 히트맵",
-      "matrixAriaLabel": "플레이어 {groupBy} 활동 히트맵",
-      "totalPlayTime": "총 플레이 시간",
-      "hoursUnit": "시간",
-      "inYear": "{year}년"
+      "matrixAriaLabel": "플레이어 {groupBy} 활동 히트맵"
     },
     "profile": {
       "header": {
@@ -474,25 +471,22 @@
         "ofTotalPlayers": "{total}명 중",
         "notEnoughPlaytime": "계산되지 않음",
         "shareProfile": "프로필 공유",
-        "avatarAlt": "{name}의 프로필 사진"
+        "avatarAlt": "{name}의 프로필 사진",
+        "onlineOn": "{community}에서 온라인",
+        "lastSeen": "마지막 접속 {time}",
+        "lastSeenOn": "마지막 접속 {time} ({community})",
+        "neverSeen": "접속 기록 없음",
+        "totalPlaytime": "총 플레이 시간",
+        "hrs": "시간",
+        "communitiesServers": "{communities, plural, other {커뮤니티 #개}} · {servers, plural, other {서버 #개}}",
+        "globalChip": "글로벌 #{rank}",
+        "globalRankTooltip": "모든 커뮤니티 플레이어 {total}명 중 #{rank}",
+        "bestMapTooltip": "{map} 플레이어 {total}명 중 #{rank} (모든 서버 합산)",
+        "communityRankTooltip": "{community} 플레이어 {total}명 중 #{rank}",
+        "playtimeByCommunity": "커뮤니티별 플레이 시간",
+        "mapStyle": "맵 스타일 · 모든 서버"
       },
       "stats": {
-        "recalculating": "재계산 중",
-        "outOfDate": "오래된 데이터",
-        "never": "없음",
-        "sessionHours": "{hours}시간 세션",
-        "unranked": "순위 없음",
-        "notEnoughPlaytime": "계산되지 않음",
-        "totalPlaytime": "총 플레이 시간",
-        "hoursUnit": "시간",
-        "acrossCommunities": "{count, plural, one {# 커뮤니티} other {# 커뮤니티}}에서",
-        "bestMapRank": "최고 맵 순위",
-        "communities": "커뮤니티",
-        "joinedAndTracked": "가입 및 추적됨",
-        "servers": "서버",
-        "acrossAllCommunities": "모든 커뮤니티에서",
-        "lastOnline": "마지막 온라인",
-        "onlineNow": "현재 온라인",
         "lastVerified": "마지막 확인: {ago}.",
         "neverVerified": "이 합계는 아직 확인된 적이 없습니다.",
         "recalculatingPlaytime": "플레이 시간 재계산 중…",
@@ -502,7 +496,11 @@
       },
       "communities": {
         "heading": "커뮤니티 연결",
-        "empty": "커뮤니티 연결을 찾을 수 없습니다."
+        "empty": "커뮤니티 연결을 찾을 수 없습니다.",
+        "expandHint": "커뮤니티를 펼치면 서버를 볼 수 있습니다",
+        "community": "커뮤니티",
+        "playtime": "플레이 시간",
+        "rank": "순위"
       },
       "connectionCard": {
         "linkedNames": "연결된 이름 · {count}",
@@ -517,7 +515,6 @@
         "sessionStripAria": "이 서버의 최근 {count, plural, other {#개 세션}} 길이",
         "hideRadar": "레이더 숨기기",
         "anonymize": "익명화",
-        "servers": "서버",
         "steamId": "Steam ID",
         "nameMatched": "이름 일치",
         "noPlaytime": "플레이 시간 없음",
@@ -529,7 +526,71 @@
           "cancel": "취소",
           "success": "프로필 {count, plural, other {#개}} 병합됨 (세션 {sessions}개)",
           "failed": "계정을 병합하지 못했습니다"
-        }
+        },
+        "serverCount": "{count, plural, other {서버 #개}}",
+        "lastPlayed": "마지막 플레이 {time}",
+        "rankOf": "{total}명 중",
+        "unranked": "순위 없음"
+      },
+      "total": "총 {count}",
+      "pageRange": "{total}개 중 {from}–{to}",
+      "history": {
+        "ariaLabel": "{year}년 일별 플레이 시간 (커뮤니티별 색상)",
+        "sessions": "세션",
+        "allTime": "전체 기간",
+        "avgSession": "평균 세션",
+        "longest": "최장 {duration}",
+        "bestStreak": "최장 연속",
+        "days": "{count, plural, other {#일}}",
+        "activeDays": "활동 일수",
+        "inYear": "{year}년"
+      },
+      "focus": {
+        "focused": "집중: {community}",
+        "clear": "모든 커뮤니티 표시",
+        "focusOn": "차트를 {community}에 집중",
+        "unfocus": "{community} 집중 해제"
+      },
+      "maps": {
+        "title": "맵",
+        "subtitle": "모든 서버에서 {count, plural, other {맵 #개}} 플레이",
+        "chart": "차트",
+        "table": "표",
+        "search": "맵 검색...",
+        "map": "맵",
+        "split": "비율",
+        "hours": "시간",
+        "hrs": "시간",
+        "rank": "순위",
+        "noMaps": "아직 플레이한 맵이 없습니다.",
+        "noMatch": "\"{search}\"와 일치하는 맵이 없습니다.",
+        "rankTooltip": "모든 서버에서 이 맵 플레이어 {total}명 중 #{rank}",
+        "ariaLabel": "플레이 시간이 많은 맵 (커뮤니티별)",
+        "summary": "가장 많이 플레이한 맵: {maps}.",
+        "hoursAxis": "시간"
+      },
+      "activity": {
+        "title": "온라인 활동",
+        "byHour": "시간대별",
+        "byWeekday": "요일별",
+        "myTimezone": "내 시간대",
+        "utc": "UTC",
+        "hourSubtitle": "시간대별 온라인 시간 (커뮤니티별)",
+        "weekdaySubtitle": "플레이한 요일별 평균 시간 (커뮤니티별)",
+        "hourAxis": "시각",
+        "hoursAxis": "온라인 시간",
+        "averageAxis": "평균 시간",
+        "noData": "아직 기록된 활동이 없습니다.",
+        "hourSummary": "{hour}:00 무렵 가장 활발하며, 총 {hours} 온라인.",
+        "weekdaySummary": "{day}요일에 가장 활발하며, 플레이한 날 평균 {hours}.",
+        "busiest": "가장 활발한 요일: <b>{day}</b>"
+      },
+      "infractions": {
+        "filter": "위반 유형으로 필터",
+        "community": "커뮤니티",
+        "reason": "사유",
+        "admin": "관리자",
+        "date": "날짜"
       }
     },
     "playedWith": {
@@ -614,6 +675,7 @@
     "continentSubtitle": "이 세션을 플레이하던 플레이어의 위치."
   },
   "nav": {
+    "discordCta": "지원 및 피드백은 Discord에서",
     "communities": "커뮤니티",
     "server": "서버",
     "players": "플레이어",
@@ -643,6 +705,8 @@
       "noNomsOnly": "노미네이션 없음",
       "hasLasers": "레이저 포함",
       "minPlayers": "최소 {count}명",
+      "maxPlayers": "최대 {count}명",
+      "cooldownEndsIn": "쿨다운 종료까지 {time}",
       "dataNotReady": "데이터가 준비되지 않았습니다.",
       "stillCalculating": "아직 계산 중입니다. 나중에 다시 방문하세요~",
       "viewIn3d": "3D로 보기",
@@ -801,6 +865,10 @@
     "table": {
       "disabled": "비활성화됨",
       "mapsLeft": "{count}개 맵 남음",
+      "opensIn": "{time} 후 열림",
+      "opensAt": "추천 가능 시작 {time}",
+      "cooldownEndsAt": "쿨다운 종료 {time}",
+      "nomWindow": "추천 가능 {start}–{end}",
       "playing": "플레이 중",
       "removed": "제거됨",
       "ready": "준비됨",

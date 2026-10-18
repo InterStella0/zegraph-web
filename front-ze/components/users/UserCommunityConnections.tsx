@@ -1,12 +1,17 @@
 'use client';
 
 import { ProfileResponse, UserAnonymization } from "types/community";
-import CommunityConnectionCard from "./CommunityConnectionCard";
+import CommunityConnectionCard, { CONNECTION_COLUMNS } from "./CommunityConnectionCard";
 import { useState, useCallback, useOptimistic, startTransition, use } from "react";
 import { useTranslations } from "next-intl";
 import { fetchApiUrl } from "utils/generalUtils";
-import { Separator } from "components/ui/separator";
+import { Badge } from "components/ui/badge";
+import { Card, CardContent } from "components/ui/card";
 import { Skeleton } from "components/ui/skeleton";
+import { useProfileCommunities } from "./ProfileContext";
+import { ENTER } from "./profileMotion";
+
+const CARD = "border-border/40 bg-card/50 backdrop-blur-xl";
 
 interface UserCommunityConnectionsProps {
     profilePromise: Promise<ProfileResponse>;
@@ -15,17 +20,14 @@ interface UserCommunityConnectionsProps {
 export function UserCommunityConnectionsLoading() {
     const t = useTranslations('players.profile.communities');
     return (
-        <div className="w-full">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 mt-8">
-                <h2 className="text-2xl font-semibold tracking-tight">
-                    {t('heading')}
-                </h2>
-            </div>
-            <Separator className="mb-6" />
-            <div className="space-y-4">
-                {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
-            </div>
-        </div>
+        <Card className={CARD}>
+            <CardContent className="p-4 sm:p-6">
+                <h2 className="mb-4 text-xl font-semibold">{t('heading')}</h2>
+                <div className="space-y-2">
+                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 
@@ -33,7 +35,9 @@ export default function UserCommunityConnections({
     profilePromise
 }: UserCommunityConnectionsProps)  {
     const t = useTranslations('players.profile.communities');
+    const tHeader = useTranslations('players.profile.header');
     const profile = use(profilePromise);
+    const { communities: ordered } = useProfileCommunities();
     const { communities, can_manage_anonymization: canManageAnonymization, anonymization } = profile;
     const targetUserId = profile.is_owner ? undefined : profile.steamid;
 
@@ -100,46 +104,51 @@ export default function UserCommunityConnections({
         7200,
         ...(communities ?? []).flatMap(c => c.servers.flatMap(s => s.recent_sessions.map(r => r.duration)))
     );
-
-    if (!communities || communities.length === 0) {
-        return (
-            <div className="w-full">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 mt-8">
-                    <h2 className="text-2xl font-semibold tracking-tight">
-                        {t('heading')}
-                    </h2>
-                </div>
-                <Separator className="mb-6" />
-                <div className="text-center py-8">
-                    <p className="text-muted-foreground">
-                        {t('empty')}
-                    </p>
-                </div>
-            </div>
-        );
-    }
+    const totalPlaytime = ordered.reduce((sum, community) => sum + community.playtime, 0);
+    const serverCount = ordered.reduce((sum, community) => sum + community.detail.servers.length, 0);
 
     return (
-        <div className="w-full">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 mt-8">
-                <h2 className="text-2xl font-semibold tracking-tight">
-                    {t('heading')}
-                </h2>
-            </div>
-            <Separator className="mb-6" />
-            <div className="space-y-4">
-                {communities.map((community) => {
-                    const settings = anonymizedOptimisticCommunities.get(community.id)
-                    return <CommunityConnectionCard
-                        key={community.id}
-                        community={community}
-                        settings={settings ?? null}
-                        onToggleAnonymize={handleToggleAnonymize}
-                        showAnonymizeToggle={canManageAnonymization}
-                        scaleMax={scaleMax}
-                    />
-                })}
-            </div>
-        </div>
+        <Card className={`${CARD} ${ENTER} delay-200`}>
+            <CardContent className="p-4 sm:p-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-xl font-semibold">{t('heading')}</h2>
+                        {ordered.length > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                                {tHeader('communitiesServers', { communities: ordered.length, servers: serverCount })}
+                            </Badge>
+                        )}
+                    </div>
+                    {ordered.length > 0 && <span className="text-sm text-muted-foreground">{t('expandHint')}</span>}
+                </div>
+
+                {ordered.length === 0 ? (
+                    <p className="py-8 text-center text-muted-foreground">{t('empty')}</p>
+                ) : (
+                    <div className="overflow-hidden rounded-lg border border-border/60">
+                        <div className={`${CONNECTION_COLUMNS} hidden border-b border-border/60 bg-muted/40 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground md:grid`}>
+                            <span />
+                            <span>{t('community')}</span>
+                            <span>{t('playtime')}</span>
+                            <span className="text-right">{t('rank')}</span>
+                            <span />
+                        </div>
+                        {ordered.map((community, index) => (
+                            <CommunityConnectionCard
+                                key={community.id}
+                                community={community}
+                                share={totalPlaytime > 0 ? community.playtime / totalPlaytime : 0}
+                                settings={anonymizedOptimisticCommunities.get(community.id) ?? null}
+                                onToggleAnonymize={handleToggleAnonymize}
+                                showAnonymizeToggle={canManageAnonymization}
+                                scaleMax={scaleMax}
+                                defaultOpen={index === 0}
+                                index={index}
+                            />
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 }

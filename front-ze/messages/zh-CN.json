@@ -455,10 +455,7 @@
       "yearlySummary": "玩家在 {periods} 个时段内的活动情况。总计：{total} 小时。峰值：{peak} 小时。",
       "matrixSummary": "玩家活动热力图显示了 {days} 个活跃天内共 {total} 小时。单日最高活跃度：{peak} 小时。",
       "yearlyAriaLabel": "玩家年度活动热力图",
-      "matrixAriaLabel": "玩家 {groupBy} 活动热力图",
-      "totalPlayTime": "总游戏时长",
-      "hoursUnit": "小时",
-      "inYear": "{year}年"
+      "matrixAriaLabel": "玩家 {groupBy} 活动热力图"
     },
     "profile": {
       "header": {
@@ -474,25 +471,22 @@
         "ofTotalPlayers": "共 {total} 名玩家",
         "notEnoughPlaytime": "尚未计算",
         "shareProfile": "分享个人资料",
-        "avatarAlt": "{name} 的头像"
+        "avatarAlt": "{name} 的头像",
+        "onlineOn": "正在 {community} 在线",
+        "lastSeen": "最后在线 {time}",
+        "lastSeenOn": "最后在线 {time}（{community}）",
+        "neverSeen": "从未在线",
+        "totalPlaytime": "总游戏时长",
+        "hrs": "小时",
+        "communitiesServers": "{communities, plural, other {# 个社区}} · {servers, plural, other {# 个服务器}}",
+        "globalChip": "全球 #{rank}",
+        "globalRankTooltip": "所有社区 {total} 名玩家中第 {rank} 名",
+        "bestMapTooltip": "{map} 的 {total} 名玩家中第 {rank} 名（合计所有服务器时长）",
+        "communityRankTooltip": "{community} 的 {total} 名玩家中第 {rank} 名",
+        "playtimeByCommunity": "各社区游戏时长",
+        "mapStyle": "地图风格 · 所有服务器"
       },
       "stats": {
-        "recalculating": "重新计算中",
-        "outOfDate": "数据已过期",
-        "never": "从未",
-        "sessionHours": "{hours} 小时场次",
-        "unranked": "未排名",
-        "notEnoughPlaytime": "尚未计算",
-        "totalPlaytime": "总游戏时长",
-        "hoursUnit": "小时",
-        "acrossCommunities": "跨 {count, plural, one {# 个社区} other {# 个社区}}",
-        "bestMapRank": "最佳地图排名",
-        "communities": "社区",
-        "joinedAndTracked": "已加入并被追踪",
-        "servers": "服务器",
-        "acrossAllCommunities": "跨所有社区",
-        "lastOnline": "最后在线",
-        "onlineNow": "当前在线",
         "lastVerified": "最后验证于 {ago}。",
         "neverVerified": "这些统计数据从未被验证过。",
         "recalculatingPlaytime": "正在重新计算游戏时长…",
@@ -502,7 +496,11 @@
       },
       "communities": {
         "heading": "社区关联",
-        "empty": "未找到社区关联。"
+        "empty": "未找到社区关联。",
+        "expandHint": "展开社区以查看其服务器",
+        "community": "社区",
+        "playtime": "游戏时长",
+        "rank": "排名"
       },
       "connectionCard": {
         "linkedNames": "关联名称 · {count}",
@@ -517,7 +515,6 @@
         "sessionStripAria": "此服务器最近 {count, plural, other {# 次会话}}的时长",
         "hideRadar": "隐藏雷达",
         "anonymize": "匿名化",
-        "servers": "服务器",
         "steamId": "Steam ID",
         "nameMatched": "名称匹配",
         "noPlaytime": "无游戏时长",
@@ -529,7 +526,71 @@
           "cancel": "取消",
           "success": "已合并 {count, plural, other {# 个资料}}（{sessions} 次游戏记录）",
           "failed": "无法合并账号"
-        }
+        },
+        "serverCount": "{count, plural, other {# 个服务器}}",
+        "lastPlayed": "最后游玩 {time}",
+        "rankOf": "共 {total} 人",
+        "unranked": "未排名"
+      },
+      "total": "共 {count}",
+      "pageRange": "第 {from}–{to} 条，共 {total} 条",
+      "history": {
+        "ariaLabel": "{year} 年每日游戏时长，按社区着色",
+        "sessions": "会话",
+        "allTime": "全部时间",
+        "avgSession": "平均会话",
+        "longest": "最长 {duration}",
+        "bestStreak": "最长连续",
+        "days": "{count, plural, other {# 天}}",
+        "activeDays": "活跃天数",
+        "inYear": "{year} 年"
+      },
+      "focus": {
+        "focused": "已聚焦：{community}",
+        "clear": "显示所有社区",
+        "focusOn": "图表聚焦于 {community}",
+        "unfocus": "取消聚焦 {community}"
+      },
+      "maps": {
+        "title": "地图",
+        "subtitle": "在所有服务器上玩过 {count, plural, other {# 张地图}}",
+        "chart": "图表",
+        "table": "表格",
+        "search": "搜索地图...",
+        "map": "地图",
+        "split": "占比",
+        "hours": "小时",
+        "hrs": "小时",
+        "rank": "排名",
+        "noMaps": "还没有玩过任何地图。",
+        "noMatch": "没有与“{search}”匹配的地图。",
+        "rankTooltip": "所有服务器上该地图 {total} 名玩家中第 {rank} 名",
+        "ariaLabel": "按时长排列的常玩地图，按社区划分",
+        "summary": "最常玩的地图：{maps}。",
+        "hoursAxis": "小时"
+      },
+      "activity": {
+        "title": "在线活动",
+        "byHour": "按小时",
+        "byWeekday": "按星期",
+        "myTimezone": "我的时区",
+        "utc": "UTC",
+        "hourSubtitle": "一天中每个小时的在线时长，按社区划分",
+        "weekdaySubtitle": "每个游玩日的平均时长（按星期），按社区划分",
+        "hourAxis": "时刻",
+        "hoursAxis": "在线时长",
+        "averageAxis": "平均时长",
+        "noData": "暂无活动记录。",
+        "hourSummary": "{hour}:00 左右最活跃，共在线 {hours}。",
+        "weekdaySummary": "{day}最活跃，游玩日平均 {hours}。",
+        "busiest": "最活跃：<b>{day}</b>"
+      },
+      "infractions": {
+        "filter": "按违规类型筛选",
+        "community": "社区",
+        "reason": "原因",
+        "admin": "管理员",
+        "date": "日期"
       }
     },
     "playedWith": {
@@ -614,6 +675,7 @@
     "continentSubtitle": "游玩此场次的玩家所在位置。"
   },
   "nav": {
+    "discordCta": "加入我们的 Discord 获取支持或反馈",
     "communities": "社区",
     "server": "服务器",
     "players": "玩家",
@@ -643,6 +705,8 @@
       "noNomsOnly": "无订日",
       "hasLasers": "含激光",
       "minPlayers": "最少 {count} 名玩家",
+      "maxPlayers": "最多 {count} 名玩家",
+      "cooldownEndsIn": "冷却将在{time}后结束",
       "dataNotReady": "数据尚未就绪。",
       "stillCalculating": "仍在计算中，数据尚未就绪，请稍后再来~",
       "viewIn3d": "以 3D 查看",
@@ -801,6 +865,10 @@
     "table": {
       "disabled": "已禁用",
       "mapsLeft": "还剩 {count} 张地图",
+      "opensIn": "{time}后开放",
+      "opensAt": "提名开放于 {time}",
+      "cooldownEndsAt": "冷却结束于 {time}",
+      "nomWindow": "可提名时段 {start}–{end}",
       "playing": "游玩中",
       "removed": "已移除",
       "ready": "就绪",

@@ -163,6 +163,10 @@ pub struct DbServerMap{
     pub pending_cooldown: Option<bool>,
     pub map_left: Option<i32>,
     pub map_left_last_update: Option<OffsetDateTime>,
+    pub nom_available_from: Option<String>,
+    pub nom_available_until: Option<String>,
+    pub nom_opens_at: Option<OffsetDateTime>,
+    pub nom_closes_at: Option<OffsetDateTime>,
     #[unwrap_default]
     pub enabled: Option<bool>,
     pub is_tryhard: Option<bool>,

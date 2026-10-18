@@ -45,11 +45,3 @@ export async function fetchGlobalContinents(signal?: AbortSignal): Promise<Conti
     return fetchUrl("/radars/global/live_statistics/continents", {signal}, false)
         .catch(() => null) as Promise<ContinentStatistics | null>;
 }
-
-export function computeTrend(data: CommunityCountData[]): number | null {
-    if (!data || data.length < 2) return null;
-    const first = data[0].player_count;
-    const last = data[data.length - 1].player_count;
-    if (first === 0) return null;
-    return ((last - first) / first) * 100;
-}

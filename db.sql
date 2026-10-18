@@ -161,6 +161,8 @@ CREATE TABLE server_infractions(
     message_url TEXT,
     pending_update BOOLEAN NOT NULL DEFAULT false
 );
+CREATE INDEX server_infractions_gs_id_idx ON server_infractions ((payload->'player'->>'gs_id'));
+CREATE INDEX server_infractions_steam64_id_idx ON server_infractions ((payload->>'steam64_id'));
 
 CREATE TABLE player_server_session(
     session_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -292,7 +294,9 @@ CREATE TABLE website.steam_user (
     primary_clan_id TEXT NOT NULL,
     time_created BIGINT NOT NULL,
     persona_state_flags INTEGER NOT NULL,
-    comment_permission BOOLEAN NOT NULL
+    comment_permission BOOLEAN NOT NULL,
+    -- Last playerdb.co pull of name/avatar; NULL means never, so /accounts/me refreshes it.
+    refreshed_at TIMESTAMPTZ
 );
 
 CREATE TABLE website.user_favorite_maps (
@@ -564,6 +568,48 @@ FROM website.player_map_time pmt
 WHERE NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pmt.player_id);
 CREATE UNIQUE INDEX CONCURRENTLY player_map_rank_idx
     ON website.player_map_rank (server_id, map, player_id);
+
+CREATE MATERIALIZED VIEW website.player_community_ranks AS
+WITH totals AS (
+    SELECT s.community_id,
+           COALESCE(p.associated_player_id, p.player_id) AS player_id,
+           SUM(pp.total_playtime) AS total_playtime
+    FROM website.player_playtime pp
+    JOIN player p ON p.player_id = pp.player_id
+    JOIN server s ON s.server_id = pp.server_id
+    WHERE s.community_id IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pp.player_id)
+    GROUP BY 1, 2
+    HAVING SUM(pp.total_playtime) > INTERVAL '0'
+)
+SELECT community_id,
+       player_id,
+       total_playtime,
+       RANK() OVER (PARTITION BY community_id ORDER BY total_playtime DESC)::INT AS playtime_rank,
+       COUNT(*) OVER (PARTITION BY community_id)::INT AS total_players
+FROM totals;
+CREATE UNIQUE INDEX CONCURRENTLY player_community_ranks_idx
+    ON website.player_community_ranks (player_id, community_id);
+
+CREATE MATERIALIZED VIEW website.player_global_map_rank AS
+WITH totals AS (
+    SELECT pmt.map,
+           COALESCE(p.associated_player_id, p.player_id) AS player_id,
+           SUM(pmt.total_playtime) AS total_playtime
+    FROM website.player_map_time pmt
+    JOIN server_map sm ON sm.server_id = pmt.server_id AND sm.map = pmt.map
+    JOIN player p ON p.player_id = pmt.player_id
+    WHERE NOT EXISTS (SELECT 1 FROM bot_player b WHERE b.player_id = pmt.player_id)
+    GROUP BY 1, 2
+)
+SELECT map,
+       player_id,
+       total_playtime,
+       ROW_NUMBER() OVER (PARTITION BY map ORDER BY total_playtime DESC, player_id)::INT AS map_rank,
+       COUNT(*) OVER (PARTITION BY map)::INT AS total_players
+FROM totals;
+CREATE UNIQUE INDEX CONCURRENTLY player_global_map_rank_idx
+    ON website.player_global_map_rank (player_id, map);
 
 CREATE TABLE website.user_roles (
     user_id BIGINT REFERENCES website.steam_user(user_id) ON DELETE CASCADE,
@@ -1544,6 +1590,24 @@ SELECT cron.schedule_in_database(
     '0 0 * * *',  -- Every day
     $$
         REFRESH MATERIALIZED VIEW CONCURRENTLY website.player_playtime_ranks;
+    $$,
+    'cs2_tracker_db'  -- INSERT YOUR DB NAME
+);
+
+SELECT cron.schedule_in_database(
+    'update-player-community-rank',
+    '0 0 * * *',  -- Every day
+    $$
+        REFRESH MATERIALIZED VIEW CONCURRENTLY website.player_community_ranks;
+    $$,
+    'cs2_tracker_db'  -- INSERT YOUR DB NAME
+);
+
+SELECT cron.schedule_in_database(
+    'update-player-global-map-rank',
+    '0 0 * * *',  -- Every day
+    $$
+        REFRESH MATERIALIZED VIEW CONCURRENTLY website.player_global_map_rank;
     $$,
     'cs2_tracker_db'  -- INSERT YOUR DB NAME
 );

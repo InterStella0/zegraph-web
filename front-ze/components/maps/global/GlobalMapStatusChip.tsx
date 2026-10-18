@@ -9,6 +9,8 @@ import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
 import {useServerMap} from "components/ui/ServerProvider";
 import {useLocalDayjs} from "lib/hooks/useHydrated";
 import {GlobalMapPlayed, GlobalMapServer} from "types/maps.ts";
+import {isBlocked, mapBlockers, readyAt} from "utils/mapCooldown";
+import {useMapCooldownText} from "lib/hooks/useMapCooldownText";
 import {Server} from "types/community.ts";
 
 dayjs.extend(relativeTime);
@@ -22,13 +24,10 @@ export const STATUS_TONE = {
 
 export type ServerState = { tone: keyof typeof STATUS_TONE, label: ReactNode };
 
-function hasCooldown(server: GlobalMapServer): boolean {
-    return server.cooldown != null && dayjs(server.cooldown).isAfter(dayjs());
-}
+const blockersOf = (server: GlobalMapServer) => mapBlockers(server.map_left, server.cooldown, server.nom_opens_at);
 
 function isAvailable(server: GlobalMapServer): boolean {
-    const noMapsLeft = server.map_left == null || server.map_left <= 0;
-    return server.enabled && !server.removed && !hasCooldown(server) && noMapsLeft;
+    return server.enabled && !server.removed && !isBlocked(blockersOf(server));
 }
 
 function serverLabel(server: Server | undefined, fallback: string): string {
@@ -37,15 +36,14 @@ function serverLabel(server: Server | undefined, fallback: string): string {
 
 export function useServerMapState(): (server: GlobalMapServer) => ServerState {
     const t = useTranslations('maps.table');
-    const toDayjs = useLocalDayjs();
+    const cooldownText = useMapCooldownText();
     return server => {
         if (server.is_playing) return {tone: 'playing', label: t('playing')};
         if (server.removed) return {tone: 'off', label: t('removed')};
         if (!server.enabled) return {tone: 'off', label: t('disabled')};
-        if (server.map_left != null && server.map_left > 0)
-            return {tone: 'waiting', label: t('mapsLeft', {count: server.map_left})};
-        if (hasCooldown(server))
-            return {tone: 'waiting', label: <span suppressHydrationWarning>{toDayjs(server.cooldown).fromNow(true)}</span>};
+        const blockers = blockersOf(server);
+        if (isBlocked(blockers))
+            return {tone: 'waiting', label: <span suppressHydrationWarning>{cooldownText.label(blockers)}</span>};
         return {tone: 'ready', label: t('ready')};
     };
 }
@@ -102,9 +100,11 @@ export default function GlobalMapStatusChip({ map }: { map: GlobalMapPlayed }) {
 
     const enabled = active.filter(server => server.enabled);
     const soonest = enabled
-        .filter(hasCooldown)
-        .map(server => server.cooldown as string)
-        .sort()[0];
+        .map(server => blockersOf(server))
+        .filter(blockers => blockers.mapsLeft == null)
+        .map(readyAt)
+        .filter((time): time is string => time != null)
+        .sort((a, b) => dayjs(a).valueOf() - dayjs(b).valueOf())[0];
     if (soonest) return withBreakdown(
         <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 dark:text-amber-500">
             <Clock className="h-3 w-3"/>

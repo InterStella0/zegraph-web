@@ -1,6 +1,5 @@
 'use client';
-import dynamic from 'next/dynamic';
-import {useEffect, useMemo, useState} from 'react';
+import {useMemo} from 'react';
 import Link from 'next/link';
 import {toast} from 'sonner';
 import {Avatar, AvatarFallback, AvatarImage} from 'components/ui/avatar';
@@ -8,18 +7,12 @@ import {Card, CardContent} from 'components/ui/card';
 import {Button} from 'components/ui/button';
 import {Badge} from 'components/ui/badge';
 import {Progress} from 'components/ui/progress';
-import {ArrowRight, BarChart3, Copy, Gamepad2, TrendingDown, TrendingUp} from 'lucide-react';
+import {ArrowRight, BarChart3, Copy, Gamepad2} from 'lucide-react';
 import {getServerAvatarText} from 'components/ui/CommunitySelector';
 import {GAME_META} from 'components/ui/ServerIndicator';
 import {Community, Server} from 'types/community';
-import {computeTrend, fetchCommunityPopulation} from './homeData';
 import {useTranslations} from 'next-intl';
-import dayjs from "dayjs";
 
-const Sparkline = dynamic(() => import('./Sparkline'), {ssr: false});
-
-const UP_COLOR = '#34d399';
-const DOWN_COLOR = '#f87171';
 const NAME_MAX_CHARS = 20;
 
 function truncate(text: string, max: number) {
@@ -94,26 +87,10 @@ function ServerRow({server, rank}: {server: Server, rank: number}) {
 
 export default function CommunityServerGroup({community}: {community: Community}) {
     const t = useTranslations('home');
-    const [points, setPoints] = useState<{x: string, y: number}[]>([]);
-    const [trend, setTrend] = useState<number | null>(null);
-
-    useEffect(() => {
-        const controller = new AbortController();
-        fetchCommunityPopulation(community.id, 'OneDay', dayjs().toJSON(), controller.signal).then(data => {
-            if (controller.signal.aborted) return;
-            setPoints(data.map(d => ({x: d.bucket_time, y: d.player_count})));
-            setTrend(computeTrend(data));
-        });
-        return () => controller.abort();
-    }, [community.id]);
-
     const servers = useMemo(
         () => [...community.servers].sort((a, b) => b.players - a.players),
         [community.servers],
     );
-
-    const trendUp = trend != null && trend >= 0;
-    const trendColor = trendUp ? UP_COLOR : DOWN_COLOR;
 
     return (
         <Card>
@@ -131,27 +108,9 @@ export default function CommunityServerGroup({community}: {community: Community}
                             </p>
                         </div>
                     </div>
-                    <div className="flex flex-row items-center gap-3 flex-shrink-0">
-                        {points.length > 1 && <Sparkline points={points} color={trendColor} />}
-                        <div className="flex flex-col items-end">
-                            <span className="text-lg font-bold leading-none">
-                                {community.players.toLocaleString()}
-                            </span>
-                            {trend != null && (
-                                <span
-                                    className="flex flex-row items-center gap-0.5 text-xs mt-1"
-                                    style={{color: trendColor}}
-                                >
-                                    {trendUp ? (
-                                        <TrendingUp className="h-3 w-3" />
-                                    ) : (
-                                        <TrendingDown className="h-3 w-3" />
-                                    )}
-                                    {Math.abs(trend).toFixed(1)}% · 1d
-                                </span>
-                            )}
-                        </div>
-                    </div>
+                    <span className="text-lg font-bold leading-none flex-shrink-0">
+                        {community.players.toLocaleString()}
+                    </span>
                 </div>
 
                 <div>

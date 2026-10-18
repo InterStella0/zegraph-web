@@ -26,7 +26,7 @@ use uuid::Uuid;
 use crate::{response, FastCache, AppData};
 use crate::api_models::common::*;
 use crate::api_models::misc::ProviderResponse;
-use crate::api_models::players::{PlayerBrief, PlayerDetailSession, PlayerSeen};
+use crate::api_models::players::{PlayerBrief, PlayerDetailSession, PlayerSeen, SteamProfileBackground, SteamProfileItems};
 use crate::api_models::radars::CountryPlayer;
 use crate::models::players::DbPlayerBrief;
 use crate::models::servers::DbServer;
@@ -729,6 +729,117 @@ fn pfp_missing_key(player_id: &i64) -> String {
     format!("gfl-ze-watcher:pfp_missing:{player_id}")
 }
 
+const STEAM_ITEMS_URL: &str = "https://api.steampowered.com/IPlayerService/GetProfileItemsEquipped/v1/";
+const STEAM_ITEMS_CDN: &str = "https://shared.fastly.steamstatic.com/community_assets/images/";
+const STEAM_ITEMS_TTL: u64 = 12 * HOUR;
+const STEAM_ITEMS_RETRY_TTL: u64 = 5 * 60;
+
+/// One equipped slot; Steam sends `{}` for an empty one, so every field is optional.
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct SteamEquippedItem {
+    image_small: Option<String>,
+    image_large: Option<String>,
+    movie_webm: Option<String>,
+    movie_mp4: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct SteamEquippedItems {
+    profile_background: SteamEquippedItem,
+    mini_profile_background: SteamEquippedItem,
+    avatar_frame: SteamEquippedItem,
+    animated_avatar: SteamEquippedItem,
+}
+
+#[derive(Deserialize)]
+struct SteamEquippedResponse {
+    response: SteamEquippedItems,
+}
+
+fn steam_item_url(path: &Option<String>) -> Option<String> {
+    path.as_deref()
+        .filter(|p| !p.is_empty())
+        .map(|p| format!("{STEAM_ITEMS_CDN}{p}"))
+}
+
+impl SteamEquippedItem {
+    fn background(&self) -> Option<SteamProfileBackground> {
+        Some(SteamProfileBackground {
+            image: steam_item_url(&self.image_large)?,
+            video_webm: steam_item_url(&self.movie_webm),
+            video_mp4: steam_item_url(&self.movie_mp4),
+        })
+    }
+
+    /// Animated avatars ship a GIF and a still in the two image slots; prefer whichever is the GIF.
+    fn animated_image(&self) -> Option<String> {
+        let is_gif = |p: &&String| p.ends_with(".gif");
+        let gif = self.image_large.as_ref().filter(is_gif)
+            .or_else(|| self.image_small.as_ref().filter(is_gif))
+            .cloned();
+        steam_item_url(&gif.or_else(|| self.image_large.clone()))
+    }
+}
+
+async fn fetch_steam_profile_items(steam_id: i64) -> Result<SteamProfileItems, ErrorCode> {
+    let resp = http_client().get(STEAM_ITEMS_URL)
+        .query(&[("steamid", steam_id.to_string())])
+        .send().await
+        .map_err(|e| {
+            tracing::warn!("Steam profile items request failed for {steam_id}: {e}");
+            ErrorCode::InternalServerError
+        })?;
+    if !resp.status().is_success() {
+        tracing::warn!("Steam profile items for {steam_id} returned {}", resp.status());
+        return Err(ErrorCode::InternalServerError);
+    }
+    let items = resp.json::<SteamEquippedResponse>().await
+        .map_err(|_| ErrorCode::InternalServerError)?
+        .response;
+    Ok(items.into())
+}
+
+impl From<SteamEquippedItems> for SteamProfileItems {
+    fn from(items: SteamEquippedItems) -> Self {
+        SteamProfileItems {
+            // Despite the names, both frame images are the same size: image_small is the animated
+            // PNG and image_large a still of it.
+            avatar_frame: steam_item_url(&items.avatar_frame.image_small)
+                .or_else(|| steam_item_url(&items.avatar_frame.image_large)),
+            animated_avatar: items.animated_avatar.animated_image(),
+            profile_background: items.profile_background.background(),
+            mini_profile_background: items.mini_profile_background.background(),
+        }
+    }
+}
+
+/// The Steam cosmetics a player has equipped, cached for half a day. A failed lookup is remembered
+/// for a few minutes, so while Steam is down or rate limiting, profile views don't keep asking it.
+pub async fn get_steam_profile_items(cache: &FastCache, steam_id: i64) -> Result<SteamProfileItems, ErrorCode> {
+    let failed_key = format!("gfl-ze-watcher:steam_items_failed:{steam_id}");
+    let callable = || async {
+        if redis_key_exists(&cache.redis_pool, &failed_key).await {
+            return Err(ErrorCode::InternalServerError);
+        }
+        let items = fetch_steam_profile_items(steam_id).await;
+        if items.is_err() {
+            if let Ok(mut conn) = cache.redis_pool.get().await {
+                let saved: RedisResult<()> = conn.set_ex(&failed_key, 1, STEAM_ITEMS_RETRY_TTL).await;
+                if let Err(e) = saved {
+                    tracing::warn!("Failed to store Steam items failure marker {}: {}", failed_key, e);
+                }
+            }
+        }
+        items
+    };
+    // v2: entries cached before frames switched to the animated image held the still.
+    cached_response(&format!("steam_items:v2:{steam_id}"), cache, STEAM_ITEMS_TTL, callable)
+        .await
+        .map(|result| result.result)
+}
+
 async fn get_fresh_profile(cache: &FastCache, player_id: &i64) -> Option<ProviderResponse> {
     let key = pfp_cache_key(player_id);
     if let Some(val) = cache.memory.get(&key).await {
@@ -1114,5 +1225,61 @@ mod anonymizer_tests {
         assert!(visibility_allows(true, "111", Some(999), false, true));
         assert!(!visibility_allows(true, "111", Some(999), false, false));
         assert!(!visibility_allows(true, "111", None, false, false));
+    }
+}
+
+#[cfg(test)]
+mod steam_items_tests {
+    use super::{SteamEquippedResponse, STEAM_ITEMS_CDN};
+    use crate::api_models::players::SteamProfileItems;
+
+    fn parse(json: &str) -> SteamProfileItems {
+        serde_json::from_str::<SteamEquippedResponse>(json).unwrap().response.into()
+    }
+
+    #[test]
+    fn empty_slots_are_null() {
+        let items = parse(r#"{"response":{"profile_background":{},"mini_profile_background":{},
+            "avatar_frame":{},"animated_avatar":{},"profile_modifier":{},"steam_deck_keyboard_skin":{}}}"#);
+        assert!(items.avatar_frame.is_none());
+        assert!(items.animated_avatar.is_none());
+        assert!(items.profile_background.is_none());
+        assert!(items.mini_profile_background.is_none());
+    }
+
+    #[test]
+    fn equipped_slots_become_cdn_urls() {
+        // Trimmed from a real GetProfileItemsEquipped response.
+        let items = parse(r#"{"response":{
+            "profile_background":{"communityitemid":"1","image_large":"items/1675200/bg.jpg","item_class":3,
+                "movie_webm":"items/1675200/bg.webm","movie_mp4":"items/1675200/bg.mp4"},
+            "mini_profile_background":{"image_large":"items/534380/mini.jpg"},
+            "avatar_frame":{"image_small":"items/1675200/frame_anim.png","image_large":"items/1675200/frame_still.png"},
+            "animated_avatar":{"image_small":"items/2861690/still.jpg","image_large":"items/2861690/anim.gif"},
+            "profile_modifier":{"profile_colors":[{"style_name":"x","color":"rgba(0, 0, 0, 1)"}]}}}"#);
+        let url = |p: &str| format!("{STEAM_ITEMS_CDN}{p}");
+
+        assert_eq!(items.avatar_frame, Some(url("items/1675200/frame_anim.png")));
+        assert_eq!(items.animated_avatar, Some(url("items/2861690/anim.gif")));
+        let bg = items.profile_background.unwrap();
+        assert_eq!(bg.image, url("items/1675200/bg.jpg"));
+        assert_eq!(bg.video_webm, Some(url("items/1675200/bg.webm")));
+        assert_eq!(bg.video_mp4, Some(url("items/1675200/bg.mp4")));
+        let mini = items.mini_profile_background.unwrap();
+        assert_eq!(mini.image, url("items/534380/mini.jpg"));
+        assert_eq!(mini.video_webm, None);
+    }
+
+    #[test]
+    fn animated_avatar_prefers_the_gif() {
+        let items = parse(r#"{"response":{"animated_avatar":
+            {"image_small":"items/1/anim.gif","image_large":"items/1/still.jpg"}}}"#);
+        assert_eq!(items.animated_avatar, Some(format!("{STEAM_ITEMS_CDN}items/1/anim.gif")));
+    }
+
+    #[test]
+    fn avatar_frame_falls_back_to_the_still() {
+        let items = parse(r#"{"response":{"avatar_frame":{"image_large":"items/1/frame_still.png"}}}"#);
+        assert_eq!(items.avatar_frame, Some(format!("{STEAM_ITEMS_CDN}items/1/frame_still.png")));
     }
 }

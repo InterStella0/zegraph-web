@@ -188,6 +188,10 @@ pub struct DbMapInfo{
     pub pending_cooldown: Option<bool>,
     pub map_left: Option<i32>,
     pub map_left_last_update: Option<OffsetDateTime>,
+    pub nom_available_from: Option<String>,
+    pub nom_available_until: Option<String>,
+    pub nom_opens_at: Option<OffsetDateTime>,
+    pub nom_closes_at: Option<OffsetDateTime>,
     pub no_noms: bool,
     #[default(0)]
     pub workshop_id: Option<i64>,
@@ -300,6 +304,7 @@ pub struct DbGlobalMapServerRow {
     pub removed: bool,
     pub cooldown: Option<OffsetDateTime>,
     pub map_left: Option<i32>,
+    pub nom_opens_at: Option<OffsetDateTime>,
     pub min_players: Option<i16>,
     pub is_playing: bool,
     pub last_played: OffsetDateTime,

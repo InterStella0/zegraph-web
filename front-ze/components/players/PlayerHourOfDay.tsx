@@ -18,9 +18,8 @@ import {
     Title,
     Tooltip
 } from "chart.js";
-import {MatrixController, MatrixElement} from "chartjs-chart-matrix";
 import GraphSkeleton from "../graphs/GraphSkeleton.tsx";
-import {LazyBarChart as Bar, LazyLineChart as Line, LazyMatrixChart as Matrix} from "components/graphs/LazyCharts";
+import {LazyBarChart as Bar, LazyLineChart as Line} from "components/graphs/LazyCharts";
 import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
 import dayjs from "dayjs";
@@ -47,8 +46,6 @@ ChartJS.register(
     LinearScale,
     CategoryScale,
     Filler,
-    MatrixController,
-    MatrixElement,
     Title,
     Tooltip,
     Legend,
@@ -57,11 +54,7 @@ ChartJS.register(
 
 type Metric = 'hour' | 'joins'
 
-const AXIS_GUTTER = 48
-
 const HEAT_ACCENT = { h: 300, s: 85, l: 62 }
-
-const ALL_HOURS = Array.from({length: 24}, (_, i) => i)
 
 function heatColor(alpha: number){
     const { h, s, l } = HEAT_ACCENT
@@ -166,26 +159,16 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
             mode: 'index' as const,
             intersect: false,
         },
-        layout: {
-            padding: { right: 8 }
-        },
         scales: {
             x: {
-                type: 'linear' as const,
-                min: -0.5,
-                max: 23.5,
-                ticks: { display: false },
-                border: { display: false },
+                title: { display: true, text: t('hourOfDayAxis'), color: axisColor },
+                ticks: { color: axisColor },
                 grid: { display: false },
             },
             y: {
-                min: 0,
-                afterFit: (scale: { width: number }) => { scale.width = AXIS_GUTTER },
-                ticks: {
-                    color: axisColor,
-                    maxTicksLimit: 5,
-                },
-                border: { display: false },
+                beginAtZero: true,
+                title: { display: true, text: t('hoursOnlineAxis'), color: axisColor },
+                ticks: { color: axisColor, maxTicksLimit: 6 },
                 grid: { color: gridColor },
             }
         },
@@ -194,8 +177,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
             tooltip: {
                 ...tooltipStyle,
                 callbacks: {
-                    title: (items: { parsed: { x: number } }[]) =>
-                        `${String(items[0]?.parsed.x ?? 0).padStart(2, '0')}:00`,
+                    title: (items: { label?: string }[]) => `${items[0]?.label ?? ''}:00`,
                     label: (item: { dataIndex: number, parsed: { y: number } }) =>
                         t('hoursOnlineTooltip', {
                             hours: item.parsed.y.toFixed(1),
@@ -207,9 +189,10 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     }), [axisColor, gridColor, tooltipStyle, online, t])
 
     const onlineData = useMemo(() => ({
+        labels: online.map(e => String(e.hour).padStart(2, '0')),
         datasets: [{
             label: t('hoursOnlineAxis'),
-            data: online.map(e => ({ x: e.hour, y: e.hours_online })),
+            data: online.map(e => e.hours_online),
             borderColor: heatColor(1),
             backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D, chartArea?: { top: number, bottom: number } } }) => {
                 const { chartArea, ctx: canvas } = ctx.chart
@@ -228,62 +211,6 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
             pointHoverBackgroundColor: heatColor(1),
         }]
     }), [online, isDark, t])
-
-    const heatStripData = useMemo(() => ({
-        datasets: [{
-            type: 'matrix',
-            label: t('heatLabel'),
-            data: online.map(e => ({ x: e.hour, y: 0, v: e.hours_online })),
-            backgroundColor: (ctx: { raw?: { v: number } }) => {
-                const v = ctx.raw?.v ?? 0
-                const ratio = heatMax > 0 ? v / heatMax : 0
-                return heatColor(0.15 + ratio * 0.75)
-            },
-            borderWidth: 0,
-            borderRadius: 4,
-            width: (ctx: { chart: { chartArea?: { width: number } } }) =>
-                Math.max((ctx.chart.chartArea?.width ?? 0) / 24 - 4, 1),
-            height: 22,
-        }]
-    }), [online, heatMax, t])
-
-    const heatStripOptions = useMemo(() => ({
-        responsive: true,
-        maintainAspectRatio: false,
-        layout: {
-            padding: { left: AXIS_GUTTER, right: 8 }
-        },
-        scales: {
-            x: {
-                type: 'linear' as const,
-                min: -0.5,
-                max: 23.5,
-                offset: false,
-                afterBuildTicks: (axis: { ticks: { value: number }[] }) => {
-                    axis.ticks = ALL_HOURS.map(value => ({ value }))
-                },
-                ticks: {
-                    color: axisColor,
-                    autoSkip: false,
-                    maxRotation: 0,
-                    minRotation: 0,
-                    font: { size: 10 },
-                    callback: (value: number | string) => String(value).padStart(2, '0'),
-                },
-                border: { display: false },
-                grid: { display: false },
-            },
-            y: {
-                display: false,
-                min: -0.5,
-                max: 0.5,
-            }
-        },
-        plugins: {
-            legend: { display: false },
-            tooltip: { enabled: false },
-        }
-    }), [axisColor])
 
     const data = useMemo(() => {
         const timeZone = dayjs.tz.guess();
@@ -376,14 +303,14 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     const activeLoading = metric === 'hour' ? heatLoading : loading
 
     const header = (
-        <div className="flex items-center justify-between flex-col sm:flex-row">
-            <div className="flex items-center gap-2 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6">
+            <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-semibold">
                     {metric === 'hour' ? t('onlineTitle') : t('title')}
                 </h2>
                 <PeriodChip />
             </div>
-            <div className="m-4 flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap">
                 <div className="flex gap-1 rounded-md border">
                     <Button
                         variant={metric === 'hour' ? "default" : "ghost"}
@@ -423,13 +350,11 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     if (activeError){
         return (
             <div>
-                <div className="flex items-center justify-between flex-col sm:flex-row">
-                    <h2 className="text-xl font-semibold p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6">
+                    <h2 className="text-xl font-semibold">
                         {metric === 'hour' ? t('onlineTitle') : t('title')}
                     </h2>
-                    <div className="m-4">
-                        <AlertCircle className="w-5 h-5" />
-                    </div>
+                    <AlertCircle className="w-5 h-5" />
                 </div>
                 <div className="h-[375px] flex items-center justify-center">
                     <p>{activeError.message || t('genericError')}</p>
@@ -440,37 +365,23 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: { serverPlayerPromise: 
     return (
         <div>
             {header}
-            {activeLoading ? <GraphSkeleton height={metric === 'hour' ? 372 : 375} className="m-4" /> :
+            {activeLoading ? <GraphSkeleton height={375} className="mx-4 mb-4 sm:mx-6 sm:mb-6" /> :
                 <>
                     <ScreenReaderOnly id="hour-of-day-summary">
                         {summary}
                     </ScreenReaderOnly>
                     {metric === 'hour' ? (
                         <div
-                            className="m-4 p-2"
+                            className="h-[375px] px-4 pb-4 sm:px-6 sm:pb-6"
                             role="img"
                             aria-label={`Player online hours by hour of day (${mode === 'UTC' ? 'UTC' : 'local timezone'})`}
                             aria-describedby="hour-of-day-summary"
                         >
-                            <div className="h-[300px]">
-                                <Line data={onlineData} options={onlineOptions} />
-                            </div>
-                            <div className="relative h-[56px]">
-                                <span
-                                    className="absolute left-0 top-[10px] text-[10px] font-medium tracking-wider text-muted-foreground"
-                                    style={{width: AXIS_GUTTER}}
-                                >
-                                    {t('heatLabel')}
-                                </span>
-                                <Matrix type="matrix"
-                                        // @ts-expect-error matrix datasets are not part of chart.js core types
-                                        data={heatStripData}
-                                        options={heatStripOptions} />
-                            </div>
+                            <Line data={onlineData} options={onlineOptions} />
                         </div>
                     ) : (
                         <div
-                            className="h-[375px] m-4 p-2"
+                            className="h-[375px] px-4 pb-4 sm:px-6 sm:pb-6"
                             role="img"
                             aria-label={`Player session hour of day distribution (${mode === 'UTC' ? 'UTC' : 'local timezone'})`}
                             aria-describedby="hour-of-day-summary"

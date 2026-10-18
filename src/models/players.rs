@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_macros::{auto_serde_with, DbInto};
 use sqlx::postgres::types::PgInterval;
-use time::OffsetDateTime;
+use time::{Date, OffsetDateTime};
 use crate::api_models::players::*;
 use crate::core::utils::*;
 use crate::global_serializer::*;
@@ -60,12 +60,58 @@ pub struct DbGlobalPlayerSession{
     pub player_id: String,
     pub server_id: String,
     pub server_name: Option<String>,
+    pub community_id: Option<String>,
     pub community_name: Option<String>,
     pub community_icon_url: Option<String>,
     pub started_at: OffsetDateTime,
     pub ended_at: Option<OffsetDateTime>,
     #[skip]
     pub total_rows: Option<i64>
+}
+/// A player's seconds on one day in one community.
+pub struct DbCommunityDayTime{
+    pub bucket_time: Option<OffsetDateTime>,
+    pub community_id: String,
+    pub seconds: Option<f64>,
+}
+#[derive(DbInto)]
+#[db_into(PlayerSessionStats)]
+pub struct DbPlayerSessionStats{
+    pub total_sessions: i64,
+    pub average_duration: Option<f64>,
+    pub longest_duration: Option<f64>,
+    pub longest_started_at: Option<OffsetDateTime>,
+}
+/// A player's seconds on a map in one community, with their cross-server rank on the map.
+pub struct DbGlobalPlayerMapCommunity{
+    pub map: String,
+    pub community_id: String,
+    pub duration: f64,
+    pub rank: Option<i32>,
+    pub total_players: Option<i32>,
+}
+/// A player's seconds online during one local hour of one local day, in one community.
+pub struct DbOnlineActivityHour{
+    pub community_id: String,
+    pub day: Date,
+    pub hour: i32,
+    pub seconds: f64,
+}
+#[derive(DbInto)]
+#[db_into(GlobalPlayerInfraction)]
+pub struct DbGlobalPlayerInfraction{
+    #[rename(id)]
+    pub infraction_id: String,
+    pub source: String,
+    #[default("Unknown".into())]
+    pub by: Option<String>,
+    pub reason: Option<String>,
+    pub infraction_time: Option<OffsetDateTime>,
+    pub admin_avatar: Option<String>,
+    #[unwrap_default]
+    pub flags: Option<i64>,
+    pub server_id: String,
+    pub community_id: String,
 }
 #[derive(Clone, DbInto)]
 #[auto_serde_with]

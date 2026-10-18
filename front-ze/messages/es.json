@@ -455,10 +455,7 @@
       "yearlySummary": "Actividad del jugador en {periods, plural, one {# período} other {# períodos}}. Total: {total} horas. Máximo: {peak} horas.",
       "matrixSummary": "Mapa de calor de actividad del jugador con {total} horas en {days, plural, one {# día activo} other {# días activos}}. Máxima actividad diaria: {peak} horas.",
       "yearlyAriaLabel": "Mapa de calor de actividad anual del jugador",
-      "matrixAriaLabel": "Mapa de calor de actividad {groupBy} del jugador",
-      "totalPlayTime": "Tiempo total de juego",
-      "hoursUnit": "hrs",
-      "inYear": "en {year}"
+      "matrixAriaLabel": "Mapa de calor de actividad {groupBy} del jugador"
     },
     "profile": {
       "header": {
@@ -474,25 +471,22 @@
         "ofTotalPlayers": "de {total} jugadores",
         "notEnoughPlaytime": "Sin calcular",
         "shareProfile": "Compartir perfil",
-        "avatarAlt": "Foto de perfil de {name}"
+        "avatarAlt": "Foto de perfil de {name}",
+        "onlineOn": "En línea ahora en {community}",
+        "lastSeen": "visto por última vez {time}",
+        "lastSeenOn": "visto por última vez {time} en {community}",
+        "neverSeen": "nunca visto en línea",
+        "totalPlaytime": "Tiempo total de juego",
+        "hrs": "hrs",
+        "communitiesServers": "{communities, plural, one {# comunidad} other {# comunidades}} · {servers, plural, one {# servidor} other {# servidores}}",
+        "globalChip": "Global #{rank}",
+        "globalRankTooltip": "#{rank} de {total} jugadores en todas las comunidades",
+        "bestMapTooltip": "#{rank} de {total} jugadores en {map}, sumando el tiempo de todos los servidores",
+        "communityRankTooltip": "#{rank} de {total} jugadores en {community}",
+        "playtimeByCommunity": "Tiempo de juego por comunidad",
+        "mapStyle": "Estilo de mapa · todos los servidores"
       },
       "stats": {
-        "recalculating": "Recalculando",
-        "outOfDate": "Desactualizado",
-        "never": "Nunca",
-        "sessionHours": "Sesión de {hours} h",
-        "unranked": "Sin clasificar",
-        "notEnoughPlaytime": "Sin calcular",
-        "totalPlaytime": "Tiempo total de juego",
-        "hoursUnit": "hrs",
-        "acrossCommunities": "en {count, plural, one {# comunidad} other {# comunidades}}",
-        "bestMapRank": "Mejor clasificación de mapa",
-        "communities": "Comunidades",
-        "joinedAndTracked": "unidas y registradas",
-        "servers": "Servidores",
-        "acrossAllCommunities": "en todas las comunidades",
-        "lastOnline": "Última conexión",
-        "onlineNow": "En línea ahora",
         "lastVerified": "Última verificación {ago}.",
         "neverVerified": "Estos totales nunca se han verificado.",
         "recalculatingPlaytime": "Recalculando tiempo de juego…",
@@ -502,7 +496,11 @@
       },
       "communities": {
         "heading": "Conexiones de comunidad",
-        "empty": "No se encontraron conexiones de comunidad."
+        "empty": "No se encontraron conexiones de comunidad.",
+        "expandHint": "Despliega una comunidad para ver sus servidores",
+        "community": "Comunidad",
+        "playtime": "Tiempo de juego",
+        "rank": "Rango"
       },
       "connectionCard": {
         "linkedNames": "NOMBRES VINCULADOS · {count}",
@@ -517,7 +515,6 @@
         "sessionStripAria": "Duración de {count, plural, one {la sesión más reciente} other {las # sesiones más recientes}} en este servidor",
         "hideRadar": "Ocultar radar",
         "anonymize": "Anonimizar",
-        "servers": "Servidores",
         "steamId": "ID de Steam",
         "nameMatched": "Coincidencia por nombre",
         "noPlaytime": "Sin tiempo de juego",
@@ -529,7 +526,71 @@
           "cancel": "Cancelar",
           "success": "{count, plural, one {# perfil fusionado} other {# perfiles fusionados}} ({sessions} sesiones)",
           "failed": "No se pudieron fusionar las cuentas"
-        }
+        },
+        "serverCount": "{count, plural, one {# servidor} other {# servidores}}",
+        "lastPlayed": "jugó por última vez {time}",
+        "rankOf": "de {total}",
+        "unranked": "Sin rango"
+      },
+      "total": "{count} en total",
+      "pageRange": "{from}–{to} de {total}",
+      "history": {
+        "ariaLabel": "Tiempo de juego diario en {year}, coloreado por comunidad",
+        "sessions": "Sesiones",
+        "allTime": "en total",
+        "avgSession": "Sesión media",
+        "longest": "la más larga {duration}",
+        "bestStreak": "Mejor racha",
+        "days": "{count, plural, one {# día} other {# días}}",
+        "activeDays": "Días activos",
+        "inYear": "en {year}"
+      },
+      "focus": {
+        "focused": "Enfocado: {community}",
+        "clear": "Mostrar todas las comunidades",
+        "focusOn": "Enfocar gráficos en {community}",
+        "unfocus": "Dejar de enfocar {community}"
+      },
+      "maps": {
+        "title": "Mapas",
+        "subtitle": "{count, plural, one {# jugado} other {# jugados}} en todos los servidores",
+        "chart": "Gráfico",
+        "table": "Tabla",
+        "search": "Buscar mapas...",
+        "map": "Mapa",
+        "split": "Reparto",
+        "hours": "Horas",
+        "hrs": "hrs",
+        "rank": "Rango",
+        "noMaps": "Todavía no ha jugado ningún mapa.",
+        "noMatch": "Ningún mapa coincide con \"{search}\".",
+        "rankTooltip": "#{rank} de {total} jugadores en este mapa, en todos los servidores",
+        "ariaLabel": "Mapas más jugados por horas, divididos por comunidad",
+        "summary": "Mapas más jugados: {maps}.",
+        "hoursAxis": "Horas"
+      },
+      "activity": {
+        "title": "Actividad en línea",
+        "byHour": "Por hora",
+        "byWeekday": "Por día de la semana",
+        "myTimezone": "Mi zona horaria",
+        "utc": "UTC",
+        "hourSubtitle": "Horas en línea en cada hora del día, divididas por comunidad",
+        "weekdaySubtitle": "Horas medias en cada día de la semana jugado, divididas por comunidad",
+        "hourAxis": "Hora del día",
+        "hoursAxis": "Horas en línea",
+        "averageAxis": "Horas medias",
+        "noData": "Todavía no hay actividad registrada.",
+        "hourSummary": "Más activo alrededor de las {hour}:00, con {hours} en línea en total.",
+        "weekdaySummary": "Día más activo: {day}, con una media de {hours} en los días jugados.",
+        "busiest": "Día más activo: <b>{day}</b>"
+      },
+      "infractions": {
+        "filter": "Filtrar por tipo de infracción",
+        "community": "Comunidad",
+        "reason": "Motivo",
+        "admin": "Admin",
+        "date": "Fecha"
       }
     },
     "playedWith": {
@@ -614,6 +675,7 @@
     "continentSubtitle": "Ubicación de los jugadores que jugaron esta sesión."
   },
   "nav": {
+    "discordCta": "Únete a nuestro Discord para soporte o comentarios",
     "communities": "Comunidades",
     "server": "Servidor",
     "players": "Jugadores",
@@ -643,6 +705,8 @@
       "noNomsOnly": "Solo sin nominaciones",
       "hasLasers": "Tiene láseres",
       "minPlayers": "Mín. {count} jugadores",
+      "maxPlayers": "Máx. {count} jugadores",
+      "cooldownEndsIn": "El enfriamiento termina en {time}",
       "dataNotReady": "Los datos no están listos.",
       "stillCalculating": "Todavía calculando, los datos no están listos. Vuelve más tarde~",
       "viewIn3d": "Ver en 3D",
@@ -801,6 +865,10 @@
     "table": {
       "disabled": "Deshabilitado",
       "mapsLeft": "Faltan {count} mapas",
+      "opensIn": "Abre en {time}",
+      "opensAt": "Nominaciones abren {time}",
+      "cooldownEndsAt": "El enfriamiento termina {time}",
+      "nomWindow": "Nominable {start}–{end}",
       "playing": "Jugando",
       "removed": "Eliminado",
       "ready": "Listo",

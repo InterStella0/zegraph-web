@@ -2,7 +2,7 @@
 import {useTranslations, useLocale} from 'next-intl';
 import {ReactNode, useEffect, useState} from "react";
 import {fetchApiUrl, getMapImage} from "utils/generalUtils.ts";
-import {Clock, Users, RotateCcw, User, AlarmClock, AlertTriangle, Ban, BoxesIcon, Globe, LucideIcon} from "lucide-react";
+import {Clock, Users, RotateCcw, User, AlarmClock, AlertTriangle, Ban, BoxesIcon, CalendarClock, Globe, LucideIcon} from "lucide-react";
 import dayjs from "dayjs";
 import {Skeleton} from "components/ui/skeleton";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "components/ui/tooltip";
@@ -17,6 +17,8 @@ import {MapAnalyze, MapWithModels} from "types/maps.ts";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {withErrorCatch} from "components/common/withErrorCatch";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
+import {isOnCooldown, mapBlockers} from "utils/mapCooldown";
+import {useMapCooldownText} from "lib/hooks/useMapCooldownText";
 dayjs.extend(relativeTime);
 
 async function checkModelExists(mapName: string): Promise<boolean> {
@@ -198,13 +200,11 @@ function MapHeaderDisplay() {
     const { name, analyze, info, notReady } = useMapContext();
     const { server} = useServerData()
     const server_id = server.id
-    let cooldownLeft = 0
-    let cooldown = null
-    if (info){
-        cooldown = dayjs(info?.current_cooldown)
-        cooldownLeft = cooldown.diff(dayjs(), 'second')
-    }
-    const mapLeft = info?.map_left ?? 0
+    const tTable = useTranslations('maps.table');
+    const toDayjs = useLocalDayjs();
+    const cooldownText = useMapCooldownText();
+    const blockers = mapBlockers(info?.map_left, info?.current_cooldown, info?.nom_opens_at);
+    const nomWindow = info ? cooldownText.window(info) : null;
 
     useEffect(() => {
         if (!name) return
@@ -233,11 +233,19 @@ function MapHeaderDisplay() {
                 </div>
 
                 <div className="absolute top-0 left-0 p-2 sm:p-4">
-                    {mapLeft > 0 ? (
-                        <OverlayBadge color="text-amber-500" icon={AlarmClock}>{mapLeft} maps left</OverlayBadge>
-                    ) : cooldownLeft > 0 && (
-                        <OverlayBadge color="text-amber-500" icon={AlarmClock} tooltip={cooldown?.format('lll')} suppressHydrationWarning>
-                            Cooldown ends in {cooldown?.fromNow(true)}
+                    {blockers.mapsLeft != null && (
+                        <OverlayBadge color="text-amber-500" icon={AlarmClock}>{tTable('mapsLeft', {count: blockers.mapsLeft})}</OverlayBadge>
+                    )}
+                    {blockers.cooldownUntil && (
+                        <OverlayBadge spaced={blockers.mapsLeft != null} color="text-amber-500" icon={AlarmClock}
+                                      tooltip={toDayjs(blockers.cooldownUntil).format('lll')} suppressHydrationWarning>
+                            {t('cooldownEndsIn', {time: toDayjs(blockers.cooldownUntil).fromNow(true)})}
+                        </OverlayBadge>
+                    )}
+                    {nomWindow && (
+                        <OverlayBadge spaced={isOnCooldown(blockers)} color={blockers.opensAt ? "text-amber-500" : "text-sky-400"} icon={CalendarClock}
+                                      tooltip={blockers.opensAt ? nomWindow : undefined} suppressHydrationWarning>
+                            {blockers.opensAt ? tTable('opensIn', {time: toDayjs(blockers.opensAt).fromNow(true)}) : nomWindow}
                         </OverlayBadge>
                     )}
                     {info?.removed && <OverlayBadge color="text-destructive" icon={Ban}>{t('removed')}</OverlayBadge>}
@@ -250,7 +258,7 @@ function MapHeaderDisplay() {
                         <OverlayBadge spaced color="text-white" icon={Users}>{t('minPlayers', {count: info.min_players})}</OverlayBadge>
                     )}
                     {info?.max_players != null && (info.max_players != server.max_players && info.max_players != 0) && (
-                        <OverlayBadge spaced color="text-white" icon={Users}>Max {info.max_players} players</OverlayBadge>
+                        <OverlayBadge spaced color="text-white" icon={Users}>{t('maxPlayers', {count: info.max_players})}</OverlayBadge>
                     )}
                 </div>
 

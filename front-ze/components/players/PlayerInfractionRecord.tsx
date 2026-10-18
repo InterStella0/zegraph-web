@@ -35,7 +35,7 @@ import {PeriodChip, periodBounds, usePlayerPeriod} from "../../app/servers/[serv
 import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 import {withErrorCatch} from "components/common/withErrorCatch";
 
-function ModalInfraction({ infraction, onClose }){
+export function InfractionModal({ infraction, onClose }){
     const t = useTranslations('players.infractions');
     const isEmpty = infraction === null
     const iframeSource = `${infraction?.source}/infractions/${infraction?.id}/`
@@ -63,7 +63,33 @@ function ModalInfraction({ infraction, onClose }){
 }
 
 
-function withInfractionFlags(infractions) {
+export function openInfraction<T extends { source: string }>(row: T, playerId: string | null, view: (row: T) => void) {
+    if (row.source?.startsWith("https://bans.cola-team.es")) {
+        window.open(row.source, "_blank", "noopener,noreferrer");
+        return;
+    }
+    const isNide = row.source?.includes("nide.gg");
+    if (isNide) {
+        let url: string;
+        switch(row.source){
+            case "https://bans.nide.gg/index.php?p=banlist":
+            case "https://bans.nide.gg/index.php?p=commslist":
+                url = `${row.source}&advSearch=${playerId}&advType=steamid`;
+                break;
+            case "https://kbans.nide.gg/index.php?all":
+            case "https://ebans.nide.gg/index.php?all":
+                url = `${row.source}=true&s=${playerId}&m=1`;
+                break;
+            default:
+                return
+        }
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+    }
+    view(row);
+}
+
+export function withInfractionFlags(infractions) {
     return infractions.map(e => {
         if (!(e.flags instanceof InfractionInt))
             e.flags = new InfractionInt(e.flags, e.source);
@@ -111,31 +137,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
         setInfractions(updatedData);
     }, [updatedData]);
 
-    const handleOnClick = (row) => {
-        if (row.source?.startsWith("https://bans.cola-team.es")) {
-            window.open(row.source, "_blank", "noopener,noreferrer");
-            return;
-        }
-        const isNide = row.source?.includes("nide.gg");
-        if (isNide) {
-            let url: string;
-            switch(row.source){
-                case "https://bans.nide.gg/index.php?p=banlist":
-                case "https://bans.nide.gg/index.php?p=commslist":
-                    url = `${row.source}&advSearch=${playerId}&advType=steamid`;
-                    break;
-                case "https://kbans.nide.gg/index.php?all":
-                case "https://ebans.nide.gg/index.php?all":
-                    url = `${row.source}=true&s=${playerId}&m=1`;
-                    break;
-                default:
-                    return
-            }
-            window.open(url, "_blank", "noopener,noreferrer");
-            return;
-        }
-        setViewInfraction(row);
-    };
+    const handleOnClick = (row) => openInfraction(row, playerId, setViewInfraction);
 
     if (loading && updatedData === null) {
         return (
@@ -160,7 +162,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
 
     return (
         <>
-            <ModalInfraction infraction={viewInfraction} onClose={() => setViewInfraction(null)} />
+            <InfractionModal infraction={viewInfraction} onClose={() => setViewInfraction(null)} />
 
             <div className="h-[380px] overflow-y-auto pt-2">
                 {infractions.map(row => {
@@ -183,7 +185,7 @@ function PlayerInfractionRecordBody({ updatedData, player, server }:
                                             alt={row.by}
                                             width={28}
                                             height={28}
-                                            className="w-7 h-7 mr-4 rounded-full"
+                                            className="w-7 h-7 mr-4 rounded-[8%]"
                                         />
                                     }
                                     <p className="text-sm font-semibold">

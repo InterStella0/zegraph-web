@@ -52,14 +52,16 @@ function PlayerInformation({ player, timeUnit = "h", showRank = false, href, com
                 isOnline && "border-l-4 border-l-green-500"
             )}
         >
-            <TableCell className={cn("py-2 sm:py-3 pl-2", !compact && "sm:pl-4")}>
+            <TableCell className={cn("pl-2", showRank ? "py-3 sm:py-3.5" : "py-2 sm:py-3", !compact && "sm:pl-4")}>
                 <div className="flex items-center">
-                    {showRank && (
-                        <span className="w-8 sm:w-9 flex-shrink-0 text-center font-mono text-xs sm:text-sm text-muted-foreground">
-                            #{player.rank}
-                        </span>
-                    )}
-                    <PlayerAvatar uuid={player.id} name={player.name} className="flex-shrink-0" />
+                    <div className={cn("relative flex-shrink-0", showRank && "mx-1")}>
+                        <PlayerAvatar uuid={player.id} name={player.name} className="flex-shrink-0" />
+                        {showRank && (
+                            <span className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border bg-background px-1.5 font-mono text-[9px] sm:text-[10px] leading-4 tabular-nums text-muted-foreground">
+                                #{player.rank.toLocaleString(locale)}
+                            </span>
+                        )}
+                    </div>
 
                     <div className={cn("min-w-0", compact ? "ml-2 flex-1" : "ml-2 sm:ml-4")}>
                         <HoverPrefetchLink
@@ -144,14 +146,14 @@ export function PlayerTableRowLoading({ showRank = false, compact = false }: { s
 
     return (
         <TableRow>
-            <TableCell className={cn("py-2 sm:py-3 pl-2", !compact && "sm:pl-4")}>
+            <TableCell className={cn("pl-2", showRank ? "py-3 sm:py-3.5" : "py-2 sm:py-3", !compact && "sm:pl-4")}>
                 <div className="flex items-center">
-                    {showRank && (
-                        <span className="w-8 sm:w-9 flex-shrink-0 flex justify-center">
-                            <Skeleton className="h-3 sm:h-4 w-5" />
-                        </span>
-                    )}
-                    <Skeleton className="w-[40px] h-[40px] rounded-full flex-shrink-0" />
+                    <div className={cn("relative flex-shrink-0", showRank && "mx-1")}>
+                        <Skeleton className="w-[40px] h-[40px] rounded-[8%]" />
+                        {showRank && (
+                            <Skeleton className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2 h-3.5 w-9 rounded-full" />
+                        )}
+                    </div>
                     <div className={cn("min-w-0", compact ? "ml-2 flex-1" : "ml-2 sm:ml-4")}>
                         <span className="font-semibold tracking-wide mb-1 inline-block max-w-full text-sm sm:text-base">
                             <Skeleton

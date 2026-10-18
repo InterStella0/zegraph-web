@@ -28,7 +28,7 @@
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use list_maps_global (with search_map) to resolve partial names."
       },
-      "description": "Return one map's details across every server that has played it: classification, totals summed across servers, distinct players with alt accounts merged, live status, Workshop metadata, and each server's rotation state, cooldown and playtime. May report that it is still calculating; retry shortly.",
+      "description": "Return one map's details across every server that has played it: classification, totals summed across servers, distinct players with alt accounts merged, live status, Workshop metadata, and each server's rotation state, cooldowns (time-based and map-count), when a closed nomination window next opens, and playtime. May report that it is still calculating; retry shortly.",
       "title": "Map Details Across All Servers"
     },
     "get_global_map_player_types": {
@@ -85,7 +85,7 @@
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
-      "description": "Return detailed information about one map on a server, including when it first appeared, rotation status, classification, cooldowns, player limits, and Workshop metadata.",
+      "description": "Return detailed information about one map on a server, including when it first appeared, rotation status, classification, cooldowns (time-based and map-count, which can both be active), the daily nomination window in server time and when it next opens or closes, player limits, and Workshop metadata.",
       "title": "Map Details"
     },
     "get_map_periods": {
@@ -174,7 +174,7 @@
       "arguments": {
         "player_id": "Player ID (usually a Steam64 ID) returned by a player search tool, or `me` for the signed-in player."
       },
-      "description": "Return a player's daily playtime summed across all tracked servers. Use `player_id = \"me\"` for the signed-in player; activity from communities where the player chose privacy is omitted unless the requester has permission.",
+      "description": "Return a player's daily playtime summed across all tracked servers, with each day's hours also split by community ID. Use `player_id = \"me\"` for the signed-in player; activity from communities where the player chose privacy is omitted unless the requester has permission.",
       "title": "Global Player Playtime Heatmap"
     },
     "get_player_hours_of_day": {

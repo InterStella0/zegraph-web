@@ -26,7 +26,7 @@ use crate::core::audit::{
 };
 use crate::core::player_merge::{is_steam_id, merge_player, revert_merge, LinkError, SteamName};
 use crate::core::push_service::NotificationType;
-use crate::routers::players::{get_player, get_player_cache_key};
+use crate::routers::players::{get_player, get_player_cache_key, NIDE_SERVER_ID};
 use crate::FastCache;
 use crate::models::admins::*;
 use crate::models::maps::{best_map_rank_order, DbMapChangeSubscription, DbMapNotifySubscription, BEST_MAP_RANK_MIN_HOURS};
@@ -305,6 +305,51 @@ fn resolve_user_id<T: poem_openapi::types::ParseFromJSON + poem_openapi::types::
     }
 }
 
+/// The player a global profile endpoint is about, and the communities to leave out of its answer.
+struct ProfileScope {
+    canonical_id: String,
+    /// Communities the player anonymized themselves in that the requester has no permission for.
+    excluded_community_ids: Vec<Uuid>,
+}
+
+/// Resolves `player_id` (`"me"` or a Steam ID) to the player's canonical id and the communities the
+/// requester may not see, the same way `/players/{player_id}/profile` does.
+async fn resolve_profile_scope<T: ParseFromJSON + ToJSON + Send + Sync>(
+    app: &AppData,
+    player_id: &str,
+    requester: &Option<UserToken>,
+) -> Result<ProfileScope, Response<T>> {
+    let pool = &*app.pool;
+    let target_user_id = resolve_user_id(player_id, requester)?;
+    let steam_id = target_user_id.to_string();
+    let canonical_id = resolve_canonical_player_id(pool, &steam_id)
+        .await
+        .unwrap_or(steam_id);
+    let canonical_user_id = canonical_id.parse::<i64>().unwrap_or(target_user_id);
+    let requester_id = requester.as_ref().map(|token| token.id);
+
+    let anonymization_settings = sqlx::query_as!(
+        DbUserAnonymization,
+        "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
+        canonical_user_id
+    ).fetch_all(pool).await.map_err(|e| {
+        tracing::error!("Failed to read anonymization of {canonical_id}: {e}");
+        response!(internal_server_error)
+    })?;
+
+    let excluded_community_ids = hidden_community_ids(
+        app,
+        &canonical_id,
+        &anonymization_settings,
+        requester_id,
+    ).await.map_err(|e| {
+        tracing::error!("Failed to resolve hidden communities of {canonical_id}: {e}");
+        response!(internal_server_error)
+    })?.into_iter().collect();
+
+    Ok(ProfileScope { canonical_id, excluded_community_ids })
+}
+
 async fn get_global_best_rank(
     pool: &sqlx::Pool<sqlx::Postgres>,
     cache: &FastCache,
@@ -358,6 +403,8 @@ async fn get_global_best_rank(
 }
 
 const PROFILE_SERVER_CONCURRENCY: usize = 4;
+/// How long a profile waits on an uncached Steam cosmetics lookup before answering without it.
+const PROFILE_STEAM_ITEMS_WAIT: std::time::Duration = std::time::Duration::from_millis(1500);
 
 async fn profile_server_entry(
     app: &AppData,
@@ -660,6 +707,99 @@ async fn fetch_steam_info(steam_id: &i64) -> Result<SteamProfile, ErrorCode> {
     }
 }
 
+const PLAYERDB_USER_AGENT: &str = "ZE Graph (https://zegraph.xyz)";
+
+#[derive(Deserialize)]
+struct PlayerDbResponse {
+    success: bool,
+    data: Option<PlayerDbData>,
+}
+
+#[derive(Deserialize)]
+struct PlayerDbData {
+    player: PlayerDbPlayer,
+}
+
+#[derive(Deserialize)]
+struct PlayerDbPlayer {
+    meta: PlayerDbMeta,
+}
+
+#[derive(Deserialize)]
+struct PlayerDbMeta {
+    personaname: Option<String>,
+    profileurl: Option<String>,
+    avatar: Option<String>,
+    avatarmedium: Option<String>,
+    avatarfull: Option<String>,
+    avatarhash: Option<String>,
+}
+
+async fn fetch_playerdb_profile(steam_id: i64) -> Result<PlayerDbMeta, String> {
+    let resp = http_client()
+        .get(format!("https://playerdb.co/api/player/steam/{steam_id}"))
+        .header(reqwest::header::USER_AGENT, PLAYERDB_USER_AGENT)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let body = resp.json::<PlayerDbResponse>().await.map_err(|e| e.to_string())?;
+    match body.data {
+        Some(data) if body.success => Ok(data.player.meta),
+        _ => Err("playerdb has no profile".to_string()),
+    }
+}
+
+/// Re-pulls the signed-in user's name and avatar from playerdb.co once a week. The row is only
+/// written on first login otherwise, so the navbar avatar would never change.
+async fn refresh_steam_user_if_stale(data: &AppData, user_id: i64) {
+    let stale = sqlx::query_scalar!(
+        r#"SELECT (refreshed_at IS NULL OR refreshed_at < NOW() - INTERVAL '7 days') AS "stale!"
+           FROM website.steam_user WHERE user_id = $1"#,
+        user_id
+    )
+    .fetch_optional(&*data.pool)
+    .await;
+    if !matches!(stale, Ok(Some(true))) {
+        return;
+    }
+
+    let result = match fetch_playerdb_profile(user_id).await {
+        Ok(meta) => sqlx::query!(
+            "UPDATE website.steam_user SET
+                persona_name = COALESCE($2, persona_name),
+                profile_url = COALESCE($3, profile_url),
+                avatar = COALESCE($4, avatar),
+                avatar_medium = COALESCE($5, avatar_medium),
+                avatar_full = COALESCE($6, avatar_full),
+                avatar_hash = COALESCE($7, avatar_hash),
+                refreshed_at = NOW()
+             WHERE user_id = $1",
+            user_id,
+            meta.personaname,
+            meta.profileurl,
+            meta.avatar,
+            meta.avatarmedium,
+            meta.avatarfull,
+            meta.avatarhash,
+        )
+        .execute(&*data.pool)
+        .await,
+        Err(e) => {
+            tracing::warn!("Failed to refresh Steam profile {user_id} from playerdb: {e}");
+            // Try again in a day rather than on every request while playerdb is unreachable.
+            sqlx::query!(
+                "UPDATE website.steam_user SET refreshed_at = NOW() - INTERVAL '6 days' WHERE user_id = $1",
+                user_id
+            )
+            .execute(&*data.pool)
+            .await
+        }
+    };
+    if let Err(e) = result {
+        tracing::error!("Failed to update refreshed Steam profile {user_id}: {e}");
+    }
+}
+
 async fn fetch_steam_name(data: &AppData, steam_id: &str) -> Result<Option<SteamName>, String> {
     let Ok(steam_user_id) = steam_id.parse::<i64>() else {
         return Err(format!("{steam_id} is not a valid Steam ID"));
@@ -781,8 +921,9 @@ impl AccountsApi {
                 primary_clan_id,
                 time_created,
                 persona_state_flags,
-                comment_permission)
-             VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING
+                comment_permission,
+                refreshed_at)
+             VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW()) RETURNING
              user_id,
                 community_visibility_state AS \"community_visibility_state: CommunityVisibilityState\",
                 profile_state,
@@ -820,6 +961,7 @@ impl AccountsApi {
     /// The signed-in user's own Steam profile, including their superuser/map-manager role flags.
     #[oai(path="/accounts/me", method="get")]
     async fn get_user_info(&self, Data(data): Data<&AppData>, TokenBearer(user_token): TokenBearer) -> Response<SteamProfile>{
+        refresh_steam_user_if_stale(data, user_token.id).await;
         let Ok(user) = sqlx::query_as!(DbSteam,
             "SELECT user_id,
                 community_visibility_state AS \"community_visibility_state: CommunityVisibilityState\",
@@ -935,9 +1077,18 @@ impl AccountsApi {
             Err(e) => return e,
         };
         let steam_id = target_user_id.to_string();
-        let canonical_id = resolve_canonical_player_id(pool, &steam_id)
-            .await
-            .unwrap_or_else(|| steam_id.clone());
+        let known_canonical_id = resolve_canonical_player_id(pool, &steam_id).await;
+        // Only players this site has recorded get a Steam lookup, so profiles can't be used to probe
+        // arbitrary accounts. Spawned up front to run alongside the queries below; if it misses the
+        // deadline it keeps going and fills the cache for the next view.
+        let steam_items_deadline = tokio::time::Instant::now() + PROFILE_STEAM_ITEMS_WAIT;
+        let steam_items_lookup = known_canonical_id.as_deref()
+            .and_then(|id| id.parse::<i64>().ok())
+            .map(|id| {
+                let cache = app.cache.clone();
+                tokio::task::spawn(async move { get_steam_profile_items(&cache, id).await })
+            });
+        let canonical_id = known_canonical_id.unwrap_or_else(|| steam_id.clone());
         let canonical_user_id = canonical_id.parse::<i64>().unwrap_or(target_user_id);
         let requester_id = requester.as_ref().map(|token| token.id);
         let is_owner = requester_id == Some(canonical_user_id);
@@ -1043,9 +1194,27 @@ impl AccountsApi {
                 name: entry.community_name.clone().unwrap_or_default(),
                 shorten_name: entry.community_shorten_name.clone(),
                 icon_url: entry.community_icon_url.clone(),
+                rank: None,
                 servers: vec![]
             });
             com.servers.push(server_entry);
+        }
+
+        let community_ranks = sqlx::query!(
+            "SELECT community_id::text AS \"community_id!\",
+                    playtime_rank AS \"rank!\",
+                    total_players AS \"total_players!\"
+             FROM website.player_community_ranks
+             WHERE player_id = $1",
+            canonical_id
+        ).fetch_all(pool).await.unwrap_or_else(|e| {
+            tracing::error!("Failed to read community ranks of {canonical_id}: {e}");
+            vec![]
+        });
+        for row in community_ranks {
+            if let Some(com) = results.get_mut(&row.community_id) {
+                com.rank = Some(CommunityPlaytimeRank { rank: row.rank, total_players: row.total_players });
+            }
         }
 
         let communities: Vec<ProfileCommunityDetail> = results.into_values().collect();
@@ -1053,6 +1222,19 @@ impl AccountsApi {
         let server_count = communities.iter().map(|c| c.servers.len() as i64).sum();
 
         let best_rank = get_global_best_rank(pool, &app.cache, &canonical_id).await;
+        let best_map_rank = sqlx::query_as!(
+            PlayerMapRank,
+            "SELECT map AS \"map!\", map_rank AS \"rank!\", total_players AS \"total_players!\"
+             FROM website.player_global_map_rank
+             WHERE player_id = $1 AND total_playtime > make_interval(hours => $2)
+             ORDER BY map_rank::float8 / total_players, total_playtime DESC, map
+             LIMIT 1",
+            canonical_id,
+            BEST_MAP_RANK_MIN_HOURS
+        ).fetch_optional(pool).await.unwrap_or_else(|e| {
+            tracing::error!("Failed to read the best map rank of {canonical_id}: {e}");
+            None
+        });
 
         let global = app.player_worker
             .get_global_playtime(&canonical_id)
@@ -1075,6 +1257,14 @@ impl AccountsApi {
             Some("Anonymous".to_string())
         };
 
+        let steam_items = match steam_items_lookup {
+            Some(lookup) => match tokio::time::timeout_at(steam_items_deadline, lookup).await {
+                Ok(Ok(Ok(items))) => Some(items),
+                _ => None,
+            },
+            None => None,
+        };
+
         response!(ok ProfileResponse {
             steamid: steam_id,
             name: profile_name,
@@ -1086,12 +1276,14 @@ impl AccountsApi {
                 last_online,
                 last_session_duration,
                 best_rank,
+                best_map_rank,
                 global,
             },
             communities,
             is_owner,
             can_manage_anonymization,
             anonymization,
+            steam_items,
         })
     }
     /// A player's total playtime summed across every server. `player_id` may be `"me"` or a numeric
@@ -1117,7 +1309,8 @@ impl AccountsApi {
         handle_worker_result(result, "Player not found")
     }
 
-    /// A player's playtime by day, summed across every server they've played on.
+    /// A player's playtime by day, summed across every server they've played on, with each day split
+    /// by community.
     ///
     /// `player_id` may be `"me"` or a numeric Steam ID. Communities where the target anonymized
     /// themselves are excluded for viewers without permission for those communities.
@@ -1127,56 +1320,60 @@ impl AccountsApi {
         Data(app): Data<&AppData>,
         OptionalTokenBearer(requester): OptionalTokenBearer,
         Path(player_id): Path<String>,
-    ) -> Response<Vec<PlayerSessionTime>> {
+    ) -> Response<Vec<GlobalPlayerSessionTime>> {
         let pool = &*app.pool;
-        let target_user_id = match resolve_user_id(&player_id, &requester) {
-            Ok(id) => id,
+        let scope = match resolve_profile_scope(app, &player_id, &requester).await {
+            Ok(scope) => scope,
             Err(e) => return e,
         };
-        let steam_id = target_user_id.to_string();
-        let canonical_id = resolve_canonical_player_id(pool, &steam_id)
-            .await
-            .unwrap_or_else(|| steam_id.clone());
-        let canonical_user_id = canonical_id.parse::<i64>().unwrap_or(target_user_id);
-        let requester_id = requester.as_ref().map(|token| token.id);
-
-        let anonymization_settings = sqlx::query_as!(
-            DbUserAnonymization,
-            "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
-            canonical_user_id
-        ).fetch_all(pool).await;
-        let anonymization_settings = or_ise!(anonymization_settings);
-
-        let excluded_community_ids: Vec<Uuid> = or_ise!(hidden_community_ids(
-            app,
-            &canonical_id,
-            &anonymization_settings,
-            requester_id,
-        ).await).into_iter().collect();
 
         let result = sqlx::query_as!(
-            DbPlayerSessionTime,
+            DbCommunityDayTime,
             "WITH user_players AS (
                 SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
             )
             SELECT
                 DATE_TRUNC('day', pss.started_at) AS bucket_time,
-                ROUND((
-                    SUM(EXTRACT(EPOCH FROM (pss.ended_at - pss.started_at))) / 3600
-                )::numeric, 2)::double precision AS hour_duration
+                s.community_id::text AS \"community_id!\",
+                SUM(EXTRACT(EPOCH FROM (pss.ended_at - pss.started_at)))::float8 AS seconds
             FROM player_server_session pss
             JOIN user_players up ON up.player_id = pss.player_id
             JOIN server s ON s.server_id = pss.server_id
             WHERE NOT (s.community_id = ANY($2))
-            GROUP BY bucket_time
+            GROUP BY bucket_time, s.community_id
             ORDER BY bucket_time",
-            canonical_id,
-            &excluded_community_ids
+            scope.canonical_id,
+            &scope.excluded_community_ids
         ).fetch_all(pool).await;
 
         let result = or_ise!(result);
 
-        response!(ok result.iter_into())
+        let to_hours = |seconds: f64| (seconds / 36.0).round() / 100.0;
+        let mut days: Vec<GlobalPlayerSessionTime> = vec![];
+        for row in result {
+            let bucket_time = row.bucket_time.to_utc_time();
+            let seconds = row.seconds.unwrap_or_default();
+            match days.last_mut() {
+                Some(day) if day.bucket_time == bucket_time => {
+                    day.hours += seconds;
+                    day.communities.push(CommunityHours { community_id: row.community_id, hours: seconds });
+                }
+                _ => days.push(GlobalPlayerSessionTime {
+                    bucket_time,
+                    hours: seconds,
+                    communities: vec![CommunityHours { community_id: row.community_id, hours: seconds }],
+                }),
+            }
+        }
+        for day in &mut days {
+            day.hours = to_hours(day.hours);
+            day.communities.sort_by(|a, b| b.hours.total_cmp(&a.hours));
+            for community in &mut day.communities {
+                community.hours = to_hours(community.hours);
+            }
+        }
+
+        response!(ok days)
     }
     /// Paginated list of a player's sessions across every server they have played on.
     ///
@@ -1196,30 +1393,10 @@ impl AccountsApi {
         const PAGE_SIZE: i64 = 10;
 
         let pool = &*app.pool;
-        let target_user_id = match resolve_user_id(&player_id, &requester) {
-            Ok(id) => id,
+        let scope = match resolve_profile_scope(app, &player_id, &requester).await {
+            Ok(scope) => scope,
             Err(e) => return e,
         };
-        let steam_id = target_user_id.to_string();
-        let canonical_id = resolve_canonical_player_id(pool, &steam_id)
-            .await
-            .unwrap_or_else(|| steam_id.clone());
-        let canonical_user_id = canonical_id.parse::<i64>().unwrap_or(target_user_id);
-        let requester_id = requester.as_ref().map(|token| token.id);
-
-        let anonymization_settings = sqlx::query_as!(
-            DbUserAnonymization,
-            "SELECT user_id, community_id, anonymized, hide_location FROM website.user_anonymization WHERE user_id = $1",
-            canonical_user_id
-        ).fetch_all(pool).await;
-        let anonymization_settings = or_ise!(anonymization_settings);
-
-        let excluded_community_ids: Vec<Uuid> = or_ise!(hidden_community_ids(
-            app,
-            &canonical_id,
-            &anonymization_settings,
-            requester_id,
-        ).await).into_iter().collect();
 
         let offset = PAGE_SIZE * page.unwrap_or(0) as i64;
         let (start, end) = match datetime {
@@ -1240,6 +1417,7 @@ impl AccountsApi {
                 pss.player_id,
                 pss.server_id,
                 s.server_name,
+                c.community_id::text AS community_id,
                 c.community_name,
                 c.community_icon_url,
                 pss.started_at,
@@ -1255,8 +1433,8 @@ impl AccountsApi {
             ORDER BY pss.started_at DESC
             LIMIT $5
             OFFSET $6",
-            canonical_id,
-            &excluded_community_ids,
+            scope.canonical_id,
+            &scope.excluded_community_ids,
             start,
             end,
             PAGE_SIZE,
@@ -1268,7 +1446,289 @@ impl AccountsApi {
         let total_rows = result.first().and_then(|e| e.total_rows).unwrap_or_default();
         let total_pages = (total_rows + PAGE_SIZE - 1) / PAGE_SIZE;
 
-        response!(ok GlobalPlayerSessionPage{ total_pages, rows: result.iter_into() })
+        response!(ok GlobalPlayerSessionPage{ total_pages, total_rows, rows: result.iter_into() })
+    }
+    /// How many sessions a player has across every server, and how long they last.
+    ///
+    /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID. Lengths cover finished
+    /// sessions only. Communities where the target anonymized themselves are left out for viewers
+    /// without permission, matching `/players/{player_id}/sessions`.
+    #[oai(path="/players/:player_id/session-stats", method="get", tag = "ApiTags::Players")]
+    async fn get_user_session_stats(
+        &self,
+        Data(app): Data<&AppData>,
+        OptionalTokenBearer(requester): OptionalTokenBearer,
+        Path(player_id): Path<String>,
+    ) -> Response<PlayerSessionStats> {
+        let pool = &*app.pool;
+        let scope = match resolve_profile_scope(app, &player_id, &requester).await {
+            Ok(scope) => scope,
+            Err(e) => return e,
+        };
+
+        let result = sqlx::query_as!(
+            DbPlayerSessionStats,
+            "WITH user_players AS (
+                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+            ),
+            sessions AS (
+                SELECT pss.started_at,
+                       EXTRACT(EPOCH FROM (pss.ended_at - pss.started_at))::float8 AS duration
+                FROM player_server_session pss
+                JOIN user_players up ON up.player_id = pss.player_id
+                JOIN server s ON s.server_id = pss.server_id
+                WHERE s.community_id IS NULL OR NOT (s.community_id = ANY($2))
+            ),
+            longest AS (
+                SELECT started_at, duration
+                FROM sessions
+                WHERE duration IS NOT NULL
+                ORDER BY duration DESC
+                LIMIT 1
+            )
+            SELECT
+                (SELECT COUNT(*) FROM sessions) AS \"total_sessions!\",
+                (SELECT AVG(duration) FROM sessions) AS average_duration,
+                (SELECT duration FROM longest) AS longest_duration,
+                (SELECT started_at FROM longest) AS longest_started_at",
+            scope.canonical_id,
+            &scope.excluded_community_ids
+        ).fetch_one(pool).await;
+
+        let result = or_ise!(result, e => "Failed to read session stats of {}: {e}", scope.canonical_id);
+        response!(ok result.into())
+    }
+    /// Every map a player has played, with their time summed across servers and split by community.
+    ///
+    /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID. Sorted by time, most played
+    /// first. `rank` orders every player on the map by their time summed across servers, the same
+    /// ranking as `/maps/{map_name}/top_players`, as of the last daily refresh. Communities where the
+    /// target anonymized themselves are left out for viewers without permission.
+    #[oai(path="/players/:player_id/maps", method="get", tag = "ApiTags::Players")]
+    async fn get_user_global_maps(
+        &self,
+        Data(app): Data<&AppData>,
+        OptionalTokenBearer(requester): OptionalTokenBearer,
+        Path(player_id): Path<String>,
+    ) -> Response<Vec<GlobalPlayerMap>> {
+        let pool = &*app.pool;
+        let scope = match resolve_profile_scope(app, &player_id, &requester).await {
+            Ok(scope) => scope,
+            Err(e) => return e,
+        };
+
+        let result = sqlx::query_as!(
+            DbGlobalPlayerMapCommunity,
+            "WITH user_players AS (
+                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+            ),
+            per_community AS (
+                SELECT pmt.map, s.community_id, SUM(pmt.total_playtime) AS total_playtime
+                FROM website.player_map_time pmt
+                JOIN user_players up ON up.player_id = pmt.player_id
+                JOIN server s ON s.server_id = pmt.server_id
+                WHERE NOT (s.community_id = ANY($2))
+                GROUP BY pmt.map, s.community_id
+                HAVING SUM(pmt.total_playtime) > INTERVAL '0'
+            )
+            SELECT
+                pc.map AS \"map!\",
+                pc.community_id::text AS \"community_id!\",
+                EXTRACT(EPOCH FROM pc.total_playtime)::float8 AS \"duration!\",
+                r.map_rank AS rank,
+                r.total_players
+            FROM per_community pc
+            LEFT JOIN website.player_global_map_rank r ON r.player_id = $1 AND r.map = pc.map
+            ORDER BY pc.map",
+            scope.canonical_id,
+            &scope.excluded_community_ids
+        ).fetch_all(pool).await;
+
+        let result = or_ise!(result, e => "Failed to read global maps of {}: {e}", scope.canonical_id);
+
+        let mut maps: Vec<GlobalPlayerMap> = vec![];
+        for row in result {
+            let community = CommunityDuration { community_id: row.community_id, duration: row.duration };
+            match maps.last_mut() {
+                Some(map) if map.map == row.map => {
+                    map.total_duration += community.duration;
+                    map.communities.push(community);
+                }
+                _ => maps.push(GlobalPlayerMap {
+                    map: row.map,
+                    total_duration: community.duration,
+                    rank: row.rank,
+                    total_players: row.total_players,
+                    communities: vec![community],
+                }),
+            }
+        }
+        for map in &mut maps {
+            map.communities.sort_by(|a, b| b.duration.total_cmp(&a.duration));
+        }
+        maps.sort_by(|a, b| b.total_duration.total_cmp(&a.total_duration));
+
+        response!(ok maps)
+    }
+    /// When a player is online across every server, by local hour of day and weekday, split by
+    /// community.
+    ///
+    /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID. `tz` is an IANA timezone the
+    /// hours and weekdays are reported in, UTC when omitted. Each session's time is spread over the
+    /// hours it covers; a session still running counts up to when it was last seen. Communities
+    /// where the target anonymized themselves are left out for viewers without permission.
+    #[oai(path="/players/:player_id/online-activity", method="get", tag = "ApiTags::Players")]
+    async fn get_user_online_activity(
+        &self,
+        Data(app): Data<&AppData>,
+        OptionalTokenBearer(requester): OptionalTokenBearer,
+        Path(player_id): Path<String>,
+        Query(tz): Query<Option<String>>,
+    ) -> Response<PlayerOnlineActivity> {
+        let pool = &*app.pool;
+        let scope = match resolve_profile_scope(app, &player_id, &requester).await {
+            Ok(scope) => scope,
+            Err(e) => return e,
+        };
+
+        let timezone = tz.filter(|tz| !tz.is_empty()).unwrap_or_else(|| "UTC".to_string());
+        if timezone != "UTC" {
+            let known = sqlx::query_scalar!(
+                "SELECT EXISTS(SELECT 1 FROM pg_timezone_names WHERE name = $1) AS \"known!\"",
+                timezone
+            ).fetch_one(pool).await;
+            if !or_ise!(known) {
+                return response!(err "Unknown timezone", ErrorCode::BadRequest);
+            }
+        }
+
+        let result = sqlx::query_as!(
+            DbOnlineActivityHour,
+            "WITH user_players AS (
+                SELECT player_id FROM player WHERE player_id = $1 OR associated_player_id = $1
+            ),
+            sessions AS (
+                SELECT s.community_id,
+                       pss.started_at AT TIME ZONE $3 AS started_local,
+                       COALESCE(pss.ended_at, LEAST(pss.last_verified, CURRENT_TIMESTAMP)) AT TIME ZONE $3 AS ended_local
+                FROM player_server_session pss
+                JOIN user_players up ON up.player_id = pss.player_id
+                JOIN server s ON s.server_id = pss.server_id
+                WHERE NOT (s.community_id = ANY($2))
+            ),
+            slices AS (
+                SELECT se.community_id,
+                       h AS hour_start,
+                       EXTRACT(EPOCH FROM (
+                           LEAST(se.ended_local, h + INTERVAL '1 hour') - GREATEST(se.started_local, h)
+                       )) AS seconds
+                FROM sessions se
+                CROSS JOIN LATERAL generate_series(
+                    date_trunc('hour', se.started_local), se.ended_local, INTERVAL '1 hour'
+                ) AS h
+                WHERE se.ended_local > se.started_local
+            )
+            SELECT
+                community_id::text AS \"community_id!\",
+                hour_start::date AS \"day!\",
+                EXTRACT(HOUR FROM hour_start)::int AS \"hour!\",
+                SUM(seconds)::float8 AS \"seconds!\"
+            FROM slices
+            WHERE seconds > 0
+            GROUP BY 1, 2, 3",
+            scope.canonical_id,
+            &scope.excluded_community_ids,
+            timezone
+        ).fetch_all(pool).await;
+
+        let result = or_ise!(result, e => "Failed to read online activity of {}: {e}", scope.canonical_id);
+
+        let mut buckets: IndexMap<(String, i32, i32), f64> = IndexMap::new();
+        let mut days: HashSet<sqlx::types::time::Date> = HashSet::new();
+        for row in result {
+            let weekday = row.day.weekday().number_from_monday() as i32;
+            *buckets.entry((row.community_id, weekday, row.hour)).or_default() += row.seconds;
+            days.insert(row.day);
+        }
+        let mut active_days: IndexMap<i32, i64> = (1..=7).map(|weekday| (weekday, 0)).collect();
+        for day in days {
+            *active_days.entry(day.weekday().number_from_monday() as i32).or_default() += 1;
+        }
+
+        response!(ok PlayerOnlineActivity {
+            timezone,
+            buckets: buckets.into_iter()
+                .map(|((community_id, weekday, hour), seconds)| OnlineActivityBucket { community_id, weekday, hour, seconds })
+                .collect(),
+            active_days: active_days.into_iter()
+                .map(|(weekday, days)| WeekdayActiveDays { weekday, days })
+                .collect(),
+        })
+    }
+    /// A player's infraction (ban/mute) history across every server they have played on, newest
+    /// first.
+    ///
+    /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID. Communities where the target
+    /// anonymized themselves are left out for viewers without permission.
+    #[oai(path="/players/:player_id/infractions", method="get", tag = "ApiTags::Players")]
+    async fn get_user_global_infractions(
+        &self,
+        Data(app): Data<&AppData>,
+        OptionalTokenBearer(requester): OptionalTokenBearer,
+        Path(player_id): Path<String>,
+    ) -> Response<Vec<GlobalPlayerInfraction>> {
+        let pool = &*app.pool;
+        let scope = match resolve_profile_scope(app, &player_id, &requester).await {
+            Ok(scope) => scope,
+            Err(e) => return e,
+        };
+
+        let result = sqlx::query_as!(
+            DbGlobalPlayerInfraction,
+            "WITH found AS (
+                SELECT infraction_id, source,
+                       payload->>'server_id' AS server_id,
+                       payload->>'reason' AS reason,
+                       payload->'admin'->>'admin_name' AS by,
+                       payload->'admin'->>'avatar_id' AS admin_avatar,
+                       (payload->>'flags')::bigint AS flags,
+                       to_timestamp((payload->>'created')::double precision::bigint) AS infraction_time
+                FROM public.server_infractions
+                WHERE payload->'player'->>'gs_id' = $1
+                    AND payload->>'server_id' <> $3
+                UNION ALL
+                SELECT infraction_id, source,
+                       payload->>'server_id' AS server_id,
+                       payload->>'reason' AS reason,
+                       payload->>'admin' AS by,
+                       NULL AS admin_avatar,
+                       (payload->>'flags')::bigint AS flags,
+                       to_timestamp((payload->>'invoked_on')::double precision::bigint) AS infraction_time
+                FROM public.server_infractions
+                WHERE payload->>'steam64_id' = $1
+                    AND payload->>'server_id' = $3
+            )
+            SELECT
+                f.infraction_id AS \"infraction_id!\",
+                f.source AS \"source!\",
+                f.reason,
+                f.by,
+                f.admin_avatar,
+                f.flags,
+                f.infraction_time,
+                s.server_id,
+                s.community_id::text AS \"community_id!\"
+            FROM found f
+            JOIN server s ON s.server_id = f.server_id
+            WHERE NOT (s.community_id = ANY($2))
+            ORDER BY f.infraction_time DESC NULLS LAST",
+            scope.canonical_id,
+            &scope.excluded_community_ids,
+            NIDE_SERVER_ID
+        ).fetch_all(pool).await;
+
+        let result = or_ise!(result, e => "Failed to read global infractions of {}: {e}", scope.canonical_id);
+        response!(ok result.iter_into())
     }
     /// Set the signed-in user's anonymization/location-hiding preference for one community.
     #[oai(path="/accounts/me/anonymize", method="post")]

@@ -1,12 +1,15 @@
-import {Suspense} from "react";
+import {ReactNode, Suspense} from "react";
 import UserProfile, {UserProfileLoading} from "components/users/UserProfile";
 import UserCommunityConnections, {UserCommunityConnectionsLoading} from "components/users/UserCommunityConnections";
-import ProfileOverview, {ProfileOverviewLoading} from "components/users/ProfileOverview";
-import ProfileStatsCards, {ProfileStatsCardsLoading} from "components/users/ProfileStatsCards";
+import ProfilePlaytimeHistory, {ProfilePlaytimeHistoryLoading} from "components/users/ProfilePlaytimeHistory";
 import ProfilePlaySessions, {ProfilePlaySessionsLoading} from "components/users/ProfilePlaySessions";
+import ProfileMaps, {ProfileMapsLoading} from "components/users/ProfileMaps";
+import ProfileOnlineActivity, {ProfileOnlineActivityLoading} from "components/users/ProfileOnlineActivity";
+import ProfileInfractions, {ProfileInfractionsLoading} from "components/users/ProfileInfractions";
+import {ProfileCommunitiesProvider} from "components/users/ProfileContext";
 import getServerUser from "app/getServerUser";
 import { redirect } from "next/navigation";
-import { PlayerSessionTime, ProfileResponse } from "types/community.ts";
+import { GlobalPlayerSessionTime, ProfileResponse } from "types/community.ts";
 import {
     fetchApiUrl,
     fetchUrl,
@@ -18,11 +21,34 @@ import {
 import {Metadata} from "next";
 import { oneDay, oneHour } from "app/servers/[server_slug]/util.ts";
 import {getTranslations} from "next-intl/server";
-import { GlobalPlayerSessionPage, PlayerProfilePicture } from "types/players.ts";
+import {
+    GlobalPlayerInfraction,
+    GlobalPlayerMap,
+    GlobalPlayerSessionPage,
+    PlayerOnlineActivity,
+    PlayerProfilePicture,
+    PlayerSessionStats
+} from "types/players.ts";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 
 dayjs.extend(relativeTime)
+
+function ProfileLayout({ hero, history, sessions, maps, activity, communities, infractions }: Record<
+    'hero' | 'history' | 'sessions' | 'maps' | 'activity' | 'communities' | 'infractions', ReactNode
+>) {
+    return (
+        <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12">{hero}</div>
+            <div className="col-span-12 xl:col-span-8">{history}</div>
+            <div className="col-span-12 xl:col-span-4">{sessions}</div>
+            <div className="col-span-12 xl:col-span-6">{maps}</div>
+            <div className="col-span-12 xl:col-span-6">{activity}</div>
+            <div className="col-span-12">{communities}</div>
+            <div className="col-span-12">{infractions}</div>
+        </div>
+    )
+}
 
 export async function generateMetadata({ params }: {
     params: Promise<{ player_id: string }>
@@ -62,9 +88,9 @@ export async function generateMetadata({ params }: {
         }
     }
 
-    const bestRank = summary.best_rank
-    if (bestRank){
-        clauses.push(t('profileBestMap', {rank: formatOrdinal(bestRank.rank), map: bestRank.map}))
+    const bestMapRank = summary.best_map_rank
+    if (bestMapRank){
+        clauses.push(t('profileBestMap', {rank: formatOrdinal(bestMapRank.rank), map: bestMapRank.map}))
     }
 
     if (summary.last_online){
@@ -106,37 +132,60 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
         redirect('/');
     }
 
+    const seed = <T,>(endpoint: string, params?: Record<string, string | number>): Promise<T | null> =>
+        fetchApiUrl(`/players/${player_id}${endpoint}`, params ? { params } : {}).catch(() => null);
+
     const profilePromise: Promise<ProfileResponse> = fetchApiUrl(`/players/${player_id}/profile`);
-    const heatmapPromise: Promise<PlayerSessionTime[]> = fetchApiUrl(`/players/${player_id}/playtime-heatmap`).catch(() => []);
+    const heatmapPromise: Promise<GlobalPlayerSessionTime[]> = seed<GlobalPlayerSessionTime[]>('/playtime-heatmap')
+        .then(data => data ?? []);
     const pfpPromise: Promise<PlayerProfilePicture | null> = profilePromise
         .then(profile => fetchUrl(`/players/${profile.steamid}/pfp`, {  next: { revalidate: oneDay } }))
         .catch(() => null);
-    const sessionsPromise: Promise<GlobalPlayerSessionPage | null> = fetchApiUrl(`/players/${player_id}/sessions`, { params: { page: 0 } })
-        .catch(() => null);
+    const sessionsPromise = seed<GlobalPlayerSessionPage>('/sessions', { page: 0 });
+    const sessionStatsPromise = seed<PlayerSessionStats>('/session-stats');
+    const mapsPromise = seed<GlobalPlayerMap[]>('/maps');
+    const activityPromise = seed<PlayerOnlineActivity>('/online-activity', { tz: 'UTC' });
+    const infractionsPromise = seed<GlobalPlayerInfraction[]>('/infractions');
 
     return (
         <div className="container mx-auto max-w-10xl px-2 py-8">
-            <div className="flex flex-col gap-6">
-                <Suspense fallback={<UserProfileLoading />}>
-                    <UserProfile profilePromise={profilePromise} pfpPromise={pfpPromise} />
-                </Suspense>
-                <Suspense fallback={<ProfileOverviewLoading />}>
-                    <ProfileOverview heatmapPromise={heatmapPromise} />
-                </Suspense>
-                <Suspense fallback={<ProfileStatsCardsLoading />}>
-                    <ProfileStatsCards userId={player_id} profilePromise={profilePromise} />
-                </Suspense>
-                <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_450px] lg:gap-3">
-                    <Suspense fallback={<UserCommunityConnectionsLoading />}>
-                        <UserCommunityConnections profilePromise={profilePromise} />
-                    </Suspense>
-                    <div className="lg:mt-8">
-                        <Suspense fallback={<ProfilePlaySessionsLoading />}>
+            <Suspense fallback={
+                <ProfileLayout
+                    hero={<UserProfileLoading />}
+                    history={<ProfilePlaytimeHistoryLoading />}
+                    sessions={<ProfilePlaySessionsLoading />}
+                    maps={<ProfileMapsLoading />}
+                    activity={<ProfileOnlineActivityLoading />}
+                    communities={<UserCommunityConnectionsLoading />}
+                    infractions={<ProfileInfractionsLoading />}
+                />
+            }>
+                <ProfileCommunitiesProvider profilePromise={profilePromise}>
+                    <ProfileLayout
+                        hero={<Suspense fallback={<UserProfileLoading />}>
+                            <UserProfile profilePromise={profilePromise} pfpPromise={pfpPromise} />
+                        </Suspense>}
+                        history={<Suspense fallback={<ProfilePlaytimeHistoryLoading />}>
+                            <ProfilePlaytimeHistory heatmapPromise={heatmapPromise} statsPromise={sessionStatsPromise} />
+                        </Suspense>}
+                        sessions={<Suspense fallback={<ProfilePlaySessionsLoading />}>
                             <ProfilePlaySessions userId={player_id} initialDataPromise={sessionsPromise} />
-                        </Suspense>
-                    </div>
-                </div>
-            </div>
+                        </Suspense>}
+                        maps={<Suspense fallback={<ProfileMapsLoading />}>
+                            <ProfileMaps mapsPromise={mapsPromise} />
+                        </Suspense>}
+                        activity={<Suspense fallback={<ProfileOnlineActivityLoading />}>
+                            <ProfileOnlineActivity userId={player_id} initialDataPromise={activityPromise} />
+                        </Suspense>}
+                        communities={<Suspense fallback={<UserCommunityConnectionsLoading />}>
+                            <UserCommunityConnections profilePromise={profilePromise} />
+                        </Suspense>}
+                        infractions={<Suspense fallback={<ProfileInfractionsLoading />}>
+                            <ProfileInfractions profilePromise={profilePromise} infractionsPromise={infractionsPromise} />
+                        </Suspense>}
+                    />
+                </ProfileCommunitiesProvider>
+            </Suspense>
         </div>
     )
 }

@@ -16,6 +16,7 @@ import {SiDiscord, SiGithub} from "@icons-pack/react-simple-icons";
 import {SteamProfile} from "types/steam";
 import {useTranslations} from "next-intl";
 import LanguageToggle from "./LanguageToggle";
+import {DISCORD_URL} from "./DiscordButton";
 
 export default function NavDrawerButton({ server, user }: { server: Server | null, user: SteamProfile | null }) {
     const t = useTranslations('nav');
@@ -91,18 +92,17 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
                         </ul>
                     </nav>
 
-                    <div className="flex items-center justify-between gap-2 p-4 border-t border-border mt-auto">
-                        <LoginButton user={user} />
-                        <LanguageToggle />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                        >
-                            <a href="https://goes.queeniemella.cc/s/discord-zegraph" target="_blank" rel="noopener noreferrer">
-                                <SiDiscord className="h-4 w-4 text-primary" />
+                    <div className="px-4 pt-4 border-t border-border mt-auto">
+                        <Button variant="outline" className="w-full h-auto justify-start gap-3 py-2 whitespace-normal text-left" asChild>
+                            <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">
+                                <SiDiscord className="h-5 w-5 shrink-0 text-[#5865F2]" />
+                                <span className="text-sm">{t('discordCta')}</span>
                             </a>
                         </Button>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 p-4">
+                        <LoginButton user={user} />
+                        <LanguageToggle />
                         <Button
                             variant="ghost"
                             size="icon"

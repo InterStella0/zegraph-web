@@ -1,0 +1,260 @@
+'use client';
+
+import { use, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
+import { BarController, BarElement, CategoryScale, Chart as ChartJS, LinearScale, Tooltip } from "chart.js";
+import { color } from "chart.js/helpers";
+import { Search } from "lucide-react";
+import { Card, CardContent } from "components/ui/card";
+import { Input } from "components/ui/input";
+import { Skeleton } from "components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "components/ui/table";
+import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
+import PaginationPage from "components/ui/PaginationPage";
+import { LazyBarChart } from "components/graphs/LazyCharts";
+import SplitBar from "components/players/SplitBar";
+import { heatmapTooltip, useChartTheme } from "lib/chartTheme";
+import { formatNumber, secondsToHours } from "utils/generalUtils";
+import { GlobalPlayerMap } from "types/players";
+import { FocusChip, useProfileCommunities } from "./ProfileContext";
+import { ENTER, SWAP } from "./profileMotion";
+
+ChartJS.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
+
+const CARD = "h-full border-border/40 bg-card/50 backdrop-blur-xl";
+const CHART_MAPS = 10;
+const ROWS_PER_PAGE = 10;
+const MAX_LABEL = 26;
+
+export function ProfileMapsLoading() {
+    return (
+        <Card className={CARD}>
+            <CardContent className="p-4 sm:p-6">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                    <Skeleton className="h-7 w-56" />
+                    <Skeleton className="h-9 w-32" />
+                </div>
+                <Skeleton className="h-[400px] w-full" />
+            </CardContent>
+        </Card>
+    );
+}
+
+export default function ProfileMaps({ mapsPromise }: { mapsPromise: Promise<GlobalPlayerMap[] | null> }) {
+    const t = useTranslations('players.profile.maps');
+    const tProfile = useTranslations('players.profile');
+    const locale = useLocale();
+    const theme = useChartTheme();
+    const allMaps = use(mapsPromise);
+    const { communities, communityOf, colorOf, focused } = useProfileCommunities();
+    const [view, setView] = useState<"chart" | "table">("chart");
+    const [search, setSearch] = useState("");
+    const [page, setPage] = useState(0);
+
+    const maps = useMemo(() => (allMaps ?? [])
+        .map(map => {
+            if (!focused) return map;
+            const communities = map.communities.filter(c => c.community_id === focused);
+            return { ...map, communities, total_duration: communities.reduce((sum, c) => sum + c.duration, 0) };
+        })
+        .filter(map => map.total_duration > 0)
+        .sort((a, b) => b.total_duration - a.total_duration), [allMaps, focused]);
+
+    const filtered = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        return term ? maps.filter(map => map.map.toLowerCase().includes(term)) : maps;
+    }, [maps, search]);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
+    const pageRows = filtered.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
+
+    useEffect(() => setPage(0), [search, focused]);
+
+    const formatRank = (map: GlobalPlayerMap) => map.rank != null ? `#${formatNumber(map.rank, 0, locale)}` : '—';
+    const formatValue = (seconds: number) => secondsToHours(seconds, locale);
+
+    const chartMaps = useMemo(() => maps.slice(0, CHART_MAPS), [maps]);
+    const chartData = useMemo(() => {
+        const keys = communities
+            .map(community => community.id)
+            .filter(id => chartMaps.some(map => map.communities.some(c => c.community_id === id)));
+        return {
+            labels: chartMaps.map(map => map.map),
+            datasets: keys.map(key => ({
+                label: communityOf(key)?.name ?? key,
+                data: chartMaps.map(map => (map.communities.find(c => c.community_id === key)?.duration ?? 0) / 3600),
+                backgroundColor: color(colorOf(key)).alpha(0.8).rgbString(),
+                borderColor: colorOf(key),
+                borderWidth: 1,
+                borderRadius: 3,
+                barPercentage: 0.7,
+            })),
+        };
+    }, [chartMaps, communities, communityOf, colorOf]);
+
+    const chartOptions = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y' as const,
+        scales: {
+            x: {
+                stacked: true,
+                beginAtZero: true,
+                title: { display: true, text: t('hoursAxis'), color: theme.foreground },
+                ticks: { color: theme.foreground },
+                grid: { color: theme.faintGrid },
+            },
+            y: {
+                stacked: true,
+                ticks: {
+                    color: theme.foreground,
+                    autoSkip: false,
+                    callback(this: any, value: any, index: number) {
+                        const name: string = this.getLabelForValue(value);
+                        const short = name.length > MAX_LABEL ? `${name.slice(0, MAX_LABEL - 1)}…` : name;
+                        const rank = chartMaps[index]?.rank;
+                        return rank != null ? `${short}  #${formatNumber(rank, 0, locale)}` : short;
+                    },
+                },
+                grid: { display: false },
+            },
+        },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                ...heatmapTooltip(theme),
+                callbacks: {
+                    label: (context: any) => `${context.dataset.label}: ${formatValue(context.parsed.x * 3600)} ${t('hrs')}`,
+                    footer: (items: any[]) => {
+                        const map = chartMaps[items[0]?.dataIndex];
+                        if (!map) return '';
+                        const total = `${formatValue(map.total_duration)} ${t('hrs')}`;
+                        return map.rank != null && map.total_players != null
+                            ? [total, t('rankTooltip', {
+                                rank: formatNumber(map.rank, 0, locale),
+                                total: formatNumber(map.total_players, 0, locale),
+                            })]
+                            : total;
+                    },
+                },
+            },
+        },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }), [theme, chartMaps, locale, t]);
+
+    const summary = chartMaps.length === 0
+        ? t('noMaps')
+        : t('summary', {
+            maps: chartMaps.map(map => `${map.map} (${formatValue(map.total_duration)} ${t('hrs')})`).join(', '),
+        });
+
+    return (
+        <Card className={`${CARD} ${ENTER} delay-150`}>
+            <CardContent className="p-4 sm:p-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <h2 className="text-xl font-semibold">{t('title')}</h2>
+                        <span className="text-sm text-muted-foreground">
+                            {t('subtitle', { count: maps.length })}
+                        </span>
+                        <FocusChip />
+                    </div>
+                    <Tabs value={view} onValueChange={value => setView(value as "chart" | "table")}>
+                        <TabsList className="h-8">
+                            <TabsTrigger value="chart" className="text-xs px-3">{t('chart')}</TabsTrigger>
+                            <TabsTrigger value="table" className="text-xs px-3">{t('table')}</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>
+
+                {maps.length === 0 ? (
+                    <div className="flex h-[400px] items-center justify-center text-muted-foreground">{t('noMaps')}</div>
+                ) : view === "chart" ? (
+                    <>
+                        <ScreenReaderOnly id="profile-maps-summary">{summary}</ScreenReaderOnly>
+                        <div
+                            className={`h-[400px] ${SWAP}`}
+                            role="img"
+                            aria-label={t('ariaLabel')}
+                            aria-describedby="profile-maps-summary"
+                        >
+                            {/* @ts-ignore */}
+                            <LazyBarChart data={chartData} options={chartOptions} />
+                        </div>
+                    </>
+                ) : (
+                    <div className={`space-y-3 ${SWAP}`}>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                value={search}
+                                onChange={event => setSearch(event.target.value)}
+                                placeholder={t('search')}
+                                className="pl-9"
+                            />
+                        </div>
+                        <div className="rounded-md border border-border/60">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>{t('map')}</TableHead>
+                                        <TableHead className="hidden w-[30%] sm:table-cell">{t('split')}</TableHead>
+                                        <TableHead className="text-right">{t("hours")}</TableHead>
+                                        <TableHead className="text-right">{t('rank')}</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody key={page} className={SWAP}>
+                                    {pageRows.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                                {t('noMatch', { search })}
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : pageRows.map(map => (
+                                        <TableRow key={map.map}>
+                                            <TableCell className="max-w-[180px] truncate font-medium">
+                                                <Link href={`/maps/${map.map}`} className="hover:underline" title={map.map}>
+                                                    {map.map}
+                                                </Link>
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell">
+                                                <SplitBar
+                                                    legend={false}
+                                                    size="sm"
+                                                    formatValue={value => `${formatValue(value)} ${t('hrs')}`}
+                                                    segments={map.communities.map(c => ({
+                                                        key: c.community_id,
+                                                        label: communityOf(c.community_id)?.name ?? c.community_id,
+                                                        value: c.duration,
+                                                        color: colorOf(c.community_id),
+                                                    }))}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums">{formatValue(map.total_duration)}</TableCell>
+                                            <TableCell className="text-right tabular-nums text-pink-500">{formatRank(map)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm text-muted-foreground">
+                                {tProfile('pageRange', {
+                                    from: filtered.length === 0 ? 0 : page * ROWS_PER_PAGE + 1,
+                                    to: Math.min((page + 1) * ROWS_PER_PAGE, filtered.length),
+                                    total: filtered.length,
+                                })}
+                            </span>
+                            {totalPages > 1 && (
+                                <div>
+                                    <PaginationPage totalPages={totalPages} page={page} setPage={setPage} compact />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}

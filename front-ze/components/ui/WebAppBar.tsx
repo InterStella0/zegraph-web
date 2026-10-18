@@ -9,6 +9,7 @@ import {SteamProfile} from "types/steam";
 import LanguageToggle from "./LanguageToggle";
 import Link from "./Link";
 import {Logo} from "./CommunitySelector";
+import DiscordButton from "./DiscordButton";
 
 
 export default function WebAppBar(
@@ -46,10 +47,13 @@ export default function WebAppBar(
 
                 <div className="flex items-center gap-3">
                     <div className="hidden min-[750px]:flex items-center gap-2">
+                        <DiscordButton />
                         <LanguageToggle />
                         <LoginButton user={user} />
                     </div>
-                    <div className="min-[750px]:hidden w-10"></div>
+                    <div className="min-[750px]:hidden">
+                        <DiscordButton />
+                    </div>
                 </div>
             </nav>
         </header>

@@ -25,7 +25,7 @@ function GlobalPlayersOnlineSkeleton({count = PLAYERS_PER_PAGE}: { count?: numbe
         <div className="p-2 space-y-1">
             {Array.from({length: count}).map((_, index) => (
                 <div key={index} className="py-1 flex items-center gap-3">
-                    <Skeleton className="w-8 h-8 rounded-full flex-shrink-0"/>
+                    <Skeleton className="w-8 h-8 rounded-[8%] flex-shrink-0"/>
                     <div className="flex-1">
                         <Skeleton className="w-3/5 h-5 mb-1"/>
                         <Skeleton className="w-4/5 h-4"/>

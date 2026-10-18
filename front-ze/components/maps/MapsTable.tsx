@@ -10,6 +10,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "components/ui/table";
 import {Badge} from "components/ui/badge";
+import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
 import {Button} from "components/ui/button";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
@@ -19,6 +20,8 @@ import {SteamProfile} from "types/steam";
 import {Server} from "types/community.ts";
 import {MapPlayed, MapPlayedPaginated} from "types/maps.ts";
 import CategoryChip from "components/ui/CategoryChip.tsx";
+import {isBlocked, mapBlockers} from "utils/mapCooldown";
+import {useMapCooldownText} from "lib/hooks/useMapCooldownText";
 import {useTranslations, useLocale} from 'next-intl';
 
 dayjs.extend(duration);
@@ -70,32 +73,35 @@ const MapsRowSkeleton = ({ index, showNotify }: { index: number, showNotify: boo
     );
 }
 
-export const StatusChip = ({ map }) => {
+export const StatusChip = ({ map }: { map: MapPlayed }) => {
     const t = useTranslations('maps.table');
-    const toDayjs = useLocalDayjs();
+    const cooldownText = useMapCooldownText();
     if (!map.enabled) return (
         <Badge variant="destructive" className="gap-1">
             <Ban className="h-3 w-3" />
             {t('disabled')}
         </Badge>
     );
-    if (map.map_left != null && map.map_left > 0) {
-        return (
+    const blockers = mapBlockers(map.map_left, map.cooldown, map.nom_opens_at);
+    if (isBlocked(blockers)) {
+        const details = cooldownText.details(blockers, map);
+        const badge = (
             <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 dark:text-amber-500">
                 <Clock className="h-3 w-3" />
-                {t('mapsLeft', {count: map.map_left})}
+                <span suppressHydrationWarning>{cooldownText.label(blockers)}</span>
             </Badge>
         );
-    }
-    if (map.pending_cooldown || map.cooldown) {
-        const cooldown = toDayjs(map.cooldown);
-        if (cooldown.diff(dayjs(), "second") > 0)
-            return (
-                <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 dark:text-amber-500">
-                    <Clock className="h-3 w-3" />
-                    <span suppressHydrationWarning>{cooldown.fromNow(true)}</span>
-                </Badge>
-            );
+        if (details.length === 0) return badge;
+        return (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <span className="inline-flex cursor-help">{badge}</span>
+                </TooltipTrigger>
+                <TooltipContent suppressHydrationWarning>
+                    {details.map(line => <div key={line}>{line}</div>)}
+                </TooltipContent>
+            </Tooltip>
+        );
     }
     if (!map.last_played_ended)
         return <Badge variant="default">{t('playing')}</Badge>;

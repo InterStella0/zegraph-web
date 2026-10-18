@@ -1,8 +1,14 @@
 
-export const COLOR_ALGO_VERSION = 1
+export const COLOR_ALGO_VERSION = 2
 
-const SAMPLE_SIZE = 32
 const ALPHA_THRESHOLD = 128
+const MAX_SAMPLE_SIDE = 256
+const MAX_DRAW_PIXELS = 2048 * 2048
+const HUE_BINS = 36
+const HUE_WINDOW = 30
+const MEAN_SHIFT_ITERATIONS = 16
+const MIN_VIBRANT_SHARE = 0.05
+const MONOCHROME = 'none'
 
 export function hashString(s: string): number {
     let hash = 0
@@ -43,104 +49,161 @@ export function nameHashColor(name: string): string {
     return hslToHex(hashString(name) % 360, 0.65, 0.5)
 }
 
-function bucketCenter(key: number): [number, number, number] {
-    return [
-        (((key >> 6) & 7) << 5) + 16,
-        (((key >> 3) & 7) << 5) + 16,
-        ((key & 7) << 5) + 16,
-    ]
+function hueDistance(a: number, b: number): number {
+    return Math.abs((((a - b) % 360) + 540) % 360 - 180)
+}
+
+function toStableHex(r: number, g: number, b: number): string {
+    const [h, s, l] = rgbToHsl(r, g, b)
+    return hslToHex(Math.round(h), Math.round(s * 100) / 100, Math.round(l * 100) / 100)
 }
 
 export function extractDominantColor(data: Uint8ClampedArray): string | null {
-    const counts = new Uint32Array(512)
+    const hueMass = new Float64Array(HUE_BINS)
+    const offsets: number[] = []
+    const hues: number[] = []
     let opaque = 0
     for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < ALPHA_THRESHOLD) continue
         opaque++
-        counts[((data[i] >> 5) << 6) | ((data[i + 1] >> 5) << 3) | (data[i + 2] >> 5)]++
+        const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2])
+        if (s < 0.25 || l < 0.15 || l > 0.85) continue
+        offsets.push(i)
+        hues.push(h)
+        const position = h / (360 / HUE_BINS)
+        const low = Math.floor(position)
+        hueMass[low % HUE_BINS] += 1 - (position - low)
+        hueMass[(low + 1) % HUE_BINS] += position - low
     }
-    if (opaque === 0) return null
+    if (hues.length === 0 || hues.length < opaque * MIN_VIBRANT_SHARE) return null
 
-    const pickWinner = (accept: (s: number, l: number) => boolean): number => {
-        let winner = -1
-        let winnerCount = 0
-        for (let key = 0; key < 512; key++) {
-            if (counts[key] <= winnerCount) continue
-            const [r, g, b] = bucketCenter(key)
-            const [, s, l] = rgbToHsl(r, g, b)
-            if (!accept(s, l)) continue
-            winner = key
-            winnerCount = counts[key]
+    let peak = 0
+    let peakMass = -1
+    for (let k = 0; k < HUE_BINS; k++) {
+        const mass = hueMass[(k + HUE_BINS - 1) % HUE_BINS] + 2 * hueMass[k] + hueMass[(k + 1) % HUE_BINS]
+        if (mass <= peakMass) continue
+        peak = k
+        peakMass = mass
+    }
+
+    const cosines = hues.map(h => Math.cos(h * Math.PI / 180))
+    const sines = hues.map(h => Math.sin(h * Math.PI / 180))
+    let center = peak * (360 / HUE_BINS)
+    for (let iteration = 0; iteration < MEAN_SHIFT_ITERATIONS; iteration++) {
+        let x = 0
+        let y = 0
+        for (let j = 0; j < hues.length; j++) {
+            const weight = 1 - hueDistance(hues[j], center) / HUE_WINDOW
+            if (weight <= 0) continue
+            x += weight * cosines[j]
+            y += weight * sines[j]
         }
-        return winner
+        if (x === 0 && y === 0) break
+        center = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
     }
 
-    let winner = pickWinner((s, l) => s >= 0.25 && l >= 0.15 && l <= 0.85)
-    if (winner < 0) winner = pickWinner(() => true)
-
-    const [r, g, b] = bucketCenter(winner)
-    const [h, s, l] = rgbToHsl(r, g, b)
-    return hslToHex(h, s, Math.min(0.7, Math.max(0.3, l)))
+    let r = 0
+    let g = 0
+    let b = 0
+    let total = 0
+    for (let j = 0; j < hues.length; j++) {
+        const weight = 1 - hueDistance(hues[j], center) / HUE_WINDOW
+        if (weight <= 0) continue
+        const i = offsets[j]
+        r += weight * data[i]
+        g += weight * data[i + 1]
+        b += weight * data[i + 2]
+        total += weight
+    }
+    return total > 0 ? toStableHex(r / total, g / total, b / total) : null
 }
 
-const iconColorCache = new Map<string, Promise<string | null>>()
+function samplePixels(bitmap: ImageBitmap): Uint8ClampedArray | null {
+    const scale = bitmap.width * bitmap.height > MAX_DRAW_PIXELS
+        ? MAX_SAMPLE_SIDE / Math.max(bitmap.width, bitmap.height)
+        : 1
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })
+    if (!ctx) return null
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(bitmap, 0, 0, width, height)
+    const data = ctx.getImageData(0, 0, width, height).data
+    const stride = Math.ceil(Math.max(width, height) / MAX_SAMPLE_SIDE)
+    if (stride === 1) return data
+
+    const sampled: number[] = []
+    for (let y = 0; y < height; y += stride) {
+        for (let x = 0; x < width; x += stride) {
+            const i = (y * width + x) * 4
+            sampled.push(data[i], data[i + 1], data[i + 2], data[i + 3])
+        }
+    }
+    return Uint8ClampedArray.from(sampled)
+}
+
+const iconColors = new Map<string, string>()
+const storageChecked = new Set<string>()
+const iconColorRequests = new Map<string, Promise<string | null>>()
+const listeners = new Set<() => void>()
+
+function storageKey(iconUrl: string): string {
+    return `commColor:v${COLOR_ALGO_VERSION}:${iconUrl}`
+}
+
+function readIconColor(iconUrl: string): string | undefined {
+    if (!iconColors.has(iconUrl) && !storageChecked.has(iconUrl)) {
+        storageChecked.add(iconUrl)
+        try {
+            const stored = localStorage.getItem(storageKey(iconUrl))
+            if (stored === MONOCHROME || /^#[0-9a-f]{6}$/.test(stored ?? '')) iconColors.set(iconUrl, stored)
+        } catch {}
+    }
+    return iconColors.get(iconUrl)
+}
+
+function storeIconColor(iconUrl: string, color: string) {
+    iconColors.set(iconUrl, color)
+    try {
+        localStorage.setItem(storageKey(iconUrl), color)
+    } catch {}
+    listeners.forEach(listener => listener())
+}
+
+export function peekIconColor(iconUrl: string): string | null {
+    const color = readIconColor(iconUrl)
+    return color && color !== MONOCHROME ? color : null
+}
+
+export function subscribeIconColors(listener: () => void): () => void {
+    listeners.add(listener)
+    return () => {
+        listeners.delete(listener)
+    }
+}
 
 export function getIconDominantColor(iconUrl: string): Promise<string | null> {
-    const cached = iconColorCache.get(iconUrl)
-    if (cached) return cached
+    const pending = iconColorRequests.get(iconUrl)
+    if (pending) return pending
 
-    const storageKey = `commColor:v${COLOR_ALGO_VERSION}:${iconUrl}`
-    let stored: string | null = null
-    try {
-        stored = localStorage.getItem(storageKey)
-    } catch {}
-    if (stored) {
-        const resolved = Promise.resolve<string | null>(stored)
-        iconColorCache.set(iconUrl, resolved)
-        return resolved
-    }
-
-    const promise = new Promise<string | null>(resolve => {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.decoding = 'async'
-        img.onload = () => {
-            try {
-                const canvas = document.createElement('canvas')
-                canvas.width = SAMPLE_SIZE
-                canvas.height = SAMPLE_SIZE
-                const ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })
-                if (!ctx) return resolve(null)
-                ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE)
-                const pixels = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data
+    const known = readIconColor(iconUrl)
+    const request = known !== undefined
+        ? Promise.resolve(known === MONOCHROME ? null : known)
+        : fetch(iconUrl, { cache: 'no-store' })
+            .then(response => response.ok ? response.blob() : Promise.reject(new Error(`HTTP ${response.status}`)))
+            .then(blob => createImageBitmap(blob))
+            .then(bitmap => {
+                const pixels = samplePixels(bitmap)
+                bitmap.close()
+                if (!pixels) return null
                 const color = extractDominantColor(pixels)
-                if (color) {
-                    try {
-                        localStorage.setItem(storageKey, color)
-                    } catch {}
-                }
-                resolve(color)
-            } catch {
-                resolve(null)
-            }
-        }
-        img.onerror = () => resolve(null)
-        img.src = iconUrl
-    })
-    iconColorCache.set(iconUrl, promise)
-    return promise
-}
-
-export function getCommunityColor(
-    icon_url: string | null | undefined,
-    name: string
-): { color: string; promise: Promise<string> | null } {
-    const color = nameHashColor(name)
-    if (!icon_url || typeof window === 'undefined') {
-        return { color, promise: null }
-    }
-    return {
-        color,
-        promise: getIconDominantColor(icon_url).then(c => c ?? color),
-    }
+                storeIconColor(iconUrl, color ?? MONOCHROME)
+                return color
+            })
+            .catch(() => null)
+    iconColorRequests.set(iconUrl, request)
+    return request
 }

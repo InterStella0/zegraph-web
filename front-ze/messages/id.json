@@ -455,10 +455,7 @@
       "yearlySummary": "Aktivitas pemain dalam {periods, plural, one {# periode} other {# periode}}. Total: {total} jam. Puncak: {peak} jam.",
       "matrixSummary": "Peta panas aktivitas pemain menunjukkan {total} jam dalam {days, plural, one {# hari aktif} other {# hari aktif}}. Aktivitas harian puncak: {peak} jam.",
       "yearlyAriaLabel": "Peta panas aktivitas pemain tahunan",
-      "matrixAriaLabel": "Peta panas aktivitas pemain {groupBy}",
-      "totalPlayTime": "Total Waktu Bermain",
-      "hoursUnit": "jam",
-      "inYear": "di tahun {year}"
+      "matrixAriaLabel": "Peta panas aktivitas pemain {groupBy}"
     },
     "profile": {
       "header": {
@@ -474,25 +471,22 @@
         "ofTotalPlayers": "dari {total} pemain",
         "notEnoughPlaytime": "Belum dihitung",
         "shareProfile": "Bagikan Profil",
-        "avatarAlt": "Foto profil {name}"
+        "avatarAlt": "Foto profil {name}",
+        "onlineOn": "Sedang online di {community}",
+        "lastSeen": "terakhir terlihat {time}",
+        "lastSeenOn": "terakhir terlihat {time} di {community}",
+        "neverSeen": "belum pernah terlihat online",
+        "totalPlaytime": "Total Waktu Bermain",
+        "hrs": "jam",
+        "communitiesServers": "{communities, plural, one {# komunitas} other {# komunitas}} · {servers, plural, one {# server} other {# server}}",
+        "globalChip": "Global #{rank}",
+        "globalRankTooltip": "#{rank} dari {total} pemain di semua komunitas",
+        "bestMapTooltip": "#{rank} dari {total} pemain di {map}, dengan waktu dijumlahkan dari semua server",
+        "communityRankTooltip": "#{rank} dari {total} pemain di {community}",
+        "playtimeByCommunity": "Waktu bermain per komunitas",
+        "mapStyle": "Gaya peta · semua server"
       },
       "stats": {
-        "recalculating": "Menghitung ulang",
-        "outOfDate": "Kedaluwarsa",
-        "never": "Tidak pernah",
-        "sessionHours": "Sesi {hours} jam",
-        "unranked": "Tidak berperingkat",
-        "notEnoughPlaytime": "Belum dihitung",
-        "totalPlaytime": "Total Waktu Bermain",
-        "hoursUnit": "jam",
-        "acrossCommunities": "di {count, plural, one {# komunitas} other {# komunitas}}",
-        "bestMapRank": "Peringkat Peta Terbaik",
-        "communities": "Komunitas",
-        "joinedAndTracked": "bergabung & dilacak",
-        "servers": "Server",
-        "acrossAllCommunities": "di semua komunitas",
-        "lastOnline": "Terakhir Online",
-        "onlineNow": "Online sekarang",
         "lastVerified": "Terakhir diverifikasi {ago}.",
         "neverVerified": "Total ini belum pernah diverifikasi.",
         "recalculatingPlaytime": "Menghitung ulang waktu bermain…",
@@ -502,7 +496,11 @@
       },
       "communities": {
         "heading": "Koneksi Komunitas",
-        "empty": "Tidak ada koneksi komunitas ditemukan."
+        "empty": "Tidak ada koneksi komunitas ditemukan.",
+        "expandHint": "Buka komunitas untuk melihat servernya",
+        "community": "Komunitas",
+        "playtime": "Waktu bermain",
+        "rank": "Peringkat"
       },
       "connectionCard": {
         "linkedNames": "NAMA TERTAUT · {count}",
@@ -517,7 +515,6 @@
         "sessionStripAria": "Durasi {count, plural, other {# sesi terbaru}} di server ini",
         "hideRadar": "Sembunyikan Radar",
         "anonymize": "Anonimkan",
-        "servers": "Server",
         "steamId": "Steam ID",
         "nameMatched": "Cocok berdasarkan nama",
         "noPlaytime": "Tidak ada waktu bermain",
@@ -529,7 +526,71 @@
           "cancel": "Batal",
           "success": "{count, plural, other {# profil}} digabungkan ({sessions} sesi)",
           "failed": "Gagal menggabungkan akun"
-        }
+        },
+        "serverCount": "{count, plural, one {# server} other {# server}}",
+        "lastPlayed": "terakhir bermain {time}",
+        "rankOf": "dari {total}",
+        "unranked": "Tanpa peringkat"
+      },
+      "total": "{count} total",
+      "pageRange": "{from}–{to} dari {total}",
+      "history": {
+        "ariaLabel": "Waktu bermain harian pada {year}, diwarnai per komunitas",
+        "sessions": "Sesi",
+        "allTime": "sepanjang waktu",
+        "avgSession": "Rata-rata sesi",
+        "longest": "terlama {duration}",
+        "bestStreak": "Streak terbaik",
+        "days": "{count, plural, one {# hari} other {# hari}}",
+        "activeDays": "Hari aktif",
+        "inYear": "pada {year}"
+      },
+      "focus": {
+        "focused": "Fokus: {community}",
+        "clear": "Tampilkan semua komunitas",
+        "focusOn": "Fokuskan grafik pada {community}",
+        "unfocus": "Berhenti fokus pada {community}"
+      },
+      "maps": {
+        "title": "Peta",
+        "subtitle": "{count, plural, one {# dimainkan} other {# dimainkan}} di semua server",
+        "chart": "Grafik",
+        "table": "Tabel",
+        "search": "Cari peta...",
+        "map": "Peta",
+        "split": "Pembagian",
+        "hours": "Jam",
+        "hrs": "jam",
+        "rank": "Peringkat",
+        "noMaps": "Belum ada peta yang dimainkan.",
+        "noMatch": "Tidak ada peta yang cocok dengan \"{search}\".",
+        "rankTooltip": "#{rank} dari {total} pemain di peta ini, di semua server",
+        "ariaLabel": "Peta paling sering dimainkan berdasarkan jam, dibagi per komunitas",
+        "summary": "Peta paling sering dimainkan: {maps}.",
+        "hoursAxis": "Jam"
+      },
+      "activity": {
+        "title": "Aktivitas online",
+        "byHour": "Per jam",
+        "byWeekday": "Per hari",
+        "myTimezone": "Zona Waktu Saya",
+        "utc": "UTC",
+        "hourSubtitle": "Jam online pada setiap jam dalam sehari, dibagi per komunitas",
+        "weekdaySubtitle": "Rata-rata jam pada setiap hari bermain, dibagi per komunitas",
+        "hourAxis": "Jam dalam sehari",
+        "hoursAxis": "Jam online",
+        "averageAxis": "Rata-rata jam",
+        "noData": "Belum ada aktivitas yang tercatat.",
+        "hourSummary": "Paling aktif sekitar pukul {hour}:00, dengan total {hours} online.",
+        "weekdaySummary": "Paling sibuk pada {day}, rata-rata {hours} pada hari bermain.",
+        "busiest": "Paling sibuk <b>{day}</b>"
+      },
+      "infractions": {
+        "filter": "Saring menurut jenis pelanggaran",
+        "community": "Komunitas",
+        "reason": "Alasan",
+        "admin": "Admin",
+        "date": "Tanggal"
       }
     },
     "playedWith": {
@@ -614,6 +675,7 @@
     "continentSubtitle": "Lokasi pemain yang memainkan sesi ini."
   },
   "nav": {
+    "discordCta": "Gabung Discord kami untuk bantuan atau masukan",
     "communities": "Komunitas",
     "server": "Server",
     "players": "Pemain",
@@ -643,6 +705,8 @@
       "noNomsOnly": "Hanya Tanpa Nominasi",
       "hasLasers": "Ada Laser",
       "minPlayers": "Min {count} pemain",
+      "maxPlayers": "Maks {count} pemain",
+      "cooldownEndsIn": "Cooldown berakhir dalam {time}",
       "dataNotReady": "Data tidak siap.",
       "stillCalculating": "Masih menghitung, data tidak siap. Kembali nanti~",
       "viewIn3d": "Lihat dalam 3D",
@@ -801,6 +865,10 @@
     "table": {
       "disabled": "Dinonaktifkan",
       "mapsLeft": "{count} peta tersisa",
+      "opensIn": "Dibuka dalam {time}",
+      "opensAt": "Nominasi dibuka {time}",
+      "cooldownEndsAt": "Cooldown berakhir {time}",
+      "nomWindow": "Bisa dinominasi {start}–{end}",
       "playing": "Sedang Dimainkan",
       "removed": "Dihapus",
       "ready": "Siap",
