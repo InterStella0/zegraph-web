@@ -1,7 +1,29 @@
 'use client'
+import {useSyncExternalStore} from 'react'
 import {useTranslations} from 'next-intl'
 import {useLocalDayjs} from 'lib/hooks/useHydrated'
 import {localNomWindow, MapBlockers} from 'utils/mapCooldown'
+
+// mapBlockers() and fromNow() read the clock when they render, so a page left open would keep showing
+// a cooldown that has ended. One shared timer re-renders every user of this hook once a minute.
+let minute = 0
+let timer: ReturnType<typeof setInterval> | undefined
+const listeners = new Set<() => void>()
+
+function subscribeMinute(listener: () => void) {
+    listeners.add(listener)
+    timer ??= setInterval(() => {
+        minute++
+        listeners.forEach(notify => notify())
+    }, 60_000)
+    return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) {
+            clearInterval(timer)
+            timer = undefined
+        }
+    }
+}
 
 export type NomWindowFields = {
     nom_available_from?: string | null,
@@ -13,6 +35,7 @@ export type NomWindowFields = {
 export function useMapCooldownText() {
     const t = useTranslations('maps.table')
     const toDayjs = useLocalDayjs()
+    useSyncExternalStore(subscribeMinute, () => minute, () => 0)
 
     const label = (blockers: MapBlockers): string => {
         const parts: string[] = []

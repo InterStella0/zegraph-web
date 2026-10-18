@@ -358,6 +358,8 @@ async fn get_global_best_rank(
 }
 
 const PROFILE_SERVER_CONCURRENCY: usize = 4;
+/// How long a profile waits on an uncached Steam cosmetics lookup before answering without it.
+const PROFILE_STEAM_ITEMS_WAIT: std::time::Duration = std::time::Duration::from_millis(1500);
 
 async fn profile_server_entry(
     app: &AppData,
@@ -935,9 +937,18 @@ impl AccountsApi {
             Err(e) => return e,
         };
         let steam_id = target_user_id.to_string();
-        let canonical_id = resolve_canonical_player_id(pool, &steam_id)
-            .await
-            .unwrap_or_else(|| steam_id.clone());
+        let known_canonical_id = resolve_canonical_player_id(pool, &steam_id).await;
+        // Only players this site has recorded get a Steam lookup, so profiles can't be used to probe
+        // arbitrary accounts. Spawned up front to run alongside the queries below; if it misses the
+        // deadline it keeps going and fills the cache for the next view.
+        let steam_items_deadline = tokio::time::Instant::now() + PROFILE_STEAM_ITEMS_WAIT;
+        let steam_items_lookup = known_canonical_id.as_deref()
+            .and_then(|id| id.parse::<i64>().ok())
+            .map(|id| {
+                let cache = app.cache.clone();
+                tokio::task::spawn(async move { get_steam_profile_items(&cache, id).await })
+            });
+        let canonical_id = known_canonical_id.unwrap_or_else(|| steam_id.clone());
         let canonical_user_id = canonical_id.parse::<i64>().unwrap_or(target_user_id);
         let requester_id = requester.as_ref().map(|token| token.id);
         let is_owner = requester_id == Some(canonical_user_id);
@@ -1075,6 +1086,14 @@ impl AccountsApi {
             Some("Anonymous".to_string())
         };
 
+        let steam_items = match steam_items_lookup {
+            Some(lookup) => match tokio::time::timeout_at(steam_items_deadline, lookup).await {
+                Ok(Ok(Ok(items))) => Some(items),
+                _ => None,
+            },
+            None => None,
+        };
+
         response!(ok ProfileResponse {
             steamid: steam_id,
             name: profile_name,
@@ -1092,6 +1111,7 @@ impl AccountsApi {
             is_owner,
             can_manage_anonymization,
             anonymization,
+            steam_items,
         })
     }
     /// A player's total playtime summed across every server. `player_id` may be `"me"` or a numeric

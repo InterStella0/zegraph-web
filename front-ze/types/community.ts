@@ -1,4 +1,4 @@
-import { DetailedPlayer } from "./players";
+import { DetailedPlayer, SteamProfileItems } from "./players";
 
 export interface Server {
     id: string;
@@ -124,6 +124,7 @@ export interface ProfileResponse {
     is_owner: boolean;
     can_manage_anonymization: boolean;
     anonymization: UserAnonymization[] | null;
+    steam_items: SteamProfileItems | null;
 }
 
 export interface PlayerSessionTime {
