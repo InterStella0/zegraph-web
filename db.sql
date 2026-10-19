@@ -1143,7 +1143,18 @@ CREATE TABLE external_data.gfl_csgo_players (
     td_count INTEGER DEFAULT 0,
     personaname TEXT DEFAULT '',
     avatarURL VARCHAR(255) DEFAULT '',
-    timestamp TIMESTAMP DEFAULT NULL
+    timestamp TIMESTAMP DEFAULT NULL,
+    rank_total_playtime BIGINT,
+    rank_zombie_time BIGINT,
+    rank_points BIGINT,
+    rank_human_time BIGINT,
+    rank_zombie_killed BIGINT,
+    rank_headshot BIGINT,
+    rank_infected_time BIGINT,
+    rank_item_usage BIGINT,
+    rank_boss_killed BIGINT,
+    rank_leader_count BIGINT,
+    rank_td_count BIGINT
 );
 
 CREATE TABLE external_data.nide_players (
@@ -1335,6 +1346,40 @@ BEGIN
     )
     FROM external_data.gfl_csgo_players g
     WHERE COALESCE(g.human_time, 0) + COALESCE(g.zombie_time, 0) > 0;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION website.rank_gfl_csgo_players() RETURNS void AS $$
+BEGIN
+    UPDATE external_data.gfl_csgo_players g
+    SET rank_total_playtime = r.rank_total_playtime,
+        rank_zombie_time = r.rank_zombie_time,
+        rank_points = r.rank_points,
+        rank_human_time = r.rank_human_time,
+        rank_zombie_killed = r.rank_zombie_killed,
+        rank_headshot = r.rank_headshot,
+        rank_infected_time = r.rank_infected_time,
+        rank_item_usage = r.rank_item_usage,
+        rank_boss_killed = r.rank_boss_killed,
+        rank_leader_count = r.rank_leader_count,
+        rank_td_count = r.rank_td_count
+    FROM (
+        SELECT
+            steamid64,
+            RANK() OVER (ORDER BY human_time + zombie_time DESC) AS rank_total_playtime,
+            RANK() OVER (ORDER BY zombie_time DESC) AS rank_zombie_time,
+            RANK() OVER (ORDER BY points DESC) AS rank_points,
+            RANK() OVER (ORDER BY human_time DESC) AS rank_human_time,
+            RANK() OVER (ORDER BY zombie_killed DESC) AS rank_zombie_killed,
+            RANK() OVER (ORDER BY headshot DESC) AS rank_headshot,
+            RANK() OVER (ORDER BY infected_time DESC) AS rank_infected_time,
+            RANK() OVER (ORDER BY item_usage DESC) AS rank_item_usage,
+            RANK() OVER (ORDER BY boss_killed DESC) AS rank_boss_killed,
+            RANK() OVER (ORDER BY leader_count DESC) AS rank_leader_count,
+            RANK() OVER (ORDER BY td_count DESC) AS rank_td_count
+        FROM external_data.gfl_csgo_players
+    ) r
+    WHERE r.steamid64 = g.steamid64;
 END;
 $$ LANGUAGE plpgsql;
 

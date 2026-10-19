@@ -491,7 +491,7 @@
         "neverVerified": "この合計はまだ確認されていません。",
         "recalculatingPlaytime": "プレイ時間を再計算中…",
         "playtimeOutOfDate": "プレイ時間が古くなっています",
-        "staleNoticeBody": "これらの数値が計算されてからプレイしているため、プレイ時間とランクが低く表示されている可能性があります。{verified}",
+        "staleNoticeBody": "このプレイヤーはこれらの数値が計算された後もプレイしているため、プレイ時間とランクが低く表示されている可能性があります。{verified}",
         "freshFiguresNote": "最新の数値は自動的に表示されます。"
       },
       "communities": {

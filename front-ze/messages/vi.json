@@ -491,7 +491,7 @@
         "neverVerified": "Các tổng số này chưa từng được xác minh.",
         "recalculatingPlaytime": "Đang tính lại thời gian chơi…",
         "playtimeOutOfDate": "Thời gian chơi đã lỗi thời",
-        "staleNoticeBody": "Bạn đã chơi kể từ lần tính toán các số liệu này, vì vậy thời gian chơi và xếp hạng có thể quá thấp. {verified}",
+        "staleNoticeBody": "Người chơi này đã chơi kể từ lần tính toán các số liệu này, vì vậy thời gian chơi và xếp hạng có thể quá thấp. {verified}",
         "freshFiguresNote": "Số liệu mới sẽ tự động xuất hiện."
       },
       "communities": {

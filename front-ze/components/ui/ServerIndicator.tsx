@@ -19,14 +19,14 @@ export default function ServerIndicator(
     const gameMeta = server.game ? GAME_META[server.game] : undefined;
     return (
         <div
-            className={`p-2 rounded-lg transition-all duration-200 ${
+            className={`min-w-0 p-2 rounded-lg transition-all duration-200 ${
                 isClickable
                     ? 'cursor-pointer hover:-translate-y-0.5 active:translate-y-0 hover:scale-[1.01]'
                     : ''
             }`}
             onClick={() => setDisplayCommunity?.(true)}
         >
-            <div className="flex flex-row gap-2 items-center">
+            <div className="flex min-w-0 flex-row gap-2 items-center">
                 <Badge
                     variant="default"
                     className="max-w-[120px] h-6 px-2 bg-primary text-primary-foreground transition-transform duration-200 hover:scale-105"
@@ -40,7 +40,7 @@ export default function ServerIndicator(
                 </span>
                 <Badge
                     variant="outline"
-                    className="md:max-w-36 max-sm:max-w-30  h-6 px-2 transition-transform duration-200 hover:scale-105"
+                    className="min-w-0 shrink md:max-w-36 max-sm:max-w-30  h-6 px-2 transition-transform duration-200 hover:scale-105"
                 >
                     <span className="overflow-hidden text-ellipsis whitespace-nowrap truncate text-xs">
                         {server.name}

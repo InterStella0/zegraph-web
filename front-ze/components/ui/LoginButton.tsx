@@ -77,7 +77,7 @@ function UserMenu({ user }: { user: SteamProfile | null }) {
     );
 }
 
-export default function LoginButton({user}: { user: SteamProfile | null}){
+export default function LoginButton({user, steamLabelClassName = "hidden min-[965px]:block"}: { user: SteamProfile | null, steamLabelClassName?: string }){
     const t = useTranslations('auth');
     const [loginDialogOpen, setLoginDialogOpen] = useState(false);
 
@@ -94,7 +94,7 @@ export default function LoginButton({user}: { user: SteamProfile | null}){
             variant="outline"
             size="sm"
         >
-            {t('login')}<span className="hidden min-[965px]:block">{t('withSteam')}</span>
+            {t('login')}<span className={steamLabelClassName}>{t('withSteam')}</span>
         </Button>
     )}
         <LoginDialog
