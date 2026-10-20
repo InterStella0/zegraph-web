@@ -2,11 +2,13 @@ import {Metadata} from "next";
 import {Suspense} from "react";
 import {getTranslations} from "next-intl/server";
 import GlobalLiveMatch, {GlobalLiveMatchLoading} from "components/maps/global/GlobalLiveMatch";
+import {prefetchLiveMatches} from "components/maps/global/liveMatch";
 import GlobalMapsIndex, {GlobalMapsIndexLoading} from "components/maps/global/GlobalMapsIndex";
 import {GLOBAL_MAPS_DEFAULT_SORT} from "components/maps/global/constants";
 import {AdSpot} from "components/ui/AdSpot";
 import {fetchApiUrl, socialMeta} from "utils/generalUtils.ts";
 import getServerUser from "app/getServerUser.ts";
+import {getCommunity} from "app/getCommunity";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
@@ -25,11 +27,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Page() {
     const userPromise = getServerUser();
     const globalMapsPromise = fetchApiUrl('/maps', {params: {page: 0, sorted_by: GLOBAL_MAPS_DEFAULT_SORT}});
+    // Every live server's match is started here so picking one in the list is already resolved.
+    const liveMatchesPromise = getCommunity().then(prefetchLiveMatches);
 
     return (
         <div className="container max-w-screen-2xl mx-auto py-2 sm:py-4 px-1 sm:px-2 lg:px-4">
             <Suspense fallback={<GlobalLiveMatchLoading/>}>
-                <GlobalLiveMatch userPromise={userPromise}/>
+                <GlobalLiveMatch userPromise={userPromise} liveMatchesPromise={liveMatchesPromise}/>
             </Suspense>
             <AdSpot className="my-4"/>
             <Suspense fallback={<GlobalMapsIndexLoading/>}>
