@@ -200,6 +200,8 @@
       "title": "全球玩家",
       "subtitle": "跨社区的玩家列表",
       "totalPlayers": "玩家总数",
+      "estimatedPlayers": "估计约 {total}",
+      "estimatedPlayersHint": "包括仅记录名称的服务器上的玩家，每个名称计为一人",
       "searchPlaceholder": "按名称搜索全球玩家列表...",
       "hoursSplit": "时长分布",
       "hoursAllTime": "累计小时数",

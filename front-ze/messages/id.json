@@ -200,6 +200,8 @@
       "title": "Pemain Global",
       "subtitle": "Daftar pemain di seluruh komunitas",
       "totalPlayers": "Total pemain",
+      "estimatedPlayers": "perkiraan ~{total}",
+      "estimatedPlayersHint": "Termasuk pemain dari server yang hanya melacak nama, dihitung sekali per nama",
       "searchPlaceholder": "Cari daftar pemain global berdasarkan nama...",
       "hoursSplit": "Rincian jam",
       "hoursAllTime": "jam sepanjang waktu",

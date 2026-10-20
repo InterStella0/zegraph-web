@@ -200,6 +200,8 @@
       "title": "Global Players",
       "subtitle": "Player list across communities",
       "totalPlayers": "Total players",
+      "estimatedPlayers": "~{total} estimated",
+      "estimatedPlayersHint": "Includes players from servers that only track names, counted once per name",
       "searchPlaceholder": "Search the global player list by name...",
       "hoursSplit": "Hours split",
       "hoursAllTime": "hours all-time",

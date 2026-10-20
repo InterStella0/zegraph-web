@@ -375,6 +375,7 @@ export interface GlobalPlayerBrief {
 
 export type GlobalBriefPlayers = {
     total_players: number,
+    estimated_total_players?: number | null,
     players: GlobalPlayerBrief[],
 }
 

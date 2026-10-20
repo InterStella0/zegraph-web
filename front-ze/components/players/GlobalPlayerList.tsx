@@ -115,6 +115,11 @@ function GlobalPlayerListDisplay({ initialDataPromise }: {
                         <Skeleton className="h-7 w-16 ml-auto"/>
                     )}
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('totalPlayers')}</p>
+                    {data?.estimated_total_players != null && (
+                        <p className="text-[10px] text-muted-foreground tabular-nums cursor-help" title={t('estimatedPlayersHint')}>
+                            {t('estimatedPlayers', {total: data.estimated_total_players.toLocaleString()})}
+                        </p>
+                    )}
                 </div>
             </CardHeader>
             <CardContent className="pt-0">

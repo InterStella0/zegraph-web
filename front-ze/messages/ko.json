@@ -200,6 +200,8 @@
       "title": "글로벌 플레이어",
       "subtitle": "모든 커뮤니티의 플레이어 목록",
       "totalPlayers": "총 플레이어 수",
+      "estimatedPlayers": "추정 약 {total}명",
+      "estimatedPlayersHint": "이름만 기록하는 서버의 플레이어를 포함하며, 이름당 한 명으로 계산합니다",
       "searchPlaceholder": "이름으로 글로벌 플레이어 목록 검색...",
       "hoursSplit": "시간 분포",
       "hoursAllTime": "누적 시간",

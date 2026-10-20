@@ -200,6 +200,8 @@
       "title": "Jugadores globales",
       "subtitle": "Lista de jugadores en todas las comunidades",
       "totalPlayers": "Total de jugadores",
+      "estimatedPlayers": "~{total} estimados",
+      "estimatedPlayersHint": "Incluye jugadores de servidores que solo registran nombres, contados una vez por nombre",
       "searchPlaceholder": "Busca en la lista global de jugadores por nombre...",
       "hoursSplit": "Distribución de horas",
       "hoursAllTime": "horas totales",
