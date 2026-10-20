@@ -733,6 +733,9 @@ pub struct GlobalPlayerBrief {
 #[derive(Object)]
 pub struct GlobalBriefPlayers {
     pub total_players: i64,
+    /// Steam-ID players plus name-tracked players not linked to one, counted once per name. Null
+    /// while searching.
+    pub estimated_total_players: Option<i64>,
     pub players: Vec<GlobalPlayerBrief>,
 }
 

@@ -129,6 +129,24 @@ async fn global_player_counts(pool: &sqlx::Pool<Postgres>, cache: &FastCache) ->
     Ok(cached_response("global-players-counts", cache, 10 * 60, func).await?.result)
 }
 
+/// Name-tracked players not linked to a Steam ID, counted once per name across servers since a
+/// fake ID is minted per server and name. Names are not matched against Steam players, so someone
+/// on both kinds of server is counted twice.
+async fn name_tracked_player_estimate(pool: &sqlx::Pool<Postgres>, cache: &FastCache) -> Result<i64, sqlx::Error> {
+    let func = || sqlx::query_scalar!(r#"
+        SELECT COUNT(DISTINCT LOWER(TRIM(p.player_name))) AS "extra!"
+        FROM player p
+        WHERE p.associated_player_id IS NULL
+          AND p.player_id !~ '^[0-9]+$'
+          AND TRIM(p.player_name) <> ''
+          AND EXISTS (
+              SELECT 1 FROM player_server_session s
+              WHERE s.player_id = p.player_id AND s.ended_at > s.started_at
+          )
+    "#).fetch_one(pool);
+    Ok(cached_response("global-players-name-tracked", cache, DAY, func).await?.result)
+}
+
 async fn browse_global_players(
     pool: &sqlx::Pool<Postgres>, cache: &FastCache, offset: i64,
 ) -> Result<DbGlobalPlayerPage, sqlx::Error> {
@@ -378,6 +396,7 @@ impl ServerApi {
                 format!("%{}%", escaped.to_lowercase())
             });
 
+        let is_search = search.is_some();
         let DbGlobalPlayerPage { total_players, players, communities } = match search {
             Some(pattern) => or_ise!(search_global_players(pool, &pattern, offset).await),
             None => {
@@ -393,6 +412,11 @@ impl ServerApi {
                 let func = || browse_global_players(pool, &data.cache, offset);
                 or_ise!(cached_response(&format!("global-players-v3:{page}"), &data.cache, caching_time, func).await).result
             }
+        };
+        let estimated_total_players = if is_search {
+            None
+        } else {
+            name_tracked_player_estimate(pool, &data.cache).await.ok().map(|extra| total_players + extra)
         };
 
         let anonymized = or_ise!(anonymized_communities(pool, &players).await);
@@ -424,7 +448,7 @@ impl ServerApi {
             result.push(player);
         }
 
-        response!(ok GlobalBriefPlayers { total_players, players: result })
+        response!(ok GlobalBriefPlayers { total_players, estimated_total_players, players: result })
     }
 
     /// List players currently online across all tracked servers. Bots are left out.

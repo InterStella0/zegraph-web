@@ -200,6 +200,8 @@
       "title": "Người chơi toàn cầu",
       "subtitle": "Danh sách người chơi trên tất cả cộng đồng",
       "totalPlayers": "Tổng số người chơi",
+      "estimatedPlayers": "ước tính ~{total}",
+      "estimatedPlayersHint": "Bao gồm người chơi từ các máy chủ chỉ theo dõi tên, mỗi tên được tính một lần",
       "searchPlaceholder": "Tìm kiếm danh sách người chơi toàn cầu theo tên...",
       "hoursSplit": "Phân bổ giờ chơi",
       "hoursAllTime": "giờ chơi toàn thời gian",

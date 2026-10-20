@@ -200,6 +200,8 @@
       "title": "Pemain Global",
       "subtitle": "Senarai pemain merentas komuniti",
       "totalPlayers": "Jumlah pemain",
+      "estimatedPlayers": "anggaran ~{total}",
+      "estimatedPlayersHint": "Termasuk pemain dari pelayan yang hanya menjejak nama, dikira sekali bagi setiap nama",
       "searchPlaceholder": "Cari senarai pemain global mengikut nama...",
       "hoursSplit": "Pecahan jam",
       "hoursAllTime": "jam sepanjang masa",
