@@ -319,6 +319,16 @@ CREATE TABLE website.user_favorite_global_maps (
     PRIMARY KEY (user_id, map)
 );
 
+CREATE TABLE website.player_views (
+    player_id VARCHAR(100) PRIMARY KEY REFERENCES player(player_id) ON DELETE CASCADE,
+    views BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE website.map_views (
+    map TEXT PRIMARY KEY,
+    views BIGINT NOT NULL DEFAULT 0
+);
+
 
 CREATE TABLE IF NOT EXISTS website.map_3d_model (
     id SERIAL PRIMARY KEY,

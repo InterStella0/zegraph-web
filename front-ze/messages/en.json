@@ -27,7 +27,9 @@
     "hidden": "(Hidden)",
     "hiddenHint": "Only you and community admins can see this name. Everyone else sees “Anonymous”.",
     "bot": "Bot",
-    "botHint": "This account is an automated bot, not a real player."
+    "botHint": "This account is an automated bot, not a real player.",
+    "views": "{count, plural, one {{views} view} other {{views} views}}",
+    "viewsHint": "Each visitor counts once a day."
   },
   "auth": {
     "login": "Login",

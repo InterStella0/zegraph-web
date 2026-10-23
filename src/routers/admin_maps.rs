@@ -288,6 +288,7 @@ impl AdminMapsApi {
         exec!(sqlx::query!("DELETE FROM map_metadata WHERE name = $1", map_name));
         exec!(sqlx::query!("DELETE FROM website.global_map_analyze WHERE map = $1", map_name));
         exec!(sqlx::query!("DELETE FROM website.user_favorite_global_maps WHERE map = $1", map_name));
+        exec!(sqlx::query!("DELETE FROM website.map_views WHERE map = $1", map_name));
 
         or_ise!(tx.commit().await, e => "Failed to commit map deletion for {}: {}", map_name, e);
 

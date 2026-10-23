@@ -20,7 +20,7 @@ use crate::routers::maps::{assemble_global_maps, global_map_page, map_musics};
 const GLOBAL_MAP_SESSIONS_PAGE_SIZE: i64 = 5;
 const GLOBAL_MAP_PLAYERS_PAGE_SIZE: i64 = 10;
 
-async fn get_global_map(pool: &Pool<Postgres>, cache: &FastCache, map_name: &str) -> Option<String> {
+pub(crate) async fn get_global_map(pool: &Pool<Postgres>, cache: &FastCache, map_name: &str) -> Option<String> {
     let func = || sqlx::query_scalar!("
         SELECT map
         FROM server_map_played

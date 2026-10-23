@@ -50,6 +50,7 @@ use crate::routers::ze_community_links::ZeCommunityLinksApi;
 use crate::routers::admin_maps::AdminMapsApi;
 use crate::routers::admin_audit::AdminAuditApi;
 use crate::routers::admin_servers::AdminServersApi;
+use crate::routers::views::ViewsApi;
 use crate::mcp::McpEndpoint;
 
 #[derive(Clone)]
@@ -138,6 +139,7 @@ fn build_api_service() -> OpenApiService<impl poem_openapi::OpenApi, ()> {
         AdminMapsApi,
         AdminAuditApi,
         AdminServersApi,
+        ViewsApi,
     );
     OpenApiService::new(apis, "ZE Graph API", "1.0.2")
         .description(
@@ -400,11 +402,13 @@ mod route_tests {
     use std::sync::Once;
 
     const TEST_SECRET: &str = "route-tests-secret";
+    const TEST_VIEW_SECRET: &str = "route-tests-view-secret";
 
     fn init_env() {
         static ONCE: Once = Once::new();
         ONCE.call_once(|| unsafe {
             env::set_var("NEXTAUTH_SECRET", TEST_SECRET);
+            env::set_var("VIEW_COUNTER_SECRET", TEST_VIEW_SECRET);
         });
     }
 
@@ -908,6 +912,54 @@ mod route_tests {
         ] {
             let (_, body) = mcp(&cli, rpc(1, "tools/call", params.clone())).await;
             assert_eq!(body["error"]["code"], -32602, "{params} gave {body:#}");
+        }
+    }
+
+    const VIEW_ROUTES: &[&str] = &["/views/players/76561198000000001", "/views/maps/ze_test_map_v1"];
+
+    #[tokio::test]
+    async fn view_routes_require_the_view_secret() {
+        let cli = client();
+        let body = serde_json::json!({ "ip": "1.2.3.4", "user_agent": "Mozilla/5.0" }).to_string();
+        for path in VIEW_ROUTES {
+            for (secret, case) in [(None, "no secret"), (Some("wrong"), "a wrong secret"), (Some(TEST_SECRET), "the NextAuth secret")] {
+                let builder = cli.post(path).header("Content-Type", "application/json").body(body.clone());
+                let builder = match secret {
+                    Some(secret) => builder.header("X-View-Secret", secret),
+                    None => builder,
+                };
+                assert_eq!(
+                    builder.send().await.0.status(),
+                    poem::http::StatusCode::FORBIDDEN,
+                    "POST {path} should reject {case}",
+                );
+            }
+
+            let status = cli.post(path)
+                .header("Content-Type", "application/json")
+                .header("X-View-Secret", TEST_VIEW_SECRET)
+                .body(body.clone())
+                .send().await.0.status();
+            assert_eq!(status, poem::http::StatusCode::OK, "POST {path} should pass the secret and reach the database");
+
+            assert_eq!(
+                send(&cli, "GET", path, None).await,
+                poem::http::StatusCode::METHOD_NOT_ALLOWED,
+                "views are only ever recorded, never read on their own",
+            );
+        }
+    }
+
+    #[test]
+    fn view_routes_are_internal_and_not_tools() {
+        let spec: serde_json::Value = serde_json::from_str(&build_api_service().spec()).unwrap();
+        for path in ["/views/players/{player_id}", "/views/maps/{map_name}"] {
+            let op = &spec["paths"][path]["post"];
+            assert!(op.is_object(), "expected POST {path} in the spec");
+            assert!(
+                !op["tags"].as_array().unwrap().iter().any(|t| t == "Mcp"),
+                "POST {path} writes, so it must never be an MCP tool",
+            );
         }
     }
 

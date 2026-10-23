@@ -276,3 +276,16 @@ pub struct AnnouncementsPaginated{
     pub total: i64,
     pub announcements: Vec<Announcement>,
 }
+/// The visitor a page view is recorded for, as seen by the frontend's server.
+#[derive(Object)]
+pub struct ViewRequest {
+    /// The visitor's IP, as nginx reported it in `X-Real-IP`.
+    pub ip: String,
+    pub user_agent: String,
+}
+
+#[derive(Object)]
+pub struct ViewCount {
+    /// Views counted so far, at most one per visitor every 24 hours.
+    pub views: i64,
+}
