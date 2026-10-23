@@ -16,9 +16,10 @@ import PeriodSelector from "components/period/PeriodSelector.tsx";
 import AccessDenied from "./AccessDenied.tsx";
 import {SteamProfile} from "types/steam";
 
-export default function ResolvePlayerInformation({ serverPlayerPromise, userPromise, statSeeds }: {
+export default function ResolvePlayerInformation({ serverPlayerPromise, userPromise, viewsPromise, statSeeds }: {
     serverPlayerPromise: Promise<ServerPlayerDetailedWithError>,
     userPromise: Promise<SteamProfile | null>,
+    viewsPromise: Promise<number | null>,
     statSeeds: Record<string, Promise<unknown>>,
 }) {
     const { player, server, error } = use(serverPlayerPromise)
@@ -48,7 +49,7 @@ export default function ResolvePlayerInformation({ serverPlayerPromise, userProm
                     calculatedAt={player.calculated_at}
                 />}
                 <div className="col-span-12 xl:col-span-8">
-                    <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} userPromise={userPromise} />
+                    <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} userPromise={userPromise} viewsPromise={viewsPromise} />
                 </div>
                 <div className="col-span-12 md:col-span-6 xl:col-span-4">
                     <PlayerStatSuspense>

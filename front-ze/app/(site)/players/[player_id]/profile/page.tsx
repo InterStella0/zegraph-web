@@ -31,6 +31,7 @@ import {
 } from "types/players.ts";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import {recordView} from "lib/recordView";
 
 dayjs.extend(relativeTime)
 
@@ -141,6 +142,10 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
     const pfpPromise: Promise<PlayerProfilePicture | null> = profilePromise
         .then(profile => fetchUrl(`/players/${profile.steamid}/pfp`, {  next: { revalidate: oneDay } }))
         .catch(() => null);
+    // Counted under the Steam ID, the same player_id the server player pages count under.
+    const viewsPromise: Promise<number | null> = profilePromise
+        .then(profile => recordView('players', profile.steamid))
+        .catch(() => null);
     const sessionsPromise = seed<GlobalPlayerSessionPage>('/sessions', { page: 0 });
     const sessionStatsPromise = seed<PlayerSessionStats>('/session-stats');
     const mapsPromise = seed<GlobalPlayerMap[]>('/maps');
@@ -163,7 +168,7 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
                 <ProfileCommunitiesProvider profilePromise={profilePromise}>
                     <ProfileLayout
                         hero={<Suspense fallback={<UserProfileLoading />}>
-                            <UserProfile profilePromise={profilePromise} pfpPromise={pfpPromise} />
+                            <UserProfile profilePromise={profilePromise} pfpPromise={pfpPromise} viewsPromise={viewsPromise} />
                         </Suspense>}
                         history={<Suspense fallback={<ProfilePlaytimeHistoryLoading />}>
                             <ProfilePlaytimeHistory heatmapPromise={heatmapPromise} statsPromise={sessionStatsPromise} />
