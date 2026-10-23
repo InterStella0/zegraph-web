@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useState} from "react";
 import {LayerGroup, Pane, Polygon} from "react-leaflet";
-import dayjs, {Dayjs} from "dayjs";
+import dayjs, {Dayjs} from "lib/dayjs";
 import {useTheme} from "next-themes";
 import {nightPolygons} from "utils/terminator.ts";
 
@@ -18,12 +18,14 @@ export const NIGHT_SHADING_STYLE: Record<'light' | 'dark', ShadingStyle> = {
     },
 };
 
+const currentMinute = () => dayjs().startOf('minute').valueOf();
+
 function useLiveMinute(enabled: boolean): number {
-    const [now, setNow] = useState(() => dayjs().startOf('minute').valueOf());
+    const [now, setNow] = useState(currentMinute);
     useEffect(() => {
         if (!enabled) return;
-        setNow(dayjs().startOf('minute').valueOf());
-        const timer = setInterval(() => setNow(dayjs().startOf('minute').valueOf()), 60_000);
+        setNow(currentMinute());
+        const timer = setInterval(() => setNow(currentMinute()), 60_000);
         return () => clearInterval(timer);
     }, [enabled]);
     return now;

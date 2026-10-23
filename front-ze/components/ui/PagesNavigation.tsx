@@ -1,7 +1,7 @@
 'use client'
 import Link from "next/link";
 import {Server} from "types/community";
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useState} from "react";
 import {usePathname} from "next/navigation";
 import {useTranslations} from "next-intl";
 import {ChevronDown} from "lucide-react";
@@ -13,12 +13,12 @@ import {
 } from "./dropdown-menu";
 
 export type PageLink = { key: string, href: string }
-export type PageGroup = { key: string, children: readonly PageLink[] }
-export type PageEntry = PageLink | PageGroup
+type PageGroup = { key: string, children: readonly PageLink[] }
+type PageEntry = PageLink | PageGroup
 
 export const isPageGroup = (entry: PageEntry): entry is PageGroup => 'children' in entry
 
-export const pagesSelection: Record<'ServerSpecific' | 'Community', readonly PageEntry[]> = {
+const pagesSelection: Record<'ServerSpecific' | 'Community', readonly PageEntry[]> = {
     'ServerSpecific': [
         {key: 'communities', href: '/'},
         {key: 'server', href: '/servers/:server_id'},
@@ -44,6 +44,15 @@ export const pagesSelection: Record<'ServerSpecific' | 'Community', readonly Pag
     ]
 } as const
 
+/** The nav entries for a server's pages (or the community pages without one), and how to turn an href into a URL. */
+export function pageLinks(server: Server | null) {
+    const isServer = server !== null;
+    return {
+        pages: pagesSelection[isServer ? 'ServerSpecific' : 'Community'],
+        resolve: (href: string) => isServer ? href.replace(":server_id", server?.gotoLink) : href,
+    };
+}
+
 const underline = 'relative py-2 text-sm font-medium transition-colors duration-200 hover:text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:bg-primary after:transition-all after:duration-200 after:rounded-sm'
 const activeUnderline = 'text-primary font-semibold after:w-full'
 const inactiveUnderline = 'text-muted-foreground after:w-0 hover:after:w-full'
@@ -57,16 +66,11 @@ export default function PagesNavigation({ server }: { server: Server }) {
         setPendingLocation(null);
     }, [currentLocation]);
 
-    const selectedMode = server !== null ? 'ServerSpecific' : 'Community';
-    const pages = pagesSelection[selectedMode];
+    const activePath = pendingLocation ?? currentLocation;
+    const { pages, resolve } = pageLinks(server);
 
-    const pagesNav = useMemo(() => {
-        const activePath = pendingLocation ?? currentLocation;
-        const resolve = (href: string) => selectedMode === 'ServerSpecific'
-            ? href.replace(":server_id", server?.gotoLink)
-            : href;
-
-        return pages.map((page) => {
+    return <>
+        {pages.map((page) => {
             if (isPageGroup(page)) {
                 const groupActive = page.children.some(child => resolve(child.href) === activePath);
                 return (
@@ -82,9 +86,8 @@ export default function PagesNavigation({ server }: { server: Server }) {
                         <DropdownMenuContent align="center" className="min-w-40">
                             {page.children.map((child) => {
                                 const linked = resolve(child.href);
-                                const isActive = activePath === linked;
                                 return (
-                                    <DropdownMenuItem key={child.key} asChild className={`cursor-pointer ${isActive ? 'text-primary font-semibold' : ''}`}>
+                                    <DropdownMenuItem key={child.key} asChild className={`cursor-pointer ${activePath === linked ? 'text-primary font-semibold' : ''}`}>
                                         <Link prefetch href={linked} onClick={() => setPendingLocation(linked)}>
                                             {t(child.key)}
                                         </Link>
@@ -97,21 +100,17 @@ export default function PagesNavigation({ server }: { server: Server }) {
             }
 
             const linked = resolve(page.href);
-            const isActive = activePath === linked;
-
             return (
                 <Link
                     key={page.key}
                     prefetch
-                    className={`${underline} ${isActive ? activeUnderline : inactiveUnderline}`}
+                    className={`${underline} ${activePath === linked ? activeUnderline : inactiveUnderline}`}
                     href={linked}
                     onClick={() => setPendingLocation(linked)}
                 >
                     {t(page.key)}
                 </Link>
             );
-        });
-    }, [currentLocation, pendingLocation, server, selectedMode, pages, t]);
-
-    return <>{pagesNav}</>;
+        })}
+    </>;
 }

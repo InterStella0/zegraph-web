@@ -1,44 +1,104 @@
 'use client'
-import {ComponentProps, ReactNode} from "react";
-import {Circle, Gamepad2, Search} from "lucide-react";
-import {Card, CardContent, CardHeader} from "components/ui/card";
-import {Input} from "components/ui/input";
-import {TooltipProvider} from "components/ui/tooltip";
+import {ReactNode, useState} from "react";
+import {useTranslations} from "next-intl";
+import {Circle, Gamepad2} from "lucide-react";
+import dayjs from "lib/dayjs";
+import {SearchField} from "components/ui/SearchField";
+import {SkeletonText, Skeleton, varyWidth} from "components/ui/skeleton";
+import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
+import InfoTooltip from "components/common/InfoTooltip";
 import {PlayerAvatar} from "./PlayerAvatar.tsx";
 import {PlayerName} from "./PlayerName";
-import InfoTooltip from "components/common/InfoTooltip";
+import {IconCard} from "./IconCard";
 
-export function SearchField(props: ComponentProps<typeof Input>) {
+/** `wrapDays` keeps the server list's display of hours within the current day. */
+export function sessionDuration(startedAt: string, wrapDays = false): string {
+    const elapsed = dayjs.duration(dayjs().diff(startedAt, "second"), "seconds");
+    const hours = wrapDays ? elapsed.hours() : Math.floor(elapsed.asHours());
+    return hours > 0 ? `${hours}h ${elapsed.minutes()}m` : `${elapsed.minutes()}m`;
+}
+
+export function OnlinePlayersSkeleton() {
     return (
-        <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-            <Input {...props} className="pl-10"/>
+        <div className="p-2 space-y-1">
+            {Array.from({ length: 20 }, (_, index) => (
+                <div key={index} className="py-1 flex items-center gap-3">
+                    <div className="relative flex-shrink-0">
+                        <Skeleton className="w-[40px] h-[40px] rounded-[8%]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium">
+                            <SkeletonText className="h-3.5" style={varyWidth(index)} />
+                        </div>
+                        <div className="text-xs">
+                            <SkeletonText className="h-3 w-24" />
+                        </div>
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }
 
-export function OnlinePlayersCard({ className, title, info, search, children }: {
-    className: string, title: ReactNode, info: string, search: ComponentProps<typeof Input>, children: ReactNode,
+/** Searchable, paginated card of online players; `namespace` picks the translations of the server or global list. */
+export function OnlinePlayersPanel<T>({ namespace, className, items, loading, error, perPage, matches, renderRow, showNoneOnline, compact }: {
+    namespace: 'players.online' | 'players.globalOnline',
+    className: string,
+    items: T[],
+    loading?: boolean,
+    error?: string,
+    perPage: number,
+    matches: (item: T, query: string) => boolean,
+    renderRow: (item: T) => ReactNode,
+    showNoneOnline?: boolean,
+    compact?: boolean,
 }) {
+    const t = useTranslations(namespace);
+    const [query, setQuery] = useState('');
+    const [page, setPage] = useState(0);
+    const needle = query.trim().toLowerCase();
+    const filtered = needle ? items.filter(item => matches(item, needle)) : items;
+    const totalPages = Math.ceil(filtered.length / perPage);
+
     return (
-        <Card className={className}>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <div className="flex items-center gap-2">
-                    <Gamepad2 className="w-5 h-5 text-primary"/>
-                    <h2 className="text-lg max-sm:text-md font-semibold">
-                        {title}
-                    </h2>
+        <IconCard
+            icon={Gamepad2}
+            className={className}
+            title={t('title', {count: items.length})}
+            action={<InfoTooltip text={t('offlineDelayInfo')} />}
+        >
+            <SearchField
+                className="mb-4"
+                placeholder={t('searchPlayers')}
+                value={query}
+                onChange={e => { setQuery(e.target.value); setPage(0); }}
+            />
+            {loading ? (
+                <OnlinePlayersSkeleton />
+            ) : error ? (
+                <div className="p-4 text-center">
+                    <p className="text-destructive">{t('loadError', {error})}</p>
                 </div>
-                <TooltipProvider>
-                    <InfoTooltip text={info} />
-                </TooltipProvider>
-            </CardHeader>
-            <CardContent className="pt-0">
-                <SearchField {...search}/>
-                {children}
-            </CardContent>
-        </Card>
+            ) : filtered.length === 0 && (needle || showNoneOnline) ? (
+                <div className="p-6 text-center">
+                    <p className="text-muted-foreground">
+                        {needle ? t('noPlayerName', {query}) : t('noneOnline')}
+                    </p>
+                </div>
+            ) : (
+                <>
+                    <div className="p-2 space-y-1">
+                        {filtered.slice(page * perPage, (page + 1) * perPage).map(renderRow)}
+                    </div>
+                    {totalPages > 1 && (
+                        <div className="flex justify-center pt-4">
+                            <PaginationPage page={page} setPage={setPage} totalPages={totalPages} compact={compact} />
+                        </div>
+                    )}
+                </>
+            )}
+        </IconCard>
     );
 }
 

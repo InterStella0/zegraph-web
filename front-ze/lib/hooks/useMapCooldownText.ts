@@ -1,7 +1,7 @@
 'use client'
 import {useSyncExternalStore} from 'react'
 import {useTranslations} from 'next-intl'
-import {useLocalDayjs} from 'lib/hooks/useHydrated'
+import {useLocalDayjs} from 'lib/hooks/useLocalDayjs'
 import {localNomWindow, MapBlockers} from 'utils/mapCooldown'
 
 // mapBlockers() and fromNow() read the clock when they render, so a page left open would keep showing

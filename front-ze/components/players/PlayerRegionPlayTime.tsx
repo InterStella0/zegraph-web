@@ -1,77 +1,34 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {use, useMemo} from "react";
-import {REGION_COLORS, StillCalculate} from "utils/generalUtils";
+import {REGION_COLORS} from "utils/generalUtils";
 import { Card } from "components/ui/card";
 import { Skeleton } from "components/ui/skeleton";
 import {LazyPolarAreaChart as PolarArea} from "components/graphs/LazyCharts";
-import {
-    ArcElement,
-    Chart as ChartJS,
-    Legend,
-    PolarAreaController, RadialLinearScale,
-    Title,
-    Tooltip
-} from "chart.js";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import { AlertCircle } from "lucide-react";
-import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PlayerRegionTime} from "types/players.ts";
 import {useChartTheme} from "lib/chartTheme";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeRegionData } from "utils/chartSeoUtils.tsx";
-import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch.tsx";
-import {PeriodChip} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {PeriodTitle, ServerPlayerProps, useServerPlayerStat} from "./common";
 
-ChartJS.register(
-    Title,
-    Tooltip,
-    Legend,
-    PolarAreaController,
-    ArcElement,
-    RadialLinearScale
-)
-type RegionChartData = { x: string; y: number };
-function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}){
+function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: ServerPlayerProps){
     const t = useTranslations('players.region');
-    const { server, player } = use(serverPlayerPromise);
-    const playerId = !(player instanceof StillCalculate)? player.id: null
     const theme = useChartTheme();
-    const isDark = theme.isDark;
-    const server_id = server.id
-
-    const { data: regionData, loading, error } =
-        usePlayerStat<PlayerRegionTime[]>(server_id, playerId, 'regions')
-    const regions: RegionChartData[] = useMemo(
-        () => (regionData ?? []).map(e => ({x: e.name, y: e.duration / 3600})),
-        [regionData]
-    )
+    const { data: regionData, loading, error } = useServerPlayerStat<PlayerRegionTime[]>(serverPlayerPromise, 'regions')
+    const regions = (regionData ?? []).map(e => ({x: e.name, y: e.duration / 3600}))
     const options = {
-        responsive: true,
         maintainAspectRatio: false,
         scales: {
             r: {
-                ticks: {
-                    color: theme.muted,
-                    backdropColor: theme.background,
-                },
-                grid: {
-                    color: theme.border,
-                },
-                pointLabels: {
-                    color: theme.foreground,
-                }
+                ticks: { color: theme.muted, backdropColor: theme.background },
+                grid: { color: theme.border },
+                pointLabels: { color: theme.foreground },
             }
         },
         plugins: {
-            legend: {
-                labels: {
-                    color: theme.foreground,
-                }
-            },
-            tooltip: {
-                ...theme.tooltip,
-            }
+            legend: { labels: { color: theme.foreground } },
+            tooltip: { ...theme.tooltip },
         }
     }
     const data = {
@@ -80,32 +37,21 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
             label: t('hours'),
             data: regions.map(e => e.y),
             borderWidth: 2,
-            borderColor: isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(0 0% 100%)',
+            borderColor: theme.isDark ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(0 0% 100%)',
             backgroundColor: regions.map(e => REGION_COLORS[e.x])
         }]
     }
 
-    const summary = useMemo(() => {
-        if (regions.length === 0) {
-            return t('noData');
-        }
-
-        const totalHours = regions.reduce((sum, r) => sum + r.y, 0);
-        const regionData = regions.map(r => ({
-            region: r.x,
-            hours: r.y * 3600,
-            percentage: (r.y / totalHours) * 100
-        }));
-
-        return summarizeRegionData(regionData);
-    }, [regions, t]);
+    const totalHours = regions.reduce((sum, r) => sum + r.y, 0);
+    const summary = regions.length === 0 ? t('noData') : summarizeRegionData(regions.map(r => ({
+        region: r.x,
+        hours: r.y * 3600,
+        percentage: (r.y / totalHours) * 100
+    })));
 
     return (
         <div>
-            <div className="flex items-center gap-2 m-4">
-                <h2 className="text-xl font-semibold">{t('title')}</h2>
-                <PeriodChip />
-            </div>
+            <PeriodTitle title={t('title')} className="m-4" />
             <div className="h-[350px] xl:h-[350px] lg:h-[385px] flex items-center justify-center m-4">
                 {error &&
                     <div className="flex gap-4">
@@ -134,7 +80,7 @@ function PlayerRegionPlayTimeDisplay({ serverPlayerPromise }: { serverPlayerProm
         </div>
     )
 }
-export default function PlayerRegionPlayTime({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}){
+export default function PlayerRegionPlayTime({ serverPlayerPromise }: ServerPlayerProps){
     const t = useTranslations('players.region');
     return <Card className="h-[500px] p-1">
         <ErrorCatch message={t('loadError')}>

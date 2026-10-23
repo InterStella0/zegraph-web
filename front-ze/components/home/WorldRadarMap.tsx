@@ -12,19 +12,17 @@ import {DARK_BASEMAP, LIGHT_BASEMAP, WMS_PLAYER_MAPPED_NOW_URL} from 'components
 function MapResizeHandler() {
     const map = useMap();
     useEffect(() => {
-        const container = map.getContainer();
         const observer = new ResizeObserver(() => map.invalidateSize());
-        observer.observe(container);
+        observer.observe(map.getContainer());
         return () => observer.disconnect();
     }, [map]);
     return null;
 }
 
-export default function WorldRadarMap({refreshKey = 0}) {
-    const {resolvedTheme} = useTheme();
-    const isDark = resolvedTheme === 'dark';
+const WORLD_BOUNDS = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
 
-    const worldBounds = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
+export default function WorldRadarMap({refreshKey = 0}) {
+    const isDark = useTheme().resolvedTheme === 'dark';
 
     return (
         <MapContainer
@@ -38,7 +36,7 @@ export default function WorldRadarMap({refreshKey = 0}) {
             doubleClickZoom={false}
             dragging={false}
             attributionControl={false}
-            maxBounds={worldBounds}
+            maxBounds={WORLD_BOUNDS}
             maxBoundsViscosity={0.5}
             style={{height: '100%', width: '100%', background: 'transparent'}}
         >
@@ -58,7 +56,7 @@ export default function WorldRadarMap({refreshKey = 0}) {
                         layers="player_server_mapped"
                         version="1.1.1"
                         format="image/png"
-                        transparent={true}
+                        transparent
                         opacity={0.85}
                         attribution="© queeniemella"
                         zIndex={20}

@@ -1,8 +1,8 @@
 'use client'
 import { Skeleton } from "components/ui/skeleton";
 import { cn } from "components/lib/utils";
-import { simpleRandom } from "utils/generalUtils";
-import { useEffect, useState } from "react";
+import { range, simpleRandom } from "utils/generalUtils";
+import { useHydrated } from "lib/hooks/useHydrated";
 
 export default function SkeletonBarGraph({
     width = 400,
@@ -23,35 +23,23 @@ export default function SkeletonBarGraph({
     sorted?: boolean;
     className?: string;
 }) {
-    const [isClient, setIsClient] = useState(false);
-    const minFactor = 0.2;
-    const maxFactor = 0.8;
-    const maxWidth = width * maxFactor;
-    const minWidth = width * minFactor;
-
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
-
-    const randomValues = Array.from(
-        { length: amount },
-        () => simpleRandom(minWidth, maxWidth, isClient)
-    );
-
+    // Random bar widths only after hydration; the server and the first client render use the minimum.
+    const hydrated = useHydrated();
+    const barWidths = range(amount).map(() => simpleRandom(width * 0.2, width * 0.8, hydrated));
     if (sorted)
-        randomValues.sort((a, b) => b - a);
+        barWidths.sort((a, b) => b - a);
 
     return (
         <div
             className={cn("w-full flex flex-col m-4", className)}
             style={{ height, gap }}
         >
-            {randomValues.map((width, index) => (
+            {barWidths.map((barWidth, index) => (
                 <div className="flex items-center" key={index}>
                     <Skeleton style={{ width: textWidth }} className="h-4" />
                     <Skeleton
                         className="mx-4"
-                        style={{ width, height: barHeight }}
+                        style={{ width: barWidth, height: barHeight }}
                     />
                 </div>
             ))}

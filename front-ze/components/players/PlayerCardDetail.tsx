@@ -4,22 +4,14 @@ import {ReactElement, use} from "react";
 import {secondsToHours, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { Badge } from "components/ui/badge";
-import dayjs from "dayjs";
 import { PlayerAvatar } from "./PlayerAvatar";
 import CategoryChip from "../ui/CategoryChip";
 import { ArrowUpRight, Bot } from "lucide-react";
 import { cn } from "components/lib/utils";
 import Link from "next/link";
-
-import relativeTime from 'dayjs/plugin/relativeTime'
-import {useLocalDayjs} from "lib/hooks/useHydrated";
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import ErrorCatch from "../ui/ErrorMessage.tsx";
 import { ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page";
 import {DetailedPlayer} from "types/players";
@@ -31,12 +23,11 @@ import {BotBadge} from "./PlayerName";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
 import {SiSteam} from "@icons-pack/react-simple-icons";
 import {usePatchedPlayer, usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
-import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod";
+import {usePeriod} from "components/period/Period";
 import PlayerClaimButton from "./PlayerClaimButton";
 import AssociatePlayerDialog from "./AssociatePlayerDialog";
 import {SteamProfile} from "types/steam";
 import ViewCount from "../ui/ViewCount";
-dayjs.extend(relativeTime)
 
 function AliasesDropdown({ aliases }) {
     const t = useTranslations('players.card');
@@ -50,13 +41,12 @@ function AliasesDropdown({ aliases }) {
                     {primaryAlias}
                 </span>
 
-                {remainingCount > 0 && <PlayerAliasesButton aliases={aliases} />}
-
-                {remainingCount > 0 && (
+                {remainingCount > 0 && <>
+                    <PlayerAliasesButton aliases={aliases} />
                     <span className="text-xs text-muted-foreground/60">
                         {t('moreAliases', {count: remainingCount})}
                     </span>
-                )}
+                </>}
             </div>
         </div>
     );
@@ -100,15 +90,15 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
     const t = useTranslations('players.card');
     const locale = useLocale();
     const toDayjs = useLocalDayjs();
-    const { period } = usePlayerPeriod()
+    const { period } = usePeriod()
     const { data: periodStats } = usePlayerStat<DetailedPlayer>(server.id, player.id, 'detail', !!period)
     const stats = period ? periodStats : player
     const ranks = period ? null : player?.ranks
-    let lastPlayedText = t('lastOnline', {ago: toDayjs(player.last_played_ended).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
-    if (player.online_since) {
-        lastPlayedText = t('playingSince', {ago: toDayjs(player.online_since).fromNow()});
-    }
-    const steamId = !player.id.includes('-')? player.id: player?.associated_player_id? player.associated_player_id: null
+    const lastPlayedText = player.online_since
+        ? t('playingSince', {ago: toDayjs(player.online_since).fromNow()})
+        : t('lastOnline', {ago: toDayjs(player.last_played_ended).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
+    const steamId = !player.id.includes('-') ? player.id : player.associated_player_id || null
+    const mapRank = ranks?.highest_map_rank
     const hasCategory = !!stats?.category && stats.category !== 'unknown'
 
     return (
@@ -133,29 +123,18 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
                             </h1>
                             {player.is_bot && <BotBadge className="ml-0"/>}
                             {steamId && (
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="size-7"
-                                                asChild
-                                            >
-                                                <a
-                                                    href={`https://steamcommunity.com/profiles/${steamId}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    <SiSteam className="text-primary"/>
-                                                </a>
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{t('viewSteamProfile')}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="size-7" asChild>
+                                            <a href={`https://steamcommunity.com/profiles/${steamId}`} target="_blank" rel="noopener noreferrer">
+                                                <SiSteam className="text-primary"/>
+                                            </a>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{t('viewSteamProfile')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
                             <PlayerClaimButton
                                 serverId={server.id}
@@ -187,18 +166,20 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
                 </div>
 
                 <div className="col-span-2 mt-4 flex flex-wrap gap-2 empty:hidden sm:col-span-1 sm:col-start-2 sm:mt-3 sm:content-start">
-                    {ranks && <RankChip label={t('ranked')} rank={ranks?.server_playtime}/>}
+                    {ranks && <RankChip label={t('ranked')} rank={ranks.server_playtime}/>}
                     {hasCategory && (
                         <CategoryChip category={stats.category} size="small" className="rounded-md px-2.5 py-1"/>
                     )}
-                    {ranks?.global_playtime != null && <RankChip label={t('global')} rank={ranks?.global_playtime} title={t('globalTitle')}/>}
-                    {ranks && <RankChip label={t('tryhard')} rank={ranks?.tryhard_playtime}/>}
-                    {ranks && <RankChip label={t('casual')} rank={ranks?.casual_playtime}/>}
-                    {ranks && ranks?.highest_map_rank &&
+                    {ranks?.global_playtime != null && <RankChip label={t('global')} rank={ranks.global_playtime} title={t('globalTitle')}/>}
+                    {ranks && <>
+                        <RankChip label={t('tryhard')} rank={ranks.tryhard_playtime}/>
+                        <RankChip label={t('casual')} rank={ranks.casual_playtime}/>
+                    </>}
+                    {mapRank &&
                         <RankChip
-                            label={`${ranks?.highest_map_rank?.map} -`}
-                            rank={ranks?.highest_map_rank?.rank}
-                            title={t('topOnMap', {rank: ranks?.highest_map_rank?.rank, map: ranks?.highest_map_rank?.map, hours: secondsToHours(ranks?.highest_map_rank?.total_playtime, locale)})}/>
+                            label={`${mapRank.map} -`}
+                            rank={mapRank.rank}
+                            title={t('topOnMap', {rank: mapRank.rank, map: mapRank.map, hours: secondsToHours(mapRank.total_playtime, locale)})}/>
                     }
                     {viewsPromise && <ViewCount
                         viewsPromise={viewsPromise}
@@ -218,7 +199,6 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
         </div>
     );
 }
-
 
 export default function PlayerCardDetail({ serverPlayerPromise, userPromise, viewsPromise }: {
     serverPlayerPromise: Promise<ServerPlayerDetailed>,

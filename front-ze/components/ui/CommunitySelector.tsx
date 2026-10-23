@@ -1,17 +1,20 @@
 'use client'
-import {useContext, useEffect, useLayoutEffect, useState, useCallback, useRef} from 'react';
+import {useEffect, useLayoutEffect, useState, useRef} from 'react';
 import {useTranslations} from "next-intl";
 import {Sheet, SheetContent} from "components/ui/sheet";
 import {Button} from "components/ui/button";
 import {Avatar, AvatarFallback, AvatarImage} from "components/ui/avatar";
 import {ChevronLeft, ChevronRight, Users, Map, ChevronDown, ChevronUp, PlusCircle} from 'lucide-react';
-import ErrorCatch from "./ErrorMessage.tsx";
-import ServerProvider from "./ServerProvider";
-import {Server} from "types/community";
+import {useServerMap} from "./ServerProvider";
+import {Community, Server} from "types/community";
 import {usePathname, useRouter} from "next/navigation";
 import {ScrollArea} from "components/ui/scroll-area.tsx";
 import {HoverCard, HoverCardContent, HoverCardTrigger} from "components/ui/hover-card.tsx";
+import {cn, setCookie} from "components/lib/utils";
+import {withErrorCatch} from "components/common/withErrorCatch";
 import {COMMUNITY_COLLAPSE} from "./communityCollapse";
+
+const MAX_SERVERS_SHOWN = 3;
 
 export function Logo() {
     return (
@@ -30,132 +33,28 @@ export const getServerAvatarText = (name: string) => {
     return words.length >= 2 ? words[0][0] + words[1][0] : name.substring(0, 2);
 }
 
-const getStatusColor = (status: boolean) => {
-    return status ? 'bg-green-500' : 'bg-gray-400';
-};
+function CommunityAvatar({ community, className, textClassName }: { community: Community, className: string, textClassName: string }) {
+    return (
+        <Avatar className={className}>
+            <AvatarImage src={community.icon_url} alt={community.name} />
+            <AvatarFallback className={cn("bg-primary/10 text-primary font-semibold", textClassName)}>
+                {getServerAvatarText(community.name).toUpperCase()}
+            </AvatarFallback>
+        </Avatar>
+    );
+}
 
-function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOpen, initialCollapsed }: {
-    displayCommunity: boolean,
-    setDisplayCommunity: (value: boolean) => void,
-    setRequestOpen: (value: boolean) => void,
-    initialCollapsed: boolean | null
-}) {
+function StatusDot({ status, className }: { status: boolean, className?: string }) {
+    return <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background", status ? 'bg-green-500' : 'bg-gray-400', className)} />;
+}
 
+function CommunityHeader({ community }: { community: Community }) {
     const t = useTranslations('home');
-    const [isClient, setIsClient] = useState(false);
-    const router = useRouter();
-    const pathname = usePathname();
-    const [isMobile, setIsMobile] = useState(false);
-    const {communities, serversMapped } = useContext(ServerProvider);
-
-    const slugPart = pathname.split('/')[2]
-    const server = slugPart ? serversMapped.get(decodeURIComponent(slugPart)) ?? null : null
-    const communitySelected = server?.community_id
-    const openDrawer = displayCommunity
-    const onClose = () => setDisplayCommunity(false)
-
-    const [userPreference, setUserPreference] = useState<boolean | null>(initialCollapsed);
-    const [autoCollapsed, setAutoCollapsed] = useState(false);
-    const isCollapsed = !isMobile && (userPreference !== null ? userPreference : autoCollapsed);
-
-    const [isMobileOpen, setIsMobileOpen] = useState(false);
-    const [expandedCommunities, setExpandedCommunities] = useState<Set<string>>(new Set());
-
-    const checkWidth = useCallback(() => {
-        const width = window.innerWidth;
-        setIsMobile(width <= 750);
-        setAutoCollapsed(width < 1510 && width > 750);
-    }, []);
-
-    useLayoutEffect(() => {
-        setIsClient(true);
-        if (initialCollapsed === null) {
-            const savedPreference = localStorage.getItem(COMMUNITY_COLLAPSE);
-            if (savedPreference !== null) {
-                setUserPreference(savedPreference === "true");
-            }
-        }
-        checkWidth();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [checkWidth]);
-
-    useEffect(() => {
-        if (!isClient) return;
-        if (userPreference === null) {
-            localStorage.removeItem(COMMUNITY_COLLAPSE);
-            document.cookie = `${COMMUNITY_COLLAPSE}=; path=/; max-age=0; SameSite=Lax`;
-        } else {
-            localStorage.setItem(COMMUNITY_COLLAPSE, userPreference.toString());
-            document.cookie = `${COMMUNITY_COLLAPSE}=${userPreference}; path=/; max-age=31536000; SameSite=Lax`;
-        }
-    }, [userPreference, isClient]);
-
-    useEffect(() => {
-        window.addEventListener('resize', checkWidth);
-        return () => window.removeEventListener('resize', checkWidth);
-    }, [checkWidth]);
-
-    const prevAutoCollapsed = useRef(false);
-    useEffect(() => {
-        if (autoCollapsed && !prevAutoCollapsed.current) {
-            setUserPreference(prev => prev === false ? null : prev);
-        }
-        prevAutoCollapsed.current = autoCollapsed;
-    }, [autoCollapsed]);
-
-    useEffect(() => {
-        setIsMobileOpen(openDrawer);
-    }, [openDrawer]);
-
-    const drawerWidth = isCollapsed ? 72 : 320;
-
-    const handleSelectServer = useCallback((server: Server) => {
-        router.push(`/servers/${server.gotoLink}`);
-        if (isMobile) {
-            setIsMobileOpen(false);
-            onClose?.();
-        }
-    }, [router, isMobile, onClose]);
-
-    const handleToggleDrawer = useCallback(() => {
-        if (isMobile) {
-            setIsMobileOpen(prev => !prev);
-            onClose?.();
-        } else {
-            const newCollapsedState = !isCollapsed;
-
-            if (newCollapsedState === autoCollapsed) {
-                setUserPreference(null);
-            } else {
-                setUserPreference(newCollapsedState);
-            }
-        }
-    }, [isMobile, onClose, isCollapsed, autoCollapsed]);
-
-    const toggleCommunityExpanded = useCallback((communityId: string) => {
-        setExpandedCommunities(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(communityId)) {
-                newSet.delete(communityId);
-            } else {
-                newSet.add(communityId);
-            }
-            return newSet;
-        });
-    }, []);
-
-    const MAX_SERVERS_SHOWN = 3;
-
-    const renderCommunityHeader = (community: (typeof communities)[number]) => (
+    return (
         <div className="flex items-center gap-3 p-2 rounded-lg bg-accent/20 border border-border/30">
             <div className="relative flex-shrink-0">
-                <Avatar className="w-10 h-10 ring-2 ring-background shadow-sm">
-                    <AvatarImage src={community.icon_url} alt={community.name} />
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                        {getServerAvatarText(community.name).toUpperCase()}
-                    </AvatarFallback>
-                </Avatar>
-                <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background shadow-sm ${getStatusColor(community.status)}`} />
+                <CommunityAvatar community={community} className="w-10 h-10 ring-2 ring-background shadow-sm" textClassName="text-xs" />
+                <StatusDot status={community.status} className="shadow-sm" />
             </div>
             <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-sm text-foreground truncate mb-0.5">
@@ -173,14 +72,16 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
             </div>
         </div>
     );
+}
 
-    const renderServerList = (community: (typeof communities)[number]) => (
+function ServerList({ community, selected, onSelect, expanded, onToggleExpanded }: {
+    community: Community, selected: Server | null, onSelect: (server: Server) => void, expanded: boolean, onToggleExpanded: () => void,
+}) {
+    const t = useTranslations('home');
+    return (
         <div className="space-y-1.5 px-3">
-            {(expandedCommunities.has(community.id)
-                ? community.servers
-                : community.servers.slice(0, MAX_SERVERS_SHOWN)
-            ).map((communityServer) => {
-                const isSelected = communityServer.gotoLink === server?.gotoLink;
+            {(expanded ? community.servers : community.servers.slice(0, MAX_SERVERS_SHOWN)).map((communityServer) => {
+                const isSelected = communityServer.gotoLink === selected?.gotoLink;
                 const playerPercentage = communityServer.max_players > 0
                     ? (communityServer.players / communityServer.max_players) * 100
                     : 0;
@@ -188,43 +89,38 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                 return (
                     <button
                         key={communityServer.id}
-                        onClick={() => handleSelectServer(communityServer)}
-                        className={`w-full text-left px-3 py-2.5 rounded-md transition-all relative overflow-hidden ${
-                            isSelected
-                                ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20'
-                                : 'hover:bg-accent/60 bg-accent/30'
-                        }`}
+                        onClick={() => onSelect(communityServer)}
+                        className={cn(
+                            "w-full text-left px-3 py-2.5 rounded-md transition-all relative overflow-hidden",
+                            isSelected ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20' : 'hover:bg-accent/60 bg-accent/30'
+                        )}
                     >
                         <div
-                            className={`absolute bottom-0 left-0 h-0.5 transition-all ${
-                                isSelected ? 'bg-primary-foreground/30' : 'bg-primary/30'
-                            }`}
+                            className={cn("absolute bottom-0 left-0 h-0.5 transition-all", isSelected ? 'bg-primary-foreground/30' : 'bg-primary/30')}
                             style={{ width: `${playerPercentage}%` }}
                         />
 
                         <div className="flex items-start gap-2">
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${
+                            <div className={cn(
+                                "w-2 h-2 rounded-full flex-shrink-0 mt-1",
                                 communityServer.status ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-gray-400'
-                            }`} />
+                            )} />
 
                             <div className="flex-1 min-w-0 space-y-1">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className={`text-sm truncate ${
-                                        isSelected ? 'font-semibold' : 'font-medium'
-                                    }`}>
+                                    <span className={cn("text-sm truncate", isSelected ? 'font-semibold' : 'font-medium')}>
                                         {communityServer.name}
                                     </span>
-                                    <div className={`flex items-center gap-1 text-xs flex-shrink-0 font-semibold tabular-nums ${
+                                    <div className={cn(
+                                        "flex items-center gap-1 text-xs flex-shrink-0 font-semibold tabular-nums",
                                         isSelected ? 'text-primary-foreground/90' : 'text-foreground/80'
-                                    }`}>
+                                    )}>
                                         <Users className="h-3 w-3" />
                                         {communityServer.players}/{communityServer.max_players}
                                     </div>
                                 </div>
 
-                                <div className={`flex items-center gap-1 text-xs ${
-                                    isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                                }`}>
+                                <div className={cn("flex items-center gap-1 text-xs", isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
                                     <Map className="h-3 w-3 flex-shrink-0" />
                                     <span className="truncate">
                                         {communityServer.map}
@@ -240,31 +136,106 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                 <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => toggleCommunityExpanded(community.id)}
+                    onClick={onToggleExpanded}
                     className="w-full text-xs text-muted-foreground hover:text-foreground h-7"
                 >
-                    {expandedCommunities.has(community.id) ? (
-                        <>
-                            <ChevronUp className="mr-1 h-3 w-3" />
-                            {t('showLess')}
-                        </>
-                    ) : (
-                        <>
-                            <ChevronDown className="mr-1 h-3 w-3" />
-                            {t('showMore', {count: community.servers.length - MAX_SERVERS_SHOWN})}
-                        </>
-                    )}
+                    {expanded ? <ChevronUp className="mr-1 h-3 w-3" /> : <ChevronDown className="mr-1 h-3 w-3" />}
+                    {expanded ? t('showLess') : t('showMore', {count: community.servers.length - MAX_SERVERS_SHOWN})}
                 </Button>
             )}
         </div>
     );
+}
+
+function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOpen, initialCollapsed }: {
+    displayCommunity: boolean,
+    setDisplayCommunity: (value: boolean) => void,
+    setRequestOpen: (value: boolean) => void,
+    initialCollapsed: boolean | null
+}) {
+    const t = useTranslations('home');
+    const [isClient, setIsClient] = useState(false);
+    const router = useRouter();
+    const pathname = usePathname();
+    const [isMobile, setIsMobile] = useState(false);
+    const {communities, serversMapped } = useServerMap();
+
+    const slugPart = pathname.split('/')[2]
+    const server = slugPart ? serversMapped.get(decodeURIComponent(slugPart)) ?? null : null
+
+    const [userPreference, setUserPreference] = useState<boolean | null>(initialCollapsed);
+    const [autoCollapsed, setAutoCollapsed] = useState(false);
+    const isCollapsed = !isMobile && (userPreference !== null ? userPreference : autoCollapsed);
+    // Lives up here so a community stays expanded across hover-card reopenings and drawer collapses.
+    const [expandedCommunities, setExpandedCommunities] = useState<Set<string>>(new Set());
+
+    useLayoutEffect(() => {
+        setIsClient(true);
+        if (initialCollapsed === null) {
+            const savedPreference = localStorage.getItem(COMMUNITY_COLLAPSE);
+            if (savedPreference !== null) {
+                setUserPreference(savedPreference === "true");
+            }
+        }
+        const checkWidth = () => {
+            const width = window.innerWidth;
+            setIsMobile(width <= 750);
+            setAutoCollapsed(width < 1510 && width > 750);
+        };
+        checkWidth();
+        window.addEventListener('resize', checkWidth);
+        return () => window.removeEventListener('resize', checkWidth);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (!isClient) return;
+        if (userPreference === null) {
+            localStorage.removeItem(COMMUNITY_COLLAPSE);
+        } else {
+            localStorage.setItem(COMMUNITY_COLLAPSE, userPreference.toString());
+        }
+        setCookie(COMMUNITY_COLLAPSE, userPreference === null ? null : String(userPreference));
+    }, [userPreference, isClient]);
+
+    const prevAutoCollapsed = useRef(false);
+    useEffect(() => {
+        if (autoCollapsed && !prevAutoCollapsed.current) {
+            setUserPreference(prev => prev === false ? null : prev);
+        }
+        prevAutoCollapsed.current = autoCollapsed;
+    }, [autoCollapsed]);
+
+    const handleSelectServer = (server: Server) => {
+        router.push(`/servers/${server.gotoLink}`);
+        if (isMobile) setDisplayCommunity(false);
+    };
+
+    const toggleCommunityExpanded = (communityId: string) => setExpandedCommunities(prev => {
+        const next = new Set(prev);
+        if (!next.delete(communityId)) next.add(communityId);
+        return next;
+    });
+    const serverList = (community: Community) => (
+        <ServerList
+            community={community}
+            selected={server}
+            onSelect={handleSelectServer}
+            expanded={expandedCommunities.has(community.id)}
+            onToggleExpanded={() => toggleCommunityExpanded(community.id)}
+        />
+    );
+
+    // Only the desktop drawer has a collapse toggle; matching the width-based default clears the preference.
+    const handleToggleDrawer = () => setUserPreference(!isCollapsed === autoCollapsed ? null : !isCollapsed);
 
     const renderDrawerContent = (isCollapsed: boolean) => (
         <div className="h-full flex flex-col bg-background">
-            <div className={`flex items-center ${
+            <div className={cn(
+                "flex items-center h-16 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0",
                 isCollapsed ? 'justify-center px-4' : 'justify-between px-6'
-            } h-16 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0`}>
-                {!(!isMobile && isCollapsed) && <Logo />}
+            )}>
+                {!isCollapsed && <Logo />}
                 {!isMobile && <Button
                     variant="ghost"
                     size="icon"
@@ -273,7 +244,6 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                 >
                     {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 </Button>}
-
             </div>
 
             <div className="flex-1 overflow-y-auto overflow-x-hidden">
@@ -289,74 +259,66 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                 )}
 
                 <ScrollArea className="max-h-[calc(100vh-80px)]">
-                <div className={`${isCollapsed ? "py-3" : "py-2"}`}  style={{ width: isCollapsed ? 72 : 320 }}>
-                    {communities.map((community) => {
-                        const isCommunitySelected = communitySelected === community.id;
-
-                        return (
-                            <div key={community.id} className={isCollapsed ? "px-2 mb-2" : "mb-4 pb-4 border-b border-border/20 last:border-0"}>
-                                {(!isMobile && isCollapsed) ? (
-                                    <HoverCard openDelay={100} closeDelay={100}>
-                                        <div className="flex flex-col items-center gap-2">
-                                            <HoverCardTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    title={`${community.name} — ${t('playerCount', {count: community.players})}`}
-                                                    className="relative cursor-pointer outline-none focus:outline-none focus-visible:outline-none"
-                                                >
-                                                    <Avatar className={`w-11 h-11 transition-all ${
-                                                        isCommunitySelected
-                                                            ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-                                                            : 'opacity-70 hover:opacity-100'
-                                                    }`}>
-                                                        <AvatarImage src={community.icon_url} alt={community.name} />
-                                                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-                                                            {getServerAvatarText(community.name).toUpperCase()}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    {/* Sibling of the Avatar, like the status dot, so it keeps full
-                                                        opacity while an unselected avatar dims to 70% */}
-                                                    {community.players > 0 && (
-                                                        <span className=" absolute -top-1 -right-1 h-[18px] px-1 flex items-center justify-center gap-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none tabular-nums border-2 border-background">
-                                                            <Users className="h-2.5 w-2.5 flex-shrink-0" />
-                                                            {community.players > 99 ? '99+' : community.players}
-                                                        </span>
-                                                    )}
-                                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${getStatusColor(community.status)}`} />
-                                                </button>
-                                            </HoverCardTrigger>
+                <div className={isCollapsed ? "py-3" : "py-2"} style={{ width: isCollapsed ? 72 : 320 }}>
+                    {communities.map((community) => (
+                        <div key={community.id} className={isCollapsed ? "px-2 mb-2" : "mb-4 pb-4 border-b border-border/20 last:border-0"}>
+                            {isCollapsed ? (
+                                <HoverCard openDelay={100} closeDelay={100}>
+                                    <div className="flex flex-col items-center gap-2">
+                                        <HoverCardTrigger asChild>
+                                            <button
+                                                type="button"
+                                                title={`${community.name} — ${t('playerCount', {count: community.players})}`}
+                                                className="relative cursor-pointer outline-none focus:outline-none focus-visible:outline-none"
+                                            >
+                                                <CommunityAvatar
+                                                    community={community}
+                                                    className={cn("w-11 h-11 transition-all", server?.community_id === community.id
+                                                        ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                                                        : 'opacity-70 hover:opacity-100')}
+                                                    textClassName="text-sm"
+                                                />
+                                                {/* Sibling of the Avatar, like the status dot, so it keeps full
+                                                    opacity while an unselected avatar dims to 70% */}
+                                                {community.players > 0 && (
+                                                    <span className=" absolute -top-1 -right-1 h-[18px] px-1 flex items-center justify-center gap-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none tabular-nums border-2 border-background">
+                                                        <Users className="h-2.5 w-2.5 flex-shrink-0" />
+                                                        {community.players > 99 ? '99+' : community.players}
+                                                    </span>
+                                                )}
+                                                <StatusDot status={community.status} />
+                                            </button>
+                                        </HoverCardTrigger>
+                                    </div>
+                                    <HoverCardContent
+                                        side="right"
+                                        align="start"
+                                        sideOffset={12}
+                                        className="w-80 p-0 overflow-hidden"
+                                    >
+                                        <div className="px-3 pt-3 pb-2">
+                                            <CommunityHeader community={community} />
                                         </div>
-                                        <HoverCardContent
-                                            side="right"
-                                            align="start"
-                                            sideOffset={12}
-                                            className="w-80 p-0 overflow-hidden"
-                                        >
-                                            <div className="px-3 pt-3 pb-2">
-                                                {renderCommunityHeader(community)}
-                                            </div>
-                                            <div className="max-h-[60vh] overflow-y-auto pb-3">
-                                                {renderServerList(community)}
-                                            </div>
-                                        </HoverCardContent>
-                                    </HoverCard>
-                                ) : (
-                                    <>
-                                        <div className="px-4 mb-3">
-                                            {renderCommunityHeader(community)}
+                                        <div className="max-h-[60vh] overflow-y-auto pb-3">
+                                            {serverList(community)}
                                         </div>
-
-                                        {renderServerList(community)}
-                                    </>
-                                )}
-                            </div>
-                        );
-                    })}
+                                    </HoverCardContent>
+                                </HoverCard>
+                            ) : (
+                                <>
+                                    <div className="px-4 mb-3">
+                                        <CommunityHeader community={community} />
+                                    </div>
+                                    {serverList(community)}
+                                </>
+                            )}
+                        </div>
+                    ))}
                 </div>
                 </ScrollArea>
             </div>
 
-            <div className={`flex-shrink-0 border-t border-border/40 p-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
+            <div className={cn("flex-shrink-0 border-t border-border/40 p-2", isCollapsed && 'flex justify-center')}>
                 <Button
                     variant="ghost"
                     size={isCollapsed ? "icon" : "sm"}
@@ -373,10 +335,7 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
 
     if (isMobile) {
         return (
-            <Sheet open={isMobileOpen} onOpenChange={(data) => {
-                setIsMobileOpen(data);
-                setDisplayCommunity(data)
-            }}>
+            <Sheet open={displayCommunity} onOpenChange={setDisplayCommunity}>
                 <SheetContent side="left" className="w-[320px] p-0">
                     {renderDrawerContent(false)}
                 </SheetContent>
@@ -384,34 +343,23 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
         );
     }
 
-    if (!isClient && userPreference !== true) {
-        return (
-            <aside className="flex-shrink-0 h-screen overflow-hidden border-r border-border/40 max-[751px]:hidden sticky top-0 left-0 w-[72px] min-[1510px]:w-[320px]">
-                <div className="h-full min-[1510px]:hidden">{renderDrawerContent(true)}</div>
-                <div className="h-full hidden min-[1510px]:block">{renderDrawerContent(false)}</div>
-            </aside>
-        );
-    }
-
+    // Before hydration the width is unknown, so CSS picks the collapsed or full drawer at the breakpoint.
+    const responsiveSSR = !isClient && userPreference !== true;
     return (
         <aside
-            className={`flex-shrink-0 h-screen overflow-hidden border-r border-border/40 ${
-                isClient ? 'transition-all duration-300 ease-in-out' : 'max-[751px]:hidden'
-            } sticky top-0 left-0`}
-            style={{ width: drawerWidth }}
+            className={cn(
+                "flex-shrink-0 h-screen overflow-hidden border-r border-border/40 sticky top-0 left-0",
+                isClient ? 'transition-all duration-300 ease-in-out' : 'max-[751px]:hidden',
+                responsiveSSR && 'w-[72px] min-[1510px]:w-[320px]'
+            )}
+            style={responsiveSSR ? undefined : { width: isCollapsed ? 72 : 320 }}
         >
-            {renderDrawerContent(isCollapsed)}
+            {responsiveSSR ? <>
+                <div className="h-full min-[1510px]:hidden">{renderDrawerContent(true)}</div>
+                <div className="h-full hidden min-[1510px]:block">{renderDrawerContent(false)}</div>
+            </> : renderDrawerContent(isCollapsed)}
         </aside>
     );
 }
 
-function CommunitySelectorDisplay({ displayCommunity, setDisplayCommunity, setRequestOpen, initialCollapsed }
-                                  : { displayCommunity: boolean, setDisplayCommunity: (value: boolean) => void, setRequestOpen: (value: boolean) => void, initialCollapsed: boolean | null }) {
-    return (
-        <ErrorCatch message="Community selector has an error :/">
-            <CommunitySelector displayCommunity={displayCommunity} setDisplayCommunity={setDisplayCommunity} setRequestOpen={setRequestOpen} initialCollapsed={initialCollapsed} />
-        </ErrorCatch>
-    );
-}
-
-export default CommunitySelectorDisplay;
+export default withErrorCatch(CommunitySelector, () => "Community selector has an error :/");

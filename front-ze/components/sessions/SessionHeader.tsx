@@ -8,12 +8,15 @@ import { formatTime } from 'utils/sessionUtils.js';
 import {Server} from "types/community";
 import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util";
 import {PlayerSession} from "types/players";
-import dayjs from "dayjs";
-import LocalizedFormat from "dayjs/plugin/localizedFormat";
 import Link from "components/ui/Link.tsx";
-import {useHydrated, useLocalDayjs} from "lib/hooks/useHydrated";
+import {useHydrated} from "lib/hooks/useHydrated";
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 
-dayjs.extend(LocalizedFormat)
+/** Session clock: UTC on the server and during hydration, the visitor's local time afterwards. */
+export function useSessionClock() {
+    const timeZone = useHydrated() ? undefined : 'UTC';
+    return { toDayjs: useLocalDayjs(), formatTime: (time: string) => formatTime(time, timeZone) };
+}
 
 export function SessionHeaderShell({ back, media, title, subtitle, badge }: {
     back: ReactNode, media: ReactNode, title: ReactNode, subtitle: ReactNode, badge: ReactNode,
@@ -55,15 +58,14 @@ export const SessionHeader = (
 
 ) => {
     const t = useTranslations('sessions');
-    const toDayjs = useLocalDayjs();
-    const timeZone = useHydrated() ? undefined : 'UTC';
-    const ended = sessionInfo.ended_at ? formatTime(sessionInfo.ended_at, timeZone) : t('now');
+    const { toDayjs, formatTime } = useSessionClock();
+    const ended = sessionInfo.ended_at ? formatTime(sessionInfo.ended_at) : t('now');
 
     return <SessionHeaderShell
         back={<Link href={`/servers/${server.gotoLink}/players/${player.id}/`}><ArrowLeft className="h-4 w-4" /></Link>}
         media={<PlayerAvatar uuid={player.id} name={player.name} />}
         title={t('playerSession', {name: player.name})}
         subtitle={t('sessionNumber', {id: sessionInfo.id})}
-        badge={<>{toDayjs(sessionInfo.started_at).format('LL')} • {formatTime(sessionInfo.started_at, timeZone)}-{ended}</>}
+        badge={<>{toDayjs(sessionInfo.started_at).format('LL')} • {formatTime(sessionInfo.started_at)}-{ended}</>}
     />;
 };

@@ -1,46 +1,40 @@
 'use client'
-import { Suspense, use, useEffect, useState } from "react"
+import { ReactNode, Suspense, use } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { useServerData } from "../ServerDataProvider"
 import { loadMapImage } from "lib/batchLoader"
+import { useResource } from "lib/hooks/useResource"
+import { range } from "utils/generalUtils"
 import { MapWithModels, Character3DModel } from "types/maps"
 import { Card, CardContent } from "components/ui/card"
 import { Badge } from "components/ui/badge"
 import { Button } from "components/ui/button"
-import { Skeleton } from "components/ui/skeleton"
+import { Skeleton, SkeletonText } from "components/ui/skeleton"
+
+const GRID = "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
 
 function formatBytes(bytes: number): string {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-function CharacterModelCard({ model, serverSlug }: { model: Character3DModel, serverSlug: string }) {
+function ModelCard({ image, title, badges, details, href }: {
+    image: ReactNode, title: string, badges: ReactNode, details: ReactNode, href: string,
+}) {
     return (
         <Card className="overflow-hidden flex flex-col">
             <div className="relative h-32 bg-muted shrink-0">
-                {model.thumbnail_path ? (
-                    <img
-                        src={model.thumbnail_path}
-                        alt={model.name ?? model.model_id}
-                        className="w-full h-full object-cover"
-                    />
-                ) : (
-                    <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">No Image</div>
-                )}
+                {image ?? <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">No Image</div>}
             </div>
             <CardContent className="p-4 flex flex-col gap-2 flex-1">
                 <div className="flex items-start justify-between gap-2">
-                    <span className="font-semibold text-sm break-all">{model.name ?? model.model_id}</span>
-                    <Badge variant="secondary" className="shrink-0">Character</Badge>
+                    <span className="font-semibold text-sm break-all">{title}</span>
+                    {badges}
                 </div>
-                <div className="text-xs text-muted-foreground space-y-1">
-                    <div>{formatBytes(model.file_size)}</div>
-                    {model.credit && <div>Credit: {model.credit}</div>}
-                    {model.uploader_name && <div>Uploaded by: {model.uploader_name}</div>}
-                </div>
+                <div className="text-xs text-muted-foreground space-y-1">{details}</div>
                 <Button asChild size="sm" variant="outline" className="mt-auto w-full">
-                    <Link href={`/servers/${serverSlug}/characters/${model.model_id}`}>
+                    <Link href={href}>
                         View
                     </Link>
                 </Button>
@@ -49,49 +43,47 @@ function CharacterModelCard({ model, serverSlug }: { model: Character3DModel, se
     )
 }
 
-function MapModelCard({ mapModel, serverId }: { mapModel: MapWithModels, serverId: string }) {
-    const { low_res_model, high_res_model } = mapModel
-    const { server } = useServerData()
-    const [mapImage, setMapImage] = useState<string | null>(null)
-    const [imageLoading, setImageLoading] = useState(true)
+function CharacterModelCard({ model, serverSlug }: { model: Character3DModel, serverSlug: string }) {
+    const name = model.name ?? model.model_id
+    return (
+        <ModelCard
+            image={model.thumbnail_path ? <img src={model.thumbnail_path} alt={name} className="w-full h-full object-cover" /> : null}
+            title={name}
+            badges={<Badge variant="secondary" className="shrink-0">Character</Badge>}
+            details={<>
+                <div>{formatBytes(model.file_size)}</div>
+                {model.credit && <div>Credit: {model.credit}</div>}
+                {model.uploader_name && <div>Uploaded by: {model.uploader_name}</div>}
+            </>}
+            href={`/servers/${serverSlug}/characters/${model.model_id}`}
+        />
+    )
+}
 
-    useEffect(() => {
-        setImageLoading(true)
-        loadMapImage(mapModel.map_name, serverId)
-            .then(e => setMapImage(e ? e.small : null))
-            .finally(() => setImageLoading(false))
-    }, [serverId, mapModel.map_name])
+function MapModelCard({ mapModel, serverId, serverLink }: { mapModel: MapWithModels, serverId: string, serverLink: string }) {
+    const { map_name, low_res_model, high_res_model } = mapModel
+    const { data: mapImage, loading } = useResource(
+        () => loadMapImage(map_name, serverId).then(e => e ? e.small : null), [serverId, map_name],
+    )
 
     return (
-        <Card className="overflow-hidden flex flex-col">
-            <div className="relative h-32 bg-muted shrink-0">
-                {imageLoading ? (
-                    <Skeleton className="h-full w-full rounded-none" />
-                ) : mapImage ? (
-                    <img src={mapImage} alt={mapModel.map_name} className="w-full h-full object-cover" />
-                ) : (
-                    <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">No Image</div>
-                )}
-            </div>
-            <CardContent className="p-4 flex flex-col gap-2 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                    <span className="font-semibold text-sm break-all">{mapModel.map_name}</span>
-                    <div className="flex gap-1 shrink-0">
-                        {low_res_model && <Badge variant="outline">Low</Badge>}
-                        {high_res_model && <Badge>High</Badge>}
-                    </div>
+        <ModelCard
+            image={loading
+                ? <Skeleton className="h-full w-full rounded-none" />
+                : mapImage ? <img src={mapImage} alt={map_name} className="w-full h-full object-cover" /> : null}
+            title={map_name}
+            badges={
+                <div className="flex gap-1 shrink-0">
+                    {low_res_model && <Badge variant="outline">Low</Badge>}
+                    {high_res_model && <Badge>High</Badge>}
                 </div>
-                <div className="text-xs text-muted-foreground space-y-1">
-                    {low_res_model && <div>Low res — {formatBytes(low_res_model.file_size)}</div>}
-                    {high_res_model && <div>High res — {formatBytes(high_res_model.file_size)}</div>}
-                </div>
-                <Button asChild size="sm" variant="outline" className="mt-auto w-full">
-                    <Link href={`/maps/${mapModel.map_name}/3d?server_slug=${server.gotoLink}`}>
-                        View
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
+            }
+            details={<>
+                {low_res_model && <div>Low res — {formatBytes(low_res_model.file_size)}</div>}
+                {high_res_model && <div>High res — {formatBytes(high_res_model.file_size)}</div>}
+            </>}
+            href={`/maps/${map_name}/3d?server_slug=${serverLink}`}
+        />
     )
 }
 
@@ -101,13 +93,11 @@ function ModelCardSkeleton({ lines }: { lines: number }) {
             <Skeleton className="h-32 rounded-none shrink-0" />
             <CardContent className="p-4 flex flex-col gap-2 flex-1">
                 <div className="flex items-start justify-between gap-2">
-                    <div className="text-sm"><Skeleton className="inline-block align-middle h-4 w-32" />{'\u200b'}</div>
+                    <div className="text-sm"><SkeletonText className="h-4 w-32" /></div>
                     <Skeleton className="h-[22px] w-16 shrink-0" />
                 </div>
                 <div className="text-xs space-y-1">
-                    {Array.from({ length: lines }).map((_, i) => (
-                        <div key={i}><Skeleton className="inline-block align-middle h-3 w-28" />{'\u200b'}</div>
-                    ))}
+                    {range(lines).map(i => <div key={i}><SkeletonText className="h-3 w-28" /></div>)}
                 </div>
                 <Skeleton className="mt-auto h-8 w-full" />
             </CardContent>
@@ -115,44 +105,22 @@ function ModelCardSkeleton({ lines }: { lines: number }) {
     )
 }
 
-function GridSkeleton({ lines }: { lines: number }) {
-    return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => <ModelCardSkeleton key={i} lines={lines} />)}
-        </div>
-    )
+function ModelGrid<T>({ promise, empty, render }: { promise: Promise<T[]>, empty: string, render: (item: T) => ReactNode }) {
+    const items = use(promise)
+    if (items.length === 0) return <p className="text-muted-foreground text-sm">{empty}</p>
+    return <div className={GRID}>{items.map(render)}</div>
 }
 
-function CharacterModels({ charactersPromise }: { charactersPromise: Promise<Character3DModel[]> }) {
-    const characterModels = use(charactersPromise)
-    const params = useParams()
-    const serverSlug = params.server_slug as string
-
-    if (characterModels.length === 0)
-        return <p className="text-muted-foreground text-sm">No character models available.</p>
-
+function ModelSection<T>({ title, lines, ...grid }: {
+    title: string, lines: number, promise: Promise<T[]>, empty: string, render: (item: T) => ReactNode,
+}) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {characterModels.map(model => (
-                <CharacterModelCard key={model.id} model={model} serverSlug={serverSlug} />
-            ))}
-        </div>
-    )
-}
-
-function MapModels({ mapModelsPromise }: { mapModelsPromise: Promise<MapWithModels[]> }) {
-    const mapModels = use(mapModelsPromise)
-    const { server } = useServerData()
-
-    if (mapModels.length === 0)
-        return <p className="text-muted-foreground text-sm">No map models available for this server.</p>
-
-    return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {mapModels.map(m => (
-                <MapModelCard key={m.map_name} mapModel={m} serverId={server.id} />
-            ))}
-        </div>
+        <section className="space-y-4">
+            <h2 className="text-xl font-semibold">{title}</h2>
+            <Suspense fallback={<div className={GRID}>{range(8).map(i => <ModelCardSkeleton key={i} lines={lines} />)}</div>}>
+                <ModelGrid {...grid} />
+            </Suspense>
+        </section>
     )
 }
 
@@ -160,23 +128,28 @@ export default function ModelsPageContent({ charactersPromise, mapModelsPromise 
     charactersPromise: Promise<Character3DModel[]>,
     mapModelsPromise: Promise<MapWithModels[]>,
 }) {
+    const serverSlug = useParams().server_slug as string
+    const { server } = useServerData()
+
     return (
         <div className="container max-w-screen-xl py-6 mx-auto px-2 space-y-10">
             <h1 className="text-3xl font-bold">3D Models</h1>
-
-            <section className="space-y-4">
-                <h2 className="text-xl font-semibold">Character Models</h2>
-                <Suspense fallback={<GridSkeleton lines={3} />}>
-                    <CharacterModels charactersPromise={charactersPromise} />
-                </Suspense>
-            </section>
-
-            <section className="space-y-4">
-                <h2 className="text-xl font-semibold">Map Models</h2>
-                <Suspense fallback={<GridSkeleton lines={2} />}>
-                    <MapModels mapModelsPromise={mapModelsPromise} />
-                </Suspense>
-            </section>
+            <ModelSection
+                title="Character Models"
+                lines={3}
+                promise={charactersPromise}
+                empty="No character models available."
+                render={model => <CharacterModelCard key={model.id} model={model} serverSlug={serverSlug} />}
+            />
+            <ModelSection
+                title="Map Models"
+                lines={2}
+                promise={mapModelsPromise}
+                empty="No map models available for this server."
+                render={mapModel => (
+                    <MapModelCard key={mapModel.map_name} mapModel={mapModel} serverId={server.id} serverLink={server.gotoLink} />
+                )}
+            />
         </div>
     )
 }

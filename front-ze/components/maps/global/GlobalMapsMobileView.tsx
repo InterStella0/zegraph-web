@@ -1,23 +1,24 @@
 'use client'
 import {ReactNode} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
-import {secondsToHours} from "utils/generalUtils";
+import {range, secondsToHours} from "utils/generalUtils";
 import {Skeleton} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
-import {GlobalMapPaginated, GlobalMapPlayed} from "types/maps.ts";
+import {GlobalMapPlayed} from "types/maps.ts";
 import GlobalMapStatusChip from "./GlobalMapStatusChip";
 import CommunityAvatarStack from "./CommunityAvatarStack";
-import {FavoriteButton, GlobalMapChips, globalMapImage, LastPlayed} from "./GlobalMapsTable";
+import {GlobalMapChips, globalMapImage, GlobalMapsListProps, LastPlayed, rotationStyle} from "./GlobalMapsTable";
+import {FavoriteButton} from "../FavoriteButton";
 import {cn} from "components/lib/utils";
 import {GLOBAL_MAPS_PAGE_SIZE} from "./constants";
 
-function GlobalMapCardSkeleton({ index }: { index: number }) {
+function GlobalMapCardSkeleton() {
     return (
         <div className="border border-border rounded-lg bg-card p-4">
             <div className="flex justify-between items-start mb-4">
                 <div className="flex-1 mr-4">
-                    <Skeleton className="h-4 mb-2" style={{width: `${7 + (index * 5) % 5}rem`}}/>
+                    <Skeleton className="h-4 mb-2 w-28"/>
                     <div className="flex gap-1 mb-2">
                         <Skeleton className="h-5 w-10 rounded-full"/>
                         <Skeleton className="h-5 w-14 rounded-full"/>
@@ -28,7 +29,7 @@ function GlobalMapCardSkeleton({ index }: { index: number }) {
             </div>
             <Skeleton className="w-full h-30 rounded-lg mb-4"/>
             <div className="grid grid-cols-2 gap-2">
-                {Array.from({length: 4}).map((_, i) => (
+                {range(4).map(i => (
                     <Skeleton key={i} className={`h-14 rounded${i === 0 ? ' col-span-full' : ''}`}/>
                 ))}
             </div>
@@ -51,10 +52,9 @@ function GlobalMapCard({ map, favorites, toggleFavorite }: {
     const t = useTranslations('maps.table');
     const locale = useLocale();
     const image = globalMapImage(map, 'large');
-    const inRotation = map.servers.some(server => server.enabled && !server.removed);
 
     return (
-        <div className="border border-border rounded-lg bg-card p-4" style={{opacity: inRotation ? 1 : 0.6}}>
+        <div className="border border-border rounded-lg bg-card p-4" style={rotationStyle(map)}>
             <div className="flex justify-between items-start mb-4">
                 <div className="flex-1 min-w-0 mr-4">
                     <HoverPrefetchLink
@@ -92,17 +92,9 @@ function GlobalMapCard({ map, favorites, toggleFavorite }: {
     );
 }
 
-export default function GlobalMapsMobileView({ mapsData, page, setPage, favorites, toggleFavorite, loading }: {
-    mapsData: GlobalMapPaginated | null,
-    page: number,
-    setPage: (page: number) => void,
-    favorites: Set<string>,
-    toggleFavorite: (mapName: string) => void,
-    loading: boolean,
-}) {
+export default function GlobalMapsMobileView({ mapsData, page, setPage, favorites, toggleFavorite, loading }: GlobalMapsListProps) {
     const tGlobal = useTranslations('maps.global');
     const total = mapsData?.total_maps || 0;
-    const totalPages = Math.ceil(total / GLOBAL_MAPS_PAGE_SIZE);
 
     return (
         <>
@@ -110,16 +102,14 @@ export default function GlobalMapsMobileView({ mapsData, page, setPage, favorite
                 {mapsData?.maps?.map(map => (
                     <GlobalMapCard key={map.map} map={map} favorites={favorites} toggleFavorite={toggleFavorite}/>
                 ))}
-                {!mapsData && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, index) =>
-                    <GlobalMapCardSkeleton key={index} index={index}/>
-                )}
+                {!mapsData && range(GLOBAL_MAPS_PAGE_SIZE).map(i => <GlobalMapCardSkeleton key={i}/>)}
                 {!loading && total === 0 && (
                     <p className="p-8 text-center text-muted-foreground">{tGlobal('noMapsFound')}</p>
                 )}
             </div>
 
             <div className="flex justify-center mt-6 mb-4">
-                <PaginationPage totalPages={totalPages} page={page} setPage={setPage}/>
+                <PaginationPage totalPages={Math.ceil(total / GLOBAL_MAPS_PAGE_SIZE)} page={page} setPage={setPage}/>
             </div>
         </>
     );

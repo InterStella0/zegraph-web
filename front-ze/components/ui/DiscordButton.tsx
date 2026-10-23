@@ -3,8 +3,7 @@ import {SiDiscord} from "@icons-pack/react-simple-icons";
 import {useTranslations} from "next-intl";
 import {Button} from "components/ui/button";
 import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
-
-export const DISCORD_URL = "https://goes.queeniemella.cc/s/discord-zegraph";
+import {DISCORD_URL} from "./siteLinks";
 
 export default function DiscordButton() {
     const t = useTranslations('nav');

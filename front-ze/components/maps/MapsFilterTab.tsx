@@ -7,6 +7,10 @@ const FILTER_LABELS: Record<FilterTypes, string> = {
     all: 'allMaps', casual: 'casual', tryhard: 'tryhard', lasers: 'hasLasers',
     available: 'availableNow', playing: 'liveNow', favorites: 'favorites',
 }
+/** The API `filter` value for each tab; `all` sends none. */
+export const FILTER_MODES: Partial<Record<FilterTypes, string>> = {
+    casual: 'Casual', tryhard: 'TryHard', lasers: 'HasLaser', available: 'Available', playing: 'Playing', favorites: 'Favorite',
+}
 const DEFAULT_TABS: FilterTypes[] = ['all', 'casual', 'tryhard', 'lasers', 'available', 'favorites']
 
 export default function MapsFilterTabs({

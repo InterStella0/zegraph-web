@@ -150,3 +150,18 @@ export interface GlobalPlayerSessionTime {
     hours: number;
     communities: CommunityHours[];
 }
+
+export interface CommunityLink {
+    id: string;
+    name: string;
+    url: string;
+    description: string | null;
+    sort_order: number;
+    created_at: string;
+}
+
+export interface SpecialThanks {
+    id: string;
+    display_name: string;
+    description: string;
+}

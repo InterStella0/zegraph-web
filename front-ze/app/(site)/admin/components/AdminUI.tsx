@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { TableCell, TableRow } from 'components/ui/table';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ComponentProps, type ComponentType, type ReactNode } from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'components/ui/table';
 import { Button } from 'components/ui/button';
+import { Input } from 'components/ui/input';
 import { Label } from 'components/ui/label';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -10,10 +11,22 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from 'components/ui/dropdown-menu';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from 'components/ui/select';
 import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { cn } from 'components/lib/utils';
 import { toast } from 'sonner';
 import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
+import { useDebounced } from 'lib/hooks/useDebounced';
+
+export interface CrudDialogProps<T> {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  item: T | null;
+  onSuccess: () => void;
+}
 
 export function AdminSpinner() {
   return (
@@ -44,15 +57,28 @@ export function AdminHeader({ title, description, className, action }: {
   );
 }
 
-export function EmptyRow({ colSpan, children, className = 'text-center text-muted-foreground' }: {
-  colSpan: number;
-  children: ReactNode;
-  className?: string;
+export function AdminTable<T>({ headers, rows, empty, emptyClassName = 'text-center text-muted-foreground', children }: {
+  headers: string[];
+  rows: T[];
+  empty: ReactNode;
+  emptyClassName?: string;
+  children: (row: T) => ReactNode;
 }) {
   return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className={className}>{children}</TableCell>
-    </TableRow>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {headers.map((header) => <TableHead key={header}>{header}</TableHead>)}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={headers.length} className={emptyClassName}>{empty}</TableCell>
+          </TableRow>
+        ) : rows.map(children)}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -69,34 +95,69 @@ export function RowActions({ children }: { children: ReactNode }) {
   );
 }
 
+export function ActionItem({ icon: Icon, iconClassName, destructive, children, ...props }: {
+  icon: ComponentType<{ className?: string }>;
+  iconClassName?: string;
+  destructive?: boolean;
+} & ComponentProps<typeof DropdownMenuItem>) {
+  return (
+    <DropdownMenuItem {...props} className={destructive ? 'text-destructive focus:text-destructive' : undefined}>
+      <Icon className={cn('mr-2 h-4 w-4', iconClassName)} />
+      {children}
+    </DropdownMenuItem>
+  );
+}
+
 export function EditDeleteItems({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   return (
     <>
-      <DropdownMenuItem onClick={onEdit}>
-        <Pencil className="mr-2 h-4 w-4" />
-        Edit
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        onClick={onDelete}
-        className="text-destructive focus:text-destructive"
-      >
-        <Trash2 className="mr-2 h-4 w-4" />
-        Delete
-      </DropdownMenuItem>
+      <ActionItem icon={Pencil} onClick={onEdit}>Edit</ActionItem>
+      <ActionItem icon={Trash2} onClick={onDelete} destructive>Delete</ActionItem>
     </>
   );
 }
 
-export function Field({ label, children, className = 'space-y-2' }: {
+export function Field({ label, htmlFor, children, className = 'space-y-2' }: {
   label: ReactNode;
+  htmlFor?: string;
   children: ReactNode;
   className?: string;
 }) {
   return (
     <div className={className}>
-      <Label>{label}</Label>
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
     </div>
+  );
+}
+
+export function InputField({ label, fieldClassName, ...props }: {
+  label: ReactNode;
+  fieldClassName?: string;
+} & ComponentProps<typeof Input>) {
+  return (
+    <Field label={label} className={fieldClassName}>
+      <Input {...props} />
+    </Field>
+  );
+}
+
+export function OptionSelect({ value, onChange, options, placeholder, className }: {
+  value: string;
+  onChange: (value: string) => void;
+  options: [string, ReactNode][];
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className={className}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map(([option, label]) => <SelectItem key={option} value={option}>{label}</SelectItem>)}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -136,32 +197,59 @@ export function FormDialog({
   );
 }
 
+/** Form state that resets from `init` whenever the dialog opens or its source changes; `bind` wires a text input. */
 export function useResetForm<T extends object>(open: boolean, source: unknown, init: () => T) {
   const [form, setForm] = useState<T>(init);
   useEffect(() => {
     if (open) setForm(init());
   }, [source, open]);
   const set = <K extends keyof T>(key: K) => (value: T[K]) => setForm((f) => ({ ...f, [key]: value }));
-  return [form, set] as const;
+  const bind = <K extends keyof T>(key: K) => ({
+    value: form[key] as string,
+    onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => set(key)(e.target.value as T[K]),
+  });
+  return [form, set, bind] as const;
+}
+
+type Failure = string | ((error: unknown) => void);
+
+export const logFailure = (label: string) => (error: unknown) => console.error(label, error);
+
+/** Runs a request after an optional confirm, toasting `success` and calling `onDone` when it succeeds. */
+export async function runAction(
+  request: () => Promise<unknown>,
+  onDone: () => void,
+  { confirm: question, success, failure }: { confirm?: string; success?: string; failure: Failure },
+) {
+  if (question && !confirm(question)) return;
+  try {
+    await request();
+    if (success) toast.success(success);
+    onDone();
+  } catch (error) {
+    if (typeof failure === 'string') toast.error(failure);
+    else failure(error);
+  }
 }
 
 export function useSave(onSuccess: () => void, onOpenChange: (open: boolean) => void) {
   const [submitting, setSubmitting] = useState(false);
-  const save = async (request: () => Promise<unknown>, success: string, failure: string | ((error: unknown) => void)) => {
+  const save = async (request: () => Promise<unknown>, success: string, failure: Failure) => {
     setSubmitting(true);
-    try {
-      await request();
-      toast.success(success);
+    await runAction(request, () => {
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
-      if (typeof failure === 'string') toast.error(failure);
-      else failure(error);
-    } finally {
-      setSubmitting(false);
-    }
+    }, { success, failure });
+    setSubmitting(false);
   };
   return { submitting, save };
+}
+
+/** `useResetForm` + `useSave` for a create/edit dialog; spread `dialog` into `FormDialog`. */
+export function useFormDialog<I, T extends object>({ open, onOpenChange, item, onSuccess }: CrudDialogProps<I>, init: () => T) {
+  const [form, set, bind] = useResetForm(open, item, init);
+  const { submitting, save } = useSave(onSuccess, onOpenChange);
+  return { form, set, bind, save, dialog: { open, onOpenChange, submitting } };
 }
 
 export function useDialogTarget<T>() {
@@ -171,7 +259,8 @@ export function useDialogTarget<T>() {
     setItem(next);
     setOpen(true);
   };
-  return { open, setOpen, item, show };
+  const dialogProps = (onSuccess: () => void): CrudDialogProps<T> => ({ open, onOpenChange: setOpen, item, onSuccess });
+  return { open, setOpen, item, show, dialogProps };
 }
 
 export function useAdminData<T>(
@@ -210,22 +299,29 @@ export function useAdminData<T>(
   return { data, setData, loading, initialLoading, reload };
 }
 
+/** Page number plus a debounced search term; a new term jumps back to page 1. Spread `searchProps` into the input. */
 export function useSearchPaging() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedSearch = useDebounced(search, 350);
+  const [pagedSearch, setPagedSearch] = useState(debouncedSearch);
+  if (pagedSearch !== debouncedSearch) {
+    setPagedSearch(debouncedSearch);
+    setPage(1);
+  }
+  const searchProps = { value: search, onChange: (e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value) };
+  return { page, setPage, debouncedSearch, searchProps };
+}
 
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setDebouncedSearch(value);
-      setPage(1);
-    }, 350);
-  };
+/** Creates (POST `endpoint`) or, given an id, updates (PUT `endpoint/id`) an item. */
+export const upsertJson = (endpoint: string, id: string | undefined, body: unknown) =>
+  sendJson(id ? `${endpoint}/${id}` : endpoint, id ? 'PUT' : 'POST', body);
 
-  return { page, setPage, search, debouncedSearch, handleSearchChange };
+/** Uploads a form to the API proxy and returns the parsed JSON response. */
+export async function postForm<T>(endpoint: string, body: FormData): Promise<T> {
+  const res = await fetch(`/api${endpoint}`, { method: 'POST', body });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 export function AdminPagination({ page, setPage, total, pageSize, noun }: {
@@ -237,31 +333,20 @@ export function AdminPagination({ page, setPage, total, pageSize, noun }: {
 }) {
   const totalPages = Math.ceil(total / pageSize);
   if (totalPages <= 1) return null;
+  const pageButton = (Icon: typeof ChevronLeft, step: number, disabled: boolean) => (
+    <Button variant="outline" size="icon" className="h-8 w-8" disabled={disabled} onClick={() => setPage((p) => p + step)}>
+      <Icon className="h-4 w-4" />
+    </Button>
+  );
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground">
       <span>
         {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total} {noun}
       </span>
       <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => p - 1)}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+        {pageButton(ChevronLeft, -1, page <= 1)}
         <span className="px-2">{page} / {totalPages}</span>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8"
-          disabled={page >= totalPages}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        {pageButton(ChevronRight, 1, page >= totalPages)}
       </div>
     </div>
   );

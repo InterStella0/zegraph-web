@@ -1,5 +1,4 @@
 'use client';
-import {useMemo} from 'react';
 import Link from 'next/link';
 import {toast} from 'sonner';
 import {Avatar, AvatarFallback, AvatarImage} from 'components/ui/avatar';
@@ -30,9 +29,7 @@ function ServerRow({server, rank}: {server: Server, rank: number}) {
     return (
         <div className="flex flex-row items-center gap-3 py-2.5 border-t border-border/60 first:border-t-0">
             <span className="text-xs text-muted-foreground w-6 flex-shrink-0">#{rank}</span>
-            <span
-                className={`h-2 w-2 rounded-full flex-shrink-0 ${server.status ? 'bg-green-500' : 'bg-red-500'}`}
-            />
+            <span className={`h-2 w-2 rounded-full flex-shrink-0 ${server.status ? 'bg-green-500' : 'bg-red-500'}`} />
             <div className="min-w-0 flex-1">
                 <div className="flex flex-row items-center gap-1.5 min-w-0">
                     <span className="text-sm font-medium truncate" title={server.name}>
@@ -87,10 +84,7 @@ function ServerRow({server, rank}: {server: Server, rank: number}) {
 
 export default function CommunityServerGroup({community}: {community: Community}) {
     const t = useTranslations('home');
-    const servers = useMemo(
-        () => [...community.servers].sort((a, b) => b.players - a.players),
-        [community.servers],
-    );
+    const servers = [...community.servers].sort((a, b) => b.players - a.players);
 
     return (
         <Card>

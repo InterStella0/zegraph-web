@@ -1,16 +1,16 @@
 import { auth } from "auth.ts";
 import { BACKEND_DOMAIN } from "utils/generalUtils";
 
+// 50 MB file plus room for the multipart framing.
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 + 64 * 1024;
 
 const error = (msg: string, status: number) =>
   Response.json({ data: null, msg, code: status }, { status });
 
+/** Streams the multipart body straight to the backend rather than buffering it like `forwardRaw`. */
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.backendJwt) {
-    return error("Unauthorized", 401);
-  }
+  if (!session?.backendJwt) return error("Unauthorized", 401);
 
   const contentType = req.headers.get('content-type') ?? '';
   if (!contentType.toLowerCase().startsWith('multipart/form-data') || !req.body) {
@@ -20,14 +20,10 @@ export async function POST(req: Request) {
     return error("File is larger than 50 MB", 413);
   }
 
-  const backendUrl = `${BACKEND_DOMAIN}/admin/announcements/media`
   try {
-    const response = await fetch(backendUrl, {
+    const response = await fetch(`${BACKEND_DOMAIN}/admin/announcements/media`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.backendJwt}`,
-        'Content-Type': contentType,
-      },
+      headers: { Authorization: `Bearer ${session.backendJwt}`, 'Content-Type': contentType },
       body: req.body,
       duplex: 'half',
     } as RequestInit & { duplex: 'half' })

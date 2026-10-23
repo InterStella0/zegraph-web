@@ -1,21 +1,15 @@
 'use client'
-import {use, useEffect, useMemo, useRef, useState} from "react";
-import {StillCalculate} from "utils/generalUtils.ts";
 import {LazyBarChart as Bar} from "components/graphs/LazyCharts";
 import { Card } from "../ui/card";
-import { TooltipProvider } from "../ui/tooltip";
 import { Skeleton } from "../ui/skeleton";
 import SkeletonBarGraph from "../graphs/SkeletonBarGraph.tsx";
-import {useMapContext} from "../../app/servers/[server_slug]/maps/[map_name]/MapContext";
-import {PeriodChip, usePeriod} from "components/period/Period";
-import {useMapScope} from "lib/hooks/useMapScope";
-import {useNotReadyRetry} from "lib/hooks/useNotReadyRetry";
+import {useMapResource} from "lib/hooks/useMapScope";
 import {MapSessionDistribution} from "types/maps.ts";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { summarizeSessionDistribution } from "utils/chartSeoUtils.tsx";
 import {useTranslations} from 'next-intl';
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
-import InfoTooltip from "components/common/InfoTooltip";
+import MapCardTitle from "components/maps/MapCardTitle";
 import {withMapSuspense} from "components/maps/withMapSuspense";
 
 const BAR_HUES = ['221.2, 83.2%, 53.3%', '262.1, 83.3%, 57.8%', '291.7, 66.7%, 64.7%', '24.6, 95%, 53.1%', '346.8, 77.2%, 49.8%'];
@@ -26,40 +20,10 @@ type MapAverageSessionDistributionProps = { initialDataPromise?: Promise<MapSess
 
 function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDistributionProps) {
     const t = useTranslations('maps.sessionDistribution');
-    const { name } = useMapContext();
-    const { period } = usePeriod();
-    const initialData = initialDataPromise ? use(initialDataPromise) : null
-    const [detail, setDetail] = useState<MapSessionDistribution[] | null>(initialData);
-    const [loading, setLoading] = useState<boolean>(initialData === null);
-    const isFirstRun = useRef(initialData !== null)
-    const [error, setError] = useState<string | null>(null);
-    const [notReady, setNotReady] = useState<boolean>(false);
-    const { server, fetchMap } = useMapScope()
-    const server_id = server?.id ?? null
-    const [retryTick, setRetryTick] = useState(0)
-    useNotReadyRetry(notReady, () => setRetryTick(t => t + 1))
-
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false
-            return
-        }
-        if (!name) return
-        setLoading(true)
-        setDetail(null)
-        setNotReady(false)
-        setError(null)
-        fetchMap('/sessions_distribution', period ? { params: { period } } : {})
-            .then((data: MapSessionDistribution[]) => {
-                setDetail(data);
-            })
-            .catch(err => {
-                setNotReady(err instanceof StillCalculate)
-                setError(err.message || t('somethingWrong'));
-            })
-            .finally(() => setLoading(false))
-    }, [server_id, name, period, retryTick]);
-
+    const colors = useChartTheme();
+    const { data: detail, loading, error } = useMapResource<MapSessionDistribution[]>('/sessions_distribution', initialDataPromise);
+    const totalSessions = detail?.reduce((sum, d) => sum + d.session_count, 0) || 0;
+    const axis = { color: colors.foreground, font: { weight: 'bold' } };
     const labels = {
         "Under 10": t('under10'),
         "10 - 30": t('range10to30'),
@@ -67,8 +31,6 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
         "45 - 60": t('range45to60'),
         "Over 60": t('over60')
     };
-
-    const colors = useChartTheme();
 
     const data = {
         labels: Object.values(labels),
@@ -87,85 +49,40 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
 
     const options: any = {
         indexAxis: 'y',
-        responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: {
-                display: false
-            },
+            legend: { display: false },
             tooltip: {
                 ...heatmapTooltip(colors),
-                titleFont: {
-                    size: 14,
-                    weight: 'bold'
-                },
-                bodyFont: {
-                    size: 13
-                },
+                titleFont: { size: 14, weight: 'bold' },
+                bodyFont: { size: 13 },
                 padding: 10,
                 cornerRadius: 4
             }
         },
         scales: {
-            x: {
-                grid: {
-                    color: colors.faintGrid
-                },
-                ticks: {
-                    color: colors.foreground,
-                    font: {
-                        weight: 'bold'
-                    }
-                }
-            },
-            y: {
-                grid: {
-                    display: false
-                },
-                ticks: {
-                    color: colors.foreground,
-                    font: {
-                        weight: 'bold'
-                    }
-                }
-            }
+            x: { grid: { color: colors.faintGrid }, ticks: axis },
+            y: { grid: { display: false }, ticks: axis }
         }
     };
 
-    const summary = useMemo(() => {
-        if (!detail || detail.length === 0) {
-            return t('noData');
-        }
-
-        const totalSessions = detail.reduce((sum, d) => sum + d.session_count, 0);
-        const sessionBuckets = detail.map(d => ({
-            range: labels[d.session_range],
-            count: d.session_count,
-            percentage: (d.session_count / totalSessions) * 100
-        }));
-
-        return summarizeSessionDistribution(sessionBuckets);
-    }, [detail]);
+    const summary = !detail || detail.length === 0 ? t('noData') : summarizeSessionDistribution(detail.map(d => ({
+        range: labels[d.session_range],
+        count: d.session_count,
+        percentage: (d.session_count / totalSessions) * 100
+    })));
 
     if (error) {
         return (
             <Card className="p-6 rounded-lg h-[300px] flex items-center justify-center">
-                <p className="text-destructive">{error}</p>
+                <p className="text-destructive">{error.message || t('somethingWrong')}</p>
             </Card>
         );
     }
 
     return (
         <Card className="p-6 rounded-lg transition-transform duration-300">
-            <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-bold text-primary">{t('title')}</h2>
-                    <PeriodChip />
-                </div>
-                <TooltipProvider>
-                    <InfoTooltip text={t('tooltip')} />
-                </TooltipProvider>
-            </div>
+            <MapCardTitle title={t('title')} tooltip={t('tooltip')} />
 
             {!loading && detail && detail.length > 0 && (
                 <ScreenReaderOnly id="session-distribution-summary">
@@ -173,13 +90,11 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
                 </ScreenReaderOnly>
             )}
 
-            {loading && (
+            {loading ? (
                 <div className="h-[300px] flex items-center overflow-hidden">
                     <SkeletonBarGraph height={200} amount={5} barHeight={23} width={400} gap={'1.3rem'} />
                 </div>
-            )}
-
-            {!loading && (
+            ) : (
                 <div
                     className="h-[300px]"
                     role="img"
@@ -191,18 +106,19 @@ function AverageSessionDistribution({ initialDataPromise }: MapAverageSessionDis
             )}
 
             <div className="mt-4 flex justify-end">
-                {!loading && <p className="text-sm text-muted-foreground">
-                    {t('totalSessions', {count: detail?.reduce((acc, curr) => acc + curr.session_count, 0) || 0})}
-                </p>
-                }
-                {loading && <div className="flex items-center gap-1">
+                {loading ? (
+                    <div className="flex items-center gap-1">
+                        <p className="text-sm text-muted-foreground">
+                            {t('totalSessionsLabel')}
+                        </p>
+                        <Skeleton className="w-8 h-4" />
+                    </div>
+                ) : (
                     <p className="text-sm text-muted-foreground">
-                        {t('totalSessionsLabel')}
+                        {t('totalSessions', {count: totalSessions})}
                     </p>
-                    <Skeleton className="w-8 h-4" />
-                </div>}
+                )}
             </div>
-
         </Card>
     );
 }

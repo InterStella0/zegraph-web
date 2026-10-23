@@ -1,4 +1,4 @@
-import {ReactNode, Suspense} from "react";
+import {Suspense} from "react";
 import UserProfile, {UserProfileLoading} from "components/users/UserProfile";
 import UserCommunityConnections, {UserCommunityConnectionsLoading} from "components/users/UserCommunityConnections";
 import ProfilePlaytimeHistory, {ProfilePlaytimeHistoryLoading} from "components/users/ProfilePlaytimeHistory";
@@ -16,6 +16,7 @@ import {
     formatHours,
     formatOrdinal,
     formatTitle,
+    orNull,
     socialMeta
 } from "utils/generalUtils.ts";
 import {Metadata} from "next";
@@ -29,27 +30,11 @@ import {
     PlayerProfilePicture,
     PlayerSessionStats
 } from "types/players.ts";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
+import dayjs from "lib/dayjs";
 import {recordView} from "lib/recordView";
 
-dayjs.extend(relativeTime)
-
-function ProfileLayout({ hero, history, sessions, maps, activity, communities, infractions }: Record<
-    'hero' | 'history' | 'sessions' | 'maps' | 'activity' | 'communities' | 'infractions', ReactNode
->) {
-    return (
-        <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-12">{hero}</div>
-            <div className="col-span-12 xl:col-span-8">{history}</div>
-            <div className="col-span-12 xl:col-span-4">{sessions}</div>
-            <div className="col-span-12 xl:col-span-6">{maps}</div>
-            <div className="col-span-12 xl:col-span-6">{activity}</div>
-            <div className="col-span-12">{communities}</div>
-            <div className="col-span-12">{infractions}</div>
-        </div>
-    )
-}
+const fetchPfp = (steamid: string): Promise<PlayerProfilePicture | null> =>
+    orNull(fetchUrl(`/players/${steamid}/pfp`, { next: { revalidate: oneDay } }))
 
 export async function generateMetadata({ params }: {
     params: Promise<{ player_id: string }>
@@ -58,19 +43,14 @@ export async function generateMetadata({ params }: {
     const t = await getTranslations('metadata');
     const tHeader = await getTranslations('players.profile.header');
     const profile: ProfileResponse = await fetchApiUrl(`/players/${player_id}/profile`);
-    const summary = profile.summary
+    const { summary } = profile
     const global = summary.global
     const name = profile.name || tHeader('unknownUser')
 
-    const clauses: string[] = []
     const hours = formatHours(summary.total_playtime)
-    if (summary.server_count){
-        clauses.push(t('profileIntro', {
-            name, hours, servers: summary.server_count, communities: summary.community_count
-        }))
-    }else{
-        clauses.push(t('profileIntroNoServers', {name, hours}))
-    }
+    const clauses: string[] = [summary.server_count
+        ? t('profileIntro', { name, hours, servers: summary.server_count, communities: summary.community_count })
+        : t('profileIntroNoServers', {name, hours})]
 
     const rank = global.rank
     if (rank && rank <= global.total_ranked_players){
@@ -81,12 +61,9 @@ export async function generateMetadata({ params }: {
 
     const category = global.category
     if (category){
-        if (category === "mixed"){
-            const higherType =  global.casual_playtime > global.tryhard_playtime? "casual": "tryhard"
-            clauses.push(t('playerType', {category, hours: formatHours(global[`${higherType}_playtime`]), type: higherType}))
-        }else{
-            clauses.push(t('playerType', {category, hours: formatHours(global[`${category}_playtime`]), type: category}))
-        }
+        // A mixed player is described by whichever of casual or tryhard they play more.
+        const type = category !== "mixed" ? category : (global.casual_playtime > global.tryhard_playtime ? "casual" : "tryhard")
+        clauses.push(t('playerType', {category, hours: formatHours(global[`${type}_playtime`]), type}))
     }
 
     const bestMapRank = summary.best_map_rank
@@ -107,22 +84,13 @@ export async function generateMetadata({ params }: {
     }
 
     const description = clauses.join(' ')
-    let image = ""
-    try{
-        const pfp: PlayerProfilePicture | null = await fetchUrl(`/players/${profile.steamid}/pfp`, {  next: { revalidate: oneDay } })
-        image = pfp.full
-    }catch(error){
-
-    }
-
+    const image = (await fetchPfp(profile.steamid))?.full
     const title = formatTitle(name)
     return {
-        title: title,
-        description: description,
-        ...socialMeta({title, description, images: image? [image]: [], noTwitter: true}),
-        alternates: {
-            canonical: `/players/${profile.steamid}/profile`,
-        },
+        title,
+        description,
+        ...socialMeta({title, description, images: image ? [image] : [], noTwitter: true}),
+        alternates: { canonical: `/players/${profile.steamid}/profile` },
     }
 }
 
@@ -134,62 +102,50 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
     }
 
     const seed = <T,>(endpoint: string, params?: Record<string, string | number>): Promise<T | null> =>
-        fetchApiUrl(`/players/${player_id}${endpoint}`, params ? { params } : {}).catch(() => null);
+        orNull(fetchApiUrl(`/players/${player_id}${endpoint}`, params ? { params } : {}));
 
     const profilePromise: Promise<ProfileResponse> = fetchApiUrl(`/players/${player_id}/profile`);
-    const heatmapPromise: Promise<GlobalPlayerSessionTime[]> = seed<GlobalPlayerSessionTime[]>('/playtime-heatmap')
-        .then(data => data ?? []);
-    const pfpPromise: Promise<PlayerProfilePicture | null> = profilePromise
-        .then(profile => fetchUrl(`/players/${profile.steamid}/pfp`, {  next: { revalidate: oneDay } }))
-        .catch(() => null);
+    const heatmapPromise = seed<GlobalPlayerSessionTime[]>('/playtime-heatmap').then(data => data ?? []);
+    const pfpPromise = orNull(profilePromise.then(profile => fetchPfp(profile.steamid)));
     // Counted under the Steam ID, the same player_id the server player pages count under.
-    const viewsPromise: Promise<number | null> = profilePromise
-        .then(profile => recordView('players', profile.steamid))
-        .catch(() => null);
+    const viewsPromise: Promise<number | null> = orNull(profilePromise.then(profile => recordView('players', profile.steamid)));
     const sessionsPromise = seed<GlobalPlayerSessionPage>('/sessions', { page: 0 });
     const sessionStatsPromise = seed<PlayerSessionStats>('/session-stats');
     const mapsPromise = seed<GlobalPlayerMap[]>('/maps');
     const activityPromise = seed<PlayerOnlineActivity>('/online-activity', { tz: 'UTC' });
     const infractionsPromise = seed<GlobalPlayerInfraction[]>('/infractions');
 
+    const sections = [
+        { span: "col-span-12", fallback: <UserProfileLoading />,
+            content: <UserProfile profilePromise={profilePromise} pfpPromise={pfpPromise} viewsPromise={viewsPromise} /> },
+        { span: "col-span-12 xl:col-span-8", fallback: <ProfilePlaytimeHistoryLoading />,
+            content: <ProfilePlaytimeHistory heatmapPromise={heatmapPromise} statsPromise={sessionStatsPromise} /> },
+        { span: "col-span-12 xl:col-span-4", fallback: <ProfilePlaySessionsLoading />,
+            content: <ProfilePlaySessions userId={player_id} initialDataPromise={sessionsPromise} /> },
+        { span: "col-span-12 xl:col-span-6", fallback: <ProfileMapsLoading />,
+            content: <ProfileMaps mapsPromise={mapsPromise} /> },
+        { span: "col-span-12 xl:col-span-6", fallback: <ProfileOnlineActivityLoading />,
+            content: <ProfileOnlineActivity userId={player_id} initialDataPromise={activityPromise} /> },
+        { span: "col-span-12", fallback: <UserCommunityConnectionsLoading />,
+            content: <UserCommunityConnections profilePromise={profilePromise} /> },
+        { span: "col-span-12", fallback: <ProfileInfractionsLoading />,
+            content: <ProfileInfractions profilePromise={profilePromise} infractionsPromise={infractionsPromise} /> },
+    ]
+    // The same grid twice: all placeholders until the profile resolves, then each card streams in on its own.
+    const layout = (streamed: boolean) => (
+        <div className="grid grid-cols-12 gap-4">
+            {sections.map(({ span, fallback, content }, i) => (
+                <div key={i} className={span}>
+                    {streamed ? <Suspense fallback={fallback}>{content}</Suspense> : fallback}
+                </div>
+            ))}
+        </div>
+    )
+
     return (
         <div className="container mx-auto max-w-10xl px-2 py-8">
-            <Suspense fallback={
-                <ProfileLayout
-                    hero={<UserProfileLoading />}
-                    history={<ProfilePlaytimeHistoryLoading />}
-                    sessions={<ProfilePlaySessionsLoading />}
-                    maps={<ProfileMapsLoading />}
-                    activity={<ProfileOnlineActivityLoading />}
-                    communities={<UserCommunityConnectionsLoading />}
-                    infractions={<ProfileInfractionsLoading />}
-                />
-            }>
-                <ProfileCommunitiesProvider profilePromise={profilePromise}>
-                    <ProfileLayout
-                        hero={<Suspense fallback={<UserProfileLoading />}>
-                            <UserProfile profilePromise={profilePromise} pfpPromise={pfpPromise} viewsPromise={viewsPromise} />
-                        </Suspense>}
-                        history={<Suspense fallback={<ProfilePlaytimeHistoryLoading />}>
-                            <ProfilePlaytimeHistory heatmapPromise={heatmapPromise} statsPromise={sessionStatsPromise} />
-                        </Suspense>}
-                        sessions={<Suspense fallback={<ProfilePlaySessionsLoading />}>
-                            <ProfilePlaySessions userId={player_id} initialDataPromise={sessionsPromise} />
-                        </Suspense>}
-                        maps={<Suspense fallback={<ProfileMapsLoading />}>
-                            <ProfileMaps mapsPromise={mapsPromise} />
-                        </Suspense>}
-                        activity={<Suspense fallback={<ProfileOnlineActivityLoading />}>
-                            <ProfileOnlineActivity userId={player_id} initialDataPromise={activityPromise} />
-                        </Suspense>}
-                        communities={<Suspense fallback={<UserCommunityConnectionsLoading />}>
-                            <UserCommunityConnections profilePromise={profilePromise} />
-                        </Suspense>}
-                        infractions={<Suspense fallback={<ProfileInfractionsLoading />}>
-                            <ProfileInfractions profilePromise={profilePromise} infractionsPromise={infractionsPromise} />
-                        </Suspense>}
-                    />
-                </ProfileCommunitiesProvider>
+            <Suspense fallback={layout(false)}>
+                <ProfileCommunitiesProvider profilePromise={profilePromise}>{layout(true)}</ProfileCommunitiesProvider>
             </Suspense>
         </div>
     )

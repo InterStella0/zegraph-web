@@ -7,7 +7,7 @@ const WORLD_COPIES = [-720, -360, 0, 360, 720];
 
 export const TWILIGHT_ALTITUDES = [0, -6, -12, -18];
 
-export function subsolarPoint(date: Date): { lat: number, lng: number } {
+function subsolarPoint(date: Date): { lat: number, lng: number } {
     const n = date.getTime() / 86400000 - 10957.5;
     const meanLongitude = 280.46 + 0.9856474 * n;
     const meanAnomaly = (357.528 + 0.9856003 * n) * RAD;

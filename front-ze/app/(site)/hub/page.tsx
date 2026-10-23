@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { URI, formatTitle } from 'utils/generalUtils';
 import { getTranslations } from 'next-intl/server';
 import HubLinks, { HubLinksLoading } from './HubLinks';
+import type { CommunityLink } from 'types/community';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('metadata');
@@ -14,48 +15,28 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-interface CommunityLink {
-  id: string;
-  name: string;
-  url: string;
-  description: string | null;
-  sort_order: number;
-  created_at: string;
-}
-
-async function getLinks(): Promise<CommunityLink[]> {
-  try {
-    const res = await fetch(URI('/community-links'), { next: { revalidate: 300 } });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json?.data ?? [];
-  } catch {
-    return [];
-  }
-}
+const getLinks = (): Promise<CommunityLink[]> => fetch(URI('/community-links'), { next: { revalidate: 300 } })
+  .then((res) => (res.ok ? res.json() : null))
+  .then((json) => json?.data ?? [])
+  .catch(() => []);
 
 export default async function HubPage() {
   const t = await getTranslations('hub');
-  const linksPromise = getLinks();
 
   return (
     <div className="min-h-screen py-12 px-4">
       <div className="container mx-auto max-w-5xl space-y-10">
-
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Compass className="w-6 h-6 text-primary" />
             <h1 className="text-3xl font-bold">{t('title')}</h1>
           </div>
-          <p className="text-muted-foreground max-w-2xl">
-            {t('description')}
-          </p>
+          <p className="text-muted-foreground max-w-2xl">{t('description')}</p>
         </div>
 
         <Suspense fallback={<HubLinksLoading />}>
-          <HubLinks linksPromise={linksPromise} />
+          <HubLinks linksPromise={getLinks()} />
         </Suspense>
-
       </div>
     </div>
   );

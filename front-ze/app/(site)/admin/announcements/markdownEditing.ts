@@ -1,7 +1,7 @@
 export const MOD_KEY =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 
-export function replaceRange(
+function replaceRange(
   el: HTMLTextAreaElement,
   start: number,
   end: number,
@@ -93,11 +93,16 @@ export function insertBlock(el: HTMLTextAreaElement, text: string) {
   replaceRange(el, start, end, insert, start + insert.length);
 }
 
+/** Edits the textarea in place, keeping the selection, and fires `input` so React picks up the new value. */
+function spliceText(el: HTMLTextAreaElement, text: string, start: number, end: number) {
+  el.setRangeText(text, start, end, 'preserve');
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 export function replaceInTextarea(el: HTMLTextAreaElement, search: string, replacement: string): boolean {
   const index = el.value.indexOf(search);
   if (index === -1) return false;
-  el.setRangeText(replacement, index, index + search.length, 'preserve');
-  el.dispatchEvent(new Event('input', { bubbles: true }));
+  spliceText(el, replacement, index, index + search.length);
   return true;
 }
 
@@ -122,8 +127,7 @@ export function removeBlockFromTextarea(el: HTMLTextAreaElement, search: string)
   const index = el.value.indexOf(search);
   if (index === -1) return false;
   const { start, end, replacement } = blockRemoval(el.value, index, search.length);
-  el.setRangeText(replacement, start, end, 'preserve');
-  el.dispatchEvent(new Event('input', { bubbles: true }));
+  spliceText(el, replacement, start, end);
   return true;
 }
 
@@ -131,6 +135,5 @@ export function appendBlock(el: HTMLTextAreaElement, text: string) {
   const value = el.value;
   const trailing = value.length - value.replace(/\n+$/, '').length;
   const separator = value.length === 0 ? '' : '\n'.repeat(Math.max(0, 2 - trailing));
-  el.setRangeText(separator + text, value.length, value.length, 'preserve');
-  el.dispatchEvent(new Event('input', { bubbles: true }));
+  spliceText(el, separator + text, value.length, value.length);
 }

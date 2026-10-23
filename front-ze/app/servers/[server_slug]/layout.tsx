@@ -15,18 +15,13 @@ export default async function ServerLayout({
     params: Promise<{ server_slug: string }>;
 }) {
     const { server_slug } = await params
-    const server = await getServerSlugOrNotFound(server_slug)
-    const serverPromise = Promise.resolve(server)
-    const user = getServerUser();
-    const announcements = getBasicAnnouncements();
+    const serverPromise = Promise.resolve(await getServerSlugOrNotFound(server_slug))
 
-    return <>
-        <ServerDataProvider slugPromise={serverPromise}>
-            <ResponsiveAppSelector serverPromise={serverPromise} user={user} announcementsPromise={announcements}>
-                <Suspense fallback={<Loading />}>
-                    {children}
-                </Suspense>
-            </ResponsiveAppSelector>
-        </ServerDataProvider>
-    </>
+    return <ServerDataProvider slugPromise={serverPromise}>
+        <ResponsiveAppSelector serverPromise={serverPromise} user={getServerUser()} announcementsPromise={getBasicAnnouncements()}>
+            <Suspense fallback={<Loading />}>
+                {children}
+            </Suspense>
+        </ResponsiveAppSelector>
+    </ServerDataProvider>
 }

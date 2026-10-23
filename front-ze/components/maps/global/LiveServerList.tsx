@@ -1,8 +1,8 @@
 'use client'
-import {useEffect, useState} from 'react';
 import Image from "next/image";
 import {useTranslations} from 'next-intl';
 import {loadMapImage} from "lib/batchLoader";
+import {useResource} from "lib/hooks/useResource";
 import {ScrollArea} from "components/ui/scroll-area";
 import {GAME_META} from "components/ui/ServerIndicator";
 import {Server} from "types/community.ts";
@@ -10,13 +10,11 @@ import {Server} from "types/community.ts";
 function LiveServerRow({ server, active, onSelect }: {
     server: Server, active: boolean, onSelect: (serverId: string) => void,
 }) {
-    const [image, setImage] = useState<string | null>(null);
     const gameMeta = server.game ? GAME_META[server.game] : undefined;
-
-    useEffect(() => {
-        if (!server.map) return;
-        loadMapImage(server.map, server.id).then(e => setImage(e ? e.small : null));
-    }, [server.id, server.map]);
+    // Keeps the previous image while the next map's loads (and when the server reports no map).
+    const { data: image } = useResource(() => server.map
+        ? loadMapImage(server.map, server.id).then(e => e ? e.small : null)
+        : null, [server.id, server.map], { keepData: true });
 
     return (
         <button

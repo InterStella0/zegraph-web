@@ -33,10 +33,7 @@ export default function StillCalculatingPlayer() {
             return;
         }
 
-        const timer = setTimeout(() => {
-            setSeconds((prev) => prev - 1);
-        }, 1000);
-
+        const timer = setTimeout(() => setSeconds(prev => prev - 1), 1000);
         return () => clearTimeout(timer);
     }, [seconds]);
 

@@ -1,17 +1,14 @@
 'use client'
-import {Heart} from 'lucide-react';
-import dayjs from 'dayjs';
-import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
 import {useLocale, useTranslations} from 'next-intl';
-import {secondsToHours, withImageDomain} from "utils/generalUtils";
-import {useLocalDayjs} from "lib/hooks/useHydrated";
+import {range, secondsToHours, withImageDomain} from "utils/generalUtils";
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "components/ui/table";
 import {Badge} from "components/ui/badge";
-import {Button} from "components/ui/button";
-import {Skeleton} from "components/ui/skeleton";
+import {Skeleton, varyWidth} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
-import CategoryChip from "components/ui/CategoryChip.tsx";
+import {MapCategoryChips} from "components/ui/CategoryChip.tsx";
+import {FavoriteButton} from "../FavoriteButton";
 import {GAME_META} from "components/ui/ServerIndicator";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {GlobalMapPaginated, GlobalMapPlayed} from "types/maps.ts";
@@ -20,46 +17,40 @@ import CommunityAvatarStack from "./CommunityAvatarStack";
 import {cn} from "components/lib/utils";
 import {GLOBAL_MAPS_PAGE_SIZE} from "./constants";
 
-dayjs.extend(relativeTime);
+export type GlobalMapsListProps = {
+    mapsData: GlobalMapPaginated | null,
+    page: number,
+    setPage: (page: number) => void,
+    favorites: Set<string>,
+    toggleFavorite: (mapName: string) => void,
+    loading: boolean,
+};
 
 export function globalMapImage(map: GlobalMapPlayed, size: 'small' | 'medium' | 'large' | 'extra_large'): string | null {
     return map.image ? withImageDomain({...map.image})[size] : null;
 }
 
-export function GlobalMapChips({ map }: { map: GlobalMapPlayed }) {
-    const t = useTranslations('maps.table');
-    return (
-        <div className="flex gap-1 flex-wrap">
-            {map.games.map(game => {
-                const meta = GAME_META[game];
-                return meta && (
-                    <Badge key={game} variant="outline" className={`text-xs ${meta.className}`}>
-                        {meta.label}
-                    </Badge>
-                );
-            })}
-            {map.is_casual && !map.is_tryhard && <CategoryChip category="casual" size="small"/>}
-            {map.is_tryhard && !map.is_casual && <CategoryChip category="tryhard" size="small"/>}
-            {map.is_tryhard && map.is_casual && <CategoryChip category="mixed" size="small"/>}
-            {map.has_lasers && <CategoryChip category="lasers" title={t('lasersTitle')} size="small"/>}
-            {map.no_noms && <CategoryChip category="no noms" title={t('noNomsTitle')} size="small"/>}
-        </div>
-    );
+/** Maps out of rotation on every server are dimmed. */
+export const rotationStyle = (map: GlobalMapPlayed) =>
+    ({opacity: map.servers.some(server => server.enabled && !server.removed) ? 1 : 0.6});
+
+export function GameBadges({ games, className }: { games: string[], className?: string }) {
+    return games.map(game => {
+        const meta = GAME_META[game];
+        return meta && (
+            <Badge key={game} variant="outline" className={cn(className, "text-xs", meta.className)}>
+                {meta.label}
+            </Badge>
+        );
+    });
 }
 
-export function FavoriteButton({ mapName, favorites, toggleFavorite, className = '' }: {
-    mapName: string, favorites: Set<string>, toggleFavorite: (mapName: string) => void, className?: string,
-}) {
-    const isFavorite = favorites.has(mapName);
+export function GlobalMapChips({ map }: { map: GlobalMapPlayed }) {
     return (
-        <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => toggleFavorite(mapName)}
-            className={`transition-all hover:scale-110 ${isFavorite ? 'text-primary' : ''} ${className}`}
-        >
-            <Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`}/>
-        </Button>
+        <div className="flex gap-1 flex-wrap">
+            <GameBadges games={map.games}/>
+            <MapCategoryChips map={map}/>
+        </div>
     );
 }
 
@@ -78,7 +69,7 @@ function GlobalMapRowSkeleton({ index }: { index: number }) {
                 <div className="flex items-center gap-4">
                     <Skeleton className="w-20 h-11 rounded"/>
                     <div>
-                        <Skeleton className="h-3.5" style={{width: `${7 + (index * 5) % 6}rem`}}/>
+                        <Skeleton className="h-3.5" style={varyWidth(index, 7, 6, 5)}/>
                         <div className="flex gap-1 mt-1.5">
                             <Skeleton className="h-5 w-10 rounded-full"/>
                             <Skeleton className="h-5 w-14 rounded-full"/>
@@ -102,10 +93,9 @@ function GlobalMapRow({ map, favorites, toggleFavorite }: {
 }) {
     const locale = useLocale();
     const image = globalMapImage(map, 'small');
-    const inRotation = map.servers.some(server => server.enabled && !server.removed);
 
     return (
-        <TableRow className="transition-opacity" style={{opacity: inRotation ? 1 : 0.6}}>
+        <TableRow className="transition-opacity" style={rotationStyle(map)}>
             <TableCell>
                 <div className="flex items-center gap-4">
                     <div className="rounded overflow-hidden w-20 h-11 flex-shrink-0">
@@ -155,33 +145,25 @@ function GlobalMapRow({ map, favorites, toggleFavorite }: {
     );
 }
 
-export default function GlobalMapsTable({ mapsData, page, setPage, favorites, toggleFavorite, loading }: {
-    mapsData: GlobalMapPaginated | null,
-    page: number,
-    setPage: (page: number) => void,
-    favorites: Set<string>,
-    toggleFavorite: (mapName: string) => void,
-    loading: boolean,
-}) {
+export default function GlobalMapsTable({ mapsData, page, setPage, favorites, toggleFavorite, loading }: GlobalMapsListProps) {
     const t = useTranslations('maps.table');
     const tGlobal = useTranslations('maps.global');
     const total = mapsData?.total_maps || 0;
-    const totalPages = Math.ceil(total / GLOBAL_MAPS_PAGE_SIZE);
     const startItem = total === 0 ? 0 : page * GLOBAL_MAPS_PAGE_SIZE + 1;
     const endItem = Math.min((page + 1) * GLOBAL_MAPS_PAGE_SIZE, total);
+    const columns: [string, string?][] = [
+        [t('map')], [tGlobal('communities')], [t('status')], [t('cumulativeHours'), 'text-right'],
+        [t('players'), 'text-right'], [t('sessions'), 'text-right'], [t('lastPlayed'), 'text-center'],
+    ];
 
     return (
         <div className="border border-border rounded-lg bg-card overflow-hidden">
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="font-bold">{t('map')}</TableHead>
-                        <TableHead className="font-bold">{tGlobal('communities')}</TableHead>
-                        <TableHead className="font-bold">{t('status')}</TableHead>
-                        <TableHead className="font-bold text-right">{t('cumulativeHours')}</TableHead>
-                        <TableHead className="font-bold text-right">{t('players')}</TableHead>
-                        <TableHead className="font-bold text-right">{t('sessions')}</TableHead>
-                        <TableHead className="font-bold text-center">{t('lastPlayed')}</TableHead>
+                        {columns.map(([label, align]) => (
+                            <TableHead key={label} className={cn("font-bold", align)}>{label}</TableHead>
+                        ))}
                         <TableHead/>
                     </TableRow>
                 </TableHeader>
@@ -189,9 +171,7 @@ export default function GlobalMapsTable({ mapsData, page, setPage, favorites, to
                     {mapsData?.maps?.map(map => (
                         <GlobalMapRow key={map.map} map={map} favorites={favorites} toggleFavorite={toggleFavorite}/>
                     ))}
-                    {!mapsData && Array.from({length: GLOBAL_MAPS_PAGE_SIZE}).map((_, i) =>
-                        <GlobalMapRowSkeleton key={i} index={i}/>
-                    )}
+                    {!mapsData && range(GLOBAL_MAPS_PAGE_SIZE).map(i => <GlobalMapRowSkeleton key={i} index={i}/>)}
                 </TableBody>
             </Table>
             {!loading && total === 0 && (
@@ -202,7 +182,7 @@ export default function GlobalMapsTable({ mapsData, page, setPage, favorites, to
                 <p className="text-sm text-muted-foreground">
                     {t('showing', {start: startItem, end: endItem, total})}
                 </p>
-                <PaginationPage totalPages={totalPages} page={page} setPage={setPage}/>
+                <PaginationPage totalPages={Math.ceil(total / GLOBAL_MAPS_PAGE_SIZE)} page={page} setPage={setPage}/>
             </div>
         </div>
     );

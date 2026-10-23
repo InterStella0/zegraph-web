@@ -1,24 +1,21 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {ReactElement, ReactNode, use, useEffect, useRef, useState} from "react";
-import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
+import {ReactElement, ReactNode, useState} from "react";
+import {fetchApiServerUrl, range} from "utils/generalUtils";
 import { Card, CardContent } from "components/ui/card";
 import { Badge } from "components/ui/badge";
 import { Skeleton } from "components/ui/skeleton";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-import timezone from "dayjs/plugin/timezone";
-import { ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page";
+import dayjs from "lib/dayjs";
 import {PlayerSession, PlayerSessionPage} from "types/players.ts";
+import {Server} from "types/community";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import SessionDateFilter from "./SessionDateFilter";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
-import {periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {periodBounds, usePeriod} from "components/period/Period";
 import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
-import {useLocalDayjs} from "lib/hooks/useHydrated";
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
+import {useResource} from "lib/hooks/useResource";
+import {ServerPlayerProps, useServerPlayer} from "./common";
 
 function SessionSkeleton({ index }: { index: number }) {
     return (
@@ -39,21 +36,17 @@ function SessionSkeleton({ index }: { index: number }) {
     );
 }
 
-function SessionRow({ session, server, player }) {
+function formatMinutes(total: number) {
+    const hours = Math.floor(total / 60);
+    return hours > 0 ? `${hours}h ${total % 60}m` : `${total % 60}m`;
+}
+
+function SessionRow({ session, server, playerId }: { session: PlayerSession, server: Server, playerId: string }) {
     const t = useTranslations('players.sessions');
     const toDayjs = useLocalDayjs();
-    const playerId = player.id
-    const calculateDuration = (startedAt: string, endedAt: string) => {
-        if (!endedAt) return t('ongoing');
-        const start = dayjs(startedAt);
-        const end = dayjs(endedAt);
-        const duration = end.diff(start, 'minute');
-        const hours = Math.floor(duration / 60);
-        const minutes = duration % 60;
-        return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-    };
-
-    const isOngoing = (endedAt: string) => !endedAt;
+    const duration = session.ended_at
+        ? formatMinutes(dayjs(session.ended_at).diff(dayjs(session.started_at), 'minute'))
+        : t('ongoing');
 
     return (
         <HoverPrefetchLink href={`/servers/${server.gotoLink}/players/${playerId}/sessions/${session.id}`}>
@@ -68,17 +61,12 @@ function SessionRow({ session, server, player }) {
                                 →
                             </span>
                             <p className="text-xs sm:text-sm text-muted-foreground">
-                                {isOngoing(session.ended_at)
-                                    ? t('ongoing'): toDayjs(session.ended_at).format('MMM DD, h:mm a')
-                                }
+                                {session.ended_at ? toDayjs(session.ended_at).format('MMM DD, h:mm a') : t('ongoing')}
                             </p>
                         </div>
                         <div className="flex gap-1 items-center shrink-0">
-                            <Badge
-                                variant={isOngoing(session.ended_at) ? 'default' : 'secondary'}
-                                className="font-bold text-xs"
-                            >
-                                {calculateDuration(session.started_at, session.ended_at)}
+                            <Badge variant={session.ended_at ? 'secondary' : 'default'} className="font-bold text-xs">
+                                {duration}
                             </Badge>
                         </div>
                     </div>
@@ -88,22 +76,15 @@ function SessionRow({ session, server, player }) {
     );
 }
 
-export default function PlayerSessionList({ serverPlayerPromise, heading }: {
-    serverPlayerPromise: Promise<ServerPlayerDetailed>,
+export default function PlayerSessionList({ serverPlayerPromise, heading }: ServerPlayerProps & {
     heading?: ReactNode,
 }): ReactElement {
     const t = useTranslations('players.sessions');
-    const { server, player } = use(serverPlayerPromise)
-    const server_id = server.id
-    const playerId = !(player instanceof StillCalculate)? player.id: null
-    const { period } = usePlayerPeriod();
+    const { server, playerId } = useServerPlayer(serverPlayerPromise)
+    const { period } = usePeriod();
     const { seed, idle } = usePlayerStatSeed<PlayerSessionPage>('sessions', !period);
-    const [loading, setLoading] = useState<boolean>(seed === null);
-    const [sessionList, setSessionList] = useState<PlayerSession[]>(seed?.rows ?? []);
     const [page, setPage] = useState<number>(0);
-    const [totalPages, setTotalPages] = useState<number>(seed?.total_pages ?? 1);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-    const isFirstRun = useRef(seed !== null);
     const [shownPeriod, setShownPeriod] = useState(period);
     if (shownPeriod !== period) {
         setShownPeriod(period);
@@ -114,43 +95,17 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
     const firstDay = bounds ? dayjs(dayjs.utc(bounds.start).format('YYYY-MM-DD')).toDate() : undefined;
     const lastDay = bounds ? dayjs(dayjs.utc(bounds.end).subtract(1, 'day').format('YYYY-MM-DD')).toDate() : undefined;
 
-    useEffect(() => {
-        if (!playerId || idle) return;
-        if (isFirstRun.current) {
-            isFirstRun.current = false;
-            return;
-        }
-
-        setLoading(true);
-        const abort = new AbortController();
-        const params: { page: number, datetime?: string, period?: string } = { page };
-
-        if (selectedDate) {
-            params.datetime = dayjs(selectedDate).utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
-        }
-        if (period) {
-            params.period = period;
-        }
-
-        fetchApiServerUrl(server_id, `/players/${playerId}/sessions`, {
-            params,
-            signal: abort.signal
-        }).then((data: PlayerSessionPage) => {
-                setSessionList(data.rows);
-                setTotalPages(data.total_pages);
-                setLoading(false);
-            })
-            .catch((error) => {
-                if (error.name !== 'AbortError') {
-                    console.error('Failed to fetch sessions:', error);
-                    setLoading(false);
-                }
-            });
-
-        return () => {
-            abort.abort();
+    const { data, loading } = useResource<PlayerSessionPage>(signal => {
+        if (!playerId || idle) return null;
+        const params = {
+            page,
+            ...(selectedDate && { datetime: dayjs(selectedDate).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') }),
+            ...(period && { period }),
         };
-    }, [server_id, playerId, page, selectedDate, period]);
+        return fetchApiServerUrl(server.id, `/players/${playerId}/sessions`, { params, signal });
+    }, [server.id, playerId, page, selectedDate, period], { initial: seed ?? undefined, keepData: true, errorLog: 'Failed to fetch sessions:' });
+    const sessionList = data?.rows ?? [];
+    const totalPages = data?.total_pages ?? 1;
 
     const handleDateChange = (newDate: Date | undefined) => {
         setSelectedDate(newDate);
@@ -168,15 +123,11 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: {
 
             <div className="h-[525px] overflow-y-auto mb-3 pr-2">
                 <div className="space-y-2">
-                    {loading ? (
-                        Array.from({ length: 10 }).map((_, index) => (
-                            <SessionSkeleton key={index} index={index} />
-                        ))
-                    ) : (
-                        sessionList.map((session) => (
-                            <SessionRow key={session.id} session={session} player={player} server={server} />
-                        ))
-                    )}
+                    {loading
+                        ? range(10).map(index => <SessionSkeleton key={index} index={index} />)
+                        : sessionList.map(session => (
+                            <SessionRow key={session.id} session={session} playerId={playerId} server={server} />
+                        ))}
                 </div>
                 {sessionList.length === 0 && !loading && (
                     <div className="text-center py-8">

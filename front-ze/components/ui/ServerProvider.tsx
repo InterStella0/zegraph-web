@@ -9,21 +9,14 @@ export function useServerMap() {
     return useContext(ServerProvider);
 }
 
-
 export function CommunityServerProvider({ promiseCommunities, children }: {promiseCommunities: Promise<Community[]>, children: ReactNode}) {
     const initialData = use(promiseCommunities);
     const [communities, setCommunities] = useState(initialData);
 
     useEffect(() => {
-        const refresh = async () => {
-            try {
-                await getCommunity().then(setCommunities);
-            } catch (err) {
-                console.error('Failed to refresh communities:', err);
-            }
-        };
-
-        const interval = setInterval(refresh, 60_000);
+        const interval = setInterval(() => {
+            getCommunity().then(setCommunities).catch(err => console.error('Failed to refresh communities:', err));
+        }, 60_000);
         return () => clearInterval(interval);
     }, []);
     return <ServerProvider.Provider value={new CommunitiesData(communities)}>

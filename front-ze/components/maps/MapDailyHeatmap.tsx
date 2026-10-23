@@ -1,23 +1,14 @@
 'use client'
-import {BarController, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, TimeScale, Title, Tooltip as TooltipChart} from 'chart.js';
-import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import {LazyBarChart, LazyMatrixChart} from "components/graphs/LazyCharts";
 import {color} from "chart.js/helpers";
 import {useMemo} from "react";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
+import dayjs from "lib/dayjs";
 import { Skeleton } from "../ui/skeleton";
 import {isShortPeriod, rangeDays, splitRange, usePeriod} from "components/period/Period";
-import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import {useLocale} from 'next-intl';
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 import {calendarMatrixDataset, calendarMatrixOptions, weekdayKey} from "lib/calendarHeatmap";
-
-dayjs.extend(utc);
-
-ChartJS.register(MatrixController, MatrixElement,
-    TimeScale, TooltipChart, CategoryScale, LinearScale, Title, MatrixController, BarController, BarElement, Legend);
 
 export type HeatSeries = { key: string, label: string, seconds: number }
 export type HeatDay = { date: string, series: HeatSeries[] }
@@ -100,7 +91,6 @@ export default function MapDailyHeatmap({ days, loading, colorOf, order, cellAlp
     }, [cells, order, colorOf])
 
     const barOptions = useMemo(() => ({
-        responsive: true,
         maintainAspectRatio: false,
         scales: {
             x: {
@@ -112,33 +102,18 @@ export default function MapDailyHeatmap({ days, loading, colorOf, order, cellAlp
                         return dayjs.utc(this.getLabelForValue(value)).format(isRange ? 'D MMM' : 'D');
                     }
                 },
-                grid: {
-                    display: false
-                }
+                grid: { display: false }
             },
             y: {
                 stacked: true,
                 beginAtZero: true,
-                title: {
-                    display: true,
-                    text: yTitle,
-                    color: colors.foreground
-                },
-                ticks: {
-                    color: colors.foreground
-                },
-                grid: {
-                    color: colors.faintGrid
-                }
+                title: { display: true, text: yTitle, color: colors.foreground },
+                ticks: { color: colors.foreground },
+                grid: { color: colors.faintGrid }
             }
         },
         plugins: {
-            legend: {
-                position: 'bottom',
-                labels: {
-                    color: colors.foreground
-                }
-            },
+            legend: { position: 'bottom', labels: { color: colors.foreground } },
             tooltip: {
                 ...heatmapTooltip(colors),
                 callbacks: {

@@ -27,13 +27,10 @@ export function PlayerName({ name, isAnonymous = false, hiddenFromOthers = false
     if (isAnonymous) {
         return <span className={className}>{t('anonymous')}</span>;
     }
-    if (!hiddenFromOthers) {
-        return <span className={className}>{name}{isBot && <BotBadge/>}</span>;
-    }
     return (
-        <span className={className} title={t('hiddenHint')}>
+        <span className={className} title={hiddenFromOthers ? t('hiddenHint') : undefined}>
             {name}
-            <span className="ml-1 font-normal text-muted-foreground">{t('hidden')}</span>
+            {hiddenFromOthers && <span className="ml-1 font-normal text-muted-foreground">{t('hidden')}</span>}
             {isBot && <BotBadge/>}
         </span>
     );

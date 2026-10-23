@@ -3,30 +3,26 @@ import Link from 'next/link';
 import { X } from 'lucide-react';
 import { use, useEffect, useState } from 'react';
 import { DONOR_BANNER_DISMISSED, DonorBannerData } from 'utils/supporters';
-
-function saveDismissal(latestId: string) {
-  document.cookie = `${DONOR_BANNER_DISMISSED}=${encodeURIComponent(latestId)}; path=/; max-age=31536000; SameSite=Lax`;
-}
+import { setCookie } from 'components/lib/utils';
 
 export function DonorBanner({ bannerPromise }: { bannerPromise: Promise<DonorBannerData | null> }) {
   const banner = use(bannerPromise);
   const [dismissed, setDismissed] = useState(false);
+  const dismiss = () => {
+    setCookie(DONOR_BANNER_DISMISSED, banner.latestId);
+    setDismissed(true);
+  };
 
+  // Dismissals used to live in localStorage; move them to the cookie the server reads.
   useEffect(() => {
     if (!banner || localStorage.getItem(DONOR_BANNER_DISMISSED) !== banner.latestId) return;
     localStorage.removeItem(DONOR_BANNER_DISMISSED);
-    saveDismissal(banner.latestId);
-    setDismissed(true);
+    dismiss();
   }, [banner]);
 
   if (!banner || dismissed) return null;
 
   const suffix = banner.remaining > 0 ? ` +${banner.remaining} more` : '';
-
-  const handleDismiss = () => {
-    saveDismissal(banner.latestId);
-    setDismissed(true);
-  };
 
   return (
     <div className="w-full bg-muted/50 border-b border-border/30 py-1.5 px-4 text-center text-xs text-muted-foreground relative">
@@ -42,7 +38,7 @@ export function DonorBanner({ bannerPromise }: { bannerPromise: Promise<DonorBan
         </Link>
       </span>
       <button
-        onClick={handleDismiss}
+        onClick={dismiss}
         className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-foreground/10 transition-colors"
         aria-label="Dismiss"
       >

@@ -1,32 +1,28 @@
 'use client'
-import {ReactNode, use, useCallback, useEffect, useRef, useState} from "react";
+import {ReactNode, useCallback, useEffect, useRef, useState} from "react";
 import {useLocale, useTranslations} from "next-intl";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
+import dayjs from "lib/dayjs";
 import {Loader2, RefreshCw, Search, Users} from "lucide-react";
 import {toast} from "sonner";
 import {Button} from "components/ui/button";
 import {Input} from "components/ui/input";
-import {Skeleton} from "components/ui/skeleton";
+import {Skeleton, SkeletonText, varyWidth} from "components/ui/skeleton";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {PlayerAvatar} from "./PlayerAvatar";
 import {PlayerName} from "./PlayerName";
-import {fetchApiServerUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
+import {fetchApiServerUrl, NO_CACHE, range, secondsToHours} from "utils/generalUtils";
 import {MightFriendsCalculateStatus, PlayerMightFriendsPage, PlayerSeen} from "types/players.ts";
 import {Server} from "types/community.ts";
-import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
-import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {usePeriod} from "components/period/Period";
 import {useDebounced} from "lib/hooks/useDebounced";
 import {withErrorCatch} from "components/common/withErrorCatch";
-
-dayjs.extend(relativeTime);
+import {ServerPlayerProps, useServerPlayer} from "./common";
 
 const SEARCH_DEBOUNCE_MS = 300;
 const LIVE_SEARCH_MIN_CHARS = 3;
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLLS = 60;
-const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
 
 function PlayedWithRow({ player, server }: { player: PlayerSeen, server: Server }) {
     const t = useTranslations('players.playedWith');
@@ -65,25 +61,22 @@ function PlayedWithSkeletonRow({ index }: { index: number }) {
             <Skeleton className="w-[40px] h-[40px] rounded-[8%] flex-shrink-0" />
             <div className="flex-1 min-w-0">
                 <div className="font-medium">
-                    <Skeleton className="inline-block align-middle h-4" style={{width: `${5 + (index * 3) % 6}rem`}} />{'\u200b'}
+                    <SkeletonText className="h-4" style={varyWidth(index)} />
                 </div>
                 <div className="text-xs">
-                    <Skeleton className="inline-block align-middle h-3 w-24" />{'\u200b'}
+                    <SkeletonText className="h-3 w-24" />
                 </div>
             </div>
             <div className="text-sm flex-shrink-0">
-                <Skeleton className="inline-block align-middle h-3.5 w-12" />{'\u200b'}
+                <SkeletonText className="h-3.5 w-12" />
             </div>
         </div>
     );
 }
 
-type PlayedWithProps = { serverPlayerPromise: Promise<ServerPlayerDetailed>, heading?: ReactNode };
-
-function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithProps) {
+function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: ServerPlayerProps & { heading?: ReactNode }) {
     const t = useTranslations('players.playedWith');
-    const {server, player} = use(serverPlayerPromise);
-    const playerId = !(player instanceof StillCalculate) ? player.id : null;
+    const {server, playerId} = useServerPlayer(serverPlayerPromise);
 
     const [query, setQuery] = useState('');
     const debouncedQuery = useDebounced(query.trim(), SEARCH_DEBOUNCE_MS);
@@ -94,7 +87,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
     const [error, setError] = useState(false);
     const [polling, setPolling] = useState(false);
     const [requesting, setRequesting] = useState(false);
-    const { period } = usePlayerPeriod();
+    const { period } = usePeriod();
     const [shownPeriod, setShownPeriod] = useState(period);
     if (shownPeriod !== period) {
         setShownPeriod(period);
@@ -105,9 +98,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
 
     const load = useCallback(async (): Promise<PlayerMightFriendsPage | null> => {
         if (!playerId) return null;
-        const params: Record<string, string> = { page: String(page) };
-        if (debouncedQuery) params.q = debouncedQuery;
-        if (period) params.period = period;
+        const params = { page: String(page), ...(debouncedQuery && {q: debouncedQuery}), ...(period && {period}) };
         const result: PlayerMightFriendsPage = await fetchApiServerUrl(
             server.id, `/players/${playerId}/might_friends`, { ...NO_CACHE, params },
         );
@@ -187,8 +178,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
             return debouncedQuery ? t('periodNoMatches', {query: debouncedQuery}) : t('periodEmpty');
         }
         if (!debouncedQuery) return t('empty');
-        if (data?.live_search) return t('noLiveMatches', {query: debouncedQuery});
-        if (debouncedQuery.length < LIVE_SEARCH_MIN_CHARS) return t('noMatchesShort', {query: debouncedQuery});
+        if (!data?.live_search && debouncedQuery.length < LIVE_SEARCH_MIN_CHARS) return t('noMatchesShort', {query: debouncedQuery});
         return t('noLiveMatches', {query: debouncedQuery});
     };
 
@@ -232,9 +222,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
                         <p className="text-xs text-muted-foreground mb-1">{t('liveSearch')}</p>
                     )}
                     <div className="flex-1 max-h-[470px] overflow-y-auto">
-                        {loading && !data && Array.from({length: 20}).map((_, i) =>
-                            <PlayedWithSkeletonRow key={i} index={i} />
-                        )}
+                        {loading && !data && range(20).map(i => <PlayedWithSkeletonRow key={i} index={i} />)}
                         {error && <p className="text-sm text-muted-foreground py-6 text-center">{t('loadError')}</p>}
                         {!error && data && data.rows.length === 0 && (
                             <p className="text-sm text-muted-foreground py-6 text-center">{emptyMessage()}</p>
@@ -250,7 +238,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: PlayedWithPro
                                 <Skeleton className="h-9 w-full" />
                             </div>
                             <div className="text-xs">
-                                <Skeleton className="inline-block align-middle h-3 w-40" />{'\u200b'}
+                                <SkeletonText className="h-3 w-40" />
                             </div>
                         </>
                     )}

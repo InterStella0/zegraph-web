@@ -1,5 +1,6 @@
 import { Skeleton } from "components/ui/skeleton";
 import { cn } from "components/lib/utils";
+import { range } from "utils/generalUtils";
 
 export default function GraphSkeleton({
     height = 200,
@@ -8,8 +9,6 @@ export default function GraphSkeleton({
     height?: number;
     className?: string;
 }) {
-    const [min, max] = [2, 80];
-
     return (
         <div
             className={cn(
@@ -20,12 +19,8 @@ export default function GraphSkeleton({
         >
             <Skeleton className="w-[10%] h-[15px] my-2" />
             <div className="flex items-end gap-2 justify-evenly w-[90%]">
-                {Array.from({ length: 50 }).map((_, index) => (
-                    <Skeleton
-                        key={index}
-                        className="w-2"
-                        style={{ height: min + (index * 37) % (max - min) }}
-                    />
+                {range(50).map(index => (
+                    <Skeleton key={index} className="w-2" style={{ height: 2 + (index * 37) % 78 }} />
                 ))}
             </div>
             <Skeleton className="w-[95%] h-[15px] my-2" />

@@ -3,7 +3,7 @@ import {useLocale, useTranslations} from 'next-intl';
 import {CSSProperties, ReactElement, ReactNode} from "react";
 import {ArrowUpRight} from "lucide-react";
 import { Skeleton } from "components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { cn } from "components/lib/utils";
 import {formatNumber, secondsToHours} from "utils/generalUtils";
 import {
@@ -14,7 +14,7 @@ import {
     NidePlayerStats,
     PlayerExternalStats,
 } from "types/players";
-import {PlayerPeriod, usePeriodLabel, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {Period, usePeriod, usePeriodLabel} from "components/period/Period";
 import {PlayerStatSuspense, usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 
 const SOURCE_NAMES: Record<string, string> = {
@@ -46,10 +46,11 @@ type PlaytimeSummary = {
     missing: number,
     over: number,
     external: ExternalPlaytime | null,
+    source: string | null,
     split: Record<SplitKey, number>,
 }
 
-function summarize(player: DetailedPlayer, period: PlayerPeriod): PlaytimeSummary {
+function summarize(player: DetailedPlayer, period: Period): PlaytimeSummary {
     const external = period ? null : player.external_playtime ?? null;
     const correction = external?.playtime_correction ?? 0;
     const tracked = external ? external.tracked_playtime : player.total_playtime;
@@ -60,6 +61,7 @@ function summarize(player: DetailedPlayer, period: PlayerPeriod): PlaytimeSummar
         missing: Math.max(correction, 0),
         over: Math.max(-correction, 0),
         external,
+        source: external ? SOURCE_NAMES[external.source] ?? external.source : null,
         split: {
             casual: player.casual_playtime,
             mixed: player.mixed_playtime,
@@ -67,10 +69,6 @@ function summarize(player: DetailedPlayer, period: PlayerPeriod): PlaytimeSummar
             untagged: Math.max(tracked - tagged, 0),
         },
     };
-}
-
-function sourceName(source: string): string {
-    return SOURCE_NAMES[source] ?? source;
 }
 
 function formatDay(value: string | null | undefined, locale: string, compact = false): string {
@@ -103,7 +101,7 @@ function formatPercent(value: number, locale: string, precise = false): string {
 export function PlaytimeTotal({ player, className }: { player: DetailedPlayer | null, className?: string }): ReactElement {
     const t = useTranslations('players.stats');
     const locale = useLocale();
-    const { period } = usePlayerPeriod();
+    const { period } = usePeriod();
     const periodLabel = usePeriodLabel(period);
 
     if (!player) {
@@ -114,8 +112,7 @@ export function PlaytimeTotal({ player, className }: { player: DetailedPlayer | 
         </div>
     }
 
-    const { total, external } = summarize(player, period);
-    const source = external ? sourceName(external.source) : null;
+    const { total, external, source } = summarize(player, period);
     const short = source
         ? t('viaSource', { source, date: formatDay(external!.fetched_at, locale, true) })
         : t('viaSessions', { period: periodLabel });
@@ -168,7 +165,7 @@ function SourceLink({ href, className, linkClassName, children }: {
 }
 
 export default function PlayerStats({ player, className }: { player: DetailedPlayer | null, className?: string }): ReactElement {
-    const { period } = usePlayerPeriod();
+    const { period } = usePeriod();
     return <div className={cn("min-w-0", className)}>
         <PlaytimeBreakdown player={player} />
         {!period && (
@@ -182,7 +179,7 @@ export default function PlayerStats({ player, className }: { player: DetailedPla
 function PlaytimeBreakdown({ player }: { player: DetailedPlayer | null }): ReactElement {
     const t = useTranslations('players.stats');
     const locale = useLocale();
-    const { period } = usePlayerPeriod();
+    const { period } = usePeriod();
 
     if (!player) {
         return <div className="space-y-3">
@@ -192,8 +189,7 @@ function PlaytimeBreakdown({ player }: { player: DetailedPlayer | null }): React
         </div>
     }
 
-    const { tracked, missing, over, external, split } = summarize(player, period);
-    const source = external ? sourceName(external.source) : null;
+    const { tracked, missing, over, source, split } = summarize(player, period);
     const scale = tracked + missing;
     const width = (seconds: number) => scale > 0 ? seconds / scale * 100 : 0;
     const share = (seconds: number) => tracked > 0 ? seconds / tracked * 100 : 0;
@@ -221,30 +217,28 @@ function PlaytimeBreakdown({ player }: { player: DetailedPlayer | null }): React
             </p>
         )}
 
-        <TooltipProvider>
-            <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-muted">
-                {SPLIT_SEGMENTS.filter(segment => split[segment.key] > 0).map(segment => (
-                    <Tooltip key={segment.key}>
-                        <TooltipTrigger asChild>
-                            <div className={`${segment.className} h-full`} style={{ width: `${width(split[segment.key])}%` }} />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            {t(segment.key)} · {hours(split[segment.key])} {t('hrs')} ({formatPercent(share(split[segment.key]), locale)}%)
-                        </TooltipContent>
-                    </Tooltip>
-                ))}
-                {missing > 0 && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <div className="h-full" style={{ ...HATCH, width: `${width(missing)}%` }} />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            {t('notInSessions')} · {hours(missing)} {t('hrs')}
-                        </TooltipContent>
-                    </Tooltip>
-                )}
-            </div>
-        </TooltipProvider>
+        <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-muted">
+            {SPLIT_SEGMENTS.filter(segment => split[segment.key] > 0).map(segment => (
+                <Tooltip key={segment.key}>
+                    <TooltipTrigger asChild>
+                        <div className={`${segment.className} h-full`} style={{ width: `${width(split[segment.key])}%` }} />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        {t(segment.key)} · {hours(split[segment.key])} {t('hrs')} ({formatPercent(share(split[segment.key]), locale)}%)
+                    </TooltipContent>
+                </Tooltip>
+            ))}
+            {missing > 0 && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div className="h-full" style={{ ...HATCH, width: `${width(missing)}%` }} />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        {t('notInSessions')} · {hours(missing)} {t('hrs')}
+                    </TooltipContent>
+                </Tooltip>
+            )}
+        </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-6">
             <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:flex sm:flex-wrap sm:gap-x-5 sm:gap-y-1">
@@ -316,21 +310,24 @@ function useStatFormat() {
     };
 }
 
+const GFL_HOURS = [['humanTime', 'human_time'], ['zombieTime', 'zombie_time']] as const;
+
+const GFL_COUNTS = [
+    ['points', 'points'], ['zombieKills', 'zombie_killed'], ['headshots', 'headshot'], ['timesInfected', 'infected_time'],
+    ['bossKills', 'boss_killed'], ['leaderCount', 'leader_count'], ['itemUsage', 'item_usage'], ['topDefender', 'td_count'],
+] as const;
+
 function GflStats({ stats }: { stats: GflPlayerStats }): ReactElement {
     const t = useTranslations('players.stats');
     const f = useStatFormat();
     return <StatRow footer={t('footerGfl')}>
         <StatItem label={t('playtime')} value={f.hours(stats.human_time + stats.zombie_time)} detail={f.rank(stats.rank_total_playtime)} />
-        <StatItem label={t('humanTime')} value={f.hours(stats.human_time)} detail={f.rank(stats.rank_human_time)} />
-        <StatItem label={t('zombieTime')} value={f.hours(stats.zombie_time)} detail={f.rank(stats.rank_zombie_time)} />
-        <StatItem label={t('points')} value={f.count(stats.points)} detail={f.rank(stats.rank_points)} />
-        <StatItem label={t('zombieKills')} value={f.count(stats.zombie_killed)} detail={f.rank(stats.rank_zombie_killed)} />
-        <StatItem label={t('headshots')} value={f.count(stats.headshot)} detail={f.rank(stats.rank_headshot)} />
-        <StatItem label={t('timesInfected')} value={f.count(stats.infected_time)} detail={f.rank(stats.rank_infected_time)} />
-        <StatItem label={t('bossKills')} value={f.count(stats.boss_killed)} detail={f.rank(stats.rank_boss_killed)} />
-        <StatItem label={t('leaderCount')} value={f.count(stats.leader_count)} detail={f.rank(stats.rank_leader_count)} />
-        <StatItem label={t('itemUsage')} value={f.count(stats.item_usage)} detail={f.rank(stats.rank_item_usage)} />
-        <StatItem label={t('topDefender')} value={f.count(stats.td_count)} detail={f.rank(stats.rank_td_count)} />
+        {GFL_HOURS.map(([label, field]) => (
+            <StatItem key={field} label={t(label)} value={f.hours(stats[field])} detail={f.rank(stats[`rank_${field}`])} />
+        ))}
+        {GFL_COUNTS.map(([label, field]) => (
+            <StatItem key={field} label={t(label)} value={f.count(stats[field])} detail={f.rank(stats[`rank_${field}`])} />
+        ))}
         {stats.personaname && <StatItem label={t('knownAs')} value={stats.personaname} />}
         {stats.last_seen && <StatItem label={t('lastSeen')} value={f.day(stats.last_seen)} />}
     </StatRow>

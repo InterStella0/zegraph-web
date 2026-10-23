@@ -3,7 +3,7 @@ import {getLocale, getTranslations} from 'next-intl/server';
 import {ChevronRight, Map as MapIcon, Server, User, Wrench} from 'lucide-react';
 import {Badge} from 'components/ui/badge';
 import {Skeleton} from 'components/ui/skeleton';
-import {BACKEND_DOMAIN} from 'utils/generalUtils';
+import {BACKEND_DOMAIN, orNull, range} from 'utils/generalUtils';
 
 type ArgumentSchema = {
     type?: string,
@@ -34,19 +34,13 @@ function groupOf(name: string): Group {
 
 async function getTools(): Promise<McpTool[] | null> {
     if (process.env.NEXT_PHASE === 'phase-production-build') return null;
-    try {
-        const response = await fetch(`${BACKEND_DOMAIN}/mcp`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', Accept: 'application/json'},
-            body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'tools/list'}),
-            next: {revalidate: 3600},
-        });
-        if (!response.ok) return null;
-        const json = await response.json();
-        return Array.isArray(json?.result?.tools) ? json.result.tools : null;
-    } catch {
-        return null;
-    }
+    const json = await orNull(fetch(`${BACKEND_DOMAIN}/mcp`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+        body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'tools/list'}),
+        next: {revalidate: 3600},
+    }).then(response => (response.ok ? response.json() : null)));
+    return Array.isArray(json?.result?.tools) ? json.result.tools : null;
 }
 
 function formatText(text: string, toolNames: Set<string>): ReactNode[] {
@@ -67,10 +61,7 @@ function formatText(text: string, toolNames: Set<string>): ReactNode[] {
     });
 }
 
-function typeLabel(schema: ArgumentSchema): string {
-    if (schema.enum?.length) return schema.enum.join(' | ');
-    return schema.format ?? schema.type ?? 'string';
-}
+const typeLabel = (schema: ArgumentSchema) => (schema.enum?.length ? schema.enum.join(' | ') : schema.format ?? schema.type ?? 'string');
 
 async function ToolCard({tool, toolNames}: { tool: McpTool, toolNames: Set<string> }) {
     const t = await getTranslations('mcp.tools');
@@ -128,7 +119,7 @@ export function McpToolListLoading() {
             <div className="space-y-3">
                 <Skeleton className="h-6 w-32" />
                 <div className="grid gap-3 md:grid-cols-2">
-                    {Array.from({length: 6}).map((_, i) => (
+                    {range(6).map(i => (
                         <div key={i} className="space-y-2 rounded-lg border bg-card p-4">
                             <Skeleton className="h-5 w-1/2" />
                             <Skeleton className="h-4 w-full" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useRef, useState, type ComponentType, type RefObject } from 'react';
 import {
   Bold,
   Code,
@@ -26,12 +26,34 @@ import { youtubeVideoId } from 'components/announcements/AnnouncementMarkdown';
 import { insertBlock, insertLink, MOD_KEY as MOD, toggleLinePrefix, wrapSelection } from './markdownEditing';
 import { MEDIA_ACCEPT } from './useMediaUpload';
 
-function ToolButton({ label, shortcut, onClick, children }: {
+type Tool = {
   label: string;
+  icon: ComponentType<{ className?: string }>;
   shortcut?: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
+  action: (el: HTMLTextAreaElement) => void;
+};
+
+const HEADING_TOOLS: Tool[] = [
+  { label: 'Heading', icon: Heading2, action: (el) => toggleLinePrefix(el, () => '## ', /^##\s/) },
+  { label: 'Subheading', icon: Heading3, action: (el) => toggleLinePrefix(el, () => '### ', /^###\s/) },
+];
+
+const INLINE_TOOLS: Tool[] = [
+  { label: 'Bold', icon: Bold, shortcut: `${MOD}+B`, action: (el) => wrapSelection(el, '**', '**', 'bold text') },
+  { label: 'Italic', icon: Italic, shortcut: `${MOD}+I`, action: (el) => wrapSelection(el, '*', '*', 'italic text') },
+  { label: 'Strikethrough', icon: Strikethrough, action: (el) => wrapSelection(el, '~~', '~~', 'text') },
+  { label: 'Inline code', icon: Code, action: (el) => wrapSelection(el, '`', '`', 'code') },
+  { label: 'Link', icon: Link, shortcut: `${MOD}+K`, action: insertLink },
+];
+
+const BLOCK_TOOLS: Tool[] = [
+  { label: 'Bulleted list', icon: List, action: (el) => toggleLinePrefix(el, () => '- ', /^[-*+]\s/) },
+  { label: 'Numbered list', icon: ListOrdered, action: (el) => toggleLinePrefix(el, (i) => `${i + 1}. `, /^\d+\.\s/) },
+  { label: 'Quote', icon: Quote, action: (el) => toggleLinePrefix(el, () => '> ', /^>\s?/) },
+  { label: 'Divider', icon: Minus, action: (el) => insertBlock(el, '---') },
+];
+
+function ToolButton({ label, shortcut, icon: Icon, onClick }: Omit<Tool, 'action'> & { onClick: () => void }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -44,7 +66,7 @@ function ToolButton({ label, shortcut, onClick, children }: {
           onMouseDown={(e) => e.preventDefault()}
           onClick={onClick}
         >
-          {children}
+          <Icon className="h-4 w-4" />
         </Button>
       </TooltipTrigger>
       <TooltipContent>
@@ -117,18 +139,24 @@ function EmbedUrlButton({ onInsert }: { onInsert: (url: string, caption: string)
   );
 }
 
-interface MarkdownToolbarProps {
+const ToolSeparator = () => <Separator orientation="vertical" className="mx-1 h-5" />;
+
+export function MarkdownToolbar({ textareaRef, inlineOnly, onUpload }: {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   inlineOnly: boolean;
   onUpload: (files: File[]) => void;
-}
-
-export function MarkdownToolbar({ textareaRef, inlineOnly, onUpload }: MarkdownToolbarProps) {
+}) {
   const fileInput = useRef<HTMLInputElement>(null);
-  const run = (action: (el: HTMLTextAreaElement) => void) => () => {
-    const el = textareaRef.current;
-    if (el) action(el);
-  };
+  const tools = (list: Tool[]) => list.map(({ action, ...tool }) => (
+    <ToolButton
+      key={tool.label}
+      {...tool}
+      onClick={() => {
+        const el = textareaRef.current;
+        if (el) action(el);
+      }}
+    />
+  ));
 
   const embed = (url: string, caption: string) => {
     const el = textareaRef.current;
@@ -146,49 +174,17 @@ export function MarkdownToolbar({ textareaRef, inlineOnly, onUpload }: MarkdownT
     <div className="flex flex-wrap items-center gap-0.5">
       {!inlineOnly && (
         <>
-          <ToolButton label="Heading" onClick={run((el) => toggleLinePrefix(el, () => '## ', /^##\s/))}>
-            <Heading2 className="h-4 w-4" />
-          </ToolButton>
-          <ToolButton label="Subheading" onClick={run((el) => toggleLinePrefix(el, () => '### ', /^###\s/))}>
-            <Heading3 className="h-4 w-4" />
-          </ToolButton>
-          <Separator orientation="vertical" className="mx-1 h-5" />
+          {tools(HEADING_TOOLS)}
+          <ToolSeparator />
         </>
       )}
-      <ToolButton label="Bold" shortcut={`${MOD}+B`} onClick={run((el) => wrapSelection(el, '**', '**', 'bold text'))}>
-        <Bold className="h-4 w-4" />
-      </ToolButton>
-      <ToolButton label="Italic" shortcut={`${MOD}+I`} onClick={run((el) => wrapSelection(el, '*', '*', 'italic text'))}>
-        <Italic className="h-4 w-4" />
-      </ToolButton>
-      <ToolButton label="Strikethrough" onClick={run((el) => wrapSelection(el, '~~', '~~', 'text'))}>
-        <Strikethrough className="h-4 w-4" />
-      </ToolButton>
-      <ToolButton label="Inline code" onClick={run((el) => wrapSelection(el, '`', '`', 'code'))}>
-        <Code className="h-4 w-4" />
-      </ToolButton>
-      <ToolButton label="Link" shortcut={`${MOD}+K`} onClick={run(insertLink)}>
-        <Link className="h-4 w-4" />
-      </ToolButton>
+      {tools(INLINE_TOOLS)}
       {!inlineOnly && (
         <>
-          <Separator orientation="vertical" className="mx-1 h-5" />
-          <ToolButton label="Bulleted list" onClick={run((el) => toggleLinePrefix(el, () => '- ', /^[-*+]\s/))}>
-            <List className="h-4 w-4" />
-          </ToolButton>
-          <ToolButton label="Numbered list" onClick={run((el) => toggleLinePrefix(el, (i) => `${i + 1}. `, /^\d+\.\s/))}>
-            <ListOrdered className="h-4 w-4" />
-          </ToolButton>
-          <ToolButton label="Quote" onClick={run((el) => toggleLinePrefix(el, () => '> ', /^>\s?/))}>
-            <Quote className="h-4 w-4" />
-          </ToolButton>
-          <ToolButton label="Divider" onClick={run((el) => insertBlock(el, '---'))}>
-            <Minus className="h-4 w-4" />
-          </ToolButton>
-          <Separator orientation="vertical" className="mx-1 h-5" />
-          <ToolButton label="Upload image, GIF or video" onClick={() => fileInput.current?.click()}>
-            <ImagePlus className="h-4 w-4" />
-          </ToolButton>
+          <ToolSeparator />
+          {tools(BLOCK_TOOLS)}
+          <ToolSeparator />
+          <ToolButton label="Upload image, GIF or video" icon={ImagePlus} onClick={() => fileInput.current?.click()} />
           <EmbedUrlButton onInsert={embed} />
           <input
             ref={fileInput}

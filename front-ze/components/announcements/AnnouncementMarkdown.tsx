@@ -14,9 +14,7 @@ const sanitizeSchema = {
   tagNames: [...(defaultSchema.tagNames || []), 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
   attributes: {
     ...defaultSchema.attributes,
-    h1: ['id', 'className'],
-    h2: ['id', 'className'],
-    h3: ['id', 'className'],
+    ...Object.fromEntries(['h1', 'h2', 'h3'].map((tag) => [tag, ['id', 'className']])),
   }
 };
 
@@ -57,6 +55,11 @@ function youtubeStart(url: string): number | null {
   } catch {
     return null;
   }
+}
+
+/** Absolute http(s) links open in a new tab. */
+function externalLinkProps(url: string) {
+  return /^https?:\/\//i.test(url) ? { target: '_blank', rel: 'noopener noreferrer' } : {};
 }
 
 type ZoomTarget = { src: string; alt: string };
@@ -123,7 +126,6 @@ function AnnouncementImage({ src, alt, title }: ComponentProps<'img'>) {
 
 function AnnouncementLink({ href, children, node: _node, ...props }: ComponentProps<'a'> & { node?: unknown }) {
   const url = href ?? '';
-  const external = /^https?:\/\//i.test(url);
   const videoId = youtubeVideoId(url);
   const isBareLink = typeof children === 'string' && children.trim() === url;
 
@@ -145,15 +147,7 @@ function AnnouncementLink({ href, children, node: _node, ...props }: ComponentPr
     );
   }
 
-  return (
-    <a
-      href={url}
-      {...props}
-      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-    >
-      {children}
-    </a>
-  );
+  return <a href={url} {...props} {...externalLinkProps(url)}>{children}</a>;
 }
 
 const blockComponents: Components = {
@@ -164,12 +158,7 @@ const blockComponents: Components = {
 const inlineComponents: Components = {
   p: ({ children }) => <>{children}</>,
   a: ({ node: _node, href, children, ...props }) => (
-    <a
-      href={href}
-      {...props}
-      className="font-medium underline underline-offset-2"
-      {...(/^https?:\/\//i.test(href ?? '') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-    >
+    <a href={href} {...props} className="font-medium underline underline-offset-2" {...externalLinkProps(href ?? '')}>
       {children}
     </a>
   ),

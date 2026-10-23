@@ -29,9 +29,7 @@ function hslToHex(h: number, s: number, l: number): string {
 }
 
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
-    r /= 255
-    g /= 255
-    b /= 255
+    [r, g, b] = [r / 255, g / 255, b / 255]
     const max = Math.max(r, g, b)
     const min = Math.min(r, g, b)
     const l = (max + min) / 2
@@ -77,8 +75,7 @@ export function extractDominantColor(data: Uint8ClampedArray): string | null {
     }
     if (hues.length === 0 || hues.length < opaque * MIN_VIBRANT_SHARE) return null
 
-    let peak = 0
-    let peakMass = -1
+    let peak = 0, peakMass = -1
     for (let k = 0; k < HUE_BINS; k++) {
         const mass = hueMass[(k + HUE_BINS - 1) % HUE_BINS] + 2 * hueMass[k] + hueMass[(k + 1) % HUE_BINS]
         if (mass <= peakMass) continue
@@ -90,8 +87,7 @@ export function extractDominantColor(data: Uint8ClampedArray): string | null {
     const sines = hues.map(h => Math.sin(h * Math.PI / 180))
     let center = peak * (360 / HUE_BINS)
     for (let iteration = 0; iteration < MEAN_SHIFT_ITERATIONS; iteration++) {
-        let x = 0
-        let y = 0
+        let x = 0, y = 0
         for (let j = 0; j < hues.length; j++) {
             const weight = 1 - hueDistance(hues[j], center) / HUE_WINDOW
             if (weight <= 0) continue
@@ -102,10 +98,7 @@ export function extractDominantColor(data: Uint8ClampedArray): string | null {
         center = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
     }
 
-    let r = 0
-    let g = 0
-    let b = 0
-    let total = 0
+    let r = 0, g = 0, b = 0, total = 0
     for (let j = 0; j < hues.length; j++) {
         const weight = 1 - hueDistance(hues[j], center) / HUE_WINDOW
         if (weight <= 0) continue
@@ -180,9 +173,7 @@ export function peekIconColor(iconUrl: string): string | null {
 
 export function subscribeIconColors(listener: () => void): () => void {
     listeners.add(listener)
-    return () => {
-        listeners.delete(listener)
-    }
+    return () => void listeners.delete(listener)
 }
 
 export function getIconDominantColor(iconUrl: string): Promise<string | null> {

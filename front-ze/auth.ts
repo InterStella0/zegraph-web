@@ -1,14 +1,9 @@
 import jwt from 'jsonwebtoken';
-import type {
-    GetServerSidePropsContext,
-    NextApiRequest,
-    NextApiResponse,
-} from "next"
+import type {GetServerSidePropsContext, NextApiRequest, NextApiResponse} from "next"
 import type {AuthOptions, Session} from "next-auth"
 import {getServerSession} from "next-auth"
-import Steam from "next-auth-steam"
+import Steam, {STEAM_PROVIDER_ID} from "next-auth-steam"
 import {NextRequest} from "next/server";
-import {STEAM_PROVIDER_ID} from "next-auth-steam";
 import {BACKEND_DOMAIN} from "utils/generalUtils.ts";
 import {SteamProfile} from "types/steam";
 
@@ -21,22 +16,37 @@ export interface SteamSession extends Session {
     banReason?: string | null;
 }
 
+const signBackendJwt = (sub: string, name: string, expiresIn: jwt.SignOptions["expiresIn"]) =>
+    jwt.sign({ sub, type: 'access', name, iss: "ze-graph" }, process.env.NEXTAUTH_SECRET, { expiresIn });
+
+const backendJson = async (path: string, token: string, init: RequestInit = {}) =>
+    (await fetch(BACKEND_DOMAIN + path, { ...init, headers: { "Authorization": `Bearer ${token}` } })).json();
+
 async function fetchOwnProfile(steamId: string): Promise<SteamProfile | null> {
-    const token = jwt.sign(
-        { sub: steamId, type: 'access', name: "Unknown", iss: "ze-graph" },
-        process.env.NEXTAUTH_SECRET,
-        { expiresIn: '3m' }
-    );
+    const token = signBackendJwt(steamId, "Unknown", '3m');
     try {
-        const response = await fetch(BACKEND_DOMAIN + '/accounts/me', {
-            headers: { "Authorization": `Bearer ${token}` },
-            cache: 'no-store',
-        })
-        const result = await response.json()
+        const result = await backendJson('/accounts/me', token, { cache: 'no-store' })
         return result.msg === "OK" ? result.data : null
     } catch (e) {
         console.error('Failed to refresh Steam profile:', e)
         return null
+    }
+}
+
+/** Loads the signed-in Steam user's account, creating it on first sign-in. */
+async function fetchOrCreateProfile(steamId: string): Promise<SteamProfile> {
+    const token = signBackendJwt(steamId, "Unknown", '3m');
+    try {
+        const me = await backendJson('/accounts/me', token)
+        if (me.code !== 404) return me.data
+        const created = await backendJson('/accounts/create', token, { method: "POST" })
+        if (created.msg === "OK") return created.data
+        // 409: the account already exists, e.g. created by a concurrent sign-in.
+        if (created.code === 409) return (await backendJson('/accounts/me', token)).data
+        throw new Error(`FAILED TO CREATE ACCOUNT ${JSON.stringify(created)}`)
+    } catch (e) {
+        console.error(e)
+        throw e
     }
 }
 
@@ -47,60 +57,7 @@ export function getAuthOptions(req?: NextRequest): AuthOptions {
                 Steam(req, {
                     clientSecret: process.env.STEAM_SECRET!,
                     userinfo: {
-                        // @ts-expect-error
-                        async request(ctx) {
-                            const temp_token = jwt.sign(
-                                {
-                                    sub: ctx.tokens.steamId,
-                                    type: 'access',
-                                    name: "Unknown",
-                                    iss: "ze-graph",
-                                },
-                                process.env.NEXTAUTH_SECRET,
-                                {expiresIn: '3m'}
-                            );
-
-                            try {
-                                const response = await fetch(BACKEND_DOMAIN + '/accounts/me', {
-                                    headers: {
-                                        "Authorization": `Bearer ${temp_token}`
-                                    }
-                                })
-
-                                const responseJson = await response.json()
-
-                                let profile: SteamProfile | PromiseLike<SteamProfile>;
-                                if (responseJson.code === 404){
-                                    const responseCreate = await fetch(BACKEND_DOMAIN + '/accounts/create', {
-                                        method: "POST",
-                                        headers: {
-                                            "Authorization": `Bearer ${temp_token}`
-                                        }
-                                    })
-                                    const jsonResponse = await responseCreate.json()
-                                    if (jsonResponse.msg === "OK")
-                                        profile = jsonResponse.data
-                                    else if (jsonResponse.code === 409){
-                                        const responseGet = await fetch(BACKEND_DOMAIN + '/accounts/me', {
-                                            headers: {
-                                                "Authorization": `Bearer ${temp_token}`
-                                            }
-                                        })
-                                        const result = await responseGet.json()
-                                        profile = result.data
-                                    } else{
-                                        throw new Error(`FAILED TO CREATE ACCOUNT ${JSON.stringify(jsonResponse)}`)
-                                    }
-                                }else{
-                                    profile = responseJson.data
-                                }
-
-                                return profile
-                            }catch (e){
-                                console.error(e)
-                                throw e
-                            }
-                        }
+                        request: (ctx) => fetchOrCreateProfile(ctx.tokens.steamId as string),
                     },
                 })
             ]
@@ -117,32 +74,19 @@ export function getAuthOptions(req?: NextRequest): AuthOptions {
                     if (fresh) token.steam = fresh
                 }
                 const now = Math.floor(Date.now() / 1000);
-                // @ts-expect-error
-                const expiresIn = Math.max((token.exp ?? 0) - now, 60);
-                token.backendJwt = jwt.sign(
-                    {
-                        sub: token.sub,
-                        type: 'access',
-                        name: token.name,
-                        iss: "ze-graph",
-                    },
-                    process.env.NEXTAUTH_SECRET,
-                    { expiresIn }
-                );
-
+                const expiresIn = Math.max(((token.exp as number) ?? 0) - now, 60);
+                token.backendJwt = signBackendJwt(token.sub, token.name, expiresIn);
                 return token
             },
             session({ session, token }) {
+                const steamSession = session as SteamSession
                 if ('steam' in token) {
-                    // @ts-expect-error
-                    session.user.steam = token.steam
-                    // @ts-expect-error
-                    session.isBanned = token.steam?.is_banned ?? false
-                    // @ts-expect-error
-                    session.banReason = token.steam?.ban_reason ?? null
+                    const steam = token.steam as SteamProfile
+                    steamSession.user.steam = steam
+                    steamSession.isBanned = steam?.is_banned ?? false
+                    steamSession.banReason = steam?.ban_reason ?? null
                 }
-                // @ts-expect-error
-                session.backendJwt = token.backendJwt
+                steamSession.backendJwt = token.backendJwt as string
                 return session
             }
         }

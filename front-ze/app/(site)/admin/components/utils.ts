@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from "lib/dayjs";
 
 export function formatDate(dateString: string | null): string {
   if (!dateString) return '-';

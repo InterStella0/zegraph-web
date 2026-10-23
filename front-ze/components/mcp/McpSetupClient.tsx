@@ -20,16 +20,11 @@ const OPENAI_DEV_MODE_HELP = 'https://help.openai.com/en/articles/12584461-devel
 function CopyButton({text, label, className}: { text: string, label?: string, className?: string }) {
     const t = useTranslations('mcp');
     const [copied, setCopied] = useState(false);
-    useEffect(() => {
-        if (!copied) return;
-        const id = setTimeout(() => setCopied(false), 1500);
-        return () => clearTimeout(id);
-    }, [copied]);
-
     const copy = async () => {
         await navigator.clipboard.writeText(text);
         toast.success(t('copied'));
         setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
     };
 
     return (
@@ -93,39 +88,33 @@ export default function McpSetupClient({mcpUrl}: { mcpUrl: string }) {
     const copyUrl = <CopyButton text={mcpUrl} label={t('copyUrl')} />;
     const cursorLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=zegraph&config=${btoa(JSON.stringify({url: mcpUrl}))}`;
     const vscodeLink = `vscode:mcp/install?${encodeURIComponent(JSON.stringify({name: 'zegraph', type: 'http', url: mcpUrl}))}`;
-    const claudeSteps: SetupGuideStep[] = [
-        {
-            title: t('claude.title1'),
-            instruction: t.rich('claude.step1', {b}),
-            action: <OpenLink href="https://claude.ai">{t('open', {app: 'Claude'})}</OpenLink>,
-            mock: <ClaudeOpenConnectors />,
-        },
-        {
-            title: t('claude.title2'),
-            instruction: t.rich('claude.step2', {b}),
-            action: copyUrl,
-            mock: <ClaudeAddConnector mcpUrl={mcpUrl} />,
-        },
-        {title: t('claude.title3'), instruction: t.rich('claude.step3', {b}), mock: <ClaudeAuth mcpUrl={mcpUrl} />},
-        {title: t('claude.title4'), instruction: t.rich('claude.step4', {b}), mock: <ClaudeConnect mcpUrl={mcpUrl} />},
-        {title: t('claude.title5'), instruction: t.rich('claude.step5', {b}), mock: <ClaudeChatTools />},
-        {title: t('claude.title6'), instruction: t.rich('claude.step6', {b}), mock: <MockAnswer variant="claude" />},
-    ];
-    const chatGptSteps: SetupGuideStep[] = [
-        {
-            title: t('chatgpt.title1'),
-            instruction: t.rich('chatgpt.step1', {b}),
-            action: <OpenLink href="https://chatgpt.com">{t('open', {app: 'ChatGPT'})}</OpenLink>,
-            mock: <ChatGptDevMode />,
-        },
-        {
-            title: t('chatgpt.title2'),
-            instruction: t.rich('chatgpt.step2', {b}),
-            action: copyUrl,
-            mock: <ChatGptNewPlugin mcpUrl={mcpUrl} />,
-        },
-        {title: t('chatgpt.title3'), instruction: t.rich('chatgpt.step3', {b}), mock: <ChatGptChatPick />},
-        {title: t('chatgpt.title4'), instruction: t.rich('chatgpt.step4', {b}), mock: <MockAnswer variant="chatgpt" />},
+    // Step n of a guide reads its texts from `<app>.title<n>` and `<app>.step<n>`.
+    const guide = (app: 'claude' | 'chatgpt', note: ReactNode, steps: Pick<SetupGuideStep, 'mock' | 'action'>[]) => ({
+        app,
+        note,
+        steps: steps.map((step, i): SetupGuideStep => ({
+            ...step,
+            title: t(`${app}.title${i + 1}`),
+            instruction: t.rich(`${app}.step${i + 1}`, {b}),
+        })),
+    });
+    const guides = [
+        guide('claude', t('claude.note'), [
+            {mock: <ClaudeOpenConnectors />, action: <OpenLink href="https://claude.ai">{t('open', {app: 'Claude'})}</OpenLink>},
+            {mock: <ClaudeAddConnector mcpUrl={mcpUrl} />, action: copyUrl},
+            {mock: <ClaudeAuth mcpUrl={mcpUrl} />},
+            {mock: <ClaudeConnect mcpUrl={mcpUrl} />},
+            {mock: <ClaudeChatTools />},
+            {mock: <MockAnswer variant="claude" />},
+        ]),
+        guide('chatgpt', t.rich('chatgpt.note', {
+            link: chunks => <a href={OPENAI_DEV_MODE_HELP} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">{chunks}</a>,
+        }), [
+            {mock: <ChatGptDevMode />, action: <OpenLink href="https://chatgpt.com">{t('open', {app: 'ChatGPT'})}</OpenLink>},
+            {mock: <ChatGptNewPlugin mcpUrl={mcpUrl} />, action: copyUrl},
+            {mock: <ChatGptChatPick />},
+            {mock: <MockAnswer variant="chatgpt" />},
+        ]),
     ];
 
     return (
@@ -154,25 +143,15 @@ export default function McpSetupClient({mcpUrl}: { mcpUrl: string }) {
                     ))}
                 </TabsList>
 
-                <TabsContent value="claude" className="flex flex-col gap-6">
-                    <SetupStep steps={claudeSteps} />
-                    <div className="flex flex-col gap-1">
-                        <p className="text-sm text-muted-foreground">{t('claude.note')}</p>
-                        <p className="text-xs text-muted-foreground">{t('illustration')}</p>
-                    </div>
-                </TabsContent>
-
-                <TabsContent value="chatgpt" className="flex flex-col gap-6">
-                    <SetupStep steps={chatGptSteps} />
-                    <div className="flex flex-col gap-1">
-                        <p className="text-sm text-muted-foreground">
-                            {t.rich('chatgpt.note', {
-                                link: chunks => <a href={OPENAI_DEV_MODE_HELP} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">{chunks}</a>,
-                            })}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{t('illustration')}</p>
-                    </div>
-                </TabsContent>
+                {guides.map(({app, note, steps}) => (
+                    <TabsContent key={app} value={app} className="flex flex-col gap-6">
+                        <SetupStep steps={steps} />
+                        <div className="flex flex-col gap-1">
+                            <p className="text-sm text-muted-foreground">{note}</p>
+                            <p className="text-xs text-muted-foreground">{t('illustration')}</p>
+                        </div>
+                    </TabsContent>
+                ))}
 
                 <TabsContent value="developers" className="flex flex-col gap-8">
                     <p className="text-muted-foreground">{t('developers.intro')}</p>

@@ -1,13 +1,14 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import {use, useEffect, useMemo, useRef, useState} from "react";
+import {useState} from "react";
 import {Skeleton} from "components/ui/skeleton";
 import {
     fetchApiServerUrl,
     formatFlagName,
     ICE_FILE_ENDPOINT,
     InfractionFlags,
-    InfractionInt, StillCalculate
+    InfractionInt,
+    range,
 } from "utils/generalUtils";
 import { Card, CardContent } from "components/ui/card";
 import { Badge } from "components/ui/badge";
@@ -20,20 +21,18 @@ import {
 import {
     Tooltip,
     TooltipContent,
-    TooltipProvider,
     TooltipTrigger,
 } from "components/ui/tooltip";
-import dayjs from "dayjs";
-import {useLocalDayjs} from "lib/hooks/useHydrated";
+import dayjs from "lib/dayjs";
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
+import {useResource} from "lib/hooks/useResource";
 import { Ban, RefreshCw, Loader2 } from "lucide-react";
-import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PlayerInfraction, PlayerInfractionUpdate} from "types/players.ts";
 import Image from "next/image";
-import {Server} from "types/community.ts";
-import {PlayerInfo} from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
-import {PeriodChip, periodBounds, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {periodBounds, usePeriod} from "components/period/Period";
 import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 import {withErrorCatch} from "components/common/withErrorCatch";
+import {PeriodTitle, ServerPlayerProps, useServerPlayer} from "./common";
 
 export function InfractionModal({ infraction, onClose }){
     const t = useTranslations('players.infractions');
@@ -62,31 +61,25 @@ export function InfractionModal({ infraction, onClose }){
     );
 }
 
+const steamIdSearch = (playerId: string | null) => `&advSearch=${playerId}&advType=steamid`;
+const allSearch = (playerId: string | null) => `=true&s=${playerId}&m=1`;
+const NIDE_SEARCH: Record<string, (playerId: string | null) => string> = {
+    "https://bans.nide.gg/index.php?p=banlist": steamIdSearch,
+    "https://bans.nide.gg/index.php?p=commslist": steamIdSearch,
+    "https://kbans.nide.gg/index.php?all": allSearch,
+    "https://ebans.nide.gg/index.php?all": allSearch,
+};
 
 export function openInfraction<T extends { source: string }>(row: T, playerId: string | null, view: (row: T) => void) {
+    const openTab = (url: string) => window.open(url, "_blank", "noopener,noreferrer");
     if (row.source?.startsWith("https://bans.cola-team.es")) {
-        window.open(row.source, "_blank", "noopener,noreferrer");
-        return;
+        openTab(row.source);
+    } else if (row.source?.includes("nide.gg")) {
+        const search = NIDE_SEARCH[row.source];
+        if (search) openTab(`${row.source}${search(playerId)}`);
+    } else {
+        view(row);
     }
-    const isNide = row.source?.includes("nide.gg");
-    if (isNide) {
-        let url: string;
-        switch(row.source){
-            case "https://bans.nide.gg/index.php?p=banlist":
-            case "https://bans.nide.gg/index.php?p=commslist":
-                url = `${row.source}&advSearch=${playerId}&advType=steamid`;
-                break;
-            case "https://kbans.nide.gg/index.php?all":
-            case "https://ebans.nide.gg/index.php?all":
-                url = `${row.source}=true&s=${playerId}&m=1`;
-                break;
-            default:
-                return
-        }
-        window.open(url, "_blank", "noopener,noreferrer");
-        return;
-    }
-    view(row);
 }
 
 export function withInfractionFlags(infractions) {
@@ -97,193 +90,125 @@ export function withInfractionFlags(infractions) {
     });
 }
 
-function PlayerInfractionRecordBody({ updatedData, player, server }:
-                                    { updatedData: PlayerInfraction[], player: PlayerInfo | StillCalculate, server: Server }) {
+function InfractionCard({ row, onClick }: { row: PlayerInfraction, onClick: () => void }) {
     const t = useTranslations('players.infractions');
     const toDayjs = useLocalDayjs();
-    const playerId = !(player instanceof StillCalculate)? player.id: null
-    const server_id = server.id;
-    const { seed, idle } = usePlayerStatSeed<PlayerInfraction[]>('infractions');
-    const [allInfractions, setInfractions] = useState(() => seed ? withInfractionFlags(seed) : []);
-    const [loading, setLoading] = useState(idle || (seed === null && playerId !== null));
-    const isFirstRun = useRef(seed !== null);
-    const [viewInfraction, setViewInfraction] = useState(null);
-    const { period } = usePlayerPeriod();
-    const infractions = useMemo(() => {
-        if (!period) return allInfractions;
-        const { start, end } = periodBounds(period);
-        return allInfractions.filter(row => {
-            if (!row.infraction_time) return false;
-            const time = new Date(row.infraction_time);
-            return time >= start && time < end;
-        });
-    }, [allInfractions, period]);
-
-    useEffect(() => {
-        if (!playerId || idle) return
-        if (isFirstRun.current) {
-            isFirstRun.current = false
-            return
-        }
-
-        fetchApiServerUrl(server_id, `/players/${playerId}/infractions`)
-            .then(withInfractionFlags)
-            .then(e => setInfractions(e))
-            .finally(() => setLoading(false));
-    }, [server_id, playerId]);
-
-    useEffect(() => {
-        if (updatedData === null) return;
-        setInfractions(updatedData);
-    }, [updatedData]);
-
-    const handleOnClick = (row) => openInfraction(row, playerId, setViewInfraction);
-
-    if (loading && updatedData === null) {
-        return (
-            <div className="h-[380px] overflow-hidden pt-2 space-y-3">
-                {Array.from({ length: 3 }, (_, i) => (
-                    <Skeleton key={i} className="h-[110px] w-full rounded-xl" />
-                ))}
-            </div>
-        );
-    }
-
-    if (infractions.length === 0) {
-        return (
-            <div className="flex justify-center items-center h-[380px] text-muted-foreground flex-col gap-2">
-                <Ban className="w-8 h-8 opacity-50" />
-                <h3 className="text-xl font-semibold">
-                    {t('noRecords')}
-                </h3>
-            </div>
-        );
-    }
-
+    const flags = row.flags as InfractionInt;
+    const restrictions = flags.getAllRestrictedFlags();
     return (
-        <>
-            <InfractionModal infraction={viewInfraction} onClose={() => setViewInfraction(null)} />
+        <Card
+            className="mb-3 cursor-pointer border transition-all hover:border-primary hover:bg-accent hover:-translate-y-0.5 hover:shadow-md"
+            onClick={onClick}
+        >
+            <CardContent className="p-4">
+                <div className="flex items-center mb-3">
+                    {row.admin_avatar &&
+                        <Image
+                            src={ICE_FILE_ENDPOINT.replace('{}', row.admin_avatar)}
+                            title={`${row.by}'s Avatar`}
+                            alt={row.by}
+                            width={28}
+                            height={28}
+                            className="w-7 h-7 mr-4 rounded-[8%]"
+                        />
+                    }
+                    <p className="text-sm font-semibold">
+                        {flags.hasFlag(InfractionFlags.SYSTEM) ? t('system') : row.by}
+                    </p>
+                </div>
 
-            <div className="h-[380px] overflow-y-auto pt-2">
-                {infractions.map(row => {
-                    const flag = row.flags;
-                    const by = flag.hasFlag(InfractionFlags.SYSTEM) ? t('system') : row.by;
-                    const restrictions = row.flags.getAllRestrictedFlags();
+                <p className={`text-sm ${row.reason ? '' : 'italic text-muted-foreground'}`}>
+                    {row.reason || t('noReason')}
+                </p>
 
-                    return (
-                        <Card
-                            key={row.id}
-                            className="mb-3 cursor-pointer border transition-all hover:border-primary hover:bg-accent hover:-translate-y-0.5 hover:shadow-md"
-                            onClick={() => handleOnClick(row)}
-                        >
-                            <CardContent className="p-4">
-                                <div className="flex items-center mb-3">
-                                    {row.admin_avatar &&
-                                        <Image
-                                            src={ICE_FILE_ENDPOINT.replace('{}', row.admin_avatar)}
-                                            title={`${row.by}'s Avatar`}
-                                            alt={row.by}
-                                            width={28}
-                                            height={28}
-                                            className="w-7 h-7 mr-4 rounded-[8%]"
-                                        />
-                                    }
-                                    <p className="text-sm font-semibold">
-                                        {by}
-                                    </p>
-                                </div>
+                <div className="flex justify-between items-center flex-wrap mt-2 gap-2">
+                    <div className="flex flex-wrap gap-1">
+                        {restrictions.length > 0 ? restrictions.map((flagName: string) => (
+                            <Badge key={flagName} variant="destructive" className="text-xs h-6">
+                                {formatFlagName(flagName)}
+                            </Badge>
+                        )) : (
+                            <span className="text-xs text-muted-foreground italic">
+                                {t('noRestrictions')}
+                            </span>
+                        )}
+                    </div>
 
-                                <p className={`text-sm ${row.reason ? '' : 'italic text-muted-foreground'}`}>
-                                    {row.reason || t('noReason')}
-                                </p>
-
-                                <div className="flex justify-between items-center flex-wrap mt-2 gap-2">
-                                    <div className="flex flex-wrap gap-1">
-                                        {restrictions.length > 0 ? restrictions.map((flagName: string) => (
-                                            <Badge
-                                                key={flagName}
-                                                variant="destructive"
-                                                className="text-xs h-6"
-                                            >
-                                                {formatFlagName(flagName)}
-                                            </Badge>
-                                        )) : (
-                                            <span className="text-xs text-muted-foreground italic">
-                                                {t('noRestrictions')}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <p className="text-xs text-muted-foreground whitespace-nowrap">
-                                        {toDayjs(row.infraction_time).format('lll')}
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    );
-                })}
-            </div>
-        </>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                        {toDayjs(row.infraction_time).format('lll')}
+                    </p>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 
-function PlayerInfractionRecordDisplay({ serverPlayerPromise }: { serverPlayerPromise: Promise<ServerPlayerDetailed>}) {
+function PlayerInfractionRecordDisplay({ serverPlayerPromise }: ServerPlayerProps) {
     const t = useTranslations('players.infractions');
-    const {server, player} = use(serverPlayerPromise);
-    const playerId = !(player instanceof StillCalculate)? player.id: null
-    const [updatedData, setUpdatedData] = useState<PlayerInfraction[] | null>(null);
-    const [loading, setLoading] = useState(false);
-    const server_id = server.id
+    const { server, playerId } = useServerPlayer(serverPlayerPromise);
+    const { seed, idle } = usePlayerStatSeed<PlayerInfraction[]>('infractions');
+    const { data, setData, loading } = useResource<PlayerInfraction[]>(
+        () => playerId && !idle ? fetchApiServerUrl(server.id, `/players/${playerId}/infractions`).then(withInfractionFlags) : null,
+        [server.id, playerId], { initial: seed ? withInfractionFlags(seed) : undefined, keepData: true });
+    const [updating, setUpdating] = useState(false);
+    const [viewInfraction, setViewInfraction] = useState(null);
+    const { period } = usePeriod();
+    const bounds = period ? periodBounds(period) : null;
+    const infractions = (data ?? []).filter(row => {
+        if (!bounds) return true;
+        if (!row.infraction_time) return false;
+        const time = new Date(row.infraction_time);
+        return time >= bounds.start && time < bounds.end;
+    });
+
     const updateData = () => {
-        setLoading(true);
-        fetchApiServerUrl(server_id, `/players/${playerId}/infraction_update`)
-            .then((resp: PlayerInfractionUpdate) => {
-                const infractions: PlayerInfraction[] = resp.infractions.map(e => {
-                    if (!(e.flags instanceof InfractionInt))
-                        e.flags = new InfractionInt(e.flags, e.source);
-                    return e;
-                });
-                infractions.sort((a, b) => dayjs(b.infraction_time).diff(dayjs(a.infraction_time)));
-                setUpdatedData(infractions);
-            })
-            .finally(() => setLoading(false));
+        setUpdating(true);
+        fetchApiServerUrl(server.id, `/players/${playerId}/infraction_update`)
+            .then((resp: PlayerInfractionUpdate) => setData(withInfractionFlags(resp.infractions)
+                .sort((a, b) => dayjs(b.infraction_time).diff(dayjs(a.infraction_time)))))
+            .finally(() => setUpdating(false));
     };
 
     return (
         <Card className="min-h-[460px] p-4">
             <div className="flex flex-row justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-semibold">
-                        {t('title')}
-                    </h2>
-                    <PeriodChip />
-                </div>
+                <PeriodTitle title={t('title')} />
 
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={updateData}
-                                disabled={loading}
-                            >
-                                {loading ? (
-                                    <Loader2 className="h-5 w-5 animate-spin" />
-                                ) : (
-                                    <RefreshCw className="h-5 w-5" />
-                                )}
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{t('update')}</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={updateData} disabled={updating}>
+                            {updating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>{t('update')}</p>
+                    </TooltipContent>
+                </Tooltip>
             </div>
 
-            <PlayerInfractionRecordBody updatedData={updatedData} player={player} server={server} />
+            {loading ? (
+                <div className="h-[380px] overflow-hidden pt-2 space-y-3">
+                    {range(3).map(i => <Skeleton key={i} className="h-[110px] w-full rounded-xl" />)}
+                </div>
+            ) : infractions.length === 0 ? (
+                <div className="flex justify-center items-center h-[380px] text-muted-foreground flex-col gap-2">
+                    <Ban className="w-8 h-8 opacity-50" />
+                    <h3 className="text-xl font-semibold">
+                        {t('noRecords')}
+                    </h3>
+                </div>
+            ) : (
+                <>
+                    <InfractionModal infraction={viewInfraction} onClose={() => setViewInfraction(null)} />
+                    <div className="h-[380px] overflow-y-auto pt-2">
+                        {infractions.map(row => (
+                            <InfractionCard key={row.id} row={row} onClick={() => openInfraction(row, playerId, setViewInfraction)} />
+                        ))}
+                    </div>
+                </>
+            )}
         </Card>
     );
 }
+
 export default withErrorCatch(PlayerInfractionRecordDisplay, t => t('players.infractions.loadError'))

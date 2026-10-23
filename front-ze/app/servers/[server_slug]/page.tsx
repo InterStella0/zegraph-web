@@ -1,7 +1,7 @@
 import {getServerSlug} from "./util";
 import {serverMetadata} from "./serverMetadata";
 import {Metadata} from "next";
-import {fetchServerUrl} from "utils/generalUtils.ts";
+import {fetchServerUrl, orNull} from "utils/generalUtils.ts";
 import {AdSpot} from "components/ui/AdSpot";
 import {ServerContentWrapper} from "./ServerContentWrapper.tsx";
 import {Server} from "types/community.ts";
@@ -12,23 +12,17 @@ import { getTranslations } from 'next-intl/server';
 
 export async function createServerDescription(server: Server): Promise<string> {
     const t = await getTranslations('metadata');
-    let description = t('serverIntro', {name: server?.community_name, ip: server.fullIp});
-    const parameters = {
-        page: 1, sorted_by: 'LastPlayed'
-    }
-    const [stats, data]: [ServerPlayersStatistic | null, MapPlayedPaginated | null] = await Promise.all([
-        getCachedPlayerStats(server.id).catch(() => null),
-        fetchServerUrl(server.id, '/maps/last/sessions', { params: parameters }).catch(() => null),
+    const [stats, data] = await Promise.all([
+        orNull<ServerPlayersStatistic>(getCachedPlayerStats(server.id)),
+        orNull<MapPlayedPaginated>(fetchServerUrl(server.id, '/maps/last/sessions', { params: { page: 1, sorted_by: 'LastPlayed' } })),
     ]);
-    if (stats){
-        const allTime = stats.all_time
-        description += ' ' + t('uniquePlayers', {players: allTime.total_players.toLocaleString('en-US'), countries: allTime.countries});
-    }
+    let description = t('serverIntro', {name: server.community_name, ip: server.fullIp});
+    if (stats)
+        description += ' ' + t('uniquePlayers', {players: stats.all_time.total_players.toLocaleString('en-US'), countries: stats.all_time.countries});
     if (data)
         description += ' ' + t('mapsPlayed', {count: data.total_maps});
     if (server.players)
         description += ' ' + t('playersOnline', {count: server.players});
-
     return description
 }
 

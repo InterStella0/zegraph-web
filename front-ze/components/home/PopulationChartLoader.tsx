@@ -3,8 +3,9 @@ import dynamic from 'next/dynamic';
 import {Suspense} from 'react';
 import {useTranslations} from 'next-intl';
 import {Card, CardContent} from 'components/ui/card';
-import {Skeleton} from 'components/ui/skeleton';
-import {PopulationSeed} from './homeData';
+import {Skeleton, SkeletonText} from 'components/ui/skeleton';
+import {range} from 'utils/generalUtils';
+import type {PopulationChartProps} from './PopulationChart';
 
 function PopulationChartLoading() {
     const t = useTranslations('home');
@@ -15,7 +16,7 @@ function PopulationChartLoading() {
                     <div>
                         <h2 className="text-base sm:text-lg font-semibold">{t('uniquePlayersByCommunity')}</h2>
                         <div className="text-xs mt-0.5">
-                            <Skeleton className="inline-block align-middle h-3 w-28" />{'\u200b'}
+                            <SkeletonText className="h-3 w-28" />
                         </div>
                     </div>
                     <div className="flex flex-row flex-wrap items-center justify-end gap-2">
@@ -25,7 +26,7 @@ function PopulationChartLoading() {
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 min-h-4">
-                    {Array.from({length: 5}).map((_, i) => <Skeleton key={i} className="h-4 w-[5.5rem]" />)}
+                    {range(5).map(i => <Skeleton key={i} className="h-4 w-[5.5rem]" />)}
                 </div>
                 <Skeleton className="flex-1 min-h-[240px] w-full rounded-md" />
             </CardContent>
@@ -38,16 +39,10 @@ const PopulationChart = dynamic(() => import('./PopulationChart'), {
     loading: PopulationChartLoading,
 });
 
-type Props = {
-    isExpanded: boolean;
-    onToggleExpand: () => void;
-    populationPromise: Promise<PopulationSeed | null>;
-};
-
-export default function PopulationChartLoader({isExpanded, onToggleExpand, populationPromise}: Props) {
+export default function PopulationChartLoader(props: PopulationChartProps) {
     return (
         <Suspense fallback={<PopulationChartLoading />}>
-            <PopulationChart isExpanded={isExpanded} onToggleExpand={onToggleExpand} populationPromise={populationPromise} />
+            <PopulationChart {...props} />
         </Suspense>
     );
 }

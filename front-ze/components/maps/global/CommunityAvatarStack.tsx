@@ -19,11 +19,9 @@ export default function CommunityAvatarStack({ servers, countClassName = 'text-m
     const known = servers
         .map(entry => serversMapped.get(entry.server_id))
         .filter((server): server is Server => server != null);
-    const communities = new Map<string, Server>();
-    for (const server of known) {
-        if (!communities.has(server.community_id)) communities.set(server.community_id, server);
-    }
-    const shown = [...communities.values()].slice(0, MAX_AVATARS);
+    const shown = known
+        .filter((server, index) => known.findIndex(other => other.community_id === server.community_id) === index)
+        .slice(0, MAX_AVATARS);
 
     return (
         <Tooltip>

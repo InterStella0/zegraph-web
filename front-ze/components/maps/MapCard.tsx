@@ -1,9 +1,6 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {useEffect, useState} from "react";
-import {loadMapImage} from "lib/batchLoader";
-import {useLocalDayjs} from "lib/hooks/useHydrated";
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import Image from "next/image";
 import {ServerMapPlayed} from "types/maps.ts";
 import {Server} from "types/community.ts";
@@ -11,6 +8,8 @@ import {Loader2, ImageOff, LineChart, ArrowUpRight} from "lucide-react";
 import Link from "next/link";
 import {Button} from "components/ui/button";
 import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
+import {withErrorCatch} from "components/common/withErrorCatch";
+import {useMapImage} from "components/maps/useMapImage";
 
 type MapCardProps = {
     detail: ServerMapPlayed,
@@ -18,37 +17,21 @@ type MapCardProps = {
     server: Server,
 }
 
-export default function MapCard({ detail, onClick, server }: MapCardProps){
-    return <ErrorCatch message="Failed to display this map.">
-        <MapCardDisplay detail={detail} onClick={onClick} server={server} />
-    </ErrorCatch>
-}
-function MapCardDisplay({ detail, onClick, server }){
-    const [image, setImage] = useState<string | null>()
-    const server_id = server.id
+function MapCardDisplay({ detail, onClick, server }: MapCardProps){
     const t = useTranslations('maps');
     const toDayjs = useLocalDayjs();
-    useEffect(() => {
-        loadMapImage(detail.map, server_id).then(e => setImage(e? e.small: null))
-    }, [server_id, detail])
+    const { data: image, loading } = useMapImage(detail.map, server.id, 'small')
     const startedAt = toDayjs(detail.started_at)
     const endedAt = detail.ended_at != null? toDayjs(detail.ended_at): toDayjs()
     const duration = endedAt.diff(startedAt, 'minutes')
 
     return (
         <div
-            key={detail.time_id}
             className="flex-shrink-0 w-[180px] rounded-lg border border-border bg-card overflow-hidden
                        transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
         >
             <div className="relative w-full h-[100px]">
-                {(image === undefined || image === null) && (
-                    <div className="flex justify-center items-center h-full">
-                        {image === undefined && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
-                        {image === null && <ImageOff className="h-8 w-8 text-muted-foreground" />}
-                    </div>
-                )}
-                {image !== undefined && image !== null && (
+                {image ? (
                     <Image
                         unoptimized
                         src={image}
@@ -59,6 +42,12 @@ function MapCardDisplay({ detail, onClick, server }){
                         width={180}
                         className="object-cover block"
                     />
+                ) : (
+                    <div className="flex justify-center items-center h-full">
+                        {loading
+                            ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            : <ImageOff className="h-8 w-8 text-muted-foreground" />}
+                    </div>
                 )}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
                     <span className="absolute bottom-2 right-2 text-xs text-white bg-black/50 px-1.5 py-0.5 rounded">
@@ -105,3 +94,5 @@ function MapCardDisplay({ detail, onClick, server }){
         </div>
     );
 }
+
+export default withErrorCatch(MapCardDisplay, () => "Failed to display this map.")

@@ -4,14 +4,12 @@ import {Server} from "types/community";
 import {ServerSlugPromise} from "./util.ts";
 
 type ServerData = {server: Server}
-export const ServerDataContext = createContext<ServerData | null>({ server: null });
+const ServerDataContext = createContext<ServerData | null>({ server: null });
+
 export default function ServerDataProvider({slugPromise, children}: {slugPromise: ServerSlugPromise, children: ReactNode}) {
-    const server = use(slugPromise)
-    return <ServerDataContext.Provider value={{ server }}>
+    return <ServerDataContext.Provider value={{ server: use(slugPromise) }}>
         {children}
     </ServerDataContext.Provider>
 }
 
-export function useServerData(): ServerData {
-    return useContext(ServerDataContext);
-}
+export const useServerData = (): ServerData => useContext(ServerDataContext);

@@ -1,15 +1,12 @@
 'use client'
 import {use, useEffect, useState} from "react";
-import dayjs from "dayjs";
+import dayjs from "dayjs"; // core only: this renders in the root layout, so it skips lib/dayjs's plugins
 import {AnnouncementBanner} from "components/announcements/AnnouncementBanner";
 import {ANNOUNCEMENT_DISMISSED} from "components/announcements/announcementDismissal";
 import type {Announcement as AnnouncementData} from "types/announcements";
+import {setCookie} from "components/lib/utils";
 
 const ROTATION_INTERVAL_MS = 7000;
-
-function saveDismissal(createdAt: string) {
-    document.cookie = `${ANNOUNCEMENT_DISMISSED}=${encodeURIComponent(createdAt)}; path=/; max-age=31536000; SameSite=Lax`;
-}
 
 export default function Announcement({ announcementsPromise }: { announcementsPromise: Promise<AnnouncementData[]> }) {
     const [announcements, setAnnouncements] = useState<AnnouncementData[]>(use(announcementsPromise));
@@ -20,7 +17,7 @@ export default function Announcement({ announcementsPromise }: { announcementsPr
         const storedAt = localStorage.getItem(ANNOUNCEMENT_DISMISSED);
         if (!storedAt) return;
         localStorage.removeItem(ANNOUNCEMENT_DISMISSED);
-        saveDismissal(storedAt);
+        setCookie(ANNOUNCEMENT_DISMISSED, storedAt);
         const dismissedAt = dayjs(storedAt);
         setAnnouncements(prev => prev.filter(a => dayjs(a.created_at).isAfter(dismissedAt)));
     }, []);
@@ -42,7 +39,7 @@ export default function Announcement({ announcementsPromise }: { announcementsPr
     const handleClose = () => {
         const newest = announcements.reduce((latest, a) =>
             dayjs(a.created_at).isAfter(dayjs(latest)) ? a.created_at : latest, current.created_at);
-        saveDismissal(newest);
+        setCookie(ANNOUNCEMENT_DISMISSED, newest);
         setAnnouncements([]);
     };
 

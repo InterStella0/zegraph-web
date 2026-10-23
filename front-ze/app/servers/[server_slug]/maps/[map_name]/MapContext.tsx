@@ -1,5 +1,5 @@
 'use client'
-import {createContext, ReactNode, use, useContext, useEffect, useRef, useState} from "react";
+import {createContext, ReactNode, use, useContext, useEffect, useState} from "react";
 import {MapAnalyze, MapDetail, MapInfo} from "types/maps";
 import {fetchMapUrl, StillCalculate} from "utils/generalUtils.ts";
 import {useServerData} from "../../ServerDataProvider";
@@ -25,25 +25,19 @@ export function MapContextProvider<I>({ value, children }: { value: Promise<MapD
     const initial = use(value)
     const [current, setCurrent] = useState<MapDetail<I>>(initial)
     const [retryTick, setRetryTick] = useState(0)
-    const isFirstRun = useRef(true)
     const serverId = useServerData()?.server?.id ?? null
     const { period } = usePeriod()
     const [periodAnalyze, setPeriodAnalyze] = useState<PeriodAnalyze | null>(null)
     const [periodRetryTick, setPeriodRetryTick] = useState(0)
     const shownPeriod = period && periodAnalyze?.period === period ? periodAnalyze : null
 
-    useEffect(() => {
-        setCurrent(initial)
-    }, [initial])
+    useEffect(() => setCurrent(initial), [initial])
 
     useNotReadyRetry(current.notReady, () => setRetryTick(t => t + 1))
     useNotReadyRetry(!!shownPeriod?.notReady, () => setPeriodRetryTick(t => t + 1))
 
     useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false
-            return
-        }
+        if (retryTick === 0) return
         let cancelled = false
         Promise.all([
             fetchMapUrl(serverId, current.name, '/info'),

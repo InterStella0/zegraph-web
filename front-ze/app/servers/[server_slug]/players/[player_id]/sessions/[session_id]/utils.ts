@@ -7,9 +7,8 @@ import {
     ServerGraphType,
     SessionInfo
 } from "../../../../util.ts";
-import {fetchApiServerUrl, getMapImage} from "utils/generalUtils.ts";
+import {getMapImage} from "utils/generalUtils.ts";
 import {Server} from "types/community.ts";
-
 
 export type SessionData = {
     sessionInfo: SessionInfo<"player">,
@@ -20,46 +19,22 @@ export type SessionData = {
     player: PlayerInfo,
     maps: PlayerSessionMapPlayed[]
 }
-async function getMapImages(server_id: string, player_id: string, session_id: string): Promise<Record<string, string>> {
-    const mapsData: PlayerSessionMapPlayed[] = await fetchApiServerUrl(server_id, `/players/${player_id}/sessions/${session_id}/maps`);
-    const imagePromises = mapsData.map(async (map) => {
-        try {
-            const imageData = await getMapImage(server_id, map.map);
-            return { [map.map]: imageData?.extra_large || null };
-        } catch (error) {
-            console.error(`Failed to load image for ${map.map}:`, error);
-            return { [map.map]: null };
-        }
-    });
-    const imageResults = await Promise.all(imagePromises);
-    const imageMap = imageResults.reduce((acc, curr) => ({ ...acc, ...curr }), {});
-    return imageMap as Record<string, string>;
+
+async function getMapImages(serverId: string, maps: PlayerSessionMapPlayed[]): Promise<Record<string, string>> {
+    const images = await Promise.all(maps.map(async ({map}) => [map, (await getMapImage(serverId, map))?.extra_large || null]));
+    return Object.fromEntries(images);
 }
 
 export async function getSessionData(server: Server, playerId: string, sessionId: string): Promise<SessionData> {
     const serverId = server.id;
-    const [
-        player,
-        sessionInfo,
-        maps,
-        serverGraph,
-        mutualSessions,
-        mapImages
-    ] = await Promise.all([
+    const mapsPromise = getMapsDataSession(serverId, playerId, sessionId);
+    const [player, sessionInfo, maps, serverGraph, mutualSessions, mapImages] = await Promise.all([
         getPlayerDetailed(serverId, playerId),
         getSessionInfo(serverId, sessionId, "player", playerId),
-        getMapsDataSession(serverId, playerId, sessionId),
+        mapsPromise,
         getServerGraph(serverId, sessionId, playerId, "player"),
         getMutualSessions(serverId, sessionId, "player", playerId),
-        getMapImages(serverId, playerId, sessionId),
+        mapsPromise.then(maps => getMapImages(serverId, maps)),
     ]);
-    return {
-        sessionInfo,
-        maps,
-        serverGraph,
-        mutualSessions,
-        mapImages,
-        player,
-        server,
-    } as SessionData
+    return { sessionInfo, maps, serverGraph, mutualSessions, mapImages, player, server };
 }

@@ -9,9 +9,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "components/ui/dropdown-menu";
-import {useState} from "react";
 import {LogOut, User, Shield, Cog} from "lucide-react";
-import LoginDialog from "./LoginDialog.tsx";
+import {useLoginDialog} from "./LoginDialog.tsx";
 import {signOut} from "next-auth/react";
 import {useRouter} from "next/navigation";
 import {SteamProfile} from "types/steam";
@@ -20,22 +19,11 @@ import {useTranslations} from "next-intl";
 function UserMenu({ user }: { user: SteamProfile | null }) {
     const t = useTranslations('auth');
     const router = useRouter();
-    const canAccessAdmin = user?.is_superuser || user?.is_map_manager || false;
-
-    const handleProfile = () => {
-        router.push('/players/me/profile');
-    };
-
-    const handleAdmin = () => {
-        router.push('/admin');
-    };
-    const handleSettings = () => {
-        router.push('/settings/notifications');
-    };
-
-    const handleLogout = () => {
-        signOut();
-    };
+    const links = [
+        { href: '/players/me/profile', Icon: User, label: t('profile') },
+        { href: '/settings/notifications', Icon: Cog, label: t('settings') },
+        ...(user?.is_superuser || user?.is_map_manager ? [{ href: '/admin', Icon: Shield, label: t('admin') }] : []),
+    ];
 
     return (
         <DropdownMenu>
@@ -54,21 +42,13 @@ function UserMenu({ user }: { user: SteamProfile | null }) {
                     {user?.personaname}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleProfile}>
-                    <User className="mr-2 h-4 w-4" />
-                    {t('profile')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleSettings}>
-                    <Cog className="mr-2 h-4 w-4" />
-                    {t('settings')}
-                </DropdownMenuItem>
-                {canAccessAdmin && (
-                    <DropdownMenuItem onClick={handleAdmin}>
-                        <Shield className="mr-2 h-4 w-4" />
-                        {t('admin')}
+                {links.map(({ href, Icon, label }) => (
+                    <DropdownMenuItem key={href} onClick={() => router.push(href)}>
+                        <Icon className="mr-2 h-4 w-4" />
+                        {label}
                     </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={handleLogout}>
+                ))}
+                <DropdownMenuItem onClick={() => signOut()}>
                     <LogOut className="mr-2 h-4 w-4" />
                     {t('logout')}
                 </DropdownMenuItem>
@@ -79,27 +59,15 @@ function UserMenu({ user }: { user: SteamProfile | null }) {
 
 export default function LoginButton({user, steamLabelClassName = "hidden min-[965px]:block"}: { user: SteamProfile | null, steamLabelClassName?: string }){
     const t = useTranslations('auth');
-    const [loginDialogOpen, setLoginDialogOpen] = useState(false);
-
-    const handleLoginClick = () => {
-        setLoginDialogOpen(true);
-    };
+    const {openLogin, loginDialog} = useLoginDialog();
     return <>
-        {
-        user ? (
-        <UserMenu user={user} />
-    ) : (
-        <Button
-            onClick={handleLoginClick}
-            variant="outline"
-            size="sm"
-        >
-            {t('login')}<span className={steamLabelClassName}>{t('withSteam')}</span>
-        </Button>
-    )}
-        <LoginDialog
-            open={loginDialogOpen}
-            onClose={() => setLoginDialogOpen(false)}
-        />
+        {user ? (
+            <UserMenu user={user} />
+        ) : (
+            <Button onClick={openLogin} variant="outline" size="sm">
+                {t('login')}<span className={steamLabelClassName}>{t('withSteam')}</span>
+            </Button>
+        )}
+        {loginDialog}
     </>
 }
