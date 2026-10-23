@@ -921,7 +921,7 @@ mod route_tests {
     async fn view_routes_require_the_view_secret() {
         let cli = client();
         let body = serde_json::json!({ "ip": "1.2.3.4", "user_agent": "Mozilla/5.0" }).to_string();
-        for path in VIEW_ROUTES {
+        for &path in VIEW_ROUTES {
             for (secret, case) in [(None, "no secret"), (Some("wrong"), "a wrong secret"), (Some(TEST_SECRET), "the NextAuth secret")] {
                 let builder = cli.post(path).header("Content-Type", "application/json").body(body.clone());
                 let builder = match secret {
