@@ -82,7 +82,8 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
     const { data, loading } = useResource<PlayerOnlineActivity>(
         signal => fetchApiUrl(`/players/${userId}/online-activity`, { params: { tz }, signal }),
         [userId, tz],
-        { initial: initialData ?? undefined, keepData: true, errorLog: 'Failed to fetch online activity:' },
+        // The server seeds UTC; only skip the first fetch if that is what we're showing.
+        { initial: initialData ?? undefined, skipFirst: tz === "UTC", keepData: true, errorLog: 'Failed to fetch online activity:' },
     );
 
     const keys = useMemo(() => {
