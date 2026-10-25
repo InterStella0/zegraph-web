@@ -302,10 +302,14 @@
       "knownAs": "표시 이름",
       "lastSeen": "마지막 확인",
       "country": "국가",
+      "totalPoints": "총 포인트",
+      "bestServerPoints": "최고 서버 포인트",
+      "footerRunaway": "Runaway의 다른 게임 모드 기록이며, ZE 서버는 통계를 저장하지 않습니다 · {date} 기준",
       "statsHeading": {
         "gfl": "CSGO 통계",
         "nide": "NiDE 통계",
-        "mapeadores": "Mapeadores 통계"
+        "mapeadores": "Mapeadores 통계",
+        "runaway": "Runaway 통계"
       }
     },
     "card": {

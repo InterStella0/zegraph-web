@@ -13,6 +13,7 @@ import {
     MapeadoresPlayerStats,
     NidePlayerStats,
     PlayerExternalStats,
+    RunawayPlayerStats,
 } from "types/players";
 import {PlayerPeriod, usePeriodLabel, usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
 import {PlayerStatSuspense, usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
@@ -21,6 +22,7 @@ const SOURCE_NAMES: Record<string, string> = {
     gfl: 'GFL',
     nide: 'NiDE',
     mapeadores: 'Mapeadores',
+    runaway: 'Runaway',
 };
 
 export const SPLIT_SEGMENTS = [
@@ -281,6 +283,7 @@ function ExternalStatsSection({ player }: { player: DetailedPlayer | null }): Re
         {stats.source === 'gfl' && <GflStats stats={stats} />}
         {stats.source === 'nide' && <NideStats stats={stats} reported={reported} />}
         {stats.source === 'mapeadores' && <MapeadoresStats stats={stats} reported={reported} />}
+        {stats.source === 'runaway' && <RunawayStats stats={stats} />}
     </div>
 }
 
@@ -367,5 +370,15 @@ function MapeadoresStats({ stats, reported }: { stats: MapeadoresPlayerStats, re
         <StatItem label={t('leaderboardPosition')} value={f.rank(stats.position)} />
         <StatItem label={t('knownAs')} value={stats.name} />
         {stats.is_supporter && <StatItem label={t('status')} value={t('supporter')} />}
+    </StatRow>
+}
+
+// Runaway reports no playtime, so these never stand in for the total above.
+function RunawayStats({ stats }: { stats: RunawayPlayerStats }): ReactElement {
+    const t = useTranslations('players.stats');
+    const f = useStatFormat();
+    return <StatRow footer={t('footerRunaway', { date: f.day(stats.fetched_at) })}>
+        <StatItem label={t('totalPoints')} value={f.count(stats.total_points)} />
+        <StatItem label={t('bestServerPoints')} value={f.count(stats.points)} />
     </StatRow>
 }
