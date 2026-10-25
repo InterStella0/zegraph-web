@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::future::Future;
 use std::io::Cursor;
@@ -215,6 +215,35 @@ pub(crate) async fn should_forward_live_event(app: &AppData, event: &NewRowEvent
         return false;
     }
     !is_player_activity_anonymized(app, &activity.server_id, &activity.player_id).await
+}
+
+/// History was filtered when it was recorded, so anonymization is checked again on every read:
+/// a player who turns it on disappears from history immediately instead of when their events
+/// roll off.
+async fn drop_anonymized_history(app: &AppData, events: Vec<NewRowEvent>) -> Vec<NewRowEvent> {
+    let player_of = |event: &NewRowEvent| {
+        if event.channel != "player_activity" {
+            return None;
+        }
+        serde_json::from_str::<PlayerActivityPayload>(&event.payload)
+            .ok()
+            .map(|activity| (activity.server_id, activity.player_id))
+    };
+
+    let players: HashSet<(String, String)> = events.iter().filter_map(player_of).collect();
+    let anonymized: HashSet<(String, String)> = futures::stream::iter(players)
+        .map(|(server_id, player_id)| async move {
+            is_player_activity_anonymized(app, &server_id, &player_id).await
+                .then_some((server_id, player_id))
+        })
+        .buffer_unordered(16)
+        .filter_map(|player| async move { player })
+        .collect()
+        .await;
+
+    events.into_iter()
+        .filter(|event| player_of(event).is_none_or(|player| !anonymized.contains(&player)))
+        .collect()
 }
 
 /// Keeps the newest events in a capped Redis list so `/live` can show what happened before
@@ -925,6 +954,7 @@ impl MiscApi {
         let events = raw.iter()
             .filter_map(|json| serde_json::from_str::<NewRowEvent>(json).ok())
             .collect();
+        let events = drop_anonymized_history(app, events).await;
 
         LiveEventHistoryResponse::Ok(Json(ResponseObject::ok(events)), "no-store".to_string())
     }
@@ -999,6 +1029,27 @@ mod live_event_tests {
 
         assert!(!should_forward_live_event(&app, &activity("geolocate")).await);
         assert!(!should_forward_live_event(&app, &activity("location")).await);
+    }
+
+    #[tokio::test]
+    async fn history_rechecks_only_player_activity_and_fails_open() {
+        let app = crate::workers::test_support::fake_app_data();
+        let history = vec![
+            event("map_changed"),
+            event("infraction_new"),
+            NewRowEvent { channel: "player_activity".to_string(), payload: "not json".to_string() },
+            NewRowEvent {
+                channel: "player_activity".to_string(),
+                payload: r#"{"player_id":"1","server_id":"unknown","event_name":"join"}"#.to_string(),
+            },
+        ];
+
+        let kept = drop_anonymized_history(&app, history.clone()).await;
+        assert_eq!(
+            kept.iter().map(|e| &e.payload).collect::<Vec<_>>(),
+            history.iter().map(|e| &e.payload).collect::<Vec<_>>(),
+            "nothing here is anonymized, so order and contents are untouched",
+        );
     }
 
     #[tokio::test]
