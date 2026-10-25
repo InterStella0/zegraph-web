@@ -17,7 +17,7 @@ import {
     Loader2
 } from 'lucide-react';
 import { cn } from "components/lib/utils";
-import {formatFlagName, getMapImage, ICE_FILE_ENDPOINT, InfractionInt, URI} from "utils/generalUtils.ts";
+import {fetchUrl, formatFlagName, getMapImage, ICE_FILE_ENDPOINT, InfractionInt, URI} from "utils/generalUtils.ts";
 import { PlayerAvatar } from "components/players/PlayerAvatar.tsx";
 import { useServerMap } from "components/ui/ServerProvider";
 import dayjs from "dayjs";
@@ -157,7 +157,6 @@ const MapActivity = ({event}) => {
     useEffect(() => {
         getMapImage(server_id, payload.map).then(e => setImage(e? e.medium: null))
     }, [server_id, payload])
-    console.log("PAYLOAD", payload)
     try {
         return (
             <Card
@@ -265,33 +264,57 @@ function PlayerActivity({event}){
     );
 }
 
-const MAX_EVENTS = 200;
+const MAX_EVENTS = 2000;
+const RENDER_STEP = 100;
+
+// The same row always arrives as the same channel + payload, from the stream and the history alike.
+const eventKey = (event) => `${event.channel}\u0000${event.payload}`;
+
+const dedupeEvents = (events) => {
+    const seen = new Set();
+    return events.filter(event => {
+        const key = eventKey(event);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).slice(0, MAX_EVENTS);
+};
 
 export default function LiveServerTrackerPage(){
     const t = useTranslations('tracker');
     const [events, setEvents] = useState([]);
     const [selectedTab, setSelectedTab] = useState(0);
     const [isConnected, setIsConnected] = useState(true);
+    const [renderCount, setRenderCount] = useState(RENDER_STEP);
     const eventSourceRef = useRef(null);
-
-    const [counters, setCounters] = useState({
-        all: 0,
-        playerActivity: 0,
-        mapActivity: 0,
-        infraction: 0
-    });
+    const loadMoreRef = useRef(null);
+    const scrollRef = useRef(null);
 
     useEffect(() => {
         let attempt = 0;
         let retryTimer = null;
+        let cancelled = false;
 
         const connectEventSource = () => {
             const eventSource = new EventSource(URI('/events/data-updates'));
             eventSourceRef.current = eventSource;
+            // Events from this connection are newer than any history fetched after it opened.
+            let receivedSinceOpen = 0;
 
             eventSource.onopen = () => {
                 attempt = 0;
                 setIsConnected(true);
+                // Fetched on every open, so a reconnect also fills whatever was missed while down.
+                fetchUrl('/events/history')
+                    .then((history) => {
+                        if (cancelled || eventSourceRef.current !== eventSource) return;
+                        setEvents(prev => dedupeEvents([
+                            ...prev.slice(0, receivedSinceOpen),
+                            ...history,
+                            ...prev.slice(receivedSinceOpen),
+                        ]));
+                    })
+                    .catch(e => console.error('Failed to load live event history:', e));
             };
 
             eventSource.onmessage = (event) => {
@@ -300,33 +323,9 @@ export default function LiveServerTrackerPage(){
                 if (newEvent.channel === "heartbeat") {
                     return;
                 }
-                if (newEvent.channel === 'player_activity'){
-                    try{
-                        const payload = JSON.parse(newEvent.payload)
-                        if (['geolocate', 'location'].includes(payload.event_name))
-                            return
-                    }catch (e) {
-                        console.error("Malformed payload:", e)
-                    }
-                }
 
-                setEvents(prevEvents => {
-                    return [newEvent, ...prevEvents].slice(0, MAX_EVENTS);
-                });
-
-                setCounters(prev => {
-                    const updatedCounters = { ...prev, all: prev.all + 1 };
-
-                    if (newEvent.channel === 'player_activity') {
-                        updatedCounters.playerActivity += 1;
-                    } else if (['map_changed', 'map_update'].includes(newEvent.channel)) {
-                        updatedCounters.mapActivity += 1;
-                    } else if (['infraction_update', 'infraction_new'].includes(newEvent.channel)) {
-                        updatedCounters.infraction += 1;
-                    }
-
-                    return updatedCounters;
-                });
+                receivedSinceOpen += 1;
+                setEvents(prevEvents => dedupeEvents([newEvent, ...prevEvents]));
             };
 
             eventSource.onerror = (error) => {
@@ -343,6 +342,7 @@ export default function LiveServerTrackerPage(){
         };
         connectEventSource();
         return () => {
+            cancelled = true;
             if (retryTimer) {
                 clearTimeout(retryTimer);
             }
@@ -352,6 +352,20 @@ export default function LiveServerTrackerPage(){
         };
     }, []);
 
+    const counters = useMemo(() => {
+        const counted = { all: events.length, playerActivity: 0, mapActivity: 0, infraction: 0 };
+        for (const event of events) {
+            if (event.channel === 'player_activity') {
+                counted.playerActivity += 1;
+            } else if (['map_changed', 'map_update'].includes(event.channel)) {
+                counted.mapActivity += 1;
+            } else if (['infraction_update', 'infraction_new'].includes(event.channel)) {
+                counted.infraction += 1;
+            }
+        }
+        return counted;
+    }, [events]);
+
     const filteredEvents = events.filter(event => {
         if (selectedTab === 0) return true;
         if (selectedTab === 1) return event.channel === 'player_activity';
@@ -359,6 +373,24 @@ export default function LiveServerTrackerPage(){
         if (selectedTab === 3) return ['infraction_new', 'infraction_update'].includes(event.channel);
         return true;
     });
+    const hasMoreToRender = filteredEvents.length > renderCount;
+
+    useEffect(() => {
+        setRenderCount(RENDER_STEP);
+    }, [selectedTab]);
+
+    // Up to 2000 cards each fetch images, so they mount a page at a time as the list scrolls.
+    useEffect(() => {
+        const sentinel = loadMoreRef.current;
+        if (!sentinel || !hasMoreToRender) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                setRenderCount(count => count + RENDER_STEP);
+            }
+        }, { root: scrollRef.current, rootMargin: '400px' });
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [hasMoreToRender, renderCount]);
 
     const renderEvent = (event) => {
         switch (event.channel) {
@@ -457,7 +489,7 @@ export default function LiveServerTrackerPage(){
 
                 <AdSpot className="mb-3" />
 
-                <div className="max-h-[68vh] overflow-y-auto px-1 pb-2 scrollbar-modern">
+                <div ref={scrollRef} className="max-h-[68vh] overflow-y-auto px-1 pb-2 scrollbar-modern">
                     {filteredEvents.length === 0 ? (
                         <Alert className="mt-2 border border-border">
                             <Info className="h-4 w-4" />
@@ -467,28 +499,21 @@ export default function LiveServerTrackerPage(){
                         </Alert>
                     ) : (
                         <div>
-                            {filteredEvents.map((event, index) => {
-                                let uniqueKey;
-                                try {
-                                    const payload = typeof event.payload === 'string' ?
-                                        JSON.parse(event.payload) : event.payload;
-                                    const timestamp = payload.timestamp || payload.created_at || Date.now();
-                                    uniqueKey = `${event.channel}-${payload.player_id || payload.map_name || index}-${timestamp}`;
-                                } catch (e) {
-                                    uniqueKey = `${event.channel}-${index}-${Date.now()}`;
-                                }
-
-                                return (
-                                    <div
-                                        key={uniqueKey}
-                                        className="animate-in fade-in-0 slide-in-from-top-2 duration-300"
-                                    >
-                                        <ErrorCatch message={t('eventRenderError')}>
-                                            {renderEvent(event)}
-                                        </ErrorCatch>
-                                    </div>
-                                );
-                            })}
+                            {filteredEvents.slice(0, renderCount).map((event) => (
+                                <div
+                                    key={eventKey(event)}
+                                    className="animate-in fade-in-0 slide-in-from-top-2 duration-300"
+                                >
+                                    <ErrorCatch message={t('eventRenderError')}>
+                                        {renderEvent(event)}
+                                    </ErrorCatch>
+                                </div>
+                            ))}
+                            {hasMoreToRender && (
+                                <div ref={loadMoreRef} className="flex justify-center py-2">
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
