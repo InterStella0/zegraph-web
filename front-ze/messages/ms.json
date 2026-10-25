@@ -302,10 +302,14 @@
       "knownAs": "Dikenali sebagai",
       "lastSeen": "Kali terakhir dilihat",
       "country": "Negara",
+      "totalPoints": "Jumlah mata",
+      "bestServerPoints": "Mata pelayan terbaik",
+      "footerRunaway": "Daripada mod permainan Runaway yang lain, pelayan ZE mereka tidak menyimpan statistik · setakat {date}",
       "statsHeading": {
         "gfl": "Statistik CSGO",
         "nide": "Statistik NiDE",
-        "mapeadores": "Statistik Mapeadores"
+        "mapeadores": "Statistik Mapeadores",
+        "runaway": "Statistik Runaway"
       }
     },
     "card": {

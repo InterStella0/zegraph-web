@@ -302,10 +302,14 @@
       "knownAs": "Известен как",
       "lastSeen": "Последний раз замечен",
       "country": "Страна",
+      "totalPoints": "Всего очков",
+      "bestServerPoints": "Очки на лучшем сервере",
+      "footerRunaway": "Из других режимов Runaway, их ZE-сервер не ведёт статистику · на {date}",
       "statsHeading": {
         "gfl": "Статистика CSGO",
         "nide": "Статистика NiDE",
-        "mapeadores": "Статистика Mapeadores"
+        "mapeadores": "Статистика Mapeadores",
+        "runaway": "Статистика Runaway"
       }
     },
     "card": {

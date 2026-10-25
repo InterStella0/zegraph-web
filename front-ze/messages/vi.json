@@ -302,10 +302,14 @@
       "knownAs": "Tên hiển thị",
       "lastSeen": "Lần cuối thấy",
       "country": "Quốc gia",
+      "totalPoints": "Tổng điểm",
+      "bestServerPoints": "Điểm máy chủ cao nhất",
+      "footerRunaway": "Từ các chế độ chơi khác của Runaway, máy chủ ZE của họ không lưu thống kê · tính đến {date}",
       "statsHeading": {
         "gfl": "Thống kê CSGO",
         "nide": "Thống kê NiDE",
-        "mapeadores": "Thống kê Mapeadores"
+        "mapeadores": "Thống kê Mapeadores",
+        "runaway": "Thống kê Runaway"
       }
     },
     "card": {

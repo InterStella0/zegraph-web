@@ -1209,6 +1209,14 @@ CREATE TABLE external_data.mapeadores_playtime (
     fetched_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
+-- runawaytr.com profile header, points from their non-ze modes. points is the best server, total_points all of them.
+CREATE TABLE external_data.runaway_points (
+    steamid64 VARCHAR(19) PRIMARY KEY,
+    points INTEGER NOT NULL,
+    total_points INTEGER NOT NULL,
+    fetched_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
 CREATE OR REPLACE FUNCTION website.apply_external_playtime(
     p_player_id VARCHAR,
     p_server_id VARCHAR,

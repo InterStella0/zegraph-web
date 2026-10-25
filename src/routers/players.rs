@@ -600,8 +600,9 @@ impl PlayerApi{
     /// Stats the game server itself publishes about a player, tagged by `source`.
     ///
     /// `gfl` is the legacy GFL CS:GO leaderboard (cached for 120 days), `nide` is NiDE's
-    /// leaderboard and `mapeadores` is Mapeadores' VIP playtime leaderboard (both cached for an
-    /// hour). 404s for every other server, and for players the source has no row for.
+    /// leaderboard, `mapeadores` is Mapeadores' VIP playtime leaderboard and `runaway` is the
+    /// runawaytr.com profile points from Runaway's non-ZE modes (all three cached for an hour).
+    /// 404s for every other server, and for players the source has no row for.
     #[oai(path="/servers/:server_id/players/:player_id/external_stats", method="get")]
     async fn get_external_stats(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<PlayerExternalStats>{
         let Some(source) = ExternalStatsSource::for_server(&extract.server.server_id) else {
