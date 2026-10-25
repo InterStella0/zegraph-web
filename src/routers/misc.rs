@@ -10,7 +10,8 @@ use image::imageops::{FilterType};
 use poem::web::{Data};
 use poem_openapi::{ApiResponse, Object, OpenApi};
 use poem_openapi::param::Path;
-use poem_openapi::payload::{Binary, EventStream};
+use poem_openapi::payload::{Binary, EventStream, Json};
+use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::fs;
@@ -161,7 +162,7 @@ pub(crate) struct HealthMonitor {
     snapshot: RwLock<IAmOkie>,
 }
 
-#[derive(Object, Clone, Debug)]
+#[derive(Object, Clone, Debug, Serialize, Deserialize)]
 pub struct NewRowEvent {
     pub channel: String,
     pub payload: String,
@@ -171,13 +172,19 @@ pub struct NewRowEvent {
 struct PlayerActivityPayload {
     player_id: String,
     server_id: String,
+    event_name: Option<String>,
 }
 
 pub(crate) const LIVE_EVENT_CHANNELS: [&str; 5] = [
     "player_activity", "map_changed", "map_update", "infraction_new", "infraction_update",
 ];
 
+const HIDDEN_PLAYER_EVENTS: [&str; 2] = ["geolocate", "location"];
+
 const LIVE_EVENT_BUFFER: usize = 256;
+
+const LIVE_EVENT_HISTORY_KEY: &str = "gfl-ze-watcher:live-events:history";
+const LIVE_EVENT_HISTORY_SIZE: isize = 2000;
 
 const MAX_SSE_CLIENTS: usize = 512;
 
@@ -204,7 +211,39 @@ pub(crate) async fn should_forward_live_event(app: &AppData, event: &NewRowEvent
     let Ok(activity) = serde_json::from_str::<PlayerActivityPayload>(&event.payload) else {
         return true;
     };
+    if activity.event_name.as_deref().is_some_and(|name| HIDDEN_PLAYER_EVENTS.contains(&name)) {
+        return false;
+    }
     !is_player_activity_anonymized(app, &activity.server_id, &activity.player_id).await
+}
+
+/// Keeps the newest events in a capped Redis list so `/live` can show what happened before
+/// the visitor connected.
+pub(crate) async fn record_live_event(cache: &FastCache, event: &NewRowEvent) {
+    let Ok(json) = serde_json::to_string(event) else {
+        return;
+    };
+    let Ok(mut conn) = cache.redis_pool.get().await else {
+        tracing::warn!("Failed to reach redis to record a live event");
+        return;
+    };
+    let saved: redis::RedisResult<()> = redis::pipe()
+        .lpush(LIVE_EVENT_HISTORY_KEY, &json).ignore()
+        .ltrim(LIVE_EVENT_HISTORY_KEY, 0, LIVE_EVENT_HISTORY_SIZE - 1).ignore()
+        .query_async(&mut *conn)
+        .await;
+    if let Err(e) = saved {
+        tracing::warn!("Failed to record live event: {e}");
+    }
+}
+
+#[derive(ApiResponse)]
+pub enum LiveEventHistoryResponse {
+    #[oai(status = 200)]
+    Ok(
+        Json<ResponseObject<Vec<NewRowEvent>>>,
+        #[oai(header = "Cache-Control")] String,
+    ),
 }
 
 #[derive(ApiResponse)]
@@ -868,6 +907,27 @@ impl MiscApi {
             "no".to_string(),
         )
     }
+    /// The newest live events, newest first, so `/live` starts with history before the stream.
+    #[oai(path = "/events/history", method = "get")]
+    async fn live_event_history(&self, Data(app): Data<&AppData>) -> LiveEventHistoryResponse {
+        let raw: Vec<String> = match app.cache.redis_pool.get().await {
+            Ok(mut conn) => conn.lrange(LIVE_EVENT_HISTORY_KEY, 0, LIVE_EVENT_HISTORY_SIZE - 1)
+                .await
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to read live event history: {e}");
+                    Vec::new()
+                }),
+            Err(e) => {
+                tracing::warn!("Failed to reach redis for live event history: {e}");
+                Vec::new()
+            }
+        };
+        let events = raw.iter()
+            .filter_map(|json| serde_json::from_str::<NewRowEvent>(json).ok())
+            .collect();
+
+        LiveEventHistoryResponse::Ok(Json(ResponseObject::ok(events)), "no-store".to_string())
+    }
 }
 
 #[cfg(test)]
@@ -927,6 +987,18 @@ mod live_event_tests {
                 },
             ).await
         );
+    }
+
+    #[tokio::test]
+    async fn geolocation_activity_never_reaches_the_feed() {
+        let app = crate::workers::test_support::fake_app_data();
+        let activity = |name: &str| NewRowEvent {
+            channel: "player_activity".to_string(),
+            payload: format!(r#"{{"player_id":"1","server_id":"1","event_name":"{name}"}}"#),
+        };
+
+        assert!(!should_forward_live_event(&app, &activity("geolocate")).await);
+        assert!(!should_forward_live_event(&app, &activity("location")).await);
     }
 
     #[tokio::test]

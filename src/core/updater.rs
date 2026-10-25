@@ -11,7 +11,7 @@ use sqlx::{Pool, Postgres};
 use tokio::sync::broadcast;
 use tokio::time::sleep;
 use crate::{AppData, FastCache};
-use crate::routers::misc::{should_forward_live_event, NewRowEvent, LIVE_EVENT_CHANNELS};
+use crate::routers::misc::{record_live_event, should_forward_live_event, NewRowEvent, LIVE_EVENT_CHANNELS};
 use crate::core::utils::*;
 use crate::core::push_service::{PushNotificationService, NotificationType};
 use crate::core::storage::AnnouncementStorage;
@@ -479,7 +479,8 @@ pub async fn live_events_listener(db_url: &str, app: AppData, events: broadcast:
                             if !should_forward_live_event(&app, &event).await {
                                 continue;
                             }
-                            let _ = events.send(event);
+                            let _ = events.send(event.clone());
+                            record_live_event(&app.cache, &event).await;
                         }
                         Err(e) => {
                             tracing::error!("Error receiving live event notification: {}", e);
