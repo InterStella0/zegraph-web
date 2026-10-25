@@ -264,8 +264,6 @@ impl PlayerApi{
     }
     /// Total playtime, player count and country count for a server, both all-time and this week.
     ///
-    /// All-time figures include playtime and players reported by the server itself (`external_stats`).
-    ///
     /// Cached for 1 day.
     #[oai(path = "/servers/:server_id/players/stats", method = "get", operation_id = "get_server_stats", tag = "ApiTags::Mcp")]
     async fn get_players_stats(
@@ -274,25 +272,14 @@ impl PlayerApi{
         let cache = app.cache.clone();
         let calculate = async |all_time: bool| {
             let func = || sqlx::query_as!(DbPlayersStatistic, "
-                WITH sessions AS (
-                    SELECT pss.player_id, SUM(COALESCE(pss.ended_at, CURRENT_TIMESTAMP) - pss.started_at) AS playtime
-                    FROM player_server_session pss
-                    WHERE pss.server_id = $1 AND ($2 OR pss.started_at > (CURRENT_DATE - EXTRACT(DOW FROM CURRENT_DATE)::int)::timestamp)
-                    GROUP BY pss.player_id
-                ), external AS (
-                    SELECT e.player_id, e.playtime_correction
-                    FROM website.player_external_playtime e
-                    WHERE e.server_id = $1 AND $2
-                ), known AS (
-                    SELECT player_id FROM sessions
-                    UNION
-                    SELECT player_id FROM external
-                )
                 SELECT
-                    COALESCE((SELECT SUM(playtime) FROM sessions), INTERVAL '0')
-                        + COALESCE((SELECT SUM(playtime_correction) FROM external), INTERVAL '0') AS total_cum_playtime,
-                    (SELECT COUNT(*) FROM known) AS total_players,
-                    (SELECT COUNT(DISTINCT p.location_code->>'country') FROM known k JOIN player p ON p.player_id = k.player_id) AS countries
+                    SUM(COALESCE(pss.ended_at, CURRENT_TIMESTAMP) - pss.started_at) as total_cum_playtime,
+                    COUNT(DISTINCT pss.player_id) as total_players,
+                    COUNT(DISTINCT p.location_code->>'country') as countries
+                FROM player_server_session pss
+                LEFT JOIN player p ON p.player_id = pss.player_id AND p.location_code IS NOT NULL
+                WHERE pss.server_id = $1 AND ($2 OR pss.started_at > (CURRENT_DATE - EXTRACT(DOW FROM CURRENT_DATE)::int)::timestamp)
+                LIMIT 1
             ", server.server_id, all_time).fetch_one(&*app.pool);
             let key = format!("players_statistics:{}:{}", server.server_id, all_time);
             cached_response(&key, &*cache, DAY, func).await
@@ -600,9 +587,8 @@ impl PlayerApi{
     /// Stats the game server itself publishes about a player, tagged by `source`.
     ///
     /// `gfl` is the legacy GFL CS:GO leaderboard (cached for 120 days), `nide` is NiDE's
-    /// leaderboard, `mapeadores` is Mapeadores' VIP playtime leaderboard and `runaway` is the
-    /// runawaytr.com profile points from Runaway's non-ZE modes (all three cached for an hour).
-    /// 404s for every other server, and for players the source has no row for.
+    /// leaderboard and `mapeadores` is Mapeadores' VIP playtime leaderboard (both cached for an
+    /// hour). 404s for every other server, and for players the source has no row for.
     #[oai(path="/servers/:server_id/players/:player_id/external_stats", method="get")]
     async fn get_external_stats(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<PlayerExternalStats>{
         let Some(source) = ExternalStatsSource::for_server(&extract.server.server_id) else {

@@ -19,7 +19,6 @@ import {withErrorCatch} from "components/common/withErrorCatch";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {isOnCooldown, mapBlockers} from "utils/mapCooldown";
 import {useMapCooldownText} from "lib/hooks/useMapCooldownText";
-import ViewCount from "components/ui/ViewCount";
 dayjs.extend(relativeTime);
 
 async function checkModelExists(mapName: string): Promise<boolean> {
@@ -96,9 +95,7 @@ export function Map3DButton({ name, href }: { name: string, href: string }) {
     )
 }
 
-export function MapHeaderStats({ name, analyze, viewsPromise, children }: {
-    name: string, analyze: MapAnalyze | null, viewsPromise?: Promise<number | null>, children?: ReactNode,
-}) {
+export function MapHeaderStats({ name, analyze, children }: { name: string, analyze: MapAnalyze | null, children?: ReactNode }) {
     const t = useTranslations('maps.header');
     const locale = useLocale();
     const toDayjs = useLocalDayjs();
@@ -192,17 +189,12 @@ export function MapHeaderStats({ name, analyze, viewsPromise, children }: {
                     )}
                 </div>
 
-                {viewsPromise && <ViewCount
-                    viewsPromise={viewsPromise}
-                    className="ml-2 sm:ml-4 mb-2 sm:mb-0 text-white text-xs sm:text-sm md:text-base font-medium"
-                    iconClassName="text-white h-3.5 w-3.5 sm:h-5 sm:w-5"
-                />}
             </div>
         </div>
     );
 }
 
-function MapHeaderDisplay({ viewsPromise }: { viewsPromise?: Promise<number | null> }) {
+function MapHeaderDisplay() {
     const t = useTranslations('maps.header');
     const [url, setUrl] = useState<string | null>(null);
     const { name, analyze, info, notReady } = useMapContext();
@@ -285,7 +277,7 @@ function MapHeaderDisplay({ viewsPromise }: { viewsPromise?: Promise<number | nu
                     <Map3DButton name={name} href={`/maps/${name}/3d?server_slug=${server.gotoLink}`} />
                 </div>
 
-                <MapHeaderStats name={name} analyze={analyze} viewsPromise={viewsPromise} />
+                <MapHeaderStats name={name} analyze={analyze} />
             </div>
         </TooltipProvider>
     );

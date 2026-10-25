@@ -18,7 +18,6 @@ import {Server} from "types/community.ts";
 import ResolvePlayerInformation from "./ResolvePlayerInformation.tsx";
 import {AdSpot} from "components/ui/AdSpot";
 import getServerUser from "../../../../getServerUser";
-import {recordView} from "lib/recordView";
 
 dayjs.extend(relativeTime);
 export async function generateMetadata({ params}: {
@@ -127,11 +126,9 @@ export default async function Page({ params, searchParams }: {
 
     const serverPlayer = await serverPlayerPromise;
     let jsonLd = null;
-    let viewsPromise: Promise<number | null> = Promise.resolve(null);
 
     if (serverPlayer.player && !('code' in serverPlayer.player)) {
         const player = serverPlayer.player;
-        viewsPromise = recordView('players', player.id);
         const server = serverPlayer.server;
 
         jsonLd = {
@@ -168,7 +165,6 @@ export default async function Page({ params, searchParams }: {
                 <ResolvePlayerInformation
                     serverPlayerPromise={serverPlayerPromise}
                     userPromise={getServerUser()}
-                    viewsPromise={viewsPromise}
                     statSeeds={statSeeds}
                 />
             </div>

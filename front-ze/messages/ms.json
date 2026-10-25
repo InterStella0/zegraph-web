@@ -200,8 +200,6 @@
       "title": "Pemain Global",
       "subtitle": "Senarai pemain merentas komuniti",
       "totalPlayers": "Jumlah pemain",
-      "estimatedPlayers": "anggaran ~{total}",
-      "estimatedPlayersHint": "Termasuk pemain dari pelayan yang hanya menjejak nama, dikira sekali bagi setiap nama",
       "searchPlaceholder": "Cari senarai pemain global mengikut nama...",
       "hoursSplit": "Pecahan jam",
       "hoursAllTime": "jam sepanjang masa",
@@ -302,14 +300,10 @@
       "knownAs": "Dikenali sebagai",
       "lastSeen": "Kali terakhir dilihat",
       "country": "Negara",
-      "totalPoints": "Jumlah mata",
-      "bestServerPoints": "Mata pelayan terbaik",
-      "footerRunaway": "Daripada mod permainan Runaway yang lain, pelayan ZE mereka tidak menyimpan statistik · setakat {date}",
       "statsHeading": {
         "gfl": "Statistik CSGO",
         "nide": "Statistik NiDE",
-        "mapeadores": "Statistik Mapeadores",
-        "runaway": "Statistik Runaway"
+        "mapeadores": "Statistik Mapeadores"
       }
     },
     "card": {
@@ -497,7 +491,7 @@
         "neverVerified": "Jumlah ini belum pernah disahkan.",
         "recalculatingPlaytime": "Mengira semula masa bermain…",
         "playtimeOutOfDate": "Masa bermain sudah lapuk",
-        "staleNoticeBody": "Pemain ini telah bermain sejak angka ini dikira, jadi masa bermain dan kedudukan mungkin terlalu rendah. {verified}",
+        "staleNoticeBody": "Anda telah bermain sejak angka ini dikira, jadi masa bermain dan kedudukan mungkin terlalu rendah. {verified}",
         "freshFiguresNote": "Angka terkini akan dipaparkan secara automatik."
       },
       "communities": {

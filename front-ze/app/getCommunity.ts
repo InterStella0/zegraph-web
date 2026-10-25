@@ -23,8 +23,8 @@ export class CommunitiesData{
     }
 }
 
-export async function getCommunity(options: object = { next: { revalidate: 60 } }): Promise<Community[]>{
-    return await fetchUrl("/communities", options)
+export async function getCommunity(): Promise<Community[]>{
+    return await fetchUrl("/communities", { next: { revalidate: 60 } })
         .then(resp => {
             const comm = resp.map(e => ({
                 id: e.id,

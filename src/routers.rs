@@ -12,7 +12,6 @@ pub mod ze_community_links;
 pub mod admin_maps;
 pub mod admin_audit;
 pub mod admin_servers;
-pub mod views;
 
 use poem_openapi::Tags;
 
@@ -57,8 +56,6 @@ pub enum ApiTags {
     AdminServers,
     /// Player requests to claim a name-tracked profile, and their moderation queue.
     PlayerClaims,
-    /// Page view counters, recorded by the frontend's server.
-    Views,
     /// Read-only routes also served as MCP tools at `POST /mcp`, each named by its operation ID.
     Mcp,
 }

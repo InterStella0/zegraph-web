@@ -399,8 +399,6 @@ pub enum PlayerExternalStats {
     Nide(NidePlayerStats),
     #[oai(mapping = "mapeadores")]
     Mapeadores(MapeadoresPlayerStats),
-    #[oai(mapping = "runaway")]
-    Runaway(RunawayPlayerStats),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -408,7 +406,6 @@ pub enum ExternalStatsSource {
     Gfl,
     Nide,
     Mapeadores,
-    Runaway,
 }
 
 impl ExternalStatsSource {
@@ -417,7 +414,6 @@ impl ExternalStatsSource {
             "85568392935951359" => Some(Self::Gfl),
             "7ae2ca188ebf8be21d4f42b2827153ac" => Some(Self::Nide),
             "674b592b744afc3c108d345a" => Some(Self::Mapeadores),
-            "85568392931886775" => Some(Self::Runaway),
             _ => None,
         }
     }
@@ -461,17 +457,6 @@ pub struct MapeadoresPlayerStats {
     /// Position on the Mapeadores leaderboard.
     pub position: i32,
     pub is_supporter: bool,
-    pub fetched_at: DateTime<Utc>,
-}
-
-/// runawaytr.com profile points for a player. Runaway's ZE server keeps no stats, so these come
-/// from their other game modes.
-#[derive(Object)]
-pub struct RunawayPlayerStats {
-    /// Points on the player's best Runaway server.
-    pub points: i32,
-    /// Points summed across every Runaway server.
-    pub total_points: i32,
     pub fetched_at: DateTime<Utc>,
 }
 
@@ -748,9 +733,6 @@ pub struct GlobalPlayerBrief {
 #[derive(Object)]
 pub struct GlobalBriefPlayers {
     pub total_players: i64,
-    /// Steam-ID players plus name-tracked players not linked to one, counted once per name. Null
-    /// while searching.
-    pub estimated_total_players: Option<i64>,
     pub players: Vec<GlobalPlayerBrief>,
 }
 
@@ -873,7 +855,6 @@ mod tests {
         assert_eq!(ExternalStatsSource::for_server("85568392935951359"), Some(ExternalStatsSource::Gfl));
         assert_eq!(ExternalStatsSource::for_server("7ae2ca188ebf8be21d4f42b2827153ac"), Some(ExternalStatsSource::Nide));
         assert_eq!(ExternalStatsSource::for_server("674b592b744afc3c108d345a"), Some(ExternalStatsSource::Mapeadores));
-        assert_eq!(ExternalStatsSource::for_server("85568392931886775"), Some(ExternalStatsSource::Runaway));
         assert_eq!(ExternalStatsSource::for_server("unknown"), None);
     }
 

@@ -33,7 +33,6 @@ import {
     ServerMapPlayedPaginated
 } from "types/maps";
 import {BriefPlayers, MapPlayerTypeTime} from "types/players.ts";
-import {recordView} from "lib/recordView";
 
 const mapEndpoint = (mapName: string, endpoint: string) => `/maps/${encodeURIComponent(mapName)}${endpoint}`
 
@@ -129,7 +128,6 @@ export default async function Page({ params }: { params: Promise<{ map_name: str
         if (error?.code === 404) notFound()
         throw error
     }
-    const viewsPromise = recordView('maps', map_name)
 
     let jsonLd = null
     if (detail.analyze && !detail.notReady) {
@@ -172,7 +170,7 @@ export default async function Page({ params }: { params: Promise<{ map_name: str
             <MapContextProvider value={Promise.resolve(detail)}>
                 <div className="grid grid-cols-12 gap-5 mx-10 max-sm:mx-2 my-2">
                     <div className="col-span-12 xl:col-span-8 lg:col-span-9">
-                        <GlobalMapHeader loggedIn={!!user} viewsPromise={viewsPromise} />
+                        <GlobalMapHeader loggedIn={!!user} />
                     </div>
                     <div className="col-span-12 xl:col-span-4 lg:col-span-3">
                         <MapAnalyzeAttributes />

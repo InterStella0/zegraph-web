@@ -18,19 +18,19 @@ export default function WebAppBar(
 ) {
     const user = use(userPromise)
     return (
-        <header className="site-header @container sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <header className="site-header sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <nav className="container mx-auto flex h-16 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">
-                <div className="flex min-w-0 items-center gap-4">
+                <div className="flex items-center gap-4">
                     <div className="min-[750px]:hidden">
                         <NavDrawerButton server={server} user={user} />
                     </div>
                     {!server && <Link href="/" className="flex-shrink-0">
                         <Logo />
                     </Link>}
-                    <div className="hidden min-w-0 max-[1200px]:@min-[880px]:block">
+                    <div className="hidden min-[877px]:block min-[1200px]:hidden">
                         <ServerIndicator server={server} setDisplayCommunity={setDisplayCommunity} />
                     </div>
-                    <div className="hidden min-w-0 min-[1200px]:block">
+                    <div className="hidden min-[1200px]:block">
                         <ServerIndicator server={server} setDisplayCommunity={null} />
                     </div>
                 </div>
@@ -45,11 +45,11 @@ export default function WebAppBar(
                     <ServerIndicator server={server} setDisplayCommunity={setDisplayCommunity} />
                 </div>
 
-                <div className="flex shrink-0 items-center gap-3">
+                <div className="flex items-center gap-3">
                     <div className="hidden min-[750px]:flex items-center gap-2">
                         <DiscordButton />
                         <LanguageToggle />
-                        <LoginButton user={user} steamLabelClassName={server ? "hidden @min-[1060px]:block" : "hidden @min-[880px]:block"} />
+                        <LoginButton user={user} />
                     </div>
                     <div className="min-[750px]:hidden">
                         <DiscordButton />

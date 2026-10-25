@@ -200,8 +200,6 @@
       "title": "Jugadores globales",
       "subtitle": "Lista de jugadores en todas las comunidades",
       "totalPlayers": "Total de jugadores",
-      "estimatedPlayers": "~{total} estimados",
-      "estimatedPlayersHint": "Incluye jugadores de servidores que solo registran nombres, contados una vez por nombre",
       "searchPlaceholder": "Busca en la lista global de jugadores por nombre...",
       "hoursSplit": "Distribución de horas",
       "hoursAllTime": "horas totales",
@@ -302,14 +300,10 @@
       "knownAs": "Conocido como",
       "lastSeen": "Visto por última vez",
       "country": "País",
-      "totalPoints": "Puntos totales",
-      "bestServerPoints": "Puntos en su mejor servidor",
-      "footerRunaway": "De los otros modos de juego de Runaway, su servidor ZE no guarda estadísticas · al {date}",
       "statsHeading": {
         "gfl": "Estadísticas CSGO",
         "nide": "Estadísticas NiDE",
-        "mapeadores": "Estadísticas Mapeadores",
-        "runaway": "Estadísticas Runaway"
+        "mapeadores": "Estadísticas Mapeadores"
       }
     },
     "card": {
@@ -497,7 +491,7 @@
         "neverVerified": "Estos totales nunca se han verificado.",
         "recalculatingPlaytime": "Recalculando tiempo de juego…",
         "playtimeOutOfDate": "El tiempo de juego está desactualizado",
-        "staleNoticeBody": "Este jugador ha jugado desde que se calcularon estos números, por lo que el tiempo de juego y la clasificación pueden ser demasiado bajos. {verified}",
+        "staleNoticeBody": "Has jugado desde que se calcularon estos números, por lo que el tiempo de juego y la clasificación pueden ser demasiado bajos. {verified}",
         "freshFiguresNote": "Las cifras actualizadas aparecerán automáticamente."
       },
       "communities": {

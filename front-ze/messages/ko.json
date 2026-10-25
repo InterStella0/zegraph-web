@@ -200,8 +200,6 @@
       "title": "글로벌 플레이어",
       "subtitle": "모든 커뮤니티의 플레이어 목록",
       "totalPlayers": "총 플레이어 수",
-      "estimatedPlayers": "추정 약 {total}명",
-      "estimatedPlayersHint": "이름만 기록하는 서버의 플레이어를 포함하며, 이름당 한 명으로 계산합니다",
       "searchPlaceholder": "이름으로 글로벌 플레이어 목록 검색...",
       "hoursSplit": "시간 분포",
       "hoursAllTime": "누적 시간",
@@ -302,14 +300,10 @@
       "knownAs": "표시 이름",
       "lastSeen": "마지막 확인",
       "country": "국가",
-      "totalPoints": "총 포인트",
-      "bestServerPoints": "최고 서버 포인트",
-      "footerRunaway": "Runaway의 다른 게임 모드 기록이며, ZE 서버는 통계를 저장하지 않습니다 · {date} 기준",
       "statsHeading": {
         "gfl": "CSGO 통계",
         "nide": "NiDE 통계",
-        "mapeadores": "Mapeadores 통계",
-        "runaway": "Runaway 통계"
+        "mapeadores": "Mapeadores 통계"
       }
     },
     "card": {
@@ -497,7 +491,7 @@
         "neverVerified": "이 합계는 아직 확인된 적이 없습니다.",
         "recalculatingPlaytime": "플레이 시간 재계산 중…",
         "playtimeOutOfDate": "플레이 시간이 오래되었습니다",
-        "staleNoticeBody": "이 수치가 계산된 이후 이 플레이어가 플레이했으므로 플레이 시간과 순위가 너무 낮을 수 있습니다. {verified}",
+        "staleNoticeBody": "이 수치가 계산된 이후 플레이하셨으므로 플레이 시간과 순위가 너무 낮을 수 있습니다. {verified}",
         "freshFiguresNote": "최신 수치가 자동으로 표시됩니다."
       },
       "communities": {

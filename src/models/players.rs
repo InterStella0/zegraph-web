@@ -287,14 +287,6 @@ pub struct DbMapeadoresPlayerStats {
     pub is_supporter: bool,
     pub fetched_at: OffsetDateTime,
 }
-#[derive(Clone, DbInto)]
-#[auto_serde_with]
-#[db_into(RunawayPlayerStats)]
-pub struct DbRunawayPlayerStats {
-    pub points: i32,
-    pub total_points: i32,
-    pub fetched_at: OffsetDateTime,
-}
 #[derive(DbInto)]
 #[db_into(ExternalPlaytime)]
 #[extra(tracked_playtime = 0.0)]

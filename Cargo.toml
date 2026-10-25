@@ -41,7 +41,6 @@ jsonwebtoken = { version = "10.4.0", default-features = false, features = ["rust
 uuid = { version = "1.24.0", features = ["v4", "serde"] }
 web-push = "0.11.0"
 base64 = "0.22.1"
-sha256 = "1.6.0"
 
 [dev-dependencies]
 # `macros` only reaches the build transitively through poem today, which is what lets the existing

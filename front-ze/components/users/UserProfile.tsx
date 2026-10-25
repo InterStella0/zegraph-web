@@ -30,14 +30,12 @@ import { SPLIT_SEGMENTS } from "components/players/PlayerStats";
 import { useGlobalPlaytime } from "./useGlobalPlaytime";
 import { useProfileCommunities } from "./ProfileContext";
 import { ENTER, stagger } from "./profileMotion";
-import ViewCount from "components/ui/ViewCount";
 
 dayjs.extend(relativeTime);
 
 interface UserProfileProps {
     profilePromise: Promise<ProfileResponse>;
     pfpPromise?: Promise<PlayerProfilePicture | null>;
-    viewsPromise?: Promise<number | null>;
 }
 
 const SECTION_LABEL = "text-xs font-medium uppercase tracking-wider text-muted-foreground";
@@ -152,7 +150,7 @@ function RankChip({ tooltip, href, index, children }: { tooltip: ReactNode, href
     );
 }
 
-export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }: UserProfileProps) {
+export default function UserProfile({ profilePromise, pfpPromise }: UserProfileProps) {
     const t = useTranslations('players.profile.header');
     const tStats = useTranslations('players.stats');
     const locale = useLocale();
@@ -286,11 +284,6 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                                 <span className="text-sm text-muted-foreground" suppressHydrationWarning>
                                     {summary.is_online ? null : `${t('offline')} · `}{status}
                                 </span>
-                                {viewsPromise && <ViewCount
-                                    viewsPromise={viewsPromise}
-                                    className="text-sm text-muted-foreground"
-                                    iconClassName="size-4"
-                                />}
                             </div>
 
                             <TooltipProvider>

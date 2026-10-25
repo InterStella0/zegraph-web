@@ -16,7 +16,7 @@ import CommunityAvatarStack from "./CommunityAvatarStack";
 import {useMapContext} from "../../../app/servers/[server_slug]/maps/[map_name]/MapContext";
 import {GlobalMapInfo} from "types/maps.ts";
 
-function GlobalMapHeaderDisplay({ loggedIn, viewsPromise }: { loggedIn: boolean, viewsPromise?: Promise<number | null> }) {
+function GlobalMapHeaderDisplay({ loggedIn }: { loggedIn: boolean }) {
     const t = useTranslations('maps.header');
     const { name, analyze, info, notReady } = useMapContext<GlobalMapInfo>();
     const map = info?.map ?? null
@@ -89,7 +89,7 @@ function GlobalMapHeaderDisplay({ loggedIn, viewsPromise }: { loggedIn: boolean,
                     <Map3DButton name={name} href={`/maps/${name}/3d`} />
                 </div>
 
-                <MapHeaderStats name={name} analyze={analyze} viewsPromise={viewsPromise}>
+                <MapHeaderStats name={name} analyze={analyze}>
                     {map && (
                         <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-3">
                             {map.games.map(game => {

@@ -811,7 +811,6 @@ mod cache_key_tests {
             player_query::<Option<DbGflPlayerStats>>().cache_key_pattern(),
             player_query::<Option<DbNidePlayerStats>>().cache_key_pattern(),
             player_query::<Option<DbMapeadoresPlayerStats>>().cache_key_pattern(),
-            player_query::<Option<DbRunawayPlayerStats>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerRegionTime>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerHourCount>>().cache_key_pattern(),
             player_query::<Vec<DbPlayerOnlineHeatmap>>().cache_key_pattern(),
@@ -847,6 +846,6 @@ mod cache_key_tests {
             unique.len(), patterns.len(),
             "two WorkerQuery impls resolve to the same cache key; patterns were {patterns:#?}",
         );
-        assert_eq!(patterns.len(), 38, "every WorkerQuery impl must be listed here");
+        assert_eq!(patterns.len(), 37, "every WorkerQuery impl must be listed here");
     }
 }

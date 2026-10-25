@@ -200,8 +200,6 @@
       "title": "Người chơi toàn cầu",
       "subtitle": "Danh sách người chơi trên tất cả cộng đồng",
       "totalPlayers": "Tổng số người chơi",
-      "estimatedPlayers": "ước tính ~{total}",
-      "estimatedPlayersHint": "Bao gồm người chơi từ các máy chủ chỉ theo dõi tên, mỗi tên được tính một lần",
       "searchPlaceholder": "Tìm kiếm danh sách người chơi toàn cầu theo tên...",
       "hoursSplit": "Phân bổ giờ chơi",
       "hoursAllTime": "giờ chơi toàn thời gian",
@@ -302,14 +300,10 @@
       "knownAs": "Tên hiển thị",
       "lastSeen": "Lần cuối thấy",
       "country": "Quốc gia",
-      "totalPoints": "Tổng điểm",
-      "bestServerPoints": "Điểm máy chủ cao nhất",
-      "footerRunaway": "Từ các chế độ chơi khác của Runaway, máy chủ ZE của họ không lưu thống kê · tính đến {date}",
       "statsHeading": {
         "gfl": "Thống kê CSGO",
         "nide": "Thống kê NiDE",
-        "mapeadores": "Thống kê Mapeadores",
-        "runaway": "Thống kê Runaway"
+        "mapeadores": "Thống kê Mapeadores"
       }
     },
     "card": {
@@ -497,7 +491,7 @@
         "neverVerified": "Các tổng số này chưa từng được xác minh.",
         "recalculatingPlaytime": "Đang tính lại thời gian chơi…",
         "playtimeOutOfDate": "Thời gian chơi đã lỗi thời",
-        "staleNoticeBody": "Người chơi này đã chơi kể từ lần tính toán các số liệu này, vì vậy thời gian chơi và xếp hạng có thể quá thấp. {verified}",
+        "staleNoticeBody": "Bạn đã chơi kể từ lần tính toán các số liệu này, vì vậy thời gian chơi và xếp hạng có thể quá thấp. {verified}",
         "freshFiguresNote": "Số liệu mới sẽ tự động xuất hiện."
       },
       "communities": {

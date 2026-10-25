@@ -40,7 +40,6 @@ import {
     Region,
 } from "types/players.ts";
 import { notFound } from 'next/navigation';
-import {recordView} from "lib/recordView";
 
 async function getMapInfoDetails(serverId: string, mapName: string): Promise<ServerMapDetail>{
     const toReturn = { info: null, analyze: null, notReady: false, name: mapName}
@@ -128,7 +127,6 @@ export default async function Page({ params, searchParams }){
     }
 
     const mapDetail = Promise.resolve(mapInfo);
-    const viewsPromise = recordView('maps', map_name);
 
     let jsonLd = null;
 
@@ -179,7 +177,7 @@ export default async function Page({ params, searchParams }){
                             <PeriodSelector />
                         </div>
                         <div className="col-span-12 xl:col-span-8 lg:col-span-9">
-                            <MapHeader viewsPromise={viewsPromise} />
+                            <MapHeader />
                         </div>
                         <div className="col-span-12 xl:col-span-4 lg:col-span-3">
                             <MapAnalyzeAttributes />

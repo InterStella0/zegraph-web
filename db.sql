@@ -319,16 +319,6 @@ CREATE TABLE website.user_favorite_global_maps (
     PRIMARY KEY (user_id, map)
 );
 
-CREATE TABLE website.player_views (
-    player_id VARCHAR(100) PRIMARY KEY REFERENCES player(player_id) ON DELETE CASCADE,
-    views BIGINT NOT NULL DEFAULT 0
-);
-
-CREATE TABLE website.map_views (
-    map TEXT PRIMARY KEY,
-    views BIGINT NOT NULL DEFAULT 0
-);
-
 
 CREATE TABLE IF NOT EXISTS website.map_3d_model (
     id SERIAL PRIMARY KEY,
@@ -1153,18 +1143,7 @@ CREATE TABLE external_data.gfl_csgo_players (
     td_count INTEGER DEFAULT 0,
     personaname TEXT DEFAULT '',
     avatarURL VARCHAR(255) DEFAULT '',
-    timestamp TIMESTAMP DEFAULT NULL,
-    rank_total_playtime BIGINT,
-    rank_zombie_time BIGINT,
-    rank_points BIGINT,
-    rank_human_time BIGINT,
-    rank_zombie_killed BIGINT,
-    rank_headshot BIGINT,
-    rank_infected_time BIGINT,
-    rank_item_usage BIGINT,
-    rank_boss_killed BIGINT,
-    rank_leader_count BIGINT,
-    rank_td_count BIGINT
+    timestamp TIMESTAMP DEFAULT NULL
 );
 
 CREATE TABLE external_data.nide_players (
@@ -1206,14 +1185,6 @@ CREATE TABLE external_data.mapeadores_playtime (
     minutes INTEGER NOT NULL,
     position INTEGER NOT NULL,
     is_supporter BOOLEAN NOT NULL,
-    fetched_at TIMESTAMP WITH TIME ZONE NOT NULL
-);
-
--- runawaytr.com profile header, points from their non-ze modes. points is the best server, total_points all of them.
-CREATE TABLE external_data.runaway_points (
-    steamid64 VARCHAR(19) PRIMARY KEY,
-    points INTEGER NOT NULL,
-    total_points INTEGER NOT NULL,
     fetched_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
@@ -1364,40 +1335,6 @@ BEGIN
     )
     FROM external_data.gfl_csgo_players g
     WHERE COALESCE(g.human_time, 0) + COALESCE(g.zombie_time, 0) > 0;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION website.rank_gfl_csgo_players() RETURNS void AS $$
-BEGIN
-    UPDATE external_data.gfl_csgo_players g
-    SET rank_total_playtime = r.rank_total_playtime,
-        rank_zombie_time = r.rank_zombie_time,
-        rank_points = r.rank_points,
-        rank_human_time = r.rank_human_time,
-        rank_zombie_killed = r.rank_zombie_killed,
-        rank_headshot = r.rank_headshot,
-        rank_infected_time = r.rank_infected_time,
-        rank_item_usage = r.rank_item_usage,
-        rank_boss_killed = r.rank_boss_killed,
-        rank_leader_count = r.rank_leader_count,
-        rank_td_count = r.rank_td_count
-    FROM (
-        SELECT
-            steamid64,
-            RANK() OVER (ORDER BY human_time + zombie_time DESC) AS rank_total_playtime,
-            RANK() OVER (ORDER BY zombie_time DESC) AS rank_zombie_time,
-            RANK() OVER (ORDER BY points DESC) AS rank_points,
-            RANK() OVER (ORDER BY human_time DESC) AS rank_human_time,
-            RANK() OVER (ORDER BY zombie_killed DESC) AS rank_zombie_killed,
-            RANK() OVER (ORDER BY headshot DESC) AS rank_headshot,
-            RANK() OVER (ORDER BY infected_time DESC) AS rank_infected_time,
-            RANK() OVER (ORDER BY item_usage DESC) AS rank_item_usage,
-            RANK() OVER (ORDER BY boss_killed DESC) AS rank_boss_killed,
-            RANK() OVER (ORDER BY leader_count DESC) AS rank_leader_count,
-            RANK() OVER (ORDER BY td_count DESC) AS rank_td_count
-        FROM external_data.gfl_csgo_players
-    ) r
-    WHERE r.steamid64 = g.steamid64;
 END;
 $$ LANGUAGE plpgsql;
 

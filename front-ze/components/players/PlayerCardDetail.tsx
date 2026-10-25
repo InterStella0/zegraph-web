@@ -35,7 +35,6 @@ import {usePlayerPeriod} from "../../app/servers/[server_slug]/players/[player_i
 import PlayerClaimButton from "./PlayerClaimButton";
 import AssociatePlayerDialog from "./AssociatePlayerDialog";
 import {SteamProfile} from "types/steam";
-import ViewCount from "../ui/ViewCount";
 dayjs.extend(relativeTime)
 
 function AliasesDropdown({ aliases }) {
@@ -94,9 +93,7 @@ function GlobalProfileButton({ steamId, label, className }: { steamId: string, l
     );
 }
 
-function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
-    server: Server, player: PlayerInfo, user: SteamProfile | null, viewsPromise?: Promise<number | null>,
-}): ReactElement {
+function PlayerCardDetailDisplay({ server, player, user }: { server: Server, player: PlayerInfo, user: SteamProfile | null }): ReactElement {
     const t = useTranslations('players.card');
     const locale = useLocale();
     const toDayjs = useLocalDayjs();
@@ -186,7 +183,7 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
                     {steamId && <GlobalProfileButton steamId={steamId} label={t('globalShort')} className="sm:hidden" />}
                 </div>
 
-                <div className="col-span-2 mt-4 flex flex-wrap gap-2 empty:hidden sm:col-span-1 sm:col-start-2 sm:mt-3 sm:content-start">
+                {(ranks || hasCategory) && <div className="col-span-2 mt-4 flex flex-wrap gap-2 sm:col-span-1 sm:col-start-2 sm:mt-3 sm:content-start">
                     {ranks && <RankChip label={t('ranked')} rank={ranks?.server_playtime}/>}
                     {hasCategory && (
                         <CategoryChip category={stats.category} size="small" className="rounded-md px-2.5 py-1"/>
@@ -200,12 +197,7 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
                             rank={ranks?.highest_map_rank?.rank}
                             title={t('topOnMap', {rank: ranks?.highest_map_rank?.rank, map: ranks?.highest_map_rank?.map, hours: secondsToHours(ranks?.highest_map_rank?.total_playtime, locale)})}/>
                     }
-                    {viewsPromise && <ViewCount
-                        viewsPromise={viewsPromise}
-                        className="rounded-md border bg-muted/40 px-2.5 py-1 text-xs font-medium"
-                        iconClassName="size-3.5"
-                    />}
-                </div>
+                </div>}
 
                 <PlaytimeTotal
                     player={stats}
@@ -220,10 +212,9 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
 }
 
 
-export default function PlayerCardDetail({ serverPlayerPromise, userPromise, viewsPromise }: {
+export default function PlayerCardDetail({ serverPlayerPromise, userPromise }: {
     serverPlayerPromise: Promise<ServerPlayerDetailed>,
     userPromise: Promise<SteamProfile | null>,
-    viewsPromise?: Promise<number | null>,
 }) {
     const t = useTranslations('players.card');
     const {server, player } = usePatchedPlayer(serverPlayerPromise)
@@ -234,7 +225,7 @@ export default function PlayerCardDetail({ serverPlayerPromise, userPromise, vie
     return (
         <Card className="w-full">
             <ErrorCatch message={t('noDetail')}>
-                <PlayerCardDetailDisplay server={server} player={player} user={user} viewsPromise={viewsPromise} />
+                <PlayerCardDetailDisplay server={server} player={player} user={user} />
             </ErrorCatch>
         </Card>
     )

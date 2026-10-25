@@ -29,11 +29,9 @@ export default function CommunityAvatarStack({ servers, countClassName = 'text-m
         <Tooltip>
             <TooltipTrigger asChild>
                 <div className="flex items-center gap-2 cursor-default">
-                    {/* Side by side rather than overlapped: --card is translucent, so a card-coloured
-                        cutout ring shows up as a dark frame instead of separating the icons. */}
-                    <div className="flex gap-1">
+                    <div className="flex -space-x-2">
                         {shown.map(server => (
-                            <Avatar key={server.community_id} className="w-6 h-6 rounded-md">
+                            <Avatar key={server.community_id} className="w-6 h-6 border-2 border-card">
                                 {server.community_icon && (
                                     <AvatarImage src={server.community_icon} alt={server.community_name}/>
                                 )}

@@ -295,17 +295,10 @@ export type MapeadoresPlayerStats = {
     fetched_at: string,
 }
 
-export type RunawayPlayerStats = {
-    points: number,
-    total_points: number,
-    fetched_at: string,
-}
-
 export type PlayerExternalStats =
     | ({ source: 'gfl' } & GflPlayerStats)
     | ({ source: 'nide' } & NidePlayerStats)
     | ({ source: 'mapeadores' } & MapeadoresPlayerStats)
-    | ({ source: 'runaway' } & RunawayPlayerStats)
 
 export type PlayerSeen = {
     id: string,
@@ -382,7 +375,6 @@ export interface GlobalPlayerBrief {
 
 export type GlobalBriefPlayers = {
     total_players: number,
-    estimated_total_players?: number | null,
     players: GlobalPlayerBrief[],
 }
 

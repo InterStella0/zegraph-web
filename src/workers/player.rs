@@ -275,38 +275,43 @@ worker_query! {
     }
 }
 worker_query! {
-    PlayerBasicQuery<Option<DbGflPlayerStats>> => PlayerLegacyStats, 120 * DAY, Light,
+    PlayerBasicQuery<Option<DbGflPlayerStats>> => PlayerLegacyStats, 120 * DAY, Heavy,
     |self, ctx| format!("player-gfl-stats:{}:{}:stats", ctx.data.server_id, ctx.data.player_id), {
         sqlx::query_as!(DbGflPlayerStats, "
-            SELECT
-              steamid64,
-              points,
-              human_time,
-              zombie_time,
-              zombie_killed,
-              headshot,
-              infected_time,
-              item_usage,
-              boss_killed,
-              leader_count,
-              td_count,
-              NULLIF(personaname, '') AS personaname,
-              timestamp AT TIME ZONE 'UTC' AS last_seen,
-              rank_total_playtime,
-              rank_zombie_time,
-              rank_points,
-              rank_human_time,
-              rank_zombie_killed,
-              rank_headshot,
-              rank_infected_time,
-              rank_item_usage,
-              rank_boss_killed,
-              rank_leader_count,
-              rank_td_count
-            FROM external_data.gfl_csgo_players
+            WITH ranked AS (
+              SELECT
+                steamid64,
+                points,
+                human_time,
+                zombie_time,
+                zombie_killed,
+                headshot,
+                infected_time,
+                item_usage,
+                boss_killed,
+                leader_count,
+                td_count,
+                NULLIF(personaname, '') AS personaname,
+                timestamp AT TIME ZONE 'UTC' AS last_seen,
+                RANK() OVER (ORDER BY human_time + zombie_time DESC) AS rank_total_playtime,
+                RANK() OVER (ORDER BY zombie_time DESC) AS rank_zombie_time,
+                RANK() OVER (ORDER BY points DESC) AS rank_points,
+                RANK() OVER (ORDER BY human_time DESC) AS rank_human_time,
+                RANK() OVER (ORDER BY zombie_killed DESC) AS rank_zombie_killed,
+                RANK() OVER (ORDER BY headshot DESC) AS rank_headshot,
+                RANK() OVER (ORDER BY infected_time DESC) AS rank_infected_time,
+                RANK() OVER (ORDER BY item_usage DESC) AS rank_item_usage,
+                RANK() OVER (ORDER BY boss_killed DESC) AS rank_boss_killed,
+                RANK() OVER (ORDER BY leader_count DESC) AS rank_leader_count,
+                RANK() OVER (ORDER BY td_count DESC) AS rank_td_count
+              FROM external_data.gfl_csgo_players
+            )
+            SELECT *
+            FROM ranked
             WHERE steamid64 = (
                 SELECT COALESCE(associated_player_id, player_id) FROM player WHERE player_id = $1
             )
+            LIMIT 1
         ", self.context.data.player_id).fetch_optional(&*self.context.pool).await
     }
 }
@@ -333,19 +338,6 @@ worker_query! {
             FROM external_data.mapeadores_playtime
             WHERE steamid64 = $1
         "#, ctx.data.player_id).fetch_optional(&*ctx.pool).await
-    }
-}
-worker_query! {
-    PlayerBasicQuery<Option<DbRunawayPlayerStats>> => PlayerRunawayStats, HOUR, Light,
-    |self, ctx| format!("player-runaway-stats:{}:{}:stats", ctx.data.server_id, ctx.data.player_id), {
-        // Unresolved names are tracked under made-up ids; one later linked to a steam64 reads that row.
-        sqlx::query_as!(DbRunawayPlayerStats, "
-            SELECT points, total_points, fetched_at
-            FROM external_data.runaway_points
-            WHERE steamid64 = (
-                SELECT COALESCE(associated_player_id, player_id) FROM player WHERE player_id = $1
-            )
-        ", ctx.data.player_id).fetch_optional(&*ctx.pool).await
     }
 }
 struct DbServerMapState{
@@ -1591,10 +1583,6 @@ impl PlayerWorker {
                 let stats: DbMapeadoresPlayerStats = self.query_external_stats(context, false).await?;
                 Ok(PlayerExternalStats::Mapeadores(stats.into()))
             }
-            ExternalStatsSource::Runaway => {
-                let stats: DbRunawayPlayerStats = self.query_external_stats(context, false).await?;
-                Ok(PlayerExternalStats::Runaway(stats.into()))
-            }
         }
     }
     async fn query_external_stats<T: Cacheable>(&self, context: &PlayerContext, queued: bool) -> WorkResult<T>
@@ -2039,7 +2027,7 @@ mod tests {
         assert_eq!(pattern, format!("player-gfl-stats:{TEST_SERVER}:{TEST_PLAYER}:stats"));
         assert!(!pattern.contains("{session}"));
         assert_eq!(ttl, 120 * DAY);
-        assert!(matches!(priority, QueryPriority::Light));
+        assert!(matches!(priority, QueryPriority::Heavy));
         assert!(matches!(kind, JobKind::PlayerLegacyStats(_)));
         assert_session_scoped!(
             player_query::<Vec<DbPlayerRegionTime>>(),
@@ -2071,13 +2059,6 @@ mod tests {
         assert_eq!(ttl, HOUR);
         assert!(matches!(priority, QueryPriority::Light));
         assert!(matches!(kind, JobKind::PlayerMapeadoresStats(_)));
-        let (pattern, ttl, priority, kind) = metadata(
-            &player_query::<Option<DbRunawayPlayerStats>>(),
-        );
-        assert_eq!(pattern, format!("player-runaway-stats:{TEST_SERVER}:{TEST_PLAYER}:stats"));
-        assert_eq!(ttl, HOUR);
-        assert!(matches!(priority, QueryPriority::Light));
-        assert!(matches!(kind, JobKind::PlayerRunawayStats(_)));
     }
 
     macro_rules! assert_period_scoped {

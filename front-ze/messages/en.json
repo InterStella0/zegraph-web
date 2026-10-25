@@ -27,9 +27,7 @@
     "hidden": "(Hidden)",
     "hiddenHint": "Only you and community admins can see this name. Everyone else sees “Anonymous”.",
     "bot": "Bot",
-    "botHint": "This account is an automated bot, not a real player.",
-    "views": "{count, plural, one {{views} view} other {{views} views}}",
-    "viewsHint": "Each visitor counts once a day."
+    "botHint": "This account is an automated bot, not a real player."
   },
   "auth": {
     "login": "Login",
@@ -202,8 +200,6 @@
       "title": "Global Players",
       "subtitle": "Player list across communities",
       "totalPlayers": "Total players",
-      "estimatedPlayers": "~{total} estimated",
-      "estimatedPlayersHint": "Includes players from servers that only track names, counted once per name",
       "searchPlaceholder": "Search the global player list by name...",
       "hoursSplit": "Hours split",
       "hoursAllTime": "hours all-time",
@@ -304,14 +300,10 @@
       "knownAs": "Known as",
       "lastSeen": "Last seen",
       "country": "Country",
-      "totalPoints": "Total points",
-      "bestServerPoints": "Best server points",
-      "footerRunaway": "From Runaway's other game modes, their ZE server keeps no stats · as of {date}",
       "statsHeading": {
         "gfl": "CSGO Stats",
         "nide": "NiDE Stats",
-        "mapeadores": "Mapeadores Stats",
-        "runaway": "Runaway Stats"
+        "mapeadores": "Mapeadores Stats"
       }
     },
     "card": {
@@ -499,7 +491,7 @@
         "neverVerified": "These totals have never been verified.",
         "recalculatingPlaytime": "Recalculating playtime…",
         "playtimeOutOfDate": "Playtime is out of date",
-        "staleNoticeBody": "This player has played since these numbers were worked out, so playtime and rank may be too low. {verified}",
+        "staleNoticeBody": "You have played since these numbers were worked out, so playtime and rank may be too low. {verified}",
         "freshFiguresNote": "Fresh figures will appear automatically."
       },
       "communities": {

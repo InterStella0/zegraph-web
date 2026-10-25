@@ -200,8 +200,6 @@
       "title": "Глобальные игроки",
       "subtitle": "Список игроков по всем сообществам",
       "totalPlayers": "Всего игроков",
-      "estimatedPlayers": "~{total} по оценке",
-      "estimatedPlayersHint": "Включает игроков с серверов, которые отслеживают только имена; каждое имя считается один раз",
       "searchPlaceholder": "Поиск по глобальному списку игроков по имени...",
       "hoursSplit": "Разбивка часов",
       "hoursAllTime": "часов за всё время",
@@ -302,14 +300,10 @@
       "knownAs": "Известен как",
       "lastSeen": "Последний раз замечен",
       "country": "Страна",
-      "totalPoints": "Всего очков",
-      "bestServerPoints": "Очки на лучшем сервере",
-      "footerRunaway": "Из других режимов Runaway, их ZE-сервер не ведёт статистику · на {date}",
       "statsHeading": {
         "gfl": "Статистика CSGO",
         "nide": "Статистика NiDE",
-        "mapeadores": "Статистика Mapeadores",
-        "runaway": "Статистика Runaway"
+        "mapeadores": "Статистика Mapeadores"
       }
     },
     "card": {
@@ -497,7 +491,7 @@
         "neverVerified": "Эти итоги ещё никогда не проверялись.",
         "recalculatingPlaytime": "Пересчёт времени игры…",
         "playtimeOutOfDate": "Время игры устарело",
-        "staleNoticeBody": "Игрок играл после последнего подсчёта, поэтому время игры и рейтинг могут быть занижены. {verified}",
+        "staleNoticeBody": "Вы играли после последнего подсчёта, поэтому время игры и рейтинг могут быть занижены. {verified}",
         "freshFiguresNote": "Актуальные данные появятся автоматически."
       },
       "communities": {

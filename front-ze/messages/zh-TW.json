@@ -200,8 +200,6 @@
       "title": "全球玩家",
       "subtitle": "跨社群的玩家清單",
       "totalPlayers": "玩家總數",
-      "estimatedPlayers": "估計約 {total}",
-      "estimatedPlayersHint": "包括僅記錄名稱的伺服器上的玩家，每個名稱計為一人",
       "searchPlaceholder": "依名稱搜尋全球玩家清單...",
       "hoursSplit": "時數分佈",
       "hoursAllTime": "累計時數",
@@ -302,14 +300,10 @@
       "knownAs": "曾用名",
       "lastSeen": "最後出現",
       "country": "國家/地區",
-      "totalPoints": "總積分",
-      "bestServerPoints": "最佳伺服器積分",
-      "footerRunaway": "來自 Runaway 的其他遊戲模式，其 ZE 伺服器不記錄統計 · 截至 {date}",
       "statsHeading": {
         "gfl": "CSGO 數據",
         "nide": "NiDE 數據",
-        "mapeadores": "Mapeadores 數據",
-        "runaway": "Runaway 數據"
+        "mapeadores": "Mapeadores 數據"
       }
     },
     "card": {
@@ -497,7 +491,7 @@
         "neverVerified": "這些統計數據從未被驗證過。",
         "recalculatingPlaytime": "正在重新計算遊玩時間…",
         "playtimeOutOfDate": "遊玩時間資料已過期",
-        "staleNoticeBody": "自上次計算這些數據以來，此玩家又進行了遊玩，因此遊玩時間與排名可能偏低。{verified}",
+        "staleNoticeBody": "自上次計算這些數據以來您又進行了遊玩，因此遊玩時間與排名可能偏低。{verified}",
         "freshFiguresNote": "最新數據將自動顯示。"
       },
       "communities": {
