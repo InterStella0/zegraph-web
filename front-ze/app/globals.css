@@ -189,6 +189,22 @@ body {
     }
 }
 
+@keyframes live-row-fresh {
+    from {
+        background-color: color-mix(in oklab, var(--primary) 14%, transparent);
+    }
+}
+
+.live-row-fresh {
+    animation: live-row-fresh 4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-row-fresh {
+        animation-duration: 1ms;
+    }
+}
+
 @keyframes progress-indeterminate {
     0% {
         transform: translateX(-100%);
