@@ -12,9 +12,10 @@ import { cn } from "components/lib/utils";
 const HEADING = "text-xl font-semibold";
 const ROWS_PER_PAGE = 10;
 
-// Over a player's Steam background the card turns to clear glass and everything with text or a chart
-// sits on a frosted surface inside it, so the image shows in between (see profile-frame and
-// profile-surface in globals.css). Without a background these classes do nothing.
+// Over a player's Steam background the card turns to light frosted glass that clears while hovered,
+// and everything with text or a chart sits on a denser surface inside it, so the image shows in
+// between (see profile-frame and profile-surface in globals.css). Without a background these
+// classes do nothing.
 /** The frosted surface alone, for an element that already has its shape. */
 export const SURFACE = "profile-bg:profile-surface";
 /** A surface block around a chart, list or table. */
@@ -26,7 +27,7 @@ export const TRAY = `${SURFACE} profile-bg:rounded-lg profile-bg:p-1`;
 
 type ProfileCardProps = { className?: string, contentClassName?: string, children: ReactNode };
 
-/** The frosted card every profile section sits in; clear glass over a Steam background. */
+/** The frosted card every profile section sits in; lighter glass over a Steam background. */
 export function ProfileCard({ className, contentClassName, children }: ProfileCardProps) {
     return (
         <Card className={cn("border-border/40 bg-card/50 backdrop-blur-xl profile-bg:profile-frame", className)}>
