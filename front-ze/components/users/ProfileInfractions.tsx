@@ -15,7 +15,7 @@ import { ProfileResponse } from "types/community";
 import { useServerMap } from "components/ui/ServerProvider";
 import { communityTag, useProfileCommunities } from "./ProfileContext";
 import { ENTER, SWAP } from "./profileMotion";
-import { ISLAND, PageFooter, ProfileCard, ProfileCardHeader, ProfileCardLoading, usePaged } from "./ProfileCard";
+import { PageFooter, ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE, TRAY, usePaged } from "./ProfileCard";
 import { tint } from "./profileChart";
 
 type Infraction = Omit<GlobalPlayerInfraction, 'flags'> & { flags: InfractionInt, restrictions: string[] };
@@ -78,14 +78,14 @@ export default function ProfileInfractions({ profilePromise, infractionsPromise 
             />
 
             {infractions.length === 0 ? (
-                <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-muted-foreground">
+                <div className={`flex h-[200px] flex-col items-center justify-center gap-2 text-muted-foreground profile-bg:rounded-lg ${SURFACE}`}>
                     <Ban className="h-8 w-8 opacity-50" />
                     <h3 className="text-lg font-semibold">{t('noRecords')}</h3>
                 </div>
             ) : (
                 <div className="space-y-3">
                     {typeCounts.length > 0 && (
-                        <div className="flex flex-wrap gap-2" role="group" aria-label={tProfile('infractions.filter')}>
+                        <div className={`flex flex-wrap gap-2 profile-bg:w-fit ${TRAY}`} role="group" aria-label={tProfile('infractions.filter')}>
                             {typeCounts.map(([name, count]) => (
                                 <button
                                     key={name}
@@ -106,7 +106,7 @@ export default function ProfileInfractions({ profilePromise, infractionsPromise 
                         </div>
                     )}
 
-                    <div className={`rounded-md border border-border/60 ${ISLAND}`}>
+                    <div className={`rounded-md border border-border/60 ${SURFACE}`}>
                         <Table>
                             <TableHeader>
                                 <TableRow>

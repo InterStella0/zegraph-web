@@ -23,7 +23,7 @@ import { SPLIT_SEGMENTS } from "components/players/PlayerStats";
 import { useGlobalPlaytime } from "./useGlobalPlaytime";
 import { useProfileCommunities } from "./ProfileContext";
 import { ENTER, stagger } from "./profileMotion";
-import { ProfileCard } from "./ProfileCard";
+import { PANEL, ProfileCard, SURFACE } from "./ProfileCard";
 import ViewCount from "components/ui/ViewCount";
 
 interface UserProfileProps {
@@ -33,6 +33,9 @@ interface UserProfileProps {
 }
 
 const SECTION_LABEL = "text-xs font-medium uppercase tracking-wider text-muted-foreground";
+// Over a Steam background the name and the headline stats each get their own panel, leaving the
+// avatar and the space between them on clear glass.
+const HERO_PANEL = `profile-bg:justify-center profile-bg:rounded-xl profile-bg:px-5 profile-bg:py-4 ${SURFACE}`;
 
 // The player's Steam profile background behind the whole page, as on their Steam profile. Fixed
 // below the sakura layer (z-index -1), so the petals and the profile cards sit on top. Its
@@ -56,7 +59,7 @@ function ProfilePageBackground({ background }: { background: SteamProfileBackgro
                     {background.video_mp4 && <source src={background.video_mp4} type="video/mp4" />}
                 </video>
             )}
-            {/* A light dim for text outside the cards (footer); the cards dim what is behind them themselves. */}
+            {/* A light dim to settle the image; text and charts get their own frosted surfaces. */}
             <div className="absolute inset-0 bg-background/25" />
         </div>
     );
@@ -107,7 +110,7 @@ function StaleNotice({ global }: { global: GlobalPlaytimeSummary }) {
         : t('neverVerified');
 
     return (
-        <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm">
+        <div className={`mb-6 flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm ${SURFACE}`}>
             {global.is_calculating
                 ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-500" />
                 : <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />}
@@ -225,8 +228,8 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
             {background && <ProfilePageBackground background={background} />}
             <ProfileCard className={cn("w-full", ENTER)} contentClassName="p-6 sm:p-8">
                 <StaleNotice global={global} />
-                <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
-                    <div className="relative shrink-0">
+                <div className="flex flex-col lg:flex-row items-center lg:items-start profile-bg:lg:items-stretch gap-6">
+                    <div className="relative shrink-0 profile-bg:lg:self-center">
                         <UserAvatar
                             userId={steamid}
                             pfpPromise={pfpPromise}
@@ -238,7 +241,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                         />
                     </div>
 
-                    <div className="flex min-w-0 flex-1 flex-col items-center lg:items-start text-center lg:text-left gap-3">
+                    <div className={`flex min-w-0 flex-1 profile-bg:lg:flex-initial flex-col items-center lg:items-start text-center lg:text-left gap-3 ${HERO_PANEL}`}>
                         <div className="flex items-center justify-center lg:justify-start gap-3 flex-wrap">
                             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight break-all">
                                 {displayName}
@@ -311,7 +314,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-center lg:items-end gap-4">
+                    <div className={`flex flex-col items-center lg:items-end gap-4 profile-bg:lg:ml-auto ${HERO_PANEL}`}>
                         <div className="flex flex-wrap justify-center lg:justify-end gap-8 text-center lg:text-right">
                             <div>
                                 <div className="flex items-center justify-center lg:justify-end gap-1.5">
@@ -366,7 +369,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                 {communities.length > 0 && (
                     <div className="mt-8 grid gap-x-10 gap-y-6 lg:grid-cols-2">
                         {splits.map(([key, segments]) => (
-                            <div key={key}>
+                            <div key={key} className={PANEL}>
                                 <span className={cn(SECTION_LABEL, "mb-2 block")}>{t(key)}</span>
                                 <SplitBar ariaLabel={t(key)} formatValue={formatHours} segments={segments} />
                             </div>

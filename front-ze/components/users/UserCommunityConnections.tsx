@@ -9,7 +9,7 @@ import { Skeleton } from "components/ui/skeleton";
 import { range } from "utils/generalUtils";
 import { useProfileCommunities } from "./ProfileContext";
 import { ENTER } from "./profileMotion";
-import { ISLAND, ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE } from "./ProfileCard";
 
 type Settings = Map<string, UserAnonymization>;
 
@@ -72,13 +72,13 @@ export default function UserCommunityConnections({ profilePromise }: { profilePr
                 title={t('heading')}
                 className="gap-2"
                 badge={ordered.length > 0 && tHeader('communitiesServers', { communities: ordered.length, servers: serverCount })}
-                actions={ordered.length > 0 && <span className="text-sm text-muted-foreground">{t('expandHint')}</span>}
+                actions={ordered.length > 0 && <span className="text-sm text-muted-foreground profile-bg:px-2">{t('expandHint')}</span>}
             />
 
             {ordered.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">{t('empty')}</p>
+                <p className={`py-8 text-center text-muted-foreground profile-bg:rounded-lg ${SURFACE}`}>{t('empty')}</p>
             ) : (
-                <div className={`overflow-hidden rounded-lg border border-border/60 ${ISLAND}`}>
+                <div className={`overflow-hidden rounded-lg border border-border/60 ${SURFACE}`}>
                     <div className={`${CONNECTION_COLUMNS} hidden border-b border-border/60 bg-muted/40 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground md:grid`}>
                         <span />
                         <span>{t('community')}</span>

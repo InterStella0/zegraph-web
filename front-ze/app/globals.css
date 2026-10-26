@@ -4,6 +4,24 @@
 @custom-variant dark (&:is(.dark *));
 /* While a player's Steam background is behind the profile page. */
 @custom-variant profile-bg (&:where(body:has([data-profile-background]) *));
+/* Clear glass over that background: a light tint and no blur, so the image reads through. It
+   carries no text itself. No backdrop-filter either, which would stop the surfaces inside from
+   seeing past it to the image. */
+@utility profile-frame {
+    background-color: var(--profile-frame);
+    border-color: var(--profile-frame-border);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+/* Frosted backing for text and charts, readable whatever the image. The blur wipes out its
+   texture and the tint caps how far it can shift the contrast. The backdrop is first darkened
+   (dark mode) or flattened towards grey (light mode), so neither a white-hot nor a pitch-black
+   patch can drown the text. */
+@utility profile-surface {
+    background-color: var(--profile-surface);
+    -webkit-backdrop-filter: var(--profile-surface-filter);
+    backdrop-filter: var(--profile-surface-filter);
+}
 html {
     scroll-behavior: smooth;
     font-size: 16px;
@@ -60,6 +78,10 @@ html {
     --sidebar-ring: oklch(0.708 0.05 330);
     --background: oklch(0.949 0.05 330);
     --foreground: oklch(0.145 0.08 35);
+    --profile-frame: color-mix(in oklab, var(--background) 25%, transparent);
+    --profile-frame-border: oklch(1 0 0 / 50%);
+    --profile-surface: color-mix(in oklab, var(--background) 85%, transparent);
+    --profile-surface-filter: blur(24px) contrast(.5);
 }
 .body-before-footer{
     display: flex;
@@ -303,6 +325,10 @@ body {
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0.05 330);
+    --profile-frame: color-mix(in oklab, var(--background) 20%, transparent);
+    --profile-frame-border: oklch(1 0 0 / 15%);
+    --profile-surface: color-mix(in oklab, var(--background) 75%, transparent);
+    --profile-surface-filter: blur(24px) brightness(.5);
 }
 
 @layer base {

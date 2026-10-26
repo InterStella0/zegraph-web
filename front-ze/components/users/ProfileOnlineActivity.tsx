@@ -17,7 +17,7 @@ import { fetchApiUrl, formatNumber, range } from "utils/generalUtils";
 import { PlayerOnlineActivity } from "types/players";
 import { FocusChip, useFocusFilter, useProfileCommunities } from "./ProfileContext";
 import { ENTER, SWAP } from "./profileMotion";
-import { ChartFigure, Empty, ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { ChartFigure, Empty, ProfileCard, ProfileCardHeader, ProfileCardLoading, TAG } from "./ProfileCard";
 import { categoryAxis, communitySeries, valueAxis } from "./profileChart";
 
 type Metric = "hour" | "weekday";
@@ -197,7 +197,7 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
             >
                 <FocusChip />
             </ProfileCardHeader>
-            <p className="mb-4 text-sm text-muted-foreground">{subtitle}</p>
+            <p className={`mb-4 text-sm text-muted-foreground ${TAG}`}>{subtitle}</p>
 
             {loading && !data ? (
                 <GraphSkeleton height={380} />
@@ -210,16 +210,19 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
                         id="profile-activity-summary"
                         summary={summary}
                         label={subtitle}
-                        className={`h-[380px] transition-opacity ${SWAP} ${loading ? "opacity-60" : ""}`}
+                        className={`h-[380px] ${SWAP}`}
                     >
-                        {metric === "hour"
-                            // @ts-ignore
-                            ? <LazyLineChart data={hourData} options={hourOptions} />
-                            // @ts-ignore
-                            : <LazyBarChart data={weekdayData} options={weekdayOptions} />}
+                        {/* Dims the chart alone: a translucent figure would let the background through its surface. */}
+                        <div className={`size-full transition-opacity ${loading ? "opacity-60" : ""}`}>
+                            {metric === "hour"
+                                // @ts-ignore
+                                ? <LazyLineChart data={hourData} options={hourOptions} />
+                                // @ts-ignore
+                                : <LazyBarChart data={weekdayData} options={weekdayOptions} />}
+                        </div>
                     </ChartFigure>
                     {metric === "weekday" && (
-                        <p className={`mt-3 text-sm text-muted-foreground ${SWAP}`}>
+                        <p className={`mt-3 text-sm text-muted-foreground ${TAG} ${SWAP}`}>
                             {t.rich('busiest', {
                                 day: dayNames[WEEKDAY_KEYS[busiest]],
                                 b: chunks => <span className="font-semibold text-foreground">{chunks}</span>,

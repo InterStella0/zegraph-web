@@ -15,7 +15,7 @@ import { GlobalPlayerSessionTime } from "types/community";
 import { PlayerSessionStats } from "types/players";
 import { FocusChip, useFocusFilter, useProfileCommunities } from "./ProfileContext";
 import { ENTER, SWAP } from "./profileMotion";
-import { CHART_ISLAND, ChartFigure, Empty, ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { ChartFigure, Empty, PANEL, ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE } from "./ProfileCard";
 import { categoryAxis, communitySeries, valueAxis } from "./profileChart";
 
 type GroupBy = "daily" | "monthly" | "yearly";
@@ -213,7 +213,7 @@ export default function ProfilePlaytimeHistory({ heatmapPromise, statsPromise }:
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
             ) : (
-                <div key={`${groupBy}-${selectedYear}`} className={`h-[220px] ${CHART_ISLAND} ${SWAP}`} role="img" aria-label={tHeat('yearlyAriaLabel')}>
+                <div key={`${groupBy}-${selectedYear}`} className={`h-[220px] ${PANEL} ${SWAP}`} role="img" aria-label={tHeat('yearlyAriaLabel')}>
                     {/* @ts-ignore */}
                     <LazyBarChart data={barData} options={barOptions} />
                 </div>
@@ -221,7 +221,7 @@ export default function ProfilePlaytimeHistory({ heatmapPromise, statsPromise }:
 
             <dl key={selectedYear} className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 md:grid-cols-4">
                 {tiles.map(([label, value, detail]) => (
-                    <div key={label} className="min-w-0 bg-card px-4 py-3">
+                    <div key={label} className={`min-w-0 bg-card px-4 py-3 ${SURFACE}`}>
                         <dt className="truncate text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</dt>
                         <dd className="mt-1 truncate text-2xl font-bold tabular-nums">{value}</dd>
                         {detail && <dd className="mt-0.5 truncate text-xs text-muted-foreground">{detail}</dd>}

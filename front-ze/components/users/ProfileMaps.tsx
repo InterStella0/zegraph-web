@@ -14,7 +14,7 @@ import { formatNumber, secondsToHours } from "utils/generalUtils";
 import { GlobalPlayerMap } from "types/players";
 import { FocusChip, useProfileCommunities } from "./ProfileContext";
 import { ENTER, SWAP } from "./profileMotion";
-import { ChartFigure, Empty, ISLAND, PageFooter, ProfileCard, ProfileCardHeader, ProfileCardLoading, usePaged } from "./ProfileCard";
+import { ChartFigure, Empty, PageFooter, ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE, usePaged } from "./ProfileCard";
 import { categoryAxis, communitySeries, valueAxis } from "./profileChart";
 
 const CHART_MAPS = 10;
@@ -145,8 +145,13 @@ export default function ProfileMaps({ mapsPromise }: { mapsPromise: Promise<Glob
                 </ChartFigure>
             ) : (
                 <div className={`space-y-3 ${SWAP}`}>
-                    <SearchField value={search} onChange={event => setSearch(event.target.value)} placeholder={t('search')} />
-                    <div className={`rounded-md border border-border/60 ${ISLAND}`}>
+                    <SearchField
+                        value={search}
+                        onChange={event => setSearch(event.target.value)}
+                        placeholder={t('search')}
+                        className={`profile-bg:rounded-md ${SURFACE}`}
+                    />
+                    <div className={`rounded-md border border-border/60 ${SURFACE}`}>
                         <Table>
                             <TableHeader>
                                 <TableRow>
