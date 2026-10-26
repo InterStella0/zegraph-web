@@ -1,5 +1,5 @@
 'use client'
-import {useState, useEffect, ReactNode} from 'react';
+import {useState, useEffect, useMemo, useRef, ReactNode} from 'react';
 import { Card, CardContent } from 'components/ui/card';
 import { Badge } from 'components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from 'components/ui/tabs';
@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from 'components/ui/tooltip';
 import { Avatar, AvatarImage, AvatarFallback } from 'components/ui/avatar';
 import {UserPlus, UserMinus, MapPin, Gavel, Gamepad2, Zap, Info, Loader2} from 'lucide-react';
 import { cn } from "components/lib/utils";
-import {formatFlagName, getMapImage, ICE_FILE_ENDPOINT, InfractionInt, URI} from "utils/generalUtils.ts";
+import {fetchUrl, formatFlagName, getMapImage, ICE_FILE_ENDPOINT, InfractionInt, URI} from "utils/generalUtils.ts";
 import { PlayerAvatar } from "components/players/PlayerAvatar.tsx";
 import { useServerMap } from "components/ui/ServerProvider";
 import dayjs from "lib/dayjs";
@@ -18,7 +18,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from 'next-intl';
 
-const MAX_EVENTS = 200;
+const MAX_EVENTS = 2000;
+const RENDER_STEP = 100;
 
 type Category = 'playerActivity' | 'mapActivity' | 'infraction';
 
@@ -261,33 +262,20 @@ const EVENT_VIEWS: Record<Category, typeof UnknownEvent> = {
     infraction: InfractionView,
 };
 
-function eventKey(event, index: number) {
-    try {
-        const payload = typeof event.payload === 'string' ? JSON.parse(event.payload) : event.payload;
-        const timestamp = payload.timestamp || payload.created_at || Date.now();
-        return `${event.channel}-${payload.player_id || payload.map_name || index}-${timestamp}`;
-    } catch {
-        return `${event.channel}-${index}-${Date.now()}`;
-    }
-}
+// The same row always arrives as the same channel + payload, from the stream and the history alike.
+const eventKey = (event) => `${event.channel}\u0000${event.payload}`;
 
-/** Location pings are noise in the feed. */
-function isLocationEvent(event) {
-    if (event.channel !== 'player_activity') return false;
-    try {
-        return ['geolocate', 'location'].includes(JSON.parse(event.payload).event_name);
-    } catch (e) {
-        console.error("Malformed payload:", e);
-        return false;
-    }
-}
+// A Map keeps each key at its first position, so the order is unchanged.
+const dedupeEvents = (events) => [...new Map(events.map(event => [eventKey(event), event])).values()].slice(0, MAX_EVENTS);
 
 export default function LiveServerTrackerPage(){
     const t = useTranslations('tracker');
     const [events, setEvents] = useState([]);
     const [selectedTab, setSelectedTab] = useState<string>('all');
     const [isConnected, setIsConnected] = useState(true);
-    const [counters, setCounters] = useState({all: 0, playerActivity: 0, mapActivity: 0, infraction: 0});
+    const [renderCount, setRenderCount] = useState(RENDER_STEP);
+    const loadMoreRef = useRef(null);
+    const scrollRef = useRef(null);
 
     useEffect(() => {
         let attempt = 0;
@@ -295,23 +283,31 @@ export default function LiveServerTrackerPage(){
         let eventSource: EventSource = null;
 
         const connectEventSource = () => {
-            eventSource = new EventSource(URI('/events/data-updates'));
-            eventSource.onopen = () => {
+            const source = eventSource = new EventSource(URI('/events/data-updates'));
+            // Events from this connection are newer than any history fetched after it opened.
+            let receivedSinceOpen = 0;
+            source.onopen = () => {
                 attempt = 0;
                 setIsConnected(true);
+                // Fetched on every open, so a reconnect also fills whatever was missed while down.
+                fetchUrl('/events/history')
+                    .then(history => {
+                        // A newer connection, or unmounting, has taken over.
+                        if (eventSource !== source) return;
+                        setEvents(prev => dedupeEvents([...prev.slice(0, receivedSinceOpen), ...history, ...prev.slice(receivedSinceOpen)]));
+                    })
+                    .catch(e => console.error('Failed to load live event history:', e));
             };
-            eventSource.onmessage = (message) => {
+            source.onmessage = (message) => {
                 const newEvent = JSON.parse(message.data);
-                if (newEvent.channel === "heartbeat" || isLocationEvent(newEvent)) return;
-
-                const category = CHANNEL_CATEGORY[newEvent.channel];
-                setEvents(prevEvents => [newEvent, ...prevEvents].slice(0, MAX_EVENTS));
-                setCounters(prev => ({...prev, all: prev.all + 1, ...(category && {[category]: prev[category] + 1})}));
+                if (newEvent.channel === "heartbeat") return;
+                receivedSinceOpen += 1;
+                setEvents(prevEvents => dedupeEvents([newEvent, ...prevEvents]));
             };
-            eventSource.onerror = (error) => {
+            source.onerror = (error) => {
                 console.error('Error with SSE connection:', error);
                 setIsConnected(false);
-                eventSource.close();
+                source.close();
 
                 const delay = Math.min(5000 * 2 ** attempt, 60000) + Math.random() * 1000;
                 attempt += 1;
@@ -322,12 +318,34 @@ export default function LiveServerTrackerPage(){
         return () => {
             clearTimeout(retryTimer);
             eventSource?.close();
+            eventSource = null;
         };
     }, []);
+
+    const counters = useMemo(() => {
+        const counted = {all: events.length, playerActivity: 0, mapActivity: 0, infraction: 0};
+        for (const event of events) {
+            const category = CHANNEL_CATEGORY[event.channel];
+            if (category) counted[category] += 1;
+        }
+        return counted;
+    }, [events]);
 
     const filteredEvents = selectedTab === 'all'
         ? events
         : events.filter(event => CHANNEL_CATEGORY[event.channel] === selectedTab);
+    const hasMoreToRender = filteredEvents.length > renderCount;
+
+    // Up to 2000 cards each fetch images, so they mount a page at a time as the list scrolls.
+    useEffect(() => {
+        const sentinel = loadMoreRef.current;
+        if (!sentinel || !hasMoreToRender) return;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) setRenderCount(count => count + RENDER_STEP);
+        }, {root: scrollRef.current, rootMargin: '400px'});
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [hasMoreToRender, renderCount]);
 
     return (
         <div className="min-h-screen py-2 sm:py-4">
@@ -356,7 +374,7 @@ export default function LiveServerTrackerPage(){
                     </div>
                 </div>
 
-                <Tabs value={selectedTab} onValueChange={setSelectedTab} className="mb-3">
+                <Tabs value={selectedTab} onValueChange={tab => { setSelectedTab(tab); setRenderCount(RENDER_STEP); }} className="mb-3">
                     <TabsList className="bg-muted/80 p-1 rounded-lg w-full overflow-x-auto">
                         {TABS.map(({key, label, icon: Icon}) => (
                             <TabsTrigger key={key} value={key} className="flex items-center gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:font-bold">
@@ -372,7 +390,7 @@ export default function LiveServerTrackerPage(){
 
                 <AdSpot className="mb-3" />
 
-                <div className="max-h-[68vh] overflow-y-auto px-1 pb-2 scrollbar-modern">
+                <div ref={scrollRef} className="max-h-[68vh] overflow-y-auto px-1 pb-2 scrollbar-modern">
                     {filteredEvents.length === 0 ? (
                         <Alert className="mt-2 border border-border">
                             <Info className="h-4 w-4" />
@@ -380,16 +398,25 @@ export default function LiveServerTrackerPage(){
                                 {t('noEvents')}
                             </AlertDescription>
                         </Alert>
-                    ) : filteredEvents.map((event, index) => {
-                        const EventView = EVENT_VIEWS[CHANNEL_CATEGORY[event.channel]] ?? UnknownEvent;
-                        return (
-                            <div key={eventKey(event, index)} className="animate-in fade-in-0 slide-in-from-top-2 duration-300">
-                                <ErrorCatch message={t('eventRenderError')}>
-                                    <EventView event={event} />
-                                </ErrorCatch>
-                            </div>
-                        );
-                    })}
+                    ) : (
+                        <>
+                            {filteredEvents.slice(0, renderCount).map(event => {
+                                const EventView = EVENT_VIEWS[CHANNEL_CATEGORY[event.channel]] ?? UnknownEvent;
+                                return (
+                                    <div key={eventKey(event)} className="animate-in fade-in-0 slide-in-from-top-2 duration-300">
+                                        <ErrorCatch message={t('eventRenderError')}>
+                                            <EventView event={event} />
+                                        </ErrorCatch>
+                                    </div>
+                                );
+                            })}
+                            {hasMoreToRender && (
+                                <div ref={loadMoreRef} className="flex justify-center py-2">
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
         </div>

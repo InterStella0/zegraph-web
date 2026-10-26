@@ -302,10 +302,14 @@
       "knownAs": "曾用名",
       "lastSeen": "最後出現",
       "country": "國家/地區",
+      "totalPoints": "總積分",
+      "bestServerPoints": "最佳伺服器積分",
+      "footerRunaway": "來自 Runaway 的其他遊戲模式，其 ZE 伺服器不記錄統計 · 截至 {date}",
       "statsHeading": {
         "gfl": "CSGO 數據",
         "nide": "NiDE 數據",
-        "mapeadores": "Mapeadores 數據"
+        "mapeadores": "Mapeadores 數據",
+        "runaway": "Runaway 數據"
       }
     },
     "card": {

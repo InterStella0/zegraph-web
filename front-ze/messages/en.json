@@ -304,10 +304,14 @@
       "knownAs": "Known as",
       "lastSeen": "Last seen",
       "country": "Country",
+      "totalPoints": "Total points",
+      "bestServerPoints": "Best server points",
+      "footerRunaway": "From Runaway's other game modes, their ZE server keeps no stats · as of {date}",
       "statsHeading": {
         "gfl": "CSGO Stats",
         "nide": "NiDE Stats",
-        "mapeadores": "Mapeadores Stats"
+        "mapeadores": "Mapeadores Stats",
+        "runaway": "Runaway Stats"
       }
     },
     "card": {

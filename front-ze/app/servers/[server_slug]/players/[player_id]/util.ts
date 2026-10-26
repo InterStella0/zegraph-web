@@ -9,6 +9,7 @@ const EXTERNAL_STATS_SERVER_IDS = new Set([
     '85568392935951359',
     '7ae2ca188ebf8be21d4f42b2827153ac',
     '674b592b744afc3c108d345a',
+    '85568392931886775',
 ])
 const PERIOD_STAT_PATHS = ['graph/sessions', 'most_played_maps', 'regions', 'hours_of_day', 'online_heatmap']
 

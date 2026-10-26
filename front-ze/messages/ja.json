@@ -302,10 +302,14 @@
       "knownAs": "表示名",
       "lastSeen": "最終確認",
       "country": "国",
+      "totalPoints": "合計ポイント",
+      "bestServerPoints": "最高サーバーのポイント",
+      "footerRunaway": "Runaway の他のゲームモードの数値です。ZE サーバーには統計がありません · {date} 時点",
       "statsHeading": {
         "gfl": "CSGO 統計",
         "nide": "NiDE 統計",
-        "mapeadores": "Mapeadores 統計"
+        "mapeadores": "Mapeadores 統計",
+        "runaway": "Runaway 統計"
       }
     },
     "card": {

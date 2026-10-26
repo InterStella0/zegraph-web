@@ -302,10 +302,14 @@
       "knownAs": "Dikenal sebagai",
       "lastSeen": "Terakhir terlihat",
       "country": "Negara",
+      "totalPoints": "Total poin",
+      "bestServerPoints": "Poin server terbaik",
+      "footerRunaway": "Dari mode permainan Runaway lainnya, server ZE mereka tidak menyimpan statistik · per {date}",
       "statsHeading": {
         "gfl": "Statistik CSGO",
         "nide": "Statistik NiDE",
-        "mapeadores": "Statistik Mapeadores"
+        "mapeadores": "Statistik Mapeadores",
+        "runaway": "Statistik Runaway"
       }
     },
     "card": {

@@ -335,6 +335,19 @@ worker_query! {
         "#, ctx.data.player_id).fetch_optional(&*ctx.pool).await
     }
 }
+worker_query! {
+    PlayerBasicQuery<Option<DbRunawayPlayerStats>> => PlayerRunawayStats, HOUR, Light,
+    |self, ctx| format!("player-runaway-stats:{}:{}:stats", ctx.data.server_id, ctx.data.player_id), {
+        // Unresolved names are tracked under made-up ids; one later linked to a steam64 reads that row.
+        sqlx::query_as!(DbRunawayPlayerStats, "
+            SELECT points, total_points, fetched_at
+            FROM external_data.runaway_points
+            WHERE steamid64 = (
+                SELECT COALESCE(associated_player_id, player_id) FROM player WHERE player_id = $1
+            )
+        ", ctx.data.player_id).fetch_optional(&*ctx.pool).await
+    }
+}
 struct DbServerMapState{
     #[allow(dead_code)]
     server_id: String,
@@ -1578,6 +1591,10 @@ impl PlayerWorker {
                 let stats: DbMapeadoresPlayerStats = self.query_external_stats(context, false).await?;
                 Ok(PlayerExternalStats::Mapeadores(stats.into()))
             }
+            ExternalStatsSource::Runaway => {
+                let stats: DbRunawayPlayerStats = self.query_external_stats(context, false).await?;
+                Ok(PlayerExternalStats::Runaway(stats.into()))
+            }
         }
     }
     async fn query_external_stats<T: Cacheable>(&self, context: &PlayerContext, queued: bool) -> WorkResult<T>
@@ -2054,6 +2071,13 @@ mod tests {
         assert_eq!(ttl, HOUR);
         assert!(matches!(priority, QueryPriority::Light));
         assert!(matches!(kind, JobKind::PlayerMapeadoresStats(_)));
+        let (pattern, ttl, priority, kind) = metadata(
+            &player_query::<Option<DbRunawayPlayerStats>>(),
+        );
+        assert_eq!(pattern, format!("player-runaway-stats:{TEST_SERVER}:{TEST_PLAYER}:stats"));
+        assert_eq!(ttl, HOUR);
+        assert!(matches!(priority, QueryPriority::Light));
+        assert!(matches!(kind, JobKind::PlayerRunawayStats(_)));
     }
 
     macro_rules! assert_period_scoped {
