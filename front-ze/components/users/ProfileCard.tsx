@@ -11,13 +11,20 @@ import { cn } from "components/lib/utils";
 
 const HEADING = "text-xl font-semibold";
 const ROWS_PER_PAGE = 10;
+// Over a Steam background the card is tinted glass: it darkens (light mode: brightens) what is behind
+// it rather than fogging it, so the background stays sharp while the text keeps its contrast.
+const GLASS = "profile-bg:bg-card/30 profile-bg:backdrop-blur-[2px] profile-bg:backdrop-brightness-125 profile-bg:backdrop-saturate-150 profile-bg:dark:bg-transparent profile-bg:dark:backdrop-brightness-50";
+/** A denser backing for busy content (rows, tables) inside the glass card. */
+export const ISLAND = "profile-bg:bg-background/60 profile-bg:backdrop-blur-sm";
+/** A softer backing for chart plot areas. */
+export const CHART_ISLAND = "profile-bg:rounded-lg profile-bg:bg-background/40 profile-bg:p-2";
 
 type ProfileCardProps = { className?: string, contentClassName?: string, children: ReactNode };
 
 /** The frosted card every profile section sits in. */
 export function ProfileCard({ className, contentClassName, children }: ProfileCardProps) {
     return (
-        <Card className={cn("border-border/40 bg-card/50 backdrop-blur-xl", className)}>
+        <Card className={cn("border-border/40 bg-card/50 backdrop-blur-xl", GLASS, className)}>
             <CardContent className={cn("p-4 sm:p-6", contentClassName)}>{children}</CardContent>
         </Card>
     );
@@ -75,7 +82,7 @@ export function ChartFigure({ id, summary, label, className, children }: {
     return (
         <>
             <ScreenReaderOnly id={id}>{summary}</ScreenReaderOnly>
-            <div className={className} role="img" aria-label={label} aria-describedby={id}>
+            <div className={cn(CHART_ISLAND, className)} role="img" aria-label={label} aria-describedby={id}>
                 {children}
             </div>
         </>

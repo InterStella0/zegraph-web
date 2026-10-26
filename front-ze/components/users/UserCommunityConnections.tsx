@@ -9,7 +9,7 @@ import { Skeleton } from "components/ui/skeleton";
 import { range } from "utils/generalUtils";
 import { useProfileCommunities } from "./ProfileContext";
 import { ENTER } from "./profileMotion";
-import { ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { ISLAND, ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
 
 type Settings = Map<string, UserAnonymization>;
 
@@ -78,7 +78,7 @@ export default function UserCommunityConnections({ profilePromise }: { profilePr
             {ordered.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">{t('empty')}</p>
             ) : (
-                <div className="overflow-hidden rounded-lg border border-border/60">
+                <div className={`overflow-hidden rounded-lg border border-border/60 ${ISLAND}`}>
                     <div className={`${CONNECTION_COLUMNS} hidden border-b border-border/60 bg-muted/40 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground md:grid`}>
                         <span />
                         <span>{t('community')}</span>

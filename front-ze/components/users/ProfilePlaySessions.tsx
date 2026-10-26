@@ -16,7 +16,7 @@ import SessionDateFilter from "components/players/SessionDateFilter";
 import { useResource } from "lib/hooks/useResource";
 import { useProfileCommunities } from "./ProfileContext";
 import { ENTER, LIFT, SWAP, stagger } from "./profileMotion";
-import { ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { ISLAND, ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
 import { tint } from "./profileChart";
 
 const CARD = "flex h-full flex-col";
@@ -27,7 +27,7 @@ function SessionSkeletons() {
     // Random widths only after hydration; the server and the first client render use the minimum.
     const hydrated = useHydrated();
     return range(6).map(index => (
-        <div key={index} className="flex items-center gap-3 rounded-lg border border-border/60 p-3">
+        <div key={index} className={`flex items-center gap-3 rounded-lg border border-border/60 p-3 ${ISLAND}`}>
             <Skeleton className="h-9 w-1 shrink-0 rounded-full" />
             <div className="min-w-0 flex-1 space-y-1.5">
                 <Skeleton className="h-[15px]" style={{ width: simpleRandom(140, 190, hydrated) }} />
@@ -51,7 +51,7 @@ function SessionRow({ session, index }: { session: GlobalPlayerSession, index: n
     return (
         <Link
             href={`/servers/${session.server_id}/players/${session.player_id}/sessions/${session.id}`}
-            className={`flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-3 hover:border-primary/60 hover:bg-accent/40 ${LIFT} ${SWAP}`}
+            className={`flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-3 hover:border-primary/60 hover:bg-accent/40 ${ISLAND} ${LIFT} ${SWAP}`}
             style={stagger(index)}
         >
             <span className="h-9 w-1 shrink-0 rounded-full" style={{ backgroundColor: accent }} aria-hidden />

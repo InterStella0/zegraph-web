@@ -15,7 +15,7 @@ import { ProfileResponse } from "types/community";
 import { useServerMap } from "components/ui/ServerProvider";
 import { communityTag, useProfileCommunities } from "./ProfileContext";
 import { ENTER, SWAP } from "./profileMotion";
-import { PageFooter, ProfileCard, ProfileCardHeader, ProfileCardLoading, usePaged } from "./ProfileCard";
+import { ISLAND, PageFooter, ProfileCard, ProfileCardHeader, ProfileCardLoading, usePaged } from "./ProfileCard";
 import { tint } from "./profileChart";
 
 type Infraction = Omit<GlobalPlayerInfraction, 'flags'> & { flags: InfractionInt, restrictions: string[] };
@@ -106,7 +106,7 @@ export default function ProfileInfractions({ profilePromise, infractionsPromise 
                         </div>
                     )}
 
-                    <div className="rounded-md border border-border/60">
+                    <div className={`rounded-md border border-border/60 ${ISLAND}`}>
                         <Table>
                             <TableHeader>
                                 <TableRow>

@@ -15,7 +15,7 @@ import { GlobalPlayerSessionTime } from "types/community";
 import { PlayerSessionStats } from "types/players";
 import { FocusChip, useFocusFilter, useProfileCommunities } from "./ProfileContext";
 import { ENTER, SWAP } from "./profileMotion";
-import { ChartFigure, Empty, ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { CHART_ISLAND, ChartFigure, Empty, ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
 import { categoryAxis, communitySeries, valueAxis } from "./profileChart";
 
 type GroupBy = "daily" | "monthly" | "yearly";
@@ -213,7 +213,7 @@ export default function ProfilePlaytimeHistory({ heatmapPromise, statsPromise }:
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
             ) : (
-                <div key={`${groupBy}-${selectedYear}`} className={`h-[220px] ${SWAP}`} role="img" aria-label={tHeat('yearlyAriaLabel')}>
+                <div key={`${groupBy}-${selectedYear}`} className={`h-[220px] ${CHART_ISLAND} ${SWAP}`} role="img" aria-label={tHeat('yearlyAriaLabel')}>
                     {/* @ts-ignore */}
                     <LazyBarChart data={barData} options={barOptions} />
                 </div>

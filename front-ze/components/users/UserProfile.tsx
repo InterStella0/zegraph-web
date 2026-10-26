@@ -35,11 +35,12 @@ interface UserProfileProps {
 const SECTION_LABEL = "text-xs font-medium uppercase tracking-wider text-muted-foreground";
 
 // The player's Steam profile background behind the whole page, as on their Steam profile. Fixed
-// below the sakura layer (z-index -1), so the petals and the frosted profile cards sit on top.
+// below the sakura layer (z-index -1), so the petals and the profile cards sit on top. Its
+// data-profile-background switches the cards to the clearer `profile-bg:` glass.
 function ProfilePageBackground({ background }: { background: SteamProfileBackground }) {
     const animated = background.video_webm || background.video_mp4;
     return (
-        <div aria-hidden className="pointer-events-none fixed inset-0" style={{ zIndex: -2 }}>
+        <div aria-hidden data-profile-background className="pointer-events-none fixed inset-0" style={{ zIndex: -2 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={background.image} alt="" className="absolute inset-0 size-full object-cover object-top" />
             {animated && (
@@ -55,8 +56,8 @@ function ProfilePageBackground({ background }: { background: SteamProfileBackgro
                     {background.video_mp4 && <source src={background.video_mp4} type="video/mp4" />}
                 </video>
             )}
-            {/* Text outside the cards (section headings, footer) sits straight on the background. */}
-            <div className="absolute inset-0 bg-background/50" />
+            {/* A light dim for text outside the cards (footer); the cards dim what is behind them themselves. */}
+            <div className="absolute inset-0 bg-background/25" />
         </div>
     );
 }

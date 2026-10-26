@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:is(.dark *));
+/* While a player's Steam background is behind the profile page. */
+@custom-variant profile-bg (&:where(body:has([data-profile-background]) *));
 html {
     scroll-behavior: smooth;
     font-size: 16px;
