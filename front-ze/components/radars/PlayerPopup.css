@@ -22,24 +22,6 @@
 .leaflet-popup-content p{
     margin: .3rem 0;
 }
-.custom-player-popup .leaflet-popup-tip
-.player-popup-container {
-    width: 100%;
-    height: 100%;
-}
-
-.player-popup-container .MuiCard-root {
-    box-shadow: none;
-    border-radius: 0;
-}
-
-.player-popup-container .MuiCardContent-root {
-    padding: 12px;
-}
-
-.player-popup-container .MuiCardContent-root:last-child {
-    padding-bottom: 12px; /* Override MUI's padding-bottom */
-}
 
 .custom-player-popup .leaflet-popup-scrolled {
     overflow: hidden;

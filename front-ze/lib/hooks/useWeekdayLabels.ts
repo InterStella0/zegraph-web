@@ -1,19 +1,17 @@
 'use client';
 
-import dayjs from 'dayjs';
+import dayjs from 'lib/dayjs';
 import {useLocale} from 'next-intl';
 import {useMemo} from 'react';
 
+/** Localised short weekday names keyed by their English abbreviation (Mon…Sun). */
 export default function useWeekdayLabels(): Record<string, string> {
     const locale = useLocale();
     return useMemo(() => {
-        const map: Record<string, string> = {};
         const monday = dayjs().day(1);
-        for (let i = 0; i < 7; i++) {
-            const cur = monday.add(i, 'day');
-            const key = cur.locale('en').format('ddd');
-            map[key] = cur.format('ddd');
-        }
-        return map;
+        return Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map(i => {
+            const day = monday.add(i, 'day');
+            return [day.locale('en').format('ddd'), day.format('ddd')];
+        }));
     }, [locale]);
 }

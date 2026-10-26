@@ -1,29 +1,11 @@
 'use client';
 
-import { use, useMemo, useState } from "react";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-import timezone from "dayjs/plugin/timezone";
+import { useMemo, useState } from "react";
+import dayjs from "lib/dayjs";
 import { useLocale, useTranslations } from "next-intl";
-import {
-    BarController,
-    BarElement,
-    CategoryScale,
-    Chart as ChartJS,
-    Filler,
-    Legend,
-    LinearScale,
-    LineController,
-    LineElement,
-    PointElement,
-    Tooltip,
-} from "chart.js";
-import { color } from "chart.js/helpers";
-import { Card, CardContent } from "components/ui/card";
 import { Button } from "components/ui/button";
 import { Skeleton } from "components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
-import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import GraphSkeleton from "components/graphs/GraphSkeleton";
 import { LazyBarChart, LazyLineChart } from "components/graphs/LazyCharts";
 import { WEEKDAY_KEYS } from "lib/calendarHeatmap";
@@ -31,35 +13,23 @@ import { heatmapTooltip, useChartTheme } from "lib/chartTheme";
 import { useHydrated } from "lib/hooks/useHydrated";
 import { useResource } from "lib/hooks/useResource";
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
-import { fetchApiUrl, formatNumber } from "utils/generalUtils";
+import { fetchApiUrl, formatNumber, range } from "utils/generalUtils";
 import { PlayerOnlineActivity } from "types/players";
 import { FocusChip, useFocusFilter, useProfileCommunities } from "./ProfileContext";
 import { ENTER, SWAP } from "./profileMotion";
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-ChartJS.register(
-    BarController, BarElement, LineController, LineElement, PointElement, Filler,
-    CategoryScale, LinearScale, Tooltip, Legend,
-);
+import { ChartFigure, Empty, ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { categoryAxis, communitySeries, valueAxis } from "./profileChart";
 
 type Metric = "hour" | "weekday";
 type Mode = "user" | "UTC";
 
-const CARD = "h-full border-border/40 bg-card/50 backdrop-blur-xl";
-const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+const HOURS = range(24);
 
 export function ProfileOnlineActivityLoading() {
     return (
-        <Card className={CARD}>
-            <CardContent className="p-4 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-2">
-                    <Skeleton className="h-7 w-40" />
-                    <Skeleton className="h-9 w-56" />
-                </div>
-                <Skeleton className="h-[400px] w-full" />
-            </CardContent>
-        </Card>
+        <ProfileCardLoading className="h-full" titleWidth="w-40" controlSize="h-9 w-56">
+            <Skeleton className="h-[400px] w-full" />
+        </ProfileCardLoading>
     );
 }
 
@@ -72,8 +42,7 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
     const theme = useChartTheme();
     const dayNames = useWeekdayLabels();
     const hydrated = useHydrated();
-    const initialData = use(initialDataPromise);
-    const { communities, communityOf, colorOf } = useProfileCommunities();
+    const { communities, communityOf, nameOf, colorOf } = useProfileCommunities();
     const isShown = useFocusFilter();
     const [metric, setMetric] = useState<Metric>("hour");
     const [mode, setMode] = useState<Mode>("user");
@@ -83,7 +52,7 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
         signal => fetchApiUrl(`/players/${userId}/online-activity`, { params: { tz }, signal }),
         [userId, tz],
         // The server seeds UTC; only skip the first fetch if that is what we're showing.
-        { initial: initialData ?? undefined, skipFirst: tz === "UTC", keepData: true, errorLog: 'Failed to fetch online activity:' },
+        { seed: initialDataPromise, skipFirst: tz === "UTC", keepData: true, errorLog: 'Failed to fetch online activity:' },
     );
 
     const keys = useMemo(() => {
@@ -122,25 +91,17 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
     const hourTotals = HOURS.map(hour => keys.reduce((sum, key) => sum + byHour.get(key)[hour] / 3600, 0));
     const hasData = keys.length > 0 && hourTotals.some(hours => hours > 0);
 
-    const labelOf = (key: string) => communityOf(key)?.name ?? key;
     const formatHours = (hours: number) => `${formatNumber(hours, 1, locale)}h`;
     const busiest = weekdayTotals.indexOf(Math.max(...weekdayTotals));
     const peakHour = hourTotals.indexOf(Math.max(...hourTotals));
 
-    const tooltip = {
-        ...heatmapTooltip(theme),
-        mode: 'index' as const,
-        intersect: false,
-    };
+    const tooltip = { ...heatmapTooltip(theme), mode: 'index' as const, intersect: false };
     const legend = { position: 'bottom' as const, labels: { color: theme.foreground, boxWidth: 12 } };
 
     const hourData = {
         labels: HOURS.map(hour => String(hour).padStart(2, '0')),
         datasets: keys.map((key, i) => ({
-            label: labelOf(key),
-            data: byHour.get(key).map(seconds => seconds / 3600),
-            borderColor: colorOf(key),
-            backgroundColor: color(colorOf(key)).alpha(0.55).rgbString(),
+            ...communitySeries(nameOf(key), byHour.get(key).map(seconds => seconds / 3600), colorOf(key), 0.55),
             fill: i === 0 ? 'origin' : '-1',
             tension: 0.4,
             borderWidth: 2,
@@ -149,7 +110,6 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
         })),
     };
     const hourOptions = {
-        responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index' as const, intersect: false },
         scales: {
@@ -158,13 +118,7 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
                 ticks: { color: theme.muted },
                 grid: { display: false },
             },
-            y: {
-                stacked: true,
-                beginAtZero: true,
-                title: { display: true, text: t('hoursAxis'), color: theme.muted },
-                ticks: { color: theme.muted, maxTicksLimit: 6 },
-                grid: { color: theme.faintGrid },
-            },
+            y: { ...valueAxis(t('hoursAxis'), theme.muted, theme), ticks: { color: theme.muted, maxTicksLimit: 6 } },
         },
         plugins: {
             legend,
@@ -181,32 +135,17 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
     const weekdayData = {
         labels: WEEKDAY_KEYS.map(key => dayNames[key] ?? key),
         datasets: keys.map(key => ({
-            label: labelOf(key),
-            data: weekdayAverages.get(key),
-            backgroundColor: color(colorOf(key)).alpha(0.85).rgbString(),
-            borderColor: colorOf(key),
-            borderWidth: 1,
+            ...communitySeries(nameOf(key), weekdayAverages.get(key), colorOf(key), 0.85),
             borderRadius: 3,
             barPercentage: 0.75,
         })),
     };
     const weekdayOptions = {
-        responsive: true,
         maintainAspectRatio: false,
         indexAxis: 'y' as const,
         scales: {
-            x: {
-                stacked: true,
-                beginAtZero: true,
-                title: { display: true, text: t('averageAxis'), color: theme.muted },
-                ticks: { color: theme.muted },
-                grid: { color: theme.faintGrid },
-            },
-            y: {
-                stacked: true,
-                ticks: { color: theme.foreground },
-                grid: { display: false },
-            },
+            x: valueAxis(t('averageAxis'), theme.muted, theme),
+            y: categoryAxis(theme),
             totals: {
                 type: 'category' as const,
                 position: 'right' as const,
@@ -233,67 +172,62 @@ export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
         : metric === "hour"
             ? t('hourSummary', { hour: String(peakHour).padStart(2, '0'), hours: formatHours(hourTotals[peakHour]) })
             : t('weekdaySummary', { day: dayNames[WEEKDAY_KEYS[busiest]], hours: formatHours(weekdayTotals[busiest]) });
+    const subtitle = metric === "hour" ? t('hourSubtitle') : t('weekdaySubtitle');
 
     return (
-        <Card className={`${CARD} ${ENTER} delay-200`}>
-            <CardContent className="p-4 sm:p-6">
-                <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-xl font-semibold">{t('title')}</h2>
-                        <FocusChip />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        <div className="flex gap-1 rounded-md border">
-                            <Button variant={mode === "user" ? "default" : "ghost"} size="sm" onClick={() => setMode("user")}>
-                                {t('myTimezone')}
+        <ProfileCard className={`h-full ${ENTER} delay-200`}>
+            <ProfileCardHeader
+                title={t('title')}
+                className="mb-1"
+                actions={<div className="flex flex-wrap gap-2">
+                    <div className="flex gap-1 rounded-md border">
+                        {([["user", t('myTimezone')], ["UTC", t('utc')]] as const).map(([value, label]) => (
+                            <Button key={value} variant={mode === value ? "default" : "ghost"} size="sm" onClick={() => setMode(value)}>
+                                {label}
                             </Button>
-                            <Button variant={mode === "UTC" ? "default" : "ghost"} size="sm" onClick={() => setMode("UTC")}>
-                                {t('utc')}
-                            </Button>
-                        </div>
-                        <Tabs value={metric} onValueChange={value => setMetric(value as Metric)}>
-                            <TabsList className="h-9">
-                                <TabsTrigger value="hour" className="text-xs px-3">{t('byHour')}</TabsTrigger>
-                                <TabsTrigger value="weekday" className="text-xs px-3">{t('byWeekday')}</TabsTrigger>
-                            </TabsList>
-                        </Tabs>
+                        ))}
                     </div>
-                </div>
-                <p className="mb-4 text-sm text-muted-foreground">
-                    {metric === "hour" ? t('hourSubtitle') : t('weekdaySubtitle')}
-                </p>
+                    <Tabs value={metric} onValueChange={value => setMetric(value as Metric)}>
+                        <TabsList className="h-9">
+                            <TabsTrigger value="hour" className="text-xs px-3">{t('byHour')}</TabsTrigger>
+                            <TabsTrigger value="weekday" className="text-xs px-3">{t('byWeekday')}</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>}
+            >
+                <FocusChip />
+            </ProfileCardHeader>
+            <p className="mb-4 text-sm text-muted-foreground">{subtitle}</p>
 
-                {loading && !data ? (
-                    <GraphSkeleton height={380} />
-                ) : !hasData ? (
-                    <div className="flex h-[380px] items-center justify-center text-muted-foreground">{t('noData')}</div>
-                ) : (
-                    <>
-                        <ScreenReaderOnly id="profile-activity-summary">{summary}</ScreenReaderOnly>
-                        <div
-                            key={metric}
-                            className={`h-[380px] transition-opacity ${SWAP} ${loading ? "opacity-60" : ""}`}
-                            role="img"
-                            aria-label={metric === "hour" ? t('hourSubtitle') : t('weekdaySubtitle')}
-                            aria-describedby="profile-activity-summary"
-                        >
-                            {metric === "hour"
-                                // @ts-ignore
-                                ? <LazyLineChart data={hourData} options={hourOptions} />
-                                // @ts-ignore
-                                : <LazyBarChart data={weekdayData} options={weekdayOptions} />}
-                        </div>
-                        {metric === "weekday" && (
-                            <p className={`mt-3 text-sm text-muted-foreground ${SWAP}`}>
-                                {t.rich('busiest', {
-                                    day: dayNames[WEEKDAY_KEYS[busiest]],
-                                    b: chunks => <span className="font-semibold text-foreground">{chunks}</span>,
-                                })}
-                            </p>
-                        )}
-                    </>
-                )}
-            </CardContent>
-        </Card>
+            {loading && !data ? (
+                <GraphSkeleton height={380} />
+            ) : !hasData ? (
+                <Empty className="h-[380px]">{t('noData')}</Empty>
+            ) : (
+                <>
+                    <ChartFigure
+                        key={metric}
+                        id="profile-activity-summary"
+                        summary={summary}
+                        label={subtitle}
+                        className={`h-[380px] transition-opacity ${SWAP} ${loading ? "opacity-60" : ""}`}
+                    >
+                        {metric === "hour"
+                            // @ts-ignore
+                            ? <LazyLineChart data={hourData} options={hourOptions} />
+                            // @ts-ignore
+                            : <LazyBarChart data={weekdayData} options={weekdayOptions} />}
+                    </ChartFigure>
+                    {metric === "weekday" && (
+                        <p className={`mt-3 text-sm text-muted-foreground ${SWAP}`}>
+                            {t.rich('busiest', {
+                                day: dayNames[WEEKDAY_KEYS[busiest]],
+                                b: chunks => <span className="font-semibold text-foreground">{chunks}</span>,
+                            })}
+                        </p>
+                    )}
+                </>
+            )}
+        </ProfileCard>
     );
 }

@@ -1,68 +1,22 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { fetchApiUrl } from 'utils/generalUtils';
 import { MapNotifySubscription } from 'types/maps';
+import { useResource } from './useResource';
 
-interface UseMapNotificationsResult {
-    subscriptions: MapNotifySubscription[];
-    isLoading: boolean;
-    error: string | null;
-    getSubscriptionType: (mapName: string, serverId: string) => 'server' | 'all' | null;
-    refresh: () => Promise<void>;
-}
+export function useMapNotifications(isLoggedIn: boolean) {
+    const [version, setVersion] = useState(0);
+    const { data: subscriptions } = useResource<MapNotifySubscription[]>(
+        signal => isLoggedIn ? fetchApiUrl('/accounts/me/push/map-notify', { signal }) : null,
+        [isLoggedIn, version],
+        { keepData: true, errorLog: 'Failed to fetch map notifications:' },
+    );
 
-export function useMapNotifications(isLoggedIn: boolean): UseMapNotificationsResult {
-    const [subscriptions, setSubscriptions] = useState<MapNotifySubscription[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const fetchSubscriptions = useCallback(async () => {
-        if (!isLoggedIn) {
-            setSubscriptions([]);
-            return;
-        }
-
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const data: MapNotifySubscription[] = await fetchApiUrl('/accounts/me/push/map-notify');
-            setSubscriptions(data);
-        } catch (err) {
-            console.error('Failed to fetch map notifications:', err);
-            setError(err instanceof Error ? err.message : 'Failed to fetch subscriptions');
-            setSubscriptions([]);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [isLoggedIn]);
-
-    useEffect(() => {
-        fetchSubscriptions();
-    }, [fetchSubscriptions]);
-
-    const getSubscriptionType = useCallback((mapName: string, serverId: string): 'server' | 'all' | null => {
-        const serverSub = subscriptions.find(
-            sub => sub.map_name === mapName && sub.server_id === serverId && !sub.triggered
-        );
-        if (serverSub) {
-            return 'server';
-        }
-
-        const allServersSub = subscriptions.find(
-            sub => sub.map_name === mapName && sub.server_id === null && !sub.triggered
-        );
-        if (allServersSub) {
-            return 'all';
-        }
-
+    const getSubscriptionType = (mapName: string, serverId: string): 'server' | 'all' | null => {
+        const active = (subscriptions ?? []).filter(sub => sub.map_name === mapName && !sub.triggered);
+        if (active.some(sub => sub.server_id === serverId)) return 'server';
+        if (active.some(sub => sub.server_id === null)) return 'all';
         return null;
-    }, [subscriptions]);
-
-    return {
-        subscriptions,
-        isLoading,
-        error,
-        getSubscriptionType,
-        refresh: fetchSubscriptions,
     };
+
+    return { getSubscriptionType, refresh: () => setVersion(v => v + 1) };
 }

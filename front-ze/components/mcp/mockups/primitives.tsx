@@ -2,44 +2,40 @@
 
 import {createContext, ReactNode, useContext, useEffect, useRef, useState} from 'react';
 import {cn} from 'components/lib/utils';
+import {useMediaQuery} from 'lib/hooks/useMediaQuery';
+import {useInView} from 'lib/hooks/useInView';
 import './mockups.css';
 
 export type MockVariant = 'claude' | 'chatgpt';
-export type CursorCue = { target: string, click?: boolean } | null;
+/** One scene phase: how long it shows, the `data-mock` element the cursor points at, and whether it clicks there. */
+export type MockPhase = readonly [ms: number, target?: string, action?: 'click'];
+export type MockBoxProps = { children: ReactNode, className?: string, 'data-mock'?: string };
 
 const CURSOR_TRAVEL_MS = 650;
 const CURSOR_SETTLE_MS = CURSOR_TRAVEL_MS + 50;
 
-export type MockPlaybackControl = {
+export const MockPlayback = createContext<{
     paused: boolean,
     onDone: () => void,
     onDuration: (ms: number) => void,
-};
+} | null>(null);
 
-export const MockPlayback = createContext<MockPlaybackControl | null>(null);
+export const usePrefersReducedMotion = () => useMediaQuery('(prefers-reduced-motion: reduce)');
 
-export function usePrefersReducedMotion() {
-    const [reduced, setReduced] = useState(false);
-    useEffect(() => {
-        const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-        setReduced(query.matches);
-        const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
-        query.addEventListener('change', onChange);
-        return () => query.removeEventListener('change', onChange);
-    }, []);
-    return reduced;
+function cursorMoves(phases: readonly MockPhase[], from: number, to: number) {
+    const target = phases[to][1];
+    return Boolean(target && target !== phases[from][1]);
 }
 
-export function MockScene({label, durations, cursor, className, children}: {
+export function MockScene({label, phases, className, children}: {
     label: string,
-    durations: readonly number[],
-    cursor?: (phase: number) => CursorCue,
+    phases: readonly MockPhase[],
     className?: string,
     children: (phase: number) => ReactNode,
 }) {
     const ref = useRef<HTMLDivElement>(null);
     const reduced = usePrefersReducedMotion();
-    const [visible, setVisible] = useState(false);
+    const visible = useInView(ref);
     const [phase, setPhase] = useState(0);
     const [cursorPhase, setCursorPhase] = useState(0);
     const [delayedClickPhase, setDelayedClickPhase] = useState<number | null>(null);
@@ -49,70 +45,50 @@ export function MockScene({label, durations, cursor, className, children}: {
     const onDuration = playback?.onDuration;
 
     useEffect(() => {
-        if (!onDuration) return;
-        let total = 0;
-        durations.forEach((ms, i) => {
-            total += ms;
-            const next = cursor?.(i + 1)?.target;
-            if (i < durations.length - 1 && next && next !== cursor?.(i)?.target) total += CURSOR_SETTLE_MS;
-        });
-        onDuration(total);
-    }, [onDuration, durations, cursor]);
-
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-        const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {threshold: 0.4});
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, []);
+        onDuration?.(phases.reduce(
+            (total, [ms], i) => total + ms + (i < phases.length - 1 && cursorMoves(phases, i, i + 1) ? CURSOR_SETTLE_MS : 0),
+            0,
+        ));
+    }, [onDuration, phases]);
 
     useEffect(() => {
         if (!running) return;
         let commitId: ReturnType<typeof setTimeout> | undefined;
         const advanceId = setTimeout(() => {
-            if (onDone && phase === durations.length - 1) {
+            if (onDone && phase === phases.length - 1) {
                 onDone();
                 return;
             }
-            const next = (phase + 1) % durations.length;
-            const currentCue = cursor?.(phase) ?? null;
-            const nextCue = cursor?.(next) ?? null;
-            const targetChanged = Boolean(nextCue?.target && nextCue.target !== currentCue?.target);
-            const targetExists = Boolean(
-                nextCue?.target && ref.current?.querySelector(`[data-mock="${nextCue.target}"]`),
-            );
+            const next = (phase + 1) % phases.length;
+            const moves = cursorMoves(phases, phase, next);
+            const targetShown = moves && ref.current?.querySelector(`[data-mock="${phases[next][1]}"]`);
 
             setCursorPhase(next);
-            if (targetChanged && targetExists) {
+            if (targetShown) {
                 setDelayedClickPhase(null);
                 commitId = setTimeout(() => setPhase(next), CURSOR_SETTLE_MS);
                 return;
             }
 
-            setDelayedClickPhase(targetChanged && !targetExists ? next : null);
+            setDelayedClickPhase(moves ? next : null);
             setPhase(next);
-        }, durations[phase]);
+        }, phases[phase][0]);
 
         return () => {
             clearTimeout(advanceId);
             if (commitId) clearTimeout(commitId);
         };
-    }, [phase, running, onDone, durations, cursor]);
+    }, [phase, running, onDone, phases]);
 
-    const shown = reduced ? durations.length - 1 : phase;
-    const cursorCue = reduced ? null : cursor?.(cursorPhase) ?? null;
-    const cue = cursorCue && {
-        ...cursorCue,
-        click: cursorCue.click && phase === cursorPhase,
-    };
+    const cue = reduced ? undefined : phases[cursorPhase];
 
     return (
         <div ref={ref} role="img" aria-label={label} className={cn('relative select-none', className)}>
-            <div aria-hidden>{children(shown)}</div>
+            <div aria-hidden>{children(reduced ? phases.length - 1 : phase)}</div>
             <MockCursor
                 sceneRef={ref}
-                cue={cue}
+                target={cue?.[1]}
+                click={cue?.[2] === 'click' && phase === cursorPhase}
                 phase={cursorPhase}
                 clickDelay={delayedClickPhase === cursorPhase ? CURSOR_SETTLE_MS : 0}
             />
@@ -120,15 +96,15 @@ export function MockScene({label, durations, cursor, className, children}: {
     );
 }
 
-function MockCursor({sceneRef, cue, phase, clickDelay}: {
+function MockCursor({sceneRef, target, click, phase, clickDelay}: {
     sceneRef: React.RefObject<HTMLDivElement>,
-    cue: CursorCue,
+    target?: string,
+    click: boolean,
     phase: number,
     clickDelay: number,
 }) {
     const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
     const [transitionReady, setTransitionReady] = useState(false);
-    const target = cue?.target;
 
     useEffect(() => {
         if (!pos || transitionReady) return;
@@ -166,9 +142,9 @@ function MockCursor({sceneRef, cue, phase, clickDelay}: {
             }}
         >
             <div
-                key={cue?.click ? phase : 'idle'}
-                className={cn('relative', cue?.click && 'mock-click')}
-                style={cue?.click ? {'--mock-click-delay': `${clickDelay}ms`} as React.CSSProperties : undefined}
+                key={click ? phase : 'idle'}
+                className={cn('relative', click && 'mock-click')}
+                style={click ? {'--mock-click-delay': `${clickDelay}ms`} as React.CSSProperties : undefined}
             >
                 <svg width="18" height="20" viewBox="0 0 18 20" className="drop-shadow-md">
                     <path d="M1 1 L1 16 L5 12 L8 19 L11 17.6 L8 11 L14 11 Z" fill="#fff" stroke="#111" strokeWidth="1.3" strokeLinejoin="round" />
@@ -194,9 +170,9 @@ export function MockFrame({variant, address, sidebar, children, className, bodyC
         )}>
             <div className="flex items-center gap-2 border-b border-(--m-border) bg-(--m-panel) px-3 py-1.5">
                 <div className="flex gap-1">
-                    <span className="size-2 rounded-full bg-[#ff5f57]" />
-                    <span className="size-2 rounded-full bg-[#febc2e]" />
-                    <span className="size-2 rounded-full bg-[#28c840]" />
+                    {['bg-[#ff5f57]', 'bg-[#febc2e]', 'bg-[#28c840]'].map(bg => (
+                        <span key={bg} className={cn('size-2 rounded-full', bg)} />
+                    ))}
                 </div>
                 <div className="mx-auto max-w-[70%] truncate rounded-md bg-(--m-bg) px-3 py-0.5 text-[10px] text-(--m-muted)">
                     {address}
@@ -218,30 +194,32 @@ export function spot(on: boolean) {
     return on ? 'mock-spotlight' : '';
 }
 
-export function TypeIn({text, state, placeholder, ms = 1200, className}: {
+/** Shows the placeholder before phase `at`, types `text` out during it, and shows it in full afterwards. */
+export function TypeIn({text, phase, at, placeholder, ms = 1200, className}: {
     text: string,
-    state: 'empty' | 'typing' | 'done',
+    phase: number,
+    at: number,
     placeholder?: string,
     ms?: number,
     className?: string,
 }) {
     const [count, setCount] = useState(0);
+    const typing = phase === at;
     useEffect(() => {
-        if (state !== 'typing') return;
+        if (!typing) return;
         setCount(0);
         const step = Math.max(20, ms / text.length);
         const id = setInterval(() => setCount(c => (c >= text.length ? c : c + 1)), step);
         return () => clearInterval(id);
-    }, [state, text, ms]);
+    }, [typing, text, ms]);
 
-    if (state === 'empty') {
+    if (phase < at) {
         return <span className={cn('text-(--m-muted) opacity-70', className)}>{placeholder}</span>;
     }
-    const shown = state === 'done' ? text : text.slice(0, count);
     return (
         <span className={className}>
-            {shown}
-            {state === 'typing' && <span className="mock-caret" />}
+            {typing ? text.slice(0, count) : text}
+            {typing && <span className="mock-caret" />}
         </span>
     );
 }
@@ -261,12 +239,7 @@ export function MockToggle({on, className}: { on: boolean, className?: string })
     );
 }
 
-export function MockInput({children, active, className, ...rest}: {
-    children: ReactNode,
-    active?: boolean,
-    className?: string,
-    'data-mock'?: string,
-}) {
+export function MockInput({children, active, className, ...rest}: MockBoxProps & { active?: boolean }) {
     return (
         <div
             {...rest}
@@ -281,12 +254,7 @@ export function MockInput({children, active, className, ...rest}: {
     );
 }
 
-export function MockButton({children, primary, className, ...rest}: {
-    children: ReactNode,
-    primary?: boolean,
-    className?: string,
-    'data-mock'?: string,
-}) {
+export function MockButton({children, primary, className, ...rest}: MockBoxProps & { primary?: boolean }) {
     return (
         <span
             {...rest}

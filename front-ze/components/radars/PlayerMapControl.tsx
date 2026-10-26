@@ -1,164 +1,77 @@
 import {useContext, useState, useEffect} from 'react';
-import { useMapEvents } from 'react-leaflet';
-import type { LatLng, LeafletMouseEvent } from 'leaflet';
-import CountryPolygon from "./CountryPolygon.tsx";
-import PlayerPopup from "./PlayerPopup.tsx";
+import { GeoJSON, useMapEvents } from 'react-leaflet';
+import type { LatLng } from 'leaflet';
+import PlayerPopup, {PlayerPopupState, UNKNOWN_COUNTRY} from "./PlayerPopup.tsx";
 import {fetchUrl, intervalToServer} from "utils/generalUtils.ts";
-import {TemporalContext} from "./TemporalController.tsx";
+import {TemporalContext, TemporalData} from "./TemporalController.tsx";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
-import type {CountryFeature, CountryPlayer, CountryPlayers} from "types/radars";
+import type {CountryPlayers} from "types/radars";
 
-const PlayerMapControl = () => {
-    const [clickedLocation, setClickedLocation] = useState<LatLng | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [countryData, setCountryData] = useState<CountryFeature | null>(null);
-    const [playerData, setPlayerData] = useState<CountryPlayer[]>([]);
-    const [totalPlayers, setTotalPlayers] = useState(0);
-    const [page, setPage] = useState(0);
-    const [error, setError] = useState<string | null>(null);
+const COUNTRY_PATH_OPTIONS = {
+    style: { fillColor: 'var(--primary)', weight: 2, opacity: 1, color: 'var(--primary)', fillOpacity: 0.3 },
+    interactive: false,
+    bubblingMouseEvents: true,
+};
+
+function queryCountry(serverId: string, temporal: TemporalData, position: LatLng, page: number): Promise<CountryPlayers> {
+    const params = { latitude: position.lat, longitude: position.lng, page };
+    if (temporal.isLive)
+        return fetchUrl(`/radars/${serverId}/live_query`, { params });
+    return fetchUrl(`/radars/${serverId}/query`, {
+        params: { ...params, time: temporal.cursor.toISOString(), interval: intervalToServer(temporal.interval) },
+    });
+}
+
+export default function PlayerMapControl() {
     const { server } = useServerData()
-    const server_id = server.id
-    const temporal = useContext(TemporalContext);
+    const { data: temporal } = useContext(TemporalContext);
+    const [popup, setPopup] = useState<PlayerPopupState | null>(null);
+    // A response only lands on the popup it was requested for.
+    const update = (position: LatLng, patch: Partial<PlayerPopupState>) =>
+        setPopup(current => current?.position === position ? { ...current, ...patch } : current);
 
     useEffect(() => {
-        if (clickedLocation) {
-            handlePopupClose();
-        }
-    }, [temporal.data.cursor, temporal.data.interval]);
+        setPopup(null);
+    }, [temporal.cursor, temporal.interval]);
 
-    const handleMapClick = async (e: LeafletMouseEvent) => {
-        const latlng = e.latlng;
+    useMapEvents({
+        click: async ({ latlng }) => {
+            setPopup({ position: latlng, isLoading: true, countryData: null, playerData: [], totalPlayers: 0, page: 0, error: null });
+            try {
+                const result = await queryCountry(server.id, temporal, latlng, 0);
+                if (result.code === "Unknown") throw new Error(UNKNOWN_COUNTRY);
+                update(latlng, {
+                    isLoading: false,
+                    countryData: result.geojson
+                        ? { type: 'Feature', properties: { name: result.name, code: result.code }, geometry: JSON.parse(result.geojson) }
+                        : null,
+                    playerData: result.players || [],
+                    totalPlayers: result.count || 0,
+                });
+            } catch (err) {
+                if (err.message !== UNKNOWN_COUNTRY)
+                    console.error('Error fetching data:', err);
+                update(latlng, { isLoading: false, error: err.message });
+            }
+        },
+    });
 
-        setCountryData(null);
-        setPlayerData([]);
-        setTotalPlayers(0);
-        setPage(0);
-        setError(null);
-
-        setClickedLocation(latlng);
-        setIsLoading(true);
+    const handlePageChange = async (page: number) => {
+        const { position } = popup;
+        update(position, { isLoading: true });
         try {
-            const promise = !temporal.data?.isLive? fetchUrl(`/radars/${server_id}/query`, {
-                params: {
-                    latitude: latlng.lat,
-                    longitude: latlng.lng,
-                    page: 0,
-                    time: temporal.data.cursor.toISOString(),
-                    interval: intervalToServer(temporal.data.interval)
-                }
-            }): fetchUrl(`/radars/${server_id}/live_query`, {
-                params: {
-                    latitude: latlng.lat,
-                    longitude: latlng.lng,
-                    page: 0
-                }
-            })
-            const result: CountryPlayers = await promise
-            if (result.code === "Unknown") {
-                throw new Error("Unknown country selected");
-            }
-
-            if (result.geojson) {
-                const geometry = JSON.parse(result.geojson);
-                const countryGeoJson: CountryFeature = {
-                    type: 'Feature',
-                    properties: {
-                        name: result.name,
-                        code: result.code
-                    },
-                    geometry
-                };
-                setCountryData(countryGeoJson);
-            }
-
-            setPlayerData(result.players || []);
-            setTotalPlayers(result.count || 0);
-
-        } catch (err) {
-            if (err.message !== "Unknown country selected")
-                console.error('Error fetching data:', err);
-            setError(err.message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handlePageChange = async (newPage: number) => {
-        if (!clickedLocation) return;
-
-        setIsLoading(true);
-        try {
-            const promise = !temporal.data?.isLive? fetchUrl(`/radars/${server_id}/query`, {
-                params: {
-                    latitude: clickedLocation.lat,
-                    longitude: clickedLocation.lng,
-                    page: newPage,
-                    time: temporal.data.cursor.toISOString(),
-                    interval: intervalToServer(temporal.data.interval)
-                }
-            }): fetchUrl(`/radars/${server_id}/live_query`, {
-                params: {
-                    latitude: clickedLocation.lat,
-                    longitude: clickedLocation.lng,
-                    page: newPage
-                }
-            })
-            const result: CountryPlayers = await promise
-
-            if (result.players) {
-                setPlayerData(result.players);
-                setTotalPlayers(result.count || 0);
-                setPage(newPage);
-            }
+            const result = await queryCountry(server.id, temporal, position, page);
+            if (result.players)
+                update(position, { playerData: result.players, totalPlayers: result.count || 0, page });
         } catch (err) {
             console.error('Error changing page:', err);
         } finally {
-            setIsLoading(false);
+            update(position, { isLoading: false });
         }
     };
 
-    const MapClickHandler = () => {
-        useMapEvents({
-            click: handleMapClick
-        });
-        return null;
-    };
-
-    const handlePopupClose = () => {
-        setClickedLocation(null);
-        setCountryData(null);
-        setPlayerData([]);
-        setTotalPlayers(0);
-        setPage(0);
-        setError(null);
-    };
-
-
-    return (
-        <>
-            <MapClickHandler />
-
-            {countryData && (
-                <CountryPolygon
-                    geoJsonData={countryData}
-                />
-            )}
-
-            {clickedLocation && (
-                <PlayerPopup
-                    position={clickedLocation}
-                    isLoading={isLoading}
-                    countryData={countryData}
-                    playerData={playerData}
-                    totalPlayers={totalPlayers}
-                    page={page}
-                    error={error}
-                    onPageChange={handlePageChange}
-                    onClose={handlePopupClose}
-                />
-            )}
-        </>
-    );
-};
-
-export default PlayerMapControl;
+    return <>
+        {popup?.countryData && <GeoJSON data={popup.countryData} pathOptions={COUNTRY_PATH_OPTIONS} />}
+        {popup && <PlayerPopup {...popup} onPageChange={handlePageChange} />}
+    </>;
+}

@@ -1,7 +1,7 @@
 'use client'
 import {useState} from "react";
 import {useTranslations} from 'next-intl';
-import dayjs from "dayjs";
+import dayjs from "lib/dayjs";
 import {Calendar as CalendarIcon, ChevronLeft, ChevronRight} from "lucide-react";
 import {Button} from "components/ui/button";
 import {Calendar} from "components/ui/calendar";

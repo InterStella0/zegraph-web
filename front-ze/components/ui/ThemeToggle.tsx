@@ -3,17 +3,13 @@
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './button';
-import {useEffect, useState} from "react";
+import { useHydrated } from 'lib/hooks/useHydrated';
 
 export default function ThemeToggle() {
   const { setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
+  const hydrated = useHydrated();
+  // The theme is only known in the browser, so the server renders a disabled placeholder.
+  if (!hydrated) {
     return (
       <Button variant="ghost" size="icon" disabled>
         <Sun className="h-5 w-5" />
@@ -21,23 +17,17 @@ export default function ThemeToggle() {
     );
   }
 
-  const toggleTheme = () => {
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
-  };
-
+  const isDark = resolvedTheme === 'dark';
+  const Icon = isDark ? Sun : Moon;
   return (
     <Button
       variant="ghost"
       size="icon"
-      onClick={toggleTheme}
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
       className="transition-transform hover:scale-110"
       aria-label="Toggle theme"
     >
-      {resolvedTheme === 'dark' ? (
-        <Sun className="h-5 w-5 transition-transform rotate-0 scale-100" />
-      ) : (
-        <Moon className="h-5 w-5 transition-transform rotate-0 scale-100" />
-      )}
+      <Icon className="h-5 w-5 transition-transform rotate-0 scale-100" />
     </Button>
   );
 }

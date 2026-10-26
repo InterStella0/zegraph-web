@@ -8,6 +8,9 @@ export type ColorableCommunity = {key: string, name: string, icon_url?: string |
 
 type RankedCommunity = ColorableCommunity & {since: string}
 
+// Plain code-unit order (not localeCompare), so every browser ranks communities, and so colours them, alike.
+const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0
+
 export function useCommunityColors(communities: ColorableCommunity[]): Record<string, string> {
     const allCommunities = useServerMap()?.communities
 
@@ -18,7 +21,7 @@ export function useCommunityColors(communities: ColorableCommunity[]): Record<st
             icon_url: c.icon_url ?? null,
             since: c.servers.map(s => s.tracking_since).filter(Boolean).sort()[0] ?? '~',
         }))
-        .sort((a, b) => a.since < b.since ? -1 : a.since > b.since ? 1 : a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+        .sort((a, b) => compare(a.since, b.since) || compare(a.key, b.key)),
     [allCommunities])
 
     const rankedSignature = JSON.stringify(ranked.map(c => [c.key, c.name, c.icon_url]))
@@ -39,10 +42,7 @@ export function useCommunityColors(communities: ColorableCommunity[]): Record<st
 
     return useMemo(() => {
         const snapshot = iconSnapshot.split(',')
-        const iconColors = new Map<string, string>()
-        iconUrls.forEach((url, i) => {
-            if (snapshot[i]) iconColors.set(url, snapshot[i])
-        })
+        const iconColors = new Map(iconUrls.map((url, i) => [url, snapshot[i]]))
         const preferred = (c: ColorableCommunity) => (c.icon_url && iconColors.get(c.icon_url)) || nameHashColor(c.name)
 
         const palette = assignCommunityColors(ranked.map(preferred))
@@ -51,11 +51,7 @@ export function useCommunityColors(communities: ColorableCommunity[]): Record<st
         const extraColors = assignCommunityColors(extras.map(preferred), palette)
         extras.forEach((c, i) => assigned.set(c.key, extraColors[i]))
 
-        const colors: Record<string, string> = {}
-        for (const community of communities) {
-            colors[community.key] = assigned.get(community.key)
-        }
-        return colors
+        return Object.fromEntries(communities.map(c => [c.key, assigned.get(c.key)]))
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rankedSignature, signature, iconSnapshot])
 }

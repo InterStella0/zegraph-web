@@ -1,6 +1,6 @@
 import {useTranslations} from 'next-intl';
 import { formatDuration, getServerPopRange } from 'utils/sessionUtils.js';
-import dayjs from "dayjs";
+import dayjs from "lib/dayjs";
 import { MapSessionMatch, ServerMapPlayed } from "types/maps";
 import { MutualSessionReturn, ServerGraphType } from "../../app/servers/[server_slug]/util";
 import {SessionStatGrid} from "./SessionStats";

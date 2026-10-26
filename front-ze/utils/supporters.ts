@@ -1,4 +1,4 @@
-export const SUPPORTERS_ROOT = 'https://queeniemella.cc/api/supporters';
+const SUPPORTERS_ROOT = 'https://queeniemella.cc/api/supporters';
 export const DONOR_BANNER_DISMISSED = 'donor_banner_dismissed';
 
 export interface TopSupporter {
@@ -24,32 +24,22 @@ export interface DonorBannerData {
   remaining: number;
 }
 
-async function fetchSupporters<T>(url: string): Promise<T[]> {
+// Supporter data is decoration: any failure or unexpected shape yields the fallback.
+async function fetchSupporters<T>(path: string, parse: (json: any) => T, fallback: T): Promise<T> {
   try {
-    const res = await fetch(url, { next: { revalidate: 300 } } as RequestInit);
-    if (!res.ok) return [];
-    const json = await res.json();
-    return Array.isArray(json) ? json : [];
+    const res = await fetch(`${SUPPORTERS_ROOT}${path}`, { next: { revalidate: 300 } } as RequestInit);
+    return res.ok ? parse(await res.json()) : fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-export function getTopSupporters(): Promise<TopSupporter[]> {
-  return fetchSupporters<TopSupporter>(`${SUPPORTERS_ROOT}/top`);
-}
+const asList = (json: any) => Array.isArray(json) ? json : [];
 
-export function getRecentSupporters(limit = 10): Promise<RecentSupporter[]> {
-  return fetchSupporters<RecentSupporter>(`${SUPPORTERS_ROOT}/recent?limit=${limit}`);
-}
+export const getTopSupporters = (): Promise<TopSupporter[]> => fetchSupporters('/top', asList, []);
 
-export async function getAllSupporters(): Promise<AllSupporters | null> {
-  try {
-    const res = await fetch(`${SUPPORTERS_ROOT}/all`, { next: { revalidate: 300 } } as RequestInit);
-    if (!res.ok) return null;
-    const json = await res.json();
-    return Array.isArray(json?.names) ? json : null;
-  } catch {
-    return null;
-  }
-}
+export const getRecentSupporters = (limit = 10): Promise<RecentSupporter[]> =>
+  fetchSupporters(`/recent?limit=${limit}`, asList, []);
+
+export const getAllSupporters = (): Promise<AllSupporters | null> =>
+  fetchSupporters('/all', json => Array.isArray(json?.names) ? json : null, null);

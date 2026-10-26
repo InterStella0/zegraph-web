@@ -2,7 +2,7 @@ import {ReactNode} from "react";
 import {useTranslations} from 'next-intl';
 import { Card, CardContent } from 'components/ui/card';
 import { formatDuration, getServerPopRange } from 'utils/sessionUtils.js';
-import dayjs from "dayjs";
+import dayjs from "lib/dayjs";
 import { PlayerSession} from "types/players";
 import {
     MutualSessionReturn, PlayerSessionMapPlayed, ServerGraphType

@@ -1,15 +1,9 @@
 'use client'
-import { BarController, BarElement, CategoryScale, Chart as ChartJS, LinearScale, TimeScale, Title, Tooltip as TooltipChart } from 'chart.js';
-import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import { LazyBarChart, LazyMatrixChart } from "components/graphs/LazyCharts";
-import { useEffect, useMemo, useState } from "react";
-import dayjs from "dayjs";
-import weekOfYear from "dayjs/plugin/weekOfYear";
-import isoWeek from "dayjs/plugin/isoWeek";
-import utc from "dayjs/plugin/utc";
+import { ReactNode, useEffect, useMemo } from "react";
+import dayjs from "lib/dayjs";
 import { Skeleton } from "../ui/skeleton";
-import {formatNumber} from "utils/generalUtils";
-import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
+import {formatNumber, range} from "utils/generalUtils";
 import { Server } from "types/community";
 import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/util";
 import {ScrollArea, ScrollBar} from "components/ui/scroll-area.tsx";
@@ -20,18 +14,17 @@ import {usePlayerStat} from "../../app/servers/[server_slug]/players/[player_id]
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 import {CalendarCell, calendarCells, calendarMatrixDataset, calendarMatrixOptions, heatCellColors} from "lib/calendarHeatmap";
 
-dayjs.extend(weekOfYear)
-dayjs.extend(isoWeek)
-dayjs.extend(utc)
-
-ChartJS.register(MatrixController, MatrixElement, BarController, BarElement, TimeScale, TooltipChart, CategoryScale, LinearScale, Title);
-
-export type PlayerSessionTime = {
+type PlayerSessionTime = {
     bucket_time: string,
     hours: number
 }
 
 type GroupByType = "daily" | "monthly" | "yearly"
+type Bar = { time: string, hours: number }
+
+function hoursByDay(data: PlayerSessionTime[]) {
+    return new Map(data.map(e => [dayjs.utc(e.bucket_time).format("YYYY-MM-DD"), e.hours]))
+}
 
 export default function PlayTimeHeatmap({
     groupBy,
@@ -39,7 +32,7 @@ export default function PlayTimeHeatmap({
     server,
     selectedYear,
     selectedMonth,
-    onDataLoaded,
+    onYearsLoaded,
     sumMethodYearly,
     onChangeTotalPlayed,
     rangeFrom,
@@ -51,220 +44,103 @@ export default function PlayTimeHeatmap({
     selectedYear: number
     selectedMonth: number
     sumMethodYearly: "monthly" | "yearly"
-    onDataLoaded?: (data: {
-        years: number[],
-        months: number[],
-        rawData: PlayerSessionTime[]
-    }) => void
+    onYearsLoaded: (years: number[]) => void
     onChangeTotalPlayed: (value: number) => void
     rangeFrom?: string
     rangeTo?: string
 }) {
     const t = useTranslations('players.heatmap')
-    const playerId = player.id
-    const server_id = server.id
-    const [heatmapData, setHeatmapData] = useState<CalendarCell[]>([])
-    const [chartBarData, setChartBarData] = useState<{time: string, hours: number}[]>([])
-
-    const { data: sessionData, loading } = usePlayerStat<PlayerSessionTime[]>(
-        server_id, playerId, 'graph/sessions'
-    )
+    const colors = useChartTheme();
+    const dayNames = useWeekdayLabels();
+    const { data: sessionData, loading } = usePlayerStat<PlayerSessionTime[]>(server.id, player.id, 'graph/sessions')
     const rawData = useMemo(() => sessionData ?? [], [sessionData])
 
     useEffect(() => {
-        if (rawData && rawData.length > 0 && onDataLoaded) {
-            const years = [...new Set(rawData.map(d => dayjs.utc(d.bucket_time).year()))]
-                .sort((a, b) => b - a)
-            const months = [...new Set(rawData.map(d => dayjs.utc(d.bucket_time).month()))]
-            onDataLoaded({ years, months, rawData })
-        }
+        if (rawData.length > 0)
+            onYearsLoaded([...new Set(rawData.map(d => dayjs.utc(d.bucket_time).year()))].sort((a, b) => b - a))
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rawData])
 
-    const filteredData = useMemo(() => {
-        if (!rawData || rawData.length === 0) return []
-
-        switch (groupBy) {
-            case 'daily':
-                if (rangeFrom && rangeTo) {
-                    return rawData.filter(d => {
-                        const day = dayjs.utc(d.bucket_time).startOf('day')
-                        return !day.isBefore(dayjs.utc(rangeFrom)) && !day.isAfter(dayjs.utc(rangeTo))
-                    })
-                }
-                return rawData.filter(d => dayjs.utc(d.bucket_time).year() === selectedYear)
-            case 'monthly':
-                return rawData.filter(d => {
-                    const date = dayjs.utc(d.bucket_time)
-                    return date.year() === selectedYear && date.month() === selectedMonth
-                })
-            case 'yearly':
-                return rawData.filter(d => {
-                    const date = dayjs.utc(d.bucket_time)
-                    return (date.year() === selectedYear && sumMethodYearly === "monthly") || sumMethodYearly === "yearly"
-                })
-            default:
-                return rawData
+    const filteredData = useMemo(() => rawData.filter(d => {
+        const date = dayjs.utc(d.bucket_time)
+        if (groupBy === 'daily' && rangeFrom && rangeTo) {
+            const day = date.startOf('day')
+            return !day.isBefore(dayjs.utc(rangeFrom)) && !day.isAfter(dayjs.utc(rangeTo))
         }
-    }, [rawData, groupBy, selectedYear, selectedMonth, sumMethodYearly, rangeFrom, rangeTo])
+        if (groupBy === 'daily') return date.year() === selectedYear
+        if (groupBy === 'monthly') return date.year() === selectedYear && date.month() === selectedMonth
+        return sumMethodYearly === "yearly" || date.year() === selectedYear
+    }), [rawData, groupBy, selectedYear, selectedMonth, sumMethodYearly, rangeFrom, rangeTo])
 
     useEffect(() => {
-        const total = filteredData.reduce((c, d) => c + d.hours, 0)
-        onChangeTotalPlayed(total)
+        onChangeTotalPlayed(filteredData.reduce((c, d) => c + d.hours, 0))
     }, [filteredData, onChangeTotalPlayed]);
 
-    useEffect(() => {
-        if (!filteredData || filteredData.length === 0) {
-            setHeatmapData([])
-            setChartBarData([])
-            return
-        }
-
-        const transformed: CalendarCell[] = []
-
+    // Daily views render calendar cells, monthly and yearly views render bars.
+    const { cells, bars } = useMemo((): { cells: CalendarCell[], bars: Bar[] } => {
+        if (filteredData.length === 0) return { cells: [], bars: [] }
         if (groupBy === 'daily') {
-            const dataMap = new Map<string, number>()
-            filteredData.forEach(e => {
-                const iso = dayjs.utc(e.bucket_time).format("YYYY-MM-DD")
-                dataMap.set(iso, e.hours)
-            })
-
-            const startOfYear = rangeFrom ? dayjs.utc(rangeFrom) : dayjs(`${selectedYear}-01-01`)
-            const endOfYear = rangeTo ? dayjs.utc(rangeTo) : dayjs(`${selectedYear}-12-31`)
-            transformed.push(...calendarCells(startOfYear, endOfYear, dataMap))
-        } else if (groupBy === 'monthly') {
-            const dataMap = new Map<string, number>()
-            filteredData.forEach(e => {
-                const iso = dayjs.utc(e.bucket_time).format("YYYY-MM-DD")
-                dataMap.set(iso, e.hours)
-            })
-
-            const startOfMonth = dayjs(`${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`)
-            const endOfMonth = startOfMonth.endOf('month')
-            let currentDate = startOfMonth
-            const data = []
-            while (currentDate.isBefore(endOfMonth) || currentDate.isSame(endOfMonth, 'day')) {
-                const iso = currentDate.format("YYYY-MM-DD")
-                const time = currentDate.format("DD")
-                data.push({
-                    time,
-                    hours: dataMap.get(iso) || 0
-                })
-                currentDate = currentDate.add(1, 'day')
-            }
-            setChartBarData(data)
-            return
-        } else if (groupBy === 'yearly') {
-            const grouped = new Map<string, number>()
-            let method;
-            switch(sumMethodYearly){
-                case "monthly":
-                    method = "MMM"
-                    break
-                case "yearly":
-                    method = "YYYY"
-                    break
-                default:
-                    method = "YYYY"
-                    break
-            }
-            filteredData.forEach(e => {
-                const groupKey = dayjs.utc(e.bucket_time).format(method)
-                grouped.set(groupKey, (grouped.get(groupKey) || 0) + e.hours)
-            })
-
-            const yearlyData = Array.from(grouped.entries())
-                .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-                .map(([time, hours]) => ({ time, hours }))
-
-            setChartBarData(yearlyData)
-            return
+            const start = rangeFrom ? dayjs.utc(rangeFrom) : dayjs(`${selectedYear}-01-01`)
+            const end = rangeTo ? dayjs.utc(rangeTo) : dayjs(`${selectedYear}-12-31`)
+            return { cells: calendarCells(start, end, hoursByDay(filteredData)), bars: [] }
         }
-
-        setHeatmapData(transformed)
-    }, [filteredData, groupBy, rawData, sumMethodYearly, rangeFrom, rangeTo])
-
-    const colors = useChartTheme();
-    const dayNames = useWeekdayLabels();
-
-    const maxHours = useMemo(() => {
-        return Math.max(...heatmapData.map(d => d.v), 1)
-    }, [heatmapData])
+        if (groupBy === 'monthly') {
+            const byDay = hoursByDay(filteredData)
+            const startOfMonth = dayjs(`${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`)
+            return {
+                cells: [],
+                bars: range(startOfMonth.daysInMonth()).map(i => {
+                    const day = startOfMonth.add(i, 'day')
+                    return { time: day.format("DD"), hours: byDay.get(day.format("YYYY-MM-DD")) || 0 }
+                }),
+            }
+        }
+        const grouped = new Map<string, number>()
+        for (const e of filteredData) {
+            const key = dayjs.utc(e.bucket_time).format(sumMethodYearly === "monthly" ? "MMM" : "YYYY")
+            grouped.set(key, (grouped.get(key) || 0) + e.hours)
+        }
+        const bars = Array.from(grouped.entries())
+            .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+            .map(([time, hours]) => ({ time, hours }))
+        return { cells: [], bars }
+    }, [filteredData, groupBy, selectedYear, selectedMonth, sumMethodYearly, rangeFrom, rangeTo])
 
     const isRange = !!rangeFrom && !!rangeTo
     const cols = isRange ? Math.ceil((dayjs.utc(rangeTo).diff(dayjs.utc(rangeFrom), 'day') + 1) / 7) + 1 : 53
-    const chartWidth = isRange ? `${cols * 19 + 40}px` : '1025px'
-
     const options = useMemo(() => calendarMatrixOptions(colors, dayNames,
         v => [v.d, t('hoursPlayedValue', {hours: v.v.toFixed(2)})]), [colors, t, dayNames])
-
     const data = useMemo(() => ({
-        datasets: [calendarMatrixDataset(heatmapData, cols, ...heatCellColors(colors.heat, maxHours))]
-    }), [heatmapData, maxHours, colors, cols])
+        datasets: [calendarMatrixDataset(cells, cols, ...heatCellColors(colors.heat, Math.max(...cells.map(d => d.v), 1)))]
+    }), [cells, colors, cols])
 
-    const yearlySummary = useMemo(() => {
-        if (chartBarData.length === 0) {
-            return t('noYearlyData');
-        }
-        const years = chartBarData.length;
-        const totalHours = chartBarData.reduce((sum, d) => sum + d.hours, 0);
-        const maxHours = Math.max(...chartBarData.map(d => d.hours));
-        return t('yearlySummary', {
-            periods: years,
-            total: formatNumber(totalHours),
-            peak: formatNumber(maxHours),
-        });
-    }, [chartBarData, t]);
-
-    const matrixSummary = useMemo(() => {
-        if (heatmapData.length === 0) {
-            return t('noData');
-        }
-        const totalHours = heatmapData.reduce((sum, d) => sum + d.v, 0);
-        const maxHours = Math.max(...heatmapData.map(d => d.v));
-        const activeDays = new Set(heatmapData.filter(d => d.v > 0).map(d => d.x)).size;
-
-        return t('matrixSummary', {
-            total: formatNumber(totalHours),
-            days: activeDays,
-            peak: formatNumber(maxHours),
-        });
-    }, [heatmapData, t]);
+    const empty = (className: string, children: ReactNode = t('noDataShort')) => (
+        <div className={`flex justify-center items-center p-4 text-muted-foreground ${className}`}>{children}</div>
+    )
 
     if (loading) {
         return <Skeleton className="w-full h-[150px]" />
     }
 
     if (groupBy === 'yearly' && rawData.length === 0) {
-        return (
-            <div className="flex flex-col justify-center items-center p-4 h-[280px] text-muted-foreground">
-                <p>{t('noDataShort')}</p>
-            </div>
-        )
+        return empty("flex-col h-[280px]", <p>{t('noDataShort')}</p>)
     }
 
     if (groupBy === 'yearly' || groupBy === "monthly") {
-        if (chartBarData.length === 0) {
-            return (
-                <div className="flex justify-center items-center p-4 h-[232px] text-muted-foreground">
-                    {t('noDataShort')}
-                </div>
-            )
-        }
+        if (bars.length === 0) return empty("h-[232px]")
 
         const chartData = {
-            labels: chartBarData.map(d => d.time),
+            labels: bars.map(d => d.time),
             datasets: [{
                 label: t('hoursPlayed'),
-                data: chartBarData.map(d => d.hours),
+                data: bars.map(d => d.hours),
                 backgroundColor: colors.heat,
                 borderColor: colors.heat,
                 borderWidth: 1,
             }]
         }
-
-        const yearlyChartOptions = {
-            responsive: true,
+        const axis = { ticks: { color: colors.foreground }, grid: { color: colors.faintGrid } }
+        const chartOptions = {
             maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
@@ -276,16 +152,11 @@ export default function PlayTimeHeatmap({
                 }
             },
             scales: {
-                x: {
-                    type: 'category' as const,
-                    ticks: { color: colors.foreground },
-                    grid: { color: colors.faintGrid }
-                },
+                x: { type: 'category' as const, ...axis },
                 y: {
                     type: 'linear' as const,
                     title: { display: true, text: t('hoursPlayed'), color: colors.foreground },
-                    ticks: { color: colors.foreground },
-                    grid: { color: colors.faintGrid }
+                    ...axis,
                 }
             }
         }
@@ -293,7 +164,11 @@ export default function PlayTimeHeatmap({
         return (
             <div className="p-4 flex justify-center items-center">
                 <ScreenReaderOnly id="yearly-heatmap-summary">
-                    {yearlySummary}
+                    {t('yearlySummary', {
+                        periods: bars.length,
+                        total: formatNumber(bars.reduce((sum, d) => sum + d.hours, 0)),
+                        peak: formatNumber(Math.max(...bars.map(d => d.hours))),
+                    })}
                 </ScreenReaderOnly>
                 <div
                     style={{ width: '100%', height: '200px' }}
@@ -301,24 +176,22 @@ export default function PlayTimeHeatmap({
                     aria-label={t('yearlyAriaLabel')}
                     aria-describedby="yearly-heatmap-summary"
                 >
-                    <LazyBarChart data={chartData} options={yearlyChartOptions} />
+                    <LazyBarChart data={chartData} options={chartOptions} />
                 </div>
             </div>
         )
     }
 
-    if (heatmapData.length === 0) {
-        return (
-            <div className="flex justify-center items-center p-4 h-[150px] text-muted-foreground">
-                {t('noDataShort')}
-            </div>
-        )
-    }
+    if (cells.length === 0) return empty("h-[150px]")
 
     return (
         <ScrollArea>
             <ScreenReaderOnly id="matrix-heatmap-summary">
-                {matrixSummary}
+                {t('matrixSummary', {
+                    total: formatNumber(cells.reduce((sum, d) => sum + d.v, 0)),
+                    days: new Set(cells.filter(d => d.v > 0).map(d => d.x)).size,
+                    peak: formatNumber(Math.max(...cells.map(d => d.v))),
+                })}
             </ScreenReaderOnly>
             <div
                 className="flex justify-center md:justify-center sm:justify-end xs:justify-end items-center"
@@ -329,7 +202,7 @@ export default function PlayTimeHeatmap({
                 <LazyMatrixChart
                     data={data}
                     options={options}
-                    width={chartWidth}
+                    width={isRange ? `${cols * 19 + 40}px` : '1025px'}
                 />
             </div>
             <ScrollBar orientation="horizontal" />

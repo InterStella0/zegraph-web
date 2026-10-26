@@ -47,19 +47,15 @@ function ContinentsLoading() {
 
 export default function WherePlayersMap({continentsPromise}: {continentsPromise: Promise<ContinentStatistics | null>}) {
     const t = useTranslations('home');
-    const [refreshed, setRefreshed] = useState<ContinentStatistics | null | undefined>(undefined);
+    const [refreshed, setRefreshed] = useState<ContinentStatistics | null | undefined>();
     const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
         const controller = new AbortController();
-        const load = () => {
-            fetchGlobalContinents(controller.signal).then(data => {
-                if (controller.signal.aborted) return;
-                setRefreshed(data);
-            });
-        };
         const interval = setInterval(() => {
-            load();
+            fetchGlobalContinents(controller.signal).then(data => {
+                if (!controller.signal.aborted) setRefreshed(data);
+            });
             setRefreshKey(k => k + 1);
         }, 60_000);
         return () => {

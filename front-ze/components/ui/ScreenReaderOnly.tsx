@@ -1,16 +1,10 @@
-import React from 'react';
+import {ReactNode} from 'react';
 
-interface ScreenReaderOnlyProps {
-  children: React.ReactNode;
+export function ScreenReaderOnly({ children, id, as: Component = 'div' }: {
+  children: ReactNode;
   id?: string;
   as?: 'div' | 'span' | 'p' | 'section';
-}
-
-export function ScreenReaderOnly({
-  children,
-  id,
-  as: Component = 'div'
-}: ScreenReaderOnlyProps) {
+}) {
   return (
     <Component id={id} className="sr-only">
       {children}

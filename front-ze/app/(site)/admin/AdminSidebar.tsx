@@ -1,26 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Sheet, SheetContent } from 'components/ui/sheet';
 import { ScrollArea } from 'components/ui/scroll-area';
 import { Button } from 'components/ui/button';
-import { FileText, MessageSquare, Music, Ban, Shield, Megaphone, Bell, Settings, Box, Server, Menu, Link2, Award, History, UserCheck } from 'lucide-react';
+import { cn } from 'components/lib/utils';
+import { Music, Shield, Megaphone, Bell, Settings, Box, Server, Menu, Link2, Award, History, UserCheck } from 'lucide-react';
 
-type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
+type Icon = ComponentType<{ className?: string }>;
 
-type NavSection = {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  items: NavItem[];
-};
-
-const navSections: NavSection[] = [
+const navSections: { title: string; icon: Icon; items: { label: string; href: string; icon: Icon }[] }[] = [
   {
     title: 'Content',
     icon: Megaphone,
@@ -52,18 +43,15 @@ const navSections: NavSection[] = [
   },
 ];
 
+// Keep in sync with the routes proxy.ts lets map managers open.
 const MAP_MANAGER_ROUTES = ['/admin/maps', '/admin/audit-logs'];
+
+const mapManagerSections = navSections
+  .map((section) => ({ ...section, items: section.items.filter((item) => MAP_MANAGER_ROUTES.includes(item.href)) }))
+  .filter((section) => section.items.length > 0);
 
 function SidebarContent({ onNavigate, mapManagerOnly }: { onNavigate?: () => void; mapManagerOnly?: boolean }) {
   const pathname = usePathname();
-  const sections = mapManagerOnly
-    ? navSections
-        .map((section) => ({
-          ...section,
-          items: section.items.filter((item) => MAP_MANAGER_ROUTES.includes(item.href)),
-        }))
-        .filter((section) => section.items.length > 0)
-    : navSections;
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -73,7 +61,7 @@ function SidebarContent({ onNavigate, mapManagerOnly }: { onNavigate?: () => voi
 
       <ScrollArea className="flex-1">
         <div className="py-4">
-          {sections.map((section) => (
+          {(mapManagerOnly ? mapManagerSections : navSections).map((section) => (
             <div key={section.title} className="mb-6">
               <div className="px-6 mb-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -83,30 +71,24 @@ function SidebarContent({ onNavigate, mapManagerOnly }: { onNavigate?: () => voi
               </div>
 
               <div className="space-y-1 px-3">
-                {section.items.map((item) => {
-                  const isActive = pathname === item.href;
-                  const Icon = item.icon;
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => onNavigate?.()}
-                      className={`
-                        flex items-center justify-between gap-3 px-3 py-2.5 rounded-md transition-all
-                        ${isActive
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'hover:bg-accent/60 text-foreground'
-                        }
-                      `}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className="h-4 w-4 flex-shrink-0" />
-                        <span className="text-sm font-medium">{item.label}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
+                {section.items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => onNavigate?.()}
+                    className={cn(
+                      'flex items-center justify-between gap-3 px-3 py-2.5 rounded-md transition-all',
+                      pathname === item.href
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'hover:bg-accent/60 text-foreground',
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-sm font-medium">{item.label}</span>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </div>
           ))}

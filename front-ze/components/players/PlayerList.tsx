@@ -7,63 +7,40 @@ import {Dayjs} from "dayjs";
 import {BriefPlayers, ExtendedPlayerBrief} from "types/players.ts";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "components/ui/table.tsx";
 import PaginationPage from "components/ui/PaginationPage.tsx";
+import {useResource} from "lib/hooks/useResource";
 import {withErrorCatch} from "components/common/withErrorCatch";
 
+const PAGE_SIZE = 70
+
+type StartEndDates = { start: Dayjs, end: Dayjs } | null
 
 function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
     const t = useTranslations('players.list');
     const [ currentPage, setPage ] = useState<number>(0)
     const pageDef = useDeferredValue(currentPage)
-    const [ playersInfoResult, setPlayerInfo ] = useState<BriefPlayers | null>(null)
-    const [ totalPlayers, setPlayerCount ] = useState<number>(0)
-    const [ loading, setLoading ] = useState<boolean>(false)
     const { server } = useServerData()
     const server_id = server.id
 
+    const { data, setData, loading } = useResource<BriefPlayers>(signal => {
+        if (!dateDisplay?.start.isBefore(dateDisplay.end)) return null
+        const params = { start: dateDisplay.start.toJSON(), end: dateDisplay.end.toJSON(), page: pageDef }
+        return fetchUrl(`/graph/${server_id}/players`, { params, signal }).then(data => {
+            for (const p of data.players)
+                p.server_id = server_id
+            return data
+        })
+    }, [server_id, pageDef, dateDisplay], { keepData: true, errorLog: 'Error fetching players:' })
+
     useEffect(() => {
-        setPlayerInfo(null)
-        setPlayerCount(0)
+        setData(null)
         setPage(0)
-    }, [server_id])
-    useEffect(() => {
-      setPage(0)
-    }, [dateDisplay])
+    }, [server_id, setData])
+    useEffect(() => setPage(0), [dateDisplay])
 
-    useEffect(() => {
-        if (dateDisplay === null) return
-
-        let { start, end } = dateDisplay
-        if (!start.isBefore(end)) return
-        const abortController = new AbortController()
-        const signal = abortController.signal
-        setLoading(true)
-        const params = {
-            start: start.toJSON(), 
-            end: end.toJSON(),
-            page: pageDef
-        }
-
-        fetchUrl(`/graph/${server_id}/players`, { params, signal })
-            .then(data => {
-                for (const p of data.players)
-                    p.server_id = server_id
-                setPlayerInfo(data)
-                setPlayerCount(data.total_players)
-                setLoading(false)
-            })
-            .catch(e => {
-                if (e === "Value changed") return
-                console.error(e)
-                setLoading(false)
-            })
-        return () => {
-            abortController.abort("Value changed")
-        }
-    }, [server_id, pageDef, dateDisplay])
-    // @ts-ignore
-    const playersInfo: ExtendedPlayerBrief[] = playersInfoResult?.players ?? []
+    const playersInfo = (data?.players ?? []) as ExtendedPlayerBrief[]
+    const totalPlayers = data?.total_players ?? 0
+    const totalPages = Math.ceil(totalPlayers / PAGE_SIZE)
     const absoluteLoad = pageDef === currentPage && !loading
-    const totalPages = Math.ceil(totalPlayers / 70);
 
     return (
         <div className="w-full">
@@ -76,9 +53,8 @@ function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {(loading || pageDef !== currentPage || playersInfoResult == null) && Array
-                            .from({length: 70})
-                            .map((_, index) => <PlayerTableRowLoading key={index} compact/>)
+                        {(!absoluteLoad || data == null) && Array
+                            .from({length: PAGE_SIZE}, (_, index) => <PlayerTableRowLoading key={index} compact/>)
                         }
                         {absoluteLoad && playersInfo.length === 0 && (
                             <TableRow>
@@ -96,11 +72,7 @@ function PlayerListDisplay({ dateDisplay }: { dateDisplay: StartEndDates }) {
                 </div>
             </div>
         </div>
-      );
+    );
 }
-type StartEndDates = {
-    start: Dayjs,
-    end: Dayjs
-} | null
 
 export default withErrorCatch(PlayerListDisplay, t => t('players.list.loadError'))

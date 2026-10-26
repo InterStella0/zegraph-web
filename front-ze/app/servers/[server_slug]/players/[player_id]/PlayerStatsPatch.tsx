@@ -1,38 +1,17 @@
 "use client"
-import {
-    createContext,
-    ReactNode,
-    Suspense,
-    use,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
-import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
+import {createContext, ReactNode, Suspense, use, useCallback, useContext, useEffect, useMemo, useRef, useState} from "react";
+import {fetchApiServerUrl, NO_CACHE, StillCalculate} from "utils/generalUtils";
 import {ServerPlayerDetailed} from "./page.tsx";
 import {PlayerInfo} from "./util.ts";
-import {usePlayerPeriod} from "./PlayerPeriod.tsx";
+import {usePeriod} from "components/period/Period";
 
-export const STALE_PATHS = [
-    "detail",
-    "most_played_maps",
-    "regions",
-    "hours_of_day",
-    "online_heatmap",
-    "graph/sessions",
-] as const;
-
-export type StalePath = typeof STALE_PATHS[number];
+export const STALE_PATHS = ["detail", "most_played_maps", "regions", "hours_of_day", "online_heatmap", "graph/sessions"] as const;
 
 type PatchMap = Record<string, unknown>;
 
 type PlayerStatsPatchValue = {
     patches: PatchMap,
     applyPatches: (entries: Iterable<readonly [string, unknown]>) => void,
-    isPatched: boolean,
 };
 
 const PlayerStatsPatchContext = createContext<PlayerStatsPatchValue | null>(null);
@@ -41,20 +20,10 @@ export function PlayerStatsPatchProvider({ children }: { children: ReactNode }) 
     const [patches, setPatches] = useState<PatchMap>({});
 
     const applyPatches = useCallback((entries: Iterable<readonly [string, unknown]>) => {
-        setPatches(prev => {
-            const next = { ...prev };
-            for (const [path, value] of entries) {
-                next[path] = value;
-            }
-            return next;
-        });
+        setPatches(prev => ({ ...prev, ...Object.fromEntries(entries) }));
     }, []);
 
-    const value = useMemo(() => ({
-        patches,
-        applyPatches,
-        isPatched: Object.keys(patches).length > 0,
-    }), [patches, applyPatches]);
+    const value = useMemo(() => ({ patches, applyPatches }), [patches, applyPatches]);
 
     return <PlayerStatsPatchContext.Provider value={value}>{children}</PlayerStatsPatchContext.Provider>;
 }
@@ -88,11 +57,9 @@ export function usePlayerStatSeed<T>(path: string, enabled: boolean = true): { s
     return { seed: promise ? use(promise) : null, idle };
 }
 
-export function usePlayerStatsPatch(): PlayerStatsPatchValue | null {
-    return useContext(PlayerStatsPatchContext);
-}
+export const usePlayerStatsPatch = (): PlayerStatsPatchValue | null => useContext(PlayerStatsPatchContext);
 
-export type PlayerStatResult<T> = {
+type PlayerStatResult<T> = {
     data: T | null,
     loading: boolean,
     error: Error | null,
@@ -101,7 +68,6 @@ export type PlayerStatResult<T> = {
 const RETRY_FIRST_MS = 2000;
 const RETRY_MAX_MS = 15000;
 const MAX_RETRIES = 30;
-const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
 
 export function usePlayerStat<T>(
     serverId: string | null | undefined,
@@ -110,7 +76,7 @@ export function usePlayerStat<T>(
     enabled: boolean = true,
 ): PlayerStatResult<T> {
     const ctx = useContext(PlayerStatsPatchContext);
-    const { period } = usePlayerPeriod();
+    const { period } = usePeriod();
     const patch = period ? undefined : ctx?.patches[path] as T | undefined;
     const { seed, idle } = usePlayerStatSeed<T>(path, enabled && !period);
 
@@ -161,10 +127,7 @@ export function usePlayerStat<T>(
         };
     }, [serverId, playerId, path, active, period]);
 
-    if (patch !== undefined) {
-        return { data: patch, loading: false, error: null };
-    }
-    return { data: fetched, loading, error };
+    return patch !== undefined ? { data: patch, loading: false, error: null } : { data: fetched, loading, error };
 }
 
 export function usePatchedPlayer<T extends ServerPlayerDetailed>(
@@ -176,9 +139,7 @@ export function usePatchedPlayer<T extends ServerPlayerDetailed>(
 
     return useMemo(() => {
         const { player } = resolved;
-        if (!patch || player === null || player === undefined || player instanceof StillCalculate) {
-            return resolved;
-        }
+        if (!patch || !player || player instanceof StillCalculate) return resolved;
         return { ...resolved, player: { ...player, ...patch } };
     }, [resolved, patch]);
 }

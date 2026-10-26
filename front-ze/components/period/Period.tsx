@@ -1,16 +1,17 @@
 "use client"
-import {createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState} from "react";
+import {createContext, ReactNode, useCallback, useContext, useMemo, useState} from "react";
 import {useSearchParams} from "next/navigation";
 import {useLocale, useTranslations} from "next-intl";
 import {Badge} from "components/ui/badge";
 import {cn} from "components/lib/utils";
 import {PeriodYear} from "types/players";
+import {useResource} from "lib/hooks/useResource";
 
 const PERIOD_PATTERN = /^\d{4}(-(0[1-9]|1[0-2]))?$/;
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const FIRST_YEAR = 2024;
-export const SHORT_RANGE_DAYS = 31;
+const SHORT_RANGE_DAYS = 31;
 
 export type Period = string | null;
 
@@ -28,7 +29,7 @@ const PeriodContext = createContext<PeriodValue>({
     changes: 0,
 });
 
-export function parsePeriod(value: string | null | undefined): Period {
+function parsePeriod(value: string | null | undefined): Period {
     if (!value) return null;
     const range = splitRange(value);
     if (range) {
@@ -42,7 +43,8 @@ export function parsePeriod(value: string | null | undefined): Period {
     return value;
 }
 
-function parseDay(value: string): Date | null {
+/** A valid `YYYY-MM-DD` day as a UTC midnight, or null. */
+export function parseDay(value: string): Date | null {
     if (!DAY_PATTERN.test(value)) return null;
     const [year, month, day] = value.split('-').map(part => parseInt(part, 10));
     const date = new Date(Date.UTC(year, month - 1, day));
@@ -57,8 +59,10 @@ export function splitRange(period: string): { from: Date, to: Date } | null {
     return from && to ? { from, to } : null;
 }
 
+export const isoDay = (date: Date): string => date.toISOString().slice(0, 10);
+
 export function rangePeriod(from: Date, to: Date): string {
-    return `${from.toISOString().slice(0, 10)}..${to.toISOString().slice(0, 10)}`;
+    return `${isoDay(from)}..${isoDay(to)}`;
 }
 
 export function rangeDays(range: { from: Date, to: Date }): number {
@@ -89,16 +93,15 @@ export function periodBounds(period: string): { start: Date, end: Date } {
         return { start: range.from, end: addDays(range.to, 1) };
     }
     const { year, month } = splitPeriod(period);
-    if (month === null) {
-        return { start: new Date(Date.UTC(year, 0, 1)), end: new Date(Date.UTC(year + 1, 0, 1)) };
-    }
-    return { start: new Date(Date.UTC(year, month - 1, 1)), end: new Date(Date.UTC(year, month, 1)) };
+    return month === null
+        ? { start: new Date(Date.UTC(year, 0, 1)), end: new Date(Date.UTC(year + 1, 0, 1)) }
+        : { start: new Date(Date.UTC(year, month - 1, 1)), end: new Date(Date.UTC(year, month, 1)) };
 }
 
 export function formatPeriodMonth(locale: string, year: number, month: number, withYear = true): string {
     return new Intl.DateTimeFormat(locale, {
         month: 'short',
-        ...(withYear ? { year: 'numeric' } : {}),
+        ...(withYear && { year: 'numeric' as const }),
         timeZone: 'UTC',
     }).format(new Date(Date.UTC(year, month - 1, 1)));
 }
@@ -118,20 +121,13 @@ export function PeriodProvider({ fetchPeriods, children }: {
 }) {
     const searchParams = useSearchParams();
     const period = parsePeriod(searchParams.get('period'));
-    const [periods, setPeriods] = useState<PeriodYear[] | null>(null);
     const [shown, setShown] = useState({ period, changes: 0 });
     if (shown.period !== period) {
         setShown({ period, changes: shown.changes + 1 });
     }
     const changes = shown.changes;
 
-    useEffect(() => {
-        let cancelled = false;
-        fetchPeriods()
-            .then(data => { if (!cancelled) setPeriods(data); })
-            .catch(() => { if (!cancelled) setPeriods([]); });
-        return () => { cancelled = true; };
-    }, [fetchPeriods]);
+    const { data: periods } = useResource(() => fetchPeriods().catch(() => []), [fetchPeriods], { keepData: true });
 
     const setPeriod = useCallback((next: Period) => {
         const url = new URL(window.location.href);
@@ -149,9 +145,7 @@ export function PeriodProvider({ fetchPeriods, children }: {
     return <PeriodContext.Provider value={value}>{children}</PeriodContext.Provider>;
 }
 
-export function usePeriod(): PeriodValue {
-    return useContext(PeriodContext);
-}
+export const usePeriod = (): PeriodValue => useContext(PeriodContext);
 
 export function usePeriodLabel(period: Period): string {
     const t = useTranslations('period');

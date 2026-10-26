@@ -9,6 +9,8 @@ export const GAME_META: Record<string, { label: string; className: string }> = {
     "730_cs2":  { label: "CS2",   className: "border-green-500/40 text-green-500" },
 };
 
+const BADGE = "h-6 px-2 transition-transform duration-200 hover:scale-105";
+
 export default function ServerIndicator(
     { server, setDisplayCommunity }
     : { server: Server; setDisplayCommunity: Dispatch<boolean> | null }
@@ -20,37 +22,24 @@ export default function ServerIndicator(
     return (
         <div
             className={`min-w-0 p-2 rounded-lg transition-all duration-200 ${
-                isClickable
-                    ? 'cursor-pointer hover:-translate-y-0.5 active:translate-y-0 hover:scale-[1.01]'
-                    : ''
+                isClickable ? 'cursor-pointer hover:-translate-y-0.5 active:translate-y-0 hover:scale-[1.01]' : ''
             }`}
             onClick={() => setDisplayCommunity?.(true)}
         >
             <div className="flex min-w-0 flex-row gap-2 items-center">
-                <Badge
-                    variant="default"
-                    className="max-w-[120px] h-6 px-2 bg-primary text-primary-foreground transition-transform duration-200 hover:scale-105"
-                >
+                <Badge variant="default" className={`max-w-[120px] bg-primary text-primary-foreground ${BADGE}`}>
                     <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs">
                         {server.community_shorten_name || server.community_name}
                     </span>
                 </Badge>
-                <span className="text-muted-foreground text-xs">
-                    /
-                </span>
-                <Badge
-                    variant="outline"
-                    className="min-w-0 shrink md:max-w-36 max-sm:max-w-30  h-6 px-2 transition-transform duration-200 hover:scale-105"
-                >
+                <span className="text-muted-foreground text-xs">/</span>
+                <Badge variant="outline" className={`min-w-0 shrink md:max-w-36 max-sm:max-w-30 ${BADGE}`}>
                     <span className="overflow-hidden text-ellipsis whitespace-nowrap truncate text-xs">
                         {server.name}
                     </span>
                 </Badge>
                 {gameMeta && (
-                    <Badge
-                        variant="outline"
-                        className={`h-6 px-2 transition-transform duration-200 hover:scale-105 ${gameMeta.className}`}
-                    >
+                    <Badge variant="outline" className={`${BADGE} ${gameMeta.className}`}>
                         <Gamepad2 />
                         <span className="whitespace-nowrap text-xs">{gameMeta.label}</span>
                     </Badge>

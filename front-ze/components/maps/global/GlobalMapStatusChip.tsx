@@ -1,19 +1,16 @@
 'use client'
 import {ReactNode} from 'react';
-import dayjs from 'dayjs';
-import relativeTime from "dayjs/plugin/relativeTime";
+import dayjs from "lib/dayjs";
 import {Ban, Clock} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import {Badge} from "components/ui/badge";
 import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
 import {useServerMap} from "components/ui/ServerProvider";
-import {useLocalDayjs} from "lib/hooks/useHydrated";
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import {GlobalMapPlayed, GlobalMapServer} from "types/maps.ts";
 import {isBlocked, mapBlockers, readyAt} from "utils/mapCooldown";
 import {useMapCooldownText} from "lib/hooks/useMapCooldownText";
 import {Server} from "types/community.ts";
-
-dayjs.extend(relativeTime);
 
 export const STATUS_TONE = {
     playing: 'text-primary',
@@ -80,6 +77,12 @@ export default function GlobalMapStatusChip({ map }: { map: GlobalMapPlayed }) {
             <TooltipContent>{breakdown}</TooltipContent>
         </Tooltip>
     );
+    const waiting = (content: ReactNode) => withBreakdown(
+        <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 dark:text-amber-500">
+            <Clock className="h-3 w-3"/>
+            {content}
+        </Badge>
+    );
 
     const playing = map.servers.filter(server => server.is_playing);
     if (map.is_playing) return withBreakdown(
@@ -100,26 +103,16 @@ export default function GlobalMapStatusChip({ map }: { map: GlobalMapPlayed }) {
 
     const enabled = active.filter(server => server.enabled);
     const soonest = enabled
-        .map(server => blockersOf(server))
+        .map(blockersOf)
         .filter(blockers => blockers.mapsLeft == null)
         .map(readyAt)
         .filter((time): time is string => time != null)
         .sort((a, b) => dayjs(a).valueOf() - dayjs(b).valueOf())[0];
-    if (soonest) return withBreakdown(
-        <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 dark:text-amber-500">
-            <Clock className="h-3 w-3"/>
-            <span suppressHydrationWarning>{toDayjs(soonest).fromNow(true)}</span>
-        </Badge>
-    );
+    if (soonest) return waiting(<span suppressHydrationWarning>{toDayjs(soonest).fromNow(true)}</span>);
     const mapsLeft = enabled
         .map(server => server.map_left ?? 0)
         .filter(left => left > 0);
-    if (mapsLeft.length > 0) return withBreakdown(
-        <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 dark:text-amber-500">
-            <Clock className="h-3 w-3"/>
-            {t('mapsLeft', {count: Math.min(...mapsLeft)})}
-        </Badge>
-    );
+    if (mapsLeft.length > 0) return waiting(t('mapsLeft', {count: Math.min(...mapsLeft)}));
 
     return withBreakdown(
         <Badge variant="destructive" className="gap-1">

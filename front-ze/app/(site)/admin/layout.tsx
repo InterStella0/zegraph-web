@@ -1,17 +1,11 @@
 import type { ReactNode } from 'react';
 import { auth } from 'auth';
-import type { SteamSession } from 'auth';
 import AdminSidebar from './AdminSidebar';
 
-export default async function AdminLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const session = (await auth()) as SteamSession | null;
-
-  const isSuperuser = !!session?.user?.steam?.is_superuser;
-  const isMapManager = !!session?.user?.steam?.is_map_manager;
+export default async function AdminLayout({ children }: { children: ReactNode }) {
+  const steam = (await auth())?.user?.steam;
+  const isSuperuser = !!steam?.is_superuser;
+  const isMapManager = !!steam?.is_map_manager;
 
   if (!isSuperuser && !isMapManager) {
     return <div>Unauthorized</div>;

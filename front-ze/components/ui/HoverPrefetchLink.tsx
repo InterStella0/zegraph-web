@@ -3,15 +3,7 @@
 import Link from 'next/link'
 import {ReactNode, useState} from 'react'
 
-export function HoverPrefetchLink({
-    href,
-    className=undefined,
-    children,
-}: {
-    href: string;
-    className?: string
-    children: ReactNode
-}) {
+export function HoverPrefetchLink({ href, className, children }: { href: string, className?: string, children: ReactNode }) {
     const [active, setActive] = useState(false)
 
     return (

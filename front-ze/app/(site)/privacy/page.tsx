@@ -1,4 +1,6 @@
 import { Metadata } from "next";
+import { ReactNode } from "react";
+import { cn } from "components/lib/utils";
 import { CONTACT_EMAIL } from "utils/generalUtils";
 
 export const metadata: Metadata = {
@@ -8,6 +10,52 @@ export const metadata: Metadata = {
     canonical: '/privacy'
   },
 };
+
+const LEGAL_BASES = [
+  ["Steam login authentication", "Legitimate interest / Contract"],
+  ["Analytics (PostHog)", "Legitimate interest"],
+  ["Displaying your stats", "Contract / Legitimate interest"],
+  ["Advertising", "Legitimate interest"],
+];
+
+function Section({ title, className = "space-y-4", children }: { title: string, className?: string, children: ReactNode }) {
+  return (
+    <section className={className}>
+      <h2 className="text-2xl font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Subsection({ title, children }: { title: string, children: ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function P({ className, children }: { className?: string, children: ReactNode }) {
+  return <p className={cn("text-foreground leading-relaxed", className)}>{children}</p>;
+}
+
+function List({ items, className }: { items: ReactNode[], className?: string }) {
+  return (
+    <ul className={cn("list-disc list-inside text-foreground space-y-1", className)}>
+      {items.map((item, i) => <li key={i}>{item}</li>)}
+    </ul>
+  );
+}
+
+/** List items of the form "<strong>term</strong> — description". */
+function terms(entries: [string, ReactNode][]) {
+  return entries.map(([term, description]) => <><strong>{term}</strong> — {description}</>);
+}
+
+function PolicyLink({ href }: { href: string }) {
+  return <a href={href} className="text-primary hover:underline">{href}</a>;
+}
 
 export default async function PrivacyPage() {
   return (
@@ -23,252 +71,193 @@ export default async function PrivacyPage() {
           </p>
         </div>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">1. Introduction</h2>
-          <p className="text-foreground leading-relaxed">
+        <Section title="1. Introduction">
+          <P>
             ZEGraph ("we", "us", or "our") operates the website zegraph.xyz (the "Service"). This Privacy Policy describes how we collect, use, and share information about you when you use our Service. By accessing or using the Service, you agree to this Privacy Policy.
-          </p>
-          <p className="text-foreground leading-relaxed">
+          </P>
+          <P>
             This policy applies to users worldwide, including residents of California and the European Union/European Economic Area.
-          </p>
-        </section>
+          </P>
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">2. About Us</h2>
-          <p className="text-foreground leading-relaxed">
+        <Section title="2. About Us">
+          <P>
             ZEGraph is a statistics and community tracking website for Counter-Strike 2 Zombie Escape servers. We are operated by an individual based in Malaysia.
-          </p>
-          <p className="text-foreground leading-relaxed font-medium">
-            Contact: {CONTACT_EMAIL}
-          </p>
-        </section>
+          </P>
+          <P className="font-medium">Contact: {CONTACT_EMAIL}</P>
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">3. Who May Use This Service</h2>
-          <p className="text-foreground leading-relaxed">
+        <Section title="3. Who May Use This Service">
+          <P>
             The Service is intended for users aged 13 and older. We do not knowingly collect personal information from children under 13. If you believe we have inadvertently collected information from a child under 13, please contact us at {CONTACT_EMAIL} and we will promptly delete it.
-          </p>
-        </section>
+          </P>
+        </Section>
 
-        <section className="space-y-6">
-          <h2 className="text-2xl font-semibold">4. Information We Collect</h2>
-
+        <Section title="4. Information We Collect" className="space-y-6">
           <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">4.1 Account Information (via Steam Login)</h3>
-              <p className="text-foreground leading-relaxed">
-                We use Steam OpenID for authentication. When you log in, we receive from Steam:
-              </p>
-              <ul className="list-disc list-inside mt-2 text-foreground space-y-1">
-                <li>Steam username (display name)</li>
-                <li>Steam ID (unique identifier)</li>
-                <li>Country/region as reported by your Steam profile</li>
-                <li>Steam profile picture URL</li>
-              </ul>
-              <p className="text-foreground leading-relaxed mt-2">
-                We do not receive your Steam password.
-              </p>
-            </div>
+            <Subsection title="4.1 Account Information (via Steam Login)">
+              <P>We use Steam OpenID for authentication. When you log in, we receive from Steam:</P>
+              <List className="mt-2" items={[
+                "Steam username (display name)",
+                "Steam ID (unique identifier)",
+                "Country/region as reported by your Steam profile",
+                "Steam profile picture URL",
+              ]} />
+              <P className="mt-2">We do not receive your Steam password.</P>
+            </Subsection>
 
-            <div>
-              <h3 className="text-lg font-semibold mb-2">4.2 Analytics Data (via PostHog)</h3>
-              <p className="text-foreground leading-relaxed">
+            <Subsection title="4.2 Analytics Data (via PostHog)">
+              <P>
                 We use PostHog, a product analytics platform, to understand how users interact with our Service. PostHog may collect:
-              </p>
-              <ul className="list-disc list-inside mt-2 text-foreground space-y-1">
-                <li>Cursor/mouse position and movement</li>
-                <li>Click events and interactions</li>
-                <li>Pages visited and session duration</li>
-                <li>Browser type, device type, and operating system</li>
-                <li>IP address (used to derive approximate location, including state/country)</li>
-                <li>Referring URL</li>
-              </ul>
-              <p className="text-foreground leading-relaxed mt-2">
+              </P>
+              <List className="mt-2" items={[
+                "Cursor/mouse position and movement",
+                "Click events and interactions",
+                "Pages visited and session duration",
+                "Browser type, device type, and operating system",
+                "IP address (used to derive approximate location, including state/country)",
+                "Referring URL",
+              ]} />
+              <P className="mt-2">
                 PostHog stores data on their servers. You can learn more at{" "}
-                <a href="https://posthog.com/privacy" className="text-primary hover:underline">
-                  https://posthog.com/privacy
-                </a>
-                .
-              </p>
-            </div>
+                <PolicyLink href="https://posthog.com/privacy" />.
+              </P>
+            </Subsection>
 
-            <div>
-              <h3 className="text-lg font-semibold mb-2">4.3 Automatically Collected Data</h3>
-              <p className="text-foreground leading-relaxed">
-                When you visit the Service, our servers automatically log:
-              </p>
-              <ul className="list-disc list-inside mt-2 text-foreground space-y-1">
-                <li>IP address</li>
-                <li>Browser and device information</li>
-                <li>Pages and features accessed</li>
-                <li>Date and time of access</li>
-              </ul>
-            </div>
+            <Subsection title="4.3 Automatically Collected Data">
+              <P>When you visit the Service, our servers automatically log:</P>
+              <List className="mt-2" items={[
+                "IP address",
+                "Browser and device information",
+                "Pages and features accessed",
+                "Date and time of access",
+              ]} />
+            </Subsection>
 
-            <div>
-              <h3 className="text-lg font-semibold mb-2">4.4 Cookies and Local Storage</h3>
-              <p className="text-foreground leading-relaxed">
-                We use:
-              </p>
-              <ul className="list-disc list-inside mt-2 text-foreground space-y-1">
-                <li><strong>Session cookies</strong> — to maintain your login session</li>
-                <li><strong>Local storage</strong> — for user preferences (e.g., theme)</li>
-                <li><strong>Analytics cookies</strong> — placed by PostHog for usage tracking</li>
-              </ul>
-              <p className="text-foreground leading-relaxed mt-2">
-                We do not use Facebook Pixel or other social media tracking pixels.
-              </p>
-            </div>
+            <Subsection title="4.4 Cookies and Local Storage">
+              <P>We use:</P>
+              <List className="mt-2" items={terms([
+                ["Session cookies", "to maintain your login session"],
+                ["Local storage", "for user preferences (e.g., theme)"],
+                ["Analytics cookies", "placed by PostHog for usage tracking"],
+              ])} />
+              <P className="mt-2">We do not use Facebook Pixel or other social media tracking pixels.</P>
+            </Subsection>
           </div>
-        </section>
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">5. How We Use Your Information</h2>
-          <p className="text-foreground leading-relaxed">
-            We use collected information to:
-          </p>
-          <ul className="list-disc list-inside text-foreground space-y-1">
-            <li>Authenticate you via Steam login and maintain your session</li>
-            <li>Display your statistics, rankings, and profile on the Service</li>
-            <li>Understand how the Service is used and improve it</li>
-            <li>Display advertisements via ad networks (see Section 6)</li>
-            <li>Operate and maintain the Service</li>
-          </ul>
-          <p className="text-foreground leading-relaxed mt-4">
-            We do NOT:
-          </p>
-          <ul className="list-disc list-inside text-foreground space-y-1">
-            <li>Send newsletters, promotional emails, or any email communications</li>
-            <li>Use your data for targeted or behavioural advertising profiling</li>
-            <li>Sell your personal data to third parties</li>
-          </ul>
-        </section>
+        <Section title="5. How We Use Your Information">
+          <P>We use collected information to:</P>
+          <List items={[
+            "Authenticate you via Steam login and maintain your session",
+            "Display your statistics, rankings, and profile on the Service",
+            "Understand how the Service is used and improve it",
+            "Display advertisements via ad networks (see Section 6)",
+            "Operate and maintain the Service",
+          ]} />
+          <P className="mt-4">We do NOT:</P>
+          <List items={[
+            "Send newsletters, promotional emails, or any email communications",
+            "Use your data for targeted or behavioural advertising profiling",
+            "Sell your personal data to third parties",
+          ]} />
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">6. Advertising</h2>
-          <p className="text-foreground leading-relaxed">
+        <Section title="6. Advertising">
+          <P>
             We display advertisements on the Service. Ad networks may place their own cookies or tracking technologies to serve and measure ads. These ad networks operate under their own privacy policies. The data we collect is not used to profile you for advertising purposes; however, ad networks may independently collect data subject to their own policies.
-          </p>
-        </section>
+          </P>
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">7. Sharing of Information</h2>
-          <p className="text-foreground leading-relaxed">
-            We do not sell, trade, or rent your personal data. We may share information with:
-          </p>
-          <ul className="list-disc list-inside text-foreground space-y-1">
-            <li><strong>PostHog</strong> — analytics (see Section 4.2)</li>
-            <li><strong>Steam (Valve Corporation)</strong> — authentication provider</li>
-            <li><strong>Advertising partners</strong> — for ad display (see Section 6)</li>
-            <li><strong>Legal authorities</strong> — if required by law or to protect our rights</li>
-          </ul>
-        </section>
+        <Section title="7. Sharing of Information">
+          <P>We do not sell, trade, or rent your personal data. We may share information with:</P>
+          <List items={terms([
+            ["PostHog", "analytics (see Section 4.2)"],
+            ["Steam (Valve Corporation)", "authentication provider"],
+            ["Advertising partners", "for ad display (see Section 6)"],
+            ["Legal authorities", "if required by law or to protect our rights"],
+          ])} />
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">8. Data Retention</h2>
-          <p className="text-foreground leading-relaxed">
+        <Section title="8. Data Retention">
+          <P>
             We retain your account information for as long as your account is active or as needed to provide the Service. Analytics data is retained per PostHog's retention policies. You may request deletion of your data at any time (see Section 11).
-          </p>
-        </section>
+          </P>
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">9. Security</h2>
-          <p className="text-foreground leading-relaxed">
+        <Section title="9. Security">
+          <P>
             We implement reasonable technical and organisational measures to protect your information. However, no internet transmission is completely secure, and we cannot guarantee absolute security.
-          </p>
-        </section>
+          </P>
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">10. Third-Party Services</h2>
-          <p className="text-foreground leading-relaxed">
+        <Section title="10. Third-Party Services">
+          <P>
             Our Service may link to external sites. We are not responsible for the privacy practices of those sites.
-          </p>
-          <p className="text-foreground leading-relaxed">
-            Third-party services we use:
-          </p>
-          <ul className="list-disc list-inside text-foreground space-y-1">
-            <li>
-              <strong>Valve Steam</strong> — authentication (
-              <a href="https://store.steampowered.com/privacy_agreement/" className="text-primary hover:underline">
-                https://store.steampowered.com/privacy_agreement/
-              </a>
-              )
-            </li>
-            <li>
-              <strong>PostHog</strong> — analytics (
-              <a href="https://posthog.com/privacy" className="text-primary hover:underline">
-                https://posthog.com/privacy
-              </a>
-              )
-            </li>
-          </ul>
-        </section>
+          </P>
+          <P>Third-party services we use:</P>
+          <List items={terms([
+            ["Valve Steam", <>authentication (<PolicyLink href="https://store.steampowered.com/privacy_agreement/" />)</>],
+            ["PostHog", <>analytics (<PolicyLink href="https://posthog.com/privacy" />)</>],
+          ])} />
+        </Section>
 
-        <section className="space-y-6">
-          <h2 className="text-2xl font-semibold">11. Your Rights</h2>
-
+        <Section title="11. Your Rights" className="space-y-6">
           <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">11.1 Rights for All Users</h3>
-              <p className="text-foreground leading-relaxed">
-                You may contact us at {CONTACT_EMAIL} to:
-              </p>
-              <ul className="list-disc list-inside mt-2 text-foreground space-y-1">
-                <li>Access the personal data we hold about you</li>
-                <li>Request correction of inaccurate data</li>
-                <li>Request deletion of your data</li>
-                <li>Request restriction of processing</li>
-              </ul>
-            </div>
+            <Subsection title="11.1 Rights for All Users">
+              <P>You may contact us at {CONTACT_EMAIL} to:</P>
+              <List className="mt-2" items={[
+                "Access the personal data we hold about you",
+                "Request correction of inaccurate data",
+                "Request deletion of your data",
+                "Request restriction of processing",
+              ]} />
+            </Subsection>
 
-            <div>
-              <h3 className="text-lg font-semibold mb-2">11.2 California Residents — CalOPPA & CCPA</h3>
-              <p className="text-foreground leading-relaxed">
+            <Subsection title="11.2 California Residents — CalOPPA & CCPA">
+              <P>
                 Under the California Online Privacy Protection Act (CalOPPA), we conspicuously post this Privacy Policy and will notify you of material changes.
-              </p>
-              <p className="text-foreground leading-relaxed mt-2">
+              </P>
+              <P className="mt-2">
                 Under the California Consumer Privacy Act (CCPA), California residents have the right to:
-              </p>
-              <ul className="list-disc list-inside mt-2 text-foreground space-y-1">
-                <li>Know what personal information is collected, used, shared, or sold</li>
-                <li>Delete personal information we hold (subject to exceptions)</li>
-                <li>Opt out of the sale of personal information — <strong>We do not sell personal information</strong></li>
-                <li>Non-discrimination for exercising your rights</li>
-              </ul>
-              <p className="text-foreground leading-relaxed mt-4">
+              </P>
+              <List className="mt-2" items={[
+                "Know what personal information is collected, used, shared, or sold",
+                "Delete personal information we hold (subject to exceptions)",
+                <>Opt out of the sale of personal information — <strong>We do not sell personal information</strong></>,
+                "Non-discrimination for exercising your rights",
+              ]} />
+              <P className="mt-4">
                 To exercise these rights, contact us at {CONTACT_EMAIL}. We will respond within 45 days.
-              </p>
-              <p className="text-foreground leading-relaxed mt-4">
+              </P>
+              <P className="mt-4">
                 <strong>Categories of personal information collected (CCPA):</strong>
-              </p>
-              <ul className="list-disc list-inside mt-2 text-foreground space-y-1">
-                <li>Identifiers (Steam ID, IP address)</li>
-                <li>Internet/network activity (clicks, cursor, pages visited)</li>
-                <li>Geolocation data (country, state derived from IP/Steam profile)</li>
-                <li>Inferences (usage patterns via PostHog)</li>
-              </ul>
-              <p className="text-foreground leading-relaxed mt-4">
-                We do not sell personal information as defined by the CCPA.
-              </p>
-            </div>
+              </P>
+              <List className="mt-2" items={[
+                "Identifiers (Steam ID, IP address)",
+                "Internet/network activity (clicks, cursor, pages visited)",
+                "Geolocation data (country, state derived from IP/Steam profile)",
+                "Inferences (usage patterns via PostHog)",
+              ]} />
+              <P className="mt-4">We do not sell personal information as defined by the CCPA.</P>
+            </Subsection>
 
-            <div>
-              <h3 className="text-lg font-semibold mb-2">11.3 EEA/UK Residents — GDPR</h3>
-              <p className="text-foreground leading-relaxed">
+            <Subsection title="11.3 EEA/UK Residents — GDPR">
+              <P>
                 If you are in the European Economic Area or the United Kingdom, you have the following rights under the GDPR:
-              </p>
-              <ul className="list-disc list-inside mt-2 text-foreground space-y-1">
-                <li><strong>Access</strong> — request a copy of your personal data</li>
-                <li><strong>Rectification</strong> — correct inaccurate data</li>
-                <li><strong>Erasure ("right to be forgotten")</strong> — request deletion of your data</li>
-                <li><strong>Restriction</strong> — limit how we process your data</li>
-                <li><strong>Portability</strong> — receive your data in a portable format</li>
-                <li><strong>Objection</strong> — object to processing based on legitimate interests</li>
-                <li><strong>Withdraw consent</strong> — where processing is based on consent</li>
-              </ul>
-              <p className="text-foreground leading-relaxed mt-4">
+              </P>
+              <List className="mt-2" items={terms([
+                ["Access", "request a copy of your personal data"],
+                ["Rectification", "correct inaccurate data"],
+                ['Erasure ("right to be forgotten")', "request deletion of your data"],
+                ["Restriction", "limit how we process your data"],
+                ["Portability", "receive your data in a portable format"],
+                ["Objection", "object to processing based on legitimate interests"],
+                ["Withdraw consent", "where processing is based on consent"],
+              ])} />
+              <P className="mt-4">
                 <strong>Legal bases for processing:</strong>
-              </p>
+              </P>
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full text-sm border-collapse border border-muted">
                   <thead>
@@ -278,59 +267,42 @@ export default async function PrivacyPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="border border-muted p-2">Steam login authentication</td>
-                      <td className="border border-muted p-2">Legitimate interest / Contract</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-muted p-2">Analytics (PostHog)</td>
-                      <td className="border border-muted p-2">Legitimate interest</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-muted p-2">Displaying your stats</td>
-                      <td className="border border-muted p-2">Contract / Legitimate interest</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-muted p-2">Advertising</td>
-                      <td className="border border-muted p-2">Legitimate interest</td>
-                    </tr>
+                    {LEGAL_BASES.map(([activity, basis]) => (
+                      <tr key={activity}>
+                        <td className="border border-muted p-2">{activity}</td>
+                        <td className="border border-muted p-2">{basis}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-              <p className="text-foreground leading-relaxed mt-4">
+              <P className="mt-4">
                 As our organisation is based in Malaysia, we process your data under legitimate interest grounds for service provision. You may lodge a complaint with your local data protection authority.
-              </p>
-              <p className="text-foreground leading-relaxed mt-2">
-                To exercise GDPR rights, contact: {CONTACT_EMAIL}
-              </p>
-            </div>
+              </P>
+              <P className="mt-2">To exercise GDPR rights, contact: {CONTACT_EMAIL}</P>
+            </Subsection>
           </div>
-        </section>
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">12. Do Not Track</h2>
-          <p className="text-foreground leading-relaxed">
+        <Section title="12. Do Not Track">
+          <P>
             We respect Do Not Track (DNT) browser signals. When DNT is enabled, we will not use PostHog analytics tracking for your session. Note that ad networks may have their own DNT handling.
-          </p>
-        </section>
+          </P>
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">13. Changes to This Policy</h2>
-          <p className="text-foreground leading-relaxed">
+        <Section title="13. Changes to This Policy">
+          <P>
             We may update this Privacy Policy from time to time. We will update the "Last updated" date at the top. Your continued use of the Service after changes constitutes acceptance of the revised policy. For significant changes, we will post a notice on the Service.
-          </p>
-        </section>
+          </P>
+        </Section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">14. Contact Us</h2>
-          <p className="text-foreground leading-relaxed">
-            For any privacy-related questions, requests, or concerns:
-          </p>
+        <Section title="14. Contact Us">
+          <P>For any privacy-related questions, requests, or concerns:</P>
           <div className="mt-4 space-y-1 text-foreground">
             <p>Email: {CONTACT_EMAIL}</p>
             <p>Website: https://zegraph.xyz</p>
           </div>
-        </section>
+        </Section>
         </article>
       </div>
     </div>

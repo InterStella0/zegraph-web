@@ -1,5 +1,5 @@
 import {cookies} from "next/headers";
-import dayjs from "dayjs";
+import dayjs from "lib/dayjs";
 import {fetchUrl} from "utils/generalUtils";
 import type {Announcement} from "types/announcements";
 import {ANNOUNCEMENT_DISMISSED} from "components/announcements/announcementDismissal";

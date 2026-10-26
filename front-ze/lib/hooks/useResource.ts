@@ -1,10 +1,12 @@
 'use client'
-import {DependencyList, Dispatch, SetStateAction, useEffect, useRef, useState} from "react";
+import {DependencyList, Dispatch, SetStateAction, use, useEffect, useRef, useState} from "react";
 import {StillCalculate} from "utils/generalUtils";
 import {useNotReadyRetry} from "./useNotReadyRetry";
 
 type ResourceOptions<T> = {
     initial?: T,
+    /** Server-streamed first value; resolving to null means fetch on the client instead. */
+    seed?: Promise<T | null> | null,
     skipFirst?: boolean,
     keepData?: boolean,
     keepError?: boolean,
@@ -25,7 +27,8 @@ export function useResource<T>(
     deps: DependencyList,
     options: ResourceOptions<T> = {},
 ): Resource<T> {
-    const {initial, keepData = false, keepError = false, retryNotReady = false, errorLog} = options;
+    const {keepData = false, keepError = false, retryNotReady = false, errorLog} = options;
+    const initial = options.initial !== undefined ? options.initial : (options.seed ? use(options.seed) : null) ?? undefined;
     const hasInitial = initial !== undefined;
     const [data, setData] = useState<T | null>(initial ?? null);
     const [loading, setLoading] = useState(!hasInitial);

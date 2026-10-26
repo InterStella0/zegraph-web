@@ -1,5 +1,5 @@
 'use client'
-import {useMemo, useState} from "react";
+import {ComponentProps, ReactNode, useMemo, useState} from "react";
 import {useLocale, useTranslations} from "next-intl";
 import {Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight} from "lucide-react";
 import {Button} from "components/ui/button";
@@ -11,7 +11,9 @@ import {
     addDays,
     formatPeriodMonth,
     formatPeriodRange,
+    isoDay,
     monthPeriod,
+    parseDay,
     Period,
     rangeDays,
     rangePeriod,
@@ -23,26 +25,20 @@ import {
 import RangeCalendar, {monthIndex} from "./RangeCalendar";
 import DateField from "./DateField";
 
-const MONTHS = Array.from({length: 12}, (_, i) => i + 1);
+const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const QUICK_RANGES = [['last7Days', 7], ['last30Days', 30], ['last90Days', 90]] as const;
+const MODES = [['custom', 'customRange'], ['month', 'monthly'], ['year', 'yearly'], ['all', 'allTime']] as const;
 
-type Mode = 'custom' | 'month' | 'year' | 'all';
-
-function isoDay(date: Date): string {
-    return date.toISOString().slice(0, 10);
-}
-
-function parseIsoDay(value: string): Date | null {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-    if (!match) return null;
-    const [year, month, day] = match.slice(1).map(Number);
-    const date = new Date(Date.UTC(year, month - 1, day));
-    return date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? date : null;
-}
+type Mode = typeof MODES[number][0];
 
 function utcToday(): Date {
     const now = new Date();
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+function ChevronButton({ direction, ...props }: ComponentProps<typeof Button> & { direction: 'left' | 'right' }) {
+    const Icon = direction === 'left' ? ChevronLeft : ChevronRight;
+    return <Button variant="ghost" size="icon" {...props}><Icon className="h-4 w-4" /></Button>;
 }
 
 export default function PeriodSelector() {
@@ -104,13 +100,9 @@ export default function PeriodSelector() {
     };
 
     const pickDay = (day: Date) => {
-        if (start && !end) {
-            const [from, to] = start <= day ? [start, day] : [day, start];
-            setStart(from);
-            setEnd(to);
-            setHover(null);
-        } else if (!start && end) {
-            const [from, to] = day <= end ? [day, end] : [end, day];
+        const anchor = start && end ? null : start ?? end;
+        if (anchor) {
+            const [from, to] = anchor <= day ? [anchor, day] : [day, anchor];
             setStart(from);
             setEnd(to);
             setHover(null);
@@ -120,35 +112,52 @@ export default function PeriodSelector() {
         }
     };
 
+    const pending = !!start && !end;
     const inBounds = (day: Date) => day <= today && (!firstDay || day >= firstDay);
-    const typedStart = startText === null ? start : parseIsoDay(startText);
-    const typedEnd = endText === null ? end : parseIsoDay(endText);
-    const startInvalid = startText !== null && startText !== ''
-        && (!typedStart || !inBounds(typedStart) || (!!end && typedStart > end));
-    const endInvalid = endText !== null && endText !== ''
-        && (!typedEnd || !inBounds(typedEnd) || (!!start && typedEnd < start));
+    const startSide = {
+        key: 'start' as const, day: start, setDay: setStart, text: startText, setText: setStartText,
+        fits: (day: Date) => !end || day <= end, viewOffset: 0, min: firstDay, max: end ?? today, highlighted: !start && !pending,
+    };
+    const endSide = {
+        key: 'end' as const, day: end, setDay: setEnd, text: endText, setText: setEndText,
+        fits: (day: Date) => !start || day >= start, viewOffset: -1, min: start ?? firstDay, max: today, highlighted: pending,
+    };
+    type Side = typeof startSide | typeof endSide;
 
-    const typeStart = (value: string) => {
-        setStartText(value);
-        const day = parseIsoDay(value);
-        if (!day || !inBounds(day) || (end && day > end)) return;
-        setStart(day);
+    const typeDay = (side: Side, value: string) => {
+        side.setText(value);
+        const day = parseDay(value);
+        if (!day || !inBounds(day) || !side.fits(day)) return;
+        side.setDay(day);
         setHover(null);
-        setView(clampView(monthIndex(day)));
+        setView(clampView(monthIndex(day) + side.viewOffset));
     };
 
-    const typeEnd = (value: string) => {
-        setEndText(value);
-        const day = parseIsoDay(value);
-        if (!day || !inBounds(day) || (start && day < start)) return;
-        setEnd(day);
-        setHover(null);
-        setView(clampView(monthIndex(day) - 1));
+    const dateField = (side: Side) => {
+        const typed = side.text ? parseDay(side.text) : null;
+        return (
+            <DateField
+                label={t(side.key)}
+                value={side.text ?? (side.day ? isoDay(side.day) : '')}
+                min={side.min}
+                max={side.max}
+                invalid={!!side.text && !(typed && inBounds(typed) && side.fits(typed))}
+                highlighted={side.highlighted}
+                pickLabel={t('pickDate')}
+                onChange={value => typeDay(side, value)}
+                onPick={day => { typeDay(side, isoDay(day)); side.setText(null); }}
+                onBlur={() => side.setText(null)}
+            />
+        );
+    };
+
+    const quickStart = (days: number) => {
+        const from = addDays(today, -(days - 1));
+        return firstDay && from < firstDay ? firstDay : from;
     };
 
     const pickQuick = (days: number) => {
-        const from = addDays(today, -(days - 1));
-        setStart(firstDay && from < firstDay ? firstDay : from);
+        setStart(quickStart(days));
         setEnd(today);
         setHover(null);
         setView(clampView(lastMonth - 1));
@@ -160,17 +169,159 @@ export default function PeriodSelector() {
         setOpen(false);
     };
 
-    const pending = !!start && !end;
     const noData = periods !== null && periods.length === 0;
     const browseMonths = years.find(y => y.year === browseYear)?.months ?? [];
 
-    const modes: [Mode, string][] = [
-        ['custom', t('customRange')],
-        ['month', t('monthly')],
-        ['year', t('yearly')],
-        ['all', t('allTime')],
-    ];
+    const customPanel = () => (
+        <div className="flex flex-col gap-3.5">
+            <div className="flex flex-wrap gap-1.5">
+                {QUICK_RANGES.map(([key, days]) => {
+                    const active = !!start && !!end && end.getTime() === today.getTime()
+                        && start.getTime() === quickStart(days).getTime();
+                    return (
+                        <button
+                            key={key}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => pickQuick(days)}
+                            className={cn(
+                                "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+                                active ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent",
+                            )}
+                        >
+                            {t(key)}
+                        </button>
+                    );
+                })}
+            </div>
+            <div className="flex items-end gap-2.5">
+                {dateField(startSide)}
+                <span className="pb-2.5 text-muted-foreground">→</span>
+                {dateField(endSide)}
+            </div>
+            <div className="flex justify-center gap-6">
+                {[view, view + 1].map((month, side) => (
+                    <div key={side} className={cn(side === 1 && "hidden md:block")}>
+                        <RangeCalendar
+                            month={month}
+                            locale={locale}
+                            start={start}
+                            end={end}
+                            hover={pending ? hover : null}
+                            minDay={firstDay}
+                            maxDay={today}
+                            onPick={pickDay}
+                            onHover={setHover}
+                            onPrev={side === 0 && firstMonth !== null && view > firstMonth ? () => setView(view - 1) : undefined}
+                            onNext={view + side < lastMonth ? () => setView(view + 1) : undefined}
+                            nextClassName={side === 0 ? "md:invisible" : undefined}
+                        />
+                    </div>
+                ))}
+            </div>
+            <div className="flex items-center justify-between border-t pt-3">
+                <span className="text-[13px] text-muted-foreground">
+                    {start && end ? t('dayCount', {count: rangeDays({from: start, to: end})}) : t(start ? 'selectEnd' : 'selectStart')}
+                </span>
+                <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>{t('cancel')}</Button>
+                    <Button size="sm" disabled={!start || !end} onClick={applyRange}>{t('apply')}</Button>
+                </div>
+            </div>
+        </div>
+    );
 
+    const monthPanel = () => (
+        <div className="flex flex-col gap-3.5">
+            <div className="flex h-8 items-center justify-between">
+                <ChevronButton
+                    direction="left"
+                    className={cn(browseYear <= (oldest?.year ?? browseYear) && "invisible")}
+                    onClick={() => setBrowseYear(browseYear - 1)}
+                    aria-label={String(browseYear - 1)}
+                />
+                <span className="text-[15px] font-semibold">{browseYear}</span>
+                <ChevronButton
+                    direction="right"
+                    className={cn(browseYear >= today.getUTCFullYear() && "invisible")}
+                    onClick={() => setBrowseYear(browseYear + 1)}
+                    aria-label={String(browseYear + 1)}
+                />
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+                {MONTHS.map(month => {
+                    const active = selected?.year === browseYear && selected.month === month;
+                    const current = browseYear * 12 + month - 1 === lastMonth;
+                    return (
+                        <button
+                            key={month}
+                            type="button"
+                            disabled={!browseMonths.includes(month)}
+                            aria-pressed={active}
+                            onClick={() => setPeriod(monthPeriod(browseYear, month))}
+                            className={cn(
+                                "h-14 rounded-lg text-sm font-medium transition-colors",
+                                active
+                                    ? "bg-primary font-semibold text-primary-foreground"
+                                    : "bg-muted hover:bg-accent",
+                                current && !active && "ring-1 ring-inset ring-muted-foreground",
+                                "disabled:pointer-events-none disabled:bg-transparent disabled:text-muted-foreground/40 disabled:ring-0",
+                            )}
+                        >
+                            {formatPeriodMonth(locale, browseYear, month, false)}
+                        </button>
+                    );
+                })}
+            </div>
+            <p className="text-[13px] text-muted-foreground">{t('monthHint')}</p>
+        </div>
+    );
+
+    const yearPanel = () => (
+        <div className="flex flex-col gap-2">
+            {years.map(({year}) => {
+                const active = selected?.year === year && selected.month === null;
+                const yearEnd = new Date(Date.UTC(year, 11, 31));
+                const inProgress = yearEnd > today;
+                return (
+                    <button
+                        key={year}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setPeriod(String(year))}
+                        className={cn(
+                            "flex items-baseline justify-between rounded-lg border px-4 py-3.5 text-left transition-colors",
+                            active ? "border-primary bg-primary/15" : "bg-muted/50 hover:bg-accent",
+                        )}
+                    >
+                        <span className={cn("text-lg font-semibold", active && "text-primary")}>{year}</span>
+                        <span className="text-[13px] text-muted-foreground">
+                            {formatPeriodRange(locale, new Date(Date.UTC(year, 0, 1)), inProgress ? today : yearEnd)}
+                            {inProgress && ` · ${t('inProgress')}`}
+                        </span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+
+    const allTimePanel = () => (
+        <div className="flex flex-col items-start gap-3.5">
+            <p className="text-[13px] text-muted-foreground">{t('allTimeDescription')}</p>
+            {firstDay && (
+                <p className="text-xl font-semibold">{formatPeriodRange(locale, firstDay, today)}</p>
+            )}
+            <Button
+                variant={period ? "default" : "secondary"}
+                disabled={!period}
+                onClick={() => setPeriod(null)}
+            >
+                {period ? t('showAllTime') : t('applied')}
+            </Button>
+        </div>
+    );
+
+    const panels: Record<Mode, () => ReactNode> = {custom: customPanel, month: monthPanel, year: yearPanel, all: allTimePanel};
 
     return (
         <Card className="flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2">
@@ -179,16 +330,13 @@ export default function PeriodSelector() {
                 <Popover open={open} onOpenChange={onOpenChange}>
                     <PopoverAnchor asChild>
                         <div className="flex items-center rounded-md border bg-card">
-                            <Button
-                                variant="ghost"
-                                size="icon"
+                            <ChevronButton
+                                direction="left"
                                 className="rounded-none rounded-l-md border-r"
                                 disabled={!previous}
                                 onClick={() => previous && setPeriod(previous)}
                                 aria-label={t('previous')}
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
+                            />
                             <PopoverTrigger asChild>
                                 <Button variant="ghost" className="rounded-none min-w-[150px] justify-between gap-3 font-semibold">
                                     <span className="flex items-center gap-2">
@@ -198,16 +346,13 @@ export default function PeriodSelector() {
                                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                 </Button>
                             </PopoverTrigger>
-                            <Button
-                                variant="ghost"
-                                size="icon"
+                            <ChevronButton
+                                direction="right"
                                 className="rounded-none rounded-r-md border-l"
                                 disabled={!next}
                                 onClick={() => next && setPeriod(next)}
                                 aria-label={t('next')}
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
+                            />
                         </div>
                     </PopoverAnchor>
                     <PopoverContent align="start" className="w-[min(46rem,calc(100vw-2rem))] overflow-hidden p-0">
@@ -217,7 +362,7 @@ export default function PeriodSelector() {
                                 aria-orientation="vertical"
                                 className="flex gap-0.5 overflow-x-auto border-b p-2 md:w-40 md:shrink-0 md:flex-col md:border-r md:border-b-0"
                             >
-                                {modes.map(([id, name]) => (
+                                {MODES.map(([id, name]) => (
                                     <button
                                         key={id}
                                         type="button"
@@ -229,7 +374,7 @@ export default function PeriodSelector() {
                                             mode === id ? "bg-primary/15 font-semibold text-primary" : "text-foreground/80",
                                         )}
                                     >
-                                        {name}
+                                        {t(name)}
                                     </button>
                                 ))}
                             </div>
@@ -242,185 +387,7 @@ export default function PeriodSelector() {
                                     </div>
                                 ) : noData ? (
                                     <p className="text-sm text-muted-foreground">{t('noPeriods')}</p>
-                                ) : mode === 'custom' ? (
-                                    <div className="flex flex-col gap-3.5">
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {QUICK_RANGES.map(([key, days]) => {
-                                                const from = addDays(today, -(days - 1));
-                                                const active = !!start && !!end && end.getTime() === today.getTime()
-                                                    && start.getTime() === (firstDay && from < firstDay ? firstDay : from).getTime();
-                                                return (
-                                                    <button
-                                                        key={key}
-                                                        type="button"
-                                                        aria-pressed={active}
-                                                        onClick={() => pickQuick(days)}
-                                                        className={cn(
-                                                            "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
-                                                            active ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent",
-                                                        )}
-                                                    >
-                                                        {t(key)}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <div className="flex items-end gap-2.5">
-                                            <div className="flex flex-1 flex-col gap-1">
-                                                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('start')}</span>
-                                                <DateField
-                                                    label={t('start')}
-                                                    value={startText ?? (start ? isoDay(start) : '')}
-                                                    min={firstDay}
-                                                    max={end ?? today}
-                                                    invalid={startInvalid}
-                                                    highlighted={!start && !pending}
-                                                    pickLabel={t('pickDate')}
-                                                    onChange={typeStart}
-                                                    onPick={day => { typeStart(isoDay(day)); setStartText(null); }}
-                                                    onBlur={() => setStartText(null)}
-                                                />
-                                            </div>
-                                            <span className="pb-2.5 text-muted-foreground">→</span>
-                                            <div className="flex flex-1 flex-col gap-1">
-                                                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('end')}</span>
-                                                <DateField
-                                                    label={t('end')}
-                                                    value={endText ?? (end ? isoDay(end) : '')}
-                                                    min={start ?? firstDay}
-                                                    max={today}
-                                                    invalid={endInvalid}
-                                                    highlighted={pending}
-                                                    pickLabel={t('pickDate')}
-                                                    onChange={typeEnd}
-                                                    onPick={day => { typeEnd(isoDay(day)); setEndText(null); }}
-                                                    onBlur={() => setEndText(null)}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="flex justify-center gap-6">
-                                            {[view, view + 1].map((month, side) => (
-                                                <div key={side} className={cn(side === 1 && "hidden md:block")}>
-                                                    <RangeCalendar
-                                                        month={month}
-                                                        locale={locale}
-                                                        start={start}
-                                                        end={end}
-                                                        hover={pending ? hover : null}
-                                                        minDay={firstDay}
-                                                        maxDay={today}
-                                                        onPick={pickDay}
-                                                        onHover={setHover}
-                                                        onPrev={side === 0 && firstMonth !== null && view > firstMonth ? () => setView(view - 1) : undefined}
-                                                        onNext={side === 1 ? (view + 1 < lastMonth ? () => setView(view + 1) : undefined)
-                                                            : view < lastMonth ? () => setView(view + 1) : undefined}
-                                                        nextClassName={side === 0 ? "md:invisible" : undefined}
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="flex items-center justify-between border-t pt-3">
-                                            <span className="text-[13px] text-muted-foreground">
-                                                {start && end ? t('dayCount', {count: rangeDays({from: start, to: end})}) : t(start ? 'selectEnd' : 'selectStart')}
-                                            </span>
-                                            <div className="flex gap-2">
-                                                <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>{t('cancel')}</Button>
-                                                <Button size="sm" disabled={!start || !end} onClick={applyRange}>{t('apply')}</Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : mode === 'month' ? (
-                                    <div className="flex flex-col gap-3.5">
-                                        <div className="flex h-8 items-center justify-between">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className={cn(browseYear <= (oldest?.year ?? browseYear) && "invisible")}
-                                                onClick={() => setBrowseYear(browseYear - 1)}
-                                                aria-label={String(browseYear - 1)}
-                                            >
-                                                <ChevronLeft className="h-4 w-4" />
-                                            </Button>
-                                            <span className="text-[15px] font-semibold">{browseYear}</span>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className={cn(browseYear >= today.getUTCFullYear() && "invisible")}
-                                                onClick={() => setBrowseYear(browseYear + 1)}
-                                                aria-label={String(browseYear + 1)}
-                                            >
-                                                <ChevronRight className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {MONTHS.map(month => {
-                                                const active = selected?.year === browseYear && selected.month === month;
-                                                const current = browseYear * 12 + month - 1 === lastMonth;
-                                                return (
-                                                    <button
-                                                        key={month}
-                                                        type="button"
-                                                        disabled={!browseMonths.includes(month)}
-                                                        aria-pressed={active}
-                                                        onClick={() => setPeriod(monthPeriod(browseYear, month))}
-                                                        className={cn(
-                                                            "h-14 rounded-lg text-sm font-medium transition-colors",
-                                                            active
-                                                                ? "bg-primary font-semibold text-primary-foreground"
-                                                                : "bg-muted hover:bg-accent",
-                                                            current && !active && "ring-1 ring-inset ring-muted-foreground",
-                                                            "disabled:pointer-events-none disabled:bg-transparent disabled:text-muted-foreground/40 disabled:ring-0",
-                                                        )}
-                                                    >
-                                                        {formatPeriodMonth(locale, browseYear, month, false)}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <p className="text-[13px] text-muted-foreground">{t('monthHint')}</p>
-                                    </div>
-                                ) : mode === 'year' ? (
-                                    <div className="flex flex-col gap-2">
-                                        {years.map(({year}) => {
-                                            const active = selected?.year === year && selected.month === null;
-                                            const yearStart = new Date(Date.UTC(year, 0, 1));
-                                            const yearEnd = new Date(Date.UTC(year, 11, 31));
-                                            const inProgress = yearEnd > today;
-                                            return (
-                                                <button
-                                                    key={year}
-                                                    type="button"
-                                                    aria-pressed={active}
-                                                    onClick={() => setPeriod(String(year))}
-                                                    className={cn(
-                                                        "flex items-baseline justify-between rounded-lg border px-4 py-3.5 text-left transition-colors",
-                                                        active ? "border-primary bg-primary/15" : "bg-muted/50 hover:bg-accent",
-                                                    )}
-                                                >
-                                                    <span className={cn("text-lg font-semibold", active && "text-primary")}>{year}</span>
-                                                    <span className="text-[13px] text-muted-foreground">
-                                                        {formatPeriodRange(locale, yearStart, inProgress ? today : yearEnd)}
-                                                        {inProgress && ` · ${t('inProgress')}`}
-                                                    </span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-start gap-3.5">
-                                        <p className="text-[13px] text-muted-foreground">{t('allTimeDescription')}</p>
-                                        {firstDay && (
-                                            <p className="text-xl font-semibold">{formatPeriodRange(locale, firstDay, today)}</p>
-                                        )}
-                                        <Button
-                                            variant={period ? "default" : "secondary"}
-                                            disabled={!period}
-                                            onClick={() => setPeriod(null)}
-                                        >
-                                            {period ? t('showAllTime') : t('applied')}
-                                        </Button>
-                                    </div>
-                                )}
+                                ) : panels[mode]()}
                             </div>
                         </div>
                     </PopoverContent>

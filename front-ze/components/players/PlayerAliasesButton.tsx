@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { Button } from "components/ui/button";
 import { ChevronUp, ChevronDown } from "lucide-react";
-import dayjs from "dayjs";
+import dayjs from "lib/dayjs";
 
 export default function PlayerAliasesButton({ aliases }) {
     const [expanded, setExpanded] = useState(false);
+    const Chevron = expanded ? ChevronUp : ChevronDown;
 
     return (
         <>
@@ -15,11 +16,7 @@ export default function PlayerAliasesButton({ aliases }) {
                 onClick={() => setExpanded(!expanded)}
                 className="h-8 w-8 p-1 text-muted-foreground hover:bg-accent"
             >
-                {expanded ? (
-                    <ChevronUp className="h-4 w-4" />
-                ) : (
-                    <ChevronDown className="h-4 w-4" />
-                )}
+                <Chevron className="h-4 w-4" />
             </Button>
             {expanded && (
                 <div className="absolute top-full left-0 z-10 mt-2 max-h-50 w-55 sm:w-62.5 overflow-y-auto bg-card card-solid border border-border rounded-lg shadow-lg">

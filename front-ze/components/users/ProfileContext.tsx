@@ -20,10 +20,14 @@ export type ProfileCommunity = {
     detail: ProfileCommunityDetail,
 }
 
+type CommunityId = string | null | undefined;
+
 type ProfileCommunitiesValue = {
     communities: ProfileCommunity[],
-    communityOf: (id: string | null | undefined) => ProfileCommunity | undefined,
-    colorOf: (id: string | null | undefined) => string,
+    communityOf: (id: CommunityId) => ProfileCommunity | undefined,
+    /** The community's name, falling back to the raw id for communities the player has no profile in. */
+    nameOf: (id: string) => string,
+    colorOf: (id: CommunityId) => string,
     focused: string | null,
     setFocused: (id: string | null) => void,
 }
@@ -31,6 +35,7 @@ type ProfileCommunitiesValue = {
 const ProfileCommunitiesContext = createContext<ProfileCommunitiesValue>({
     communities: [],
     communityOf: () => undefined,
+    nameOf: id => id,
     colorOf: () => UNKNOWN_COLOR,
     focused: null,
     setFocused: () => {},
@@ -43,10 +48,6 @@ export function communityTag(name: string, shortName?: string | null): string {
     if (short.length >= 2 && short.length <= 3) return short.toUpperCase();
     const words = name.split(/\s+/).map(word => word.replace(NOT_ALPHANUMERIC, '')).filter(Boolean).join(' ');
     return words ? getServerAvatarText(words).toUpperCase() : "?";
-}
-
-export function communityPlaytime(community: ProfileCommunityDetail): number {
-    return community.servers.reduce((sum, server) => sum + server.player.total_playtime, 0);
 }
 
 export function ProfileCommunitiesProvider({ profilePromise, children }: {
@@ -70,19 +71,19 @@ export function ProfileCommunitiesProvider({ profilePromise, children }: {
             tag: communityTag(detail.name, detail.shorten_name),
             iconUrl: detail.icon_url ?? null,
             color: colors[detail.id] ?? UNKNOWN_COLOR,
-            playtime: communityPlaytime(detail),
+            playtime: detail.servers.reduce((sum, server) => sum + server.player.total_playtime, 0),
             detail,
         }))
         .sort((a, b) => b.playtime - a.playtime), [details, colors]);
 
-    const communityOf = useCallback((id: string | null | undefined) =>
+    const communityOf = useCallback((id: CommunityId) =>
         id ? communities.find(community => community.id === id) : undefined, [communities]);
-    const colorOf = useCallback((id: string | null | undefined) =>
-        communityOf(id)?.color ?? UNKNOWN_COLOR, [communityOf]);
+    const nameOf = useCallback((id: string) => communityOf(id)?.name ?? id, [communityOf]);
+    const colorOf = useCallback((id: CommunityId) => communityOf(id)?.color ?? UNKNOWN_COLOR, [communityOf]);
 
     const value = useMemo(() => ({
-        communities, communityOf, colorOf, focused, setFocused,
-    }), [communities, communityOf, colorOf, focused]);
+        communities, communityOf, nameOf, colorOf, focused, setFocused,
+    }), [communities, communityOf, nameOf, colorOf, focused]);
 
     return <ProfileCommunitiesContext.Provider value={value}>{children}</ProfileCommunitiesContext.Provider>;
 }
@@ -91,7 +92,7 @@ export function useProfileCommunities(): ProfileCommunitiesValue {
     return useContext(ProfileCommunitiesContext);
 }
 
-export function useFocusFilter(): (communityId: string | null | undefined) => boolean {
+export function useFocusFilter(): (communityId: CommunityId) => boolean {
     const { focused } = useProfileCommunities();
     return useCallback((communityId) => !focused || communityId === focused, [focused]);
 }

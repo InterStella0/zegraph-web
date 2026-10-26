@@ -1,21 +1,18 @@
 import {useTranslations} from 'next-intl';
 import { ArrowLeft } from 'lucide-react';
-import { formatTime } from 'utils/sessionUtils.js';
 import { SessionInfo } from "../../app/servers/[server_slug]/util";
 import { Server } from "types/community";
 import Image from "next/image";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
-import {SessionHeaderShell} from "./SessionHeader";
-import {useHydrated, useLocalDayjs} from "lib/hooks/useHydrated";
+import {SessionHeaderShell, useSessionClock} from "./SessionHeader";
 
 export default function MapSessionHeader(
     { sessionInfo, server, mapImage }:
     { sessionInfo: SessionInfo<"map">, mapImage: string | null, server: Server }
 ) {
     const t = useTranslations('sessions');
-    const toDayjs = useLocalDayjs();
-    const timeZone = useHydrated() ? undefined : 'UTC';
-    const ended = sessionInfo ? sessionInfo.ended_at ? formatTime(sessionInfo.ended_at, timeZone) : ` ${t('ongoing')}` : ''
+    const { toDayjs, formatTime } = useSessionClock();
+    const ended = sessionInfo.ended_at ? formatTime(sessionInfo.ended_at) : ` ${t('ongoing')}`
 
     return <SessionHeaderShell
         back={<HoverPrefetchLink href={`/servers/${server.gotoLink}/maps/${sessionInfo.map}/`}><ArrowLeft className="h-4 w-4" /></HoverPrefetchLink>}
@@ -31,6 +28,6 @@ export default function MapSessionHeader(
         )}
         title={sessionInfo.map}
         subtitle={t('sessionNumber', {id: sessionInfo.time_id})}
-        badge={<>{sessionInfo ? toDayjs(sessionInfo.started_at).format("YYYY-MM-DD") : ''} • {sessionInfo ? formatTime(sessionInfo.started_at, timeZone) : ''}-{ended}</>}
+        badge={<>{toDayjs(sessionInfo.started_at).format("YYYY-MM-DD")} • {formatTime(sessionInfo.started_at)}-{ended}</>}
     />;
 }

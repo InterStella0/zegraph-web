@@ -1,18 +1,13 @@
 'use client';
 
-import { ReactElement, use } from 'react';
+import type { CommunityLink } from 'types/community';
+import { use } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Skeleton } from 'components/ui/skeleton';
 import { useTranslations } from 'next-intl';
+import { range } from 'utils/generalUtils';
 
-interface CommunityLink {
-    id: string;
-    name: string;
-    url: string;
-    description: string | null;
-    sort_order: number;
-    created_at: string;
-}
+const GRID = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6';
 
 function hostOf(url: string): string {
     try {
@@ -24,19 +19,15 @@ function hostOf(url: string): string {
 
 export function HubLinksLoading() {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
+        <div className={GRID}>
+            {range(6).map((i) => (
                 <Skeleton key={i} className="h-[132px] w-full rounded-xl" />
             ))}
         </div>
     );
 }
 
-export default function HubLinks({
-    linksPromise,
-}: {
-    linksPromise: Promise<CommunityLink[]>;
-}): ReactElement {
+export default function HubLinks({ linksPromise }: { linksPromise: Promise<CommunityLink[]> }) {
     const links = use(linksPromise);
     const t = useTranslations('hub');
 
@@ -50,7 +41,7 @@ export default function HubLinks({
     }
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={GRID}>
             {links.map((link) => (
                 <a
                     key={link.id}
@@ -71,8 +62,8 @@ export default function HubLinks({
                         </p>
                     )}
                     <span className="text-xs text-muted-foreground/70 font-mono mt-auto pt-1 truncate">
-            {hostOf(link.url)}
-          </span>
+                        {hostOf(link.url)}
+                    </span>
                 </a>
             ))}
         </div>

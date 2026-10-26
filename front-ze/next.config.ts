@@ -55,81 +55,31 @@ const nextConfig: NextConfig = {
         NEXT_PUBLIC_BUILD_COMMIT: resolveBuildCommit(),
         NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
     },
-    typescript: {
-        ignoreBuildErrors: true,
-    },
+    typescript: { ignoreBuildErrors: true },
     async headers() {
-        const base_url = process.env.R2_PUBLIC_BASE_URL
-        if (base_url)
-            return [
-                {
-                    source: '/:path*',
-                    headers: [
-                        { key: 'Access-Control-Allow-Origin', value: process.env.R2_PUBLIC_BASE_URL },
-                        { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
-                        { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
-                    ],
-                },
-            ]
-        return []
+        const origin = process.env.R2_PUBLIC_BASE_URL
+        if (!origin) return []
+        return [{
+            source: '/:path*',
+            headers: [
+                { key: 'Access-Control-Allow-Origin', value: origin },
+                { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+                { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+            ],
+        }]
     },
     async redirects() {
-        return [
-            {
-                source: '/users/:player_id/profile',
-                destination: '/players/:player_id/profile',
-                permanent: true,
-            },
-        ]
+        return [{ source: '/users/:player_id/profile', destination: '/players/:player_id/profile', permanent: true }]
     },
     skipTrailingSlashRedirect: true,
-    turbopack: {
-        rules: {
-            '*.svg': {
-                loaders: ['@svgr/webpack'],
-                as: '*.js',
-            },
-        },
-    },
-    logging: {
-        fetches: {
-            fullUrl: true
-        }
-    },
+    turbopack: { rules: { '*.svg': { loaders: ['@svgr/webpack'], as: '*.js' } } },
+    logging: { fetches: { fullUrl: true } },
     images: {
         minimumCacheTTL: 86400,
         remotePatterns: [
-            {
-                hostname: 'localhost:3000',
-            },
-            {
-                hostname: 'localhost',
-            },
-            {
-                hostname: '127.0.0.1:3000',
-            },
-            {
-                hostname: '127.0.0.1',
-            },
-            {
-                hostname: '::1',
-            },
-            {
-                protocol: 'https',
-                hostname: 'zegraph.xyz'
-            },
-            {
-                protocol: 'https',
-                hostname: 'avatars.steamstatic.com',
-            },
-            {
-                protocol: 'https',
-                hostname: 'flagcdn.com',
-            },
-            {
-                protocol: 'https',
-                hostname: 'bans.gflclan.com',
-            }
+            ...['localhost:3000', 'localhost', '127.0.0.1:3000', '127.0.0.1', '::1'].map(hostname => ({ hostname })),
+            ...['zegraph.xyz', 'avatars.steamstatic.com', 'flagcdn.com', 'bans.gflclan.com']
+                .map(hostname => ({ protocol: 'https' as const, hostname })),
         ]
     },
     experimental: {
@@ -149,34 +99,19 @@ const nextConfig: NextConfig = {
         ],
     },
     webpack: (config, { isServer }) => {
-        config.module.rules.push({
-            test: /\.svg$/i,
-            use: ["@svgr/webpack"],
-        });
-
+        config.module.rules.push({ test: /\.svg$/i, use: ["@svgr/webpack"] });
         if (!isServer) {
+            const group = (name: string, packages: string) =>
+                ({ name, test: new RegExp(`[\\\\/]node_modules[\\\\/](${packages})[\\\\/]`), priority: 10 });
             config.optimization.splitChunks = {
                 chunks: 'all',
                 cacheGroups: {
-                    charts: {
-                        test: /[\\/]node_modules[\\/](chart\.js|react-chartjs-2)[\\/]/,
-                        name: 'charts',
-                        priority: 10,
-                    },
-                    leaflet: {
-                        test: /[\\/]node_modules[\\/](leaflet|react-leaflet)[\\/]/,
-                        name: 'leaflet',
-                        priority: 10,
-                    },
-                    radix: {
-                        test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,
-                        name: 'radix-ui',
-                        priority: 10,
-                    },
+                    charts: group('charts', 'chart\\.js|react-chartjs-2'),
+                    leaflet: group('leaflet', 'leaflet|react-leaflet'),
+                    radix: group('radix-ui', '@radix-ui'),
                 },
             };
         }
-
         return config;
     },
 };

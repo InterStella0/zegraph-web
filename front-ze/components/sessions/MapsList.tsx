@@ -1,20 +1,18 @@
 import {useTranslations} from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from 'components/ui/card';
-import { formatTime } from 'utils/sessionUtils.js';
 import {Server} from "types/community";
 import {PlayerSessionMapPlayed} from "../../app/servers/[server_slug]/util";
-import dayjs from "dayjs";
+import dayjs from "lib/dayjs";
 import Link from "components/ui/Link.tsx";
 import Image from "next/image";
-import {useHydrated} from "lib/hooks/useHydrated";
-
+import {useSessionClock} from "./SessionHeader";
 
 export default function MapsList(
     { maps, mapImages, server }
     : { maps: PlayerSessionMapPlayed[], mapImages: Record<string, string>, server: Server}
 ){
     const t = useTranslations('sessions');
-    const timeZone = useHydrated() ? undefined : 'UTC';
+    const { formatTime } = useSessionClock();
     return (
         <Card>
             <CardHeader>
@@ -25,8 +23,7 @@ export default function MapsList(
                     const duration = map.ended_at
                         ? `${dayjs(map.ended_at).diff(dayjs(map.started_at), 'minute')}m`
                         : 'Ongoing';
-
-                    const hasScore = map.match_data && map.match_data.length > 0;
+                    const score = map.match_data?.[0];
 
                     return (
                         <Link
@@ -48,15 +45,15 @@ export default function MapsList(
 
                                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
                                             <span>
-                                                {formatTime(map.started_at, timeZone)} - {map.ended_at ? formatTime(map.ended_at, timeZone) : 'Ongoing'}
+                                                {formatTime(map.started_at)} - {map.ended_at ? formatTime(map.ended_at) : 'Ongoing'}
                                             </span>
                                             <span>({duration})</span>
                                         </div>
 
-                                        {hasScore ? (
+                                        {score ? (
                                             <div className="flex items-center gap-2">
                                                 <span className="text-2xl font-bold">
-                                                    {map.match_data[0].human_score} - {map.match_data[0].zombie_score}
+                                                    {score.human_score} - {score.zombie_score}
                                                 </span>
                                             </div>
                                         ) : (

@@ -1,8 +1,8 @@
 import {Metadata} from "next";
 import {getTranslations} from "next-intl/server";
-import dayjs from "dayjs";
+import dayjs from "lib/dayjs";
 import {Server} from "types/community";
-import {formatHours, formatTitle, socialMeta} from "utils/generalUtils";
+import {formatHours, formatTitle, orNull, socialMeta} from "utils/generalUtils";
 import {getServerGraph, getServerSlugOrNotFound, SessionType} from "./util";
 
 export type MetadataTranslator = Awaited<ReturnType<typeof getTranslations>>;
@@ -57,17 +57,15 @@ export function metadataFallback(
 export async function sessionSummary(
     t: MetadataTranslator,
     info: { started_at: string, ended_at: string | null },
-    keys: [ended: string, ongoing: string],
+    [ended, ongoing]: [ended: string, ongoing: string],
     serverId: string, sessionId: string, objectId: string, type: SessionType,
 ): Promise<string> {
-    let description = info.ended_at
-        ? t(keys[0], {hours: formatHours(dayjs(info.ended_at).diff(dayjs(info.started_at), 'seconds', true))})
-        : t(keys[1], {hours: formatHours(dayjs().diff(dayjs(info.started_at), 'seconds', true))})
-    try{
-        const serverCounts = await getServerGraph(serverId, sessionId, objectId, type)
+    const end = info.ended_at ? dayjs(info.ended_at) : dayjs()
+    let description = t(info.ended_at ? ended : ongoing, {hours: formatHours(end.diff(dayjs(info.started_at), 'seconds', true))})
+    const serverCounts = await orNull(getServerGraph(serverId, sessionId, objectId, type))
+    if (serverCounts) {
         const playerCounts = serverCounts.map(e => e.player_count)
-        const [min, max] = [Math.min(...playerCounts), Math.max(...playerCounts)]
-        description += ' ' + t('playerCountRange', {min, max})
-    }catch (error){}
+        description += ' ' + t('playerCountRange', {min: Math.min(...playerCounts), max: Math.max(...playerCounts)})
+    }
     return description
 }

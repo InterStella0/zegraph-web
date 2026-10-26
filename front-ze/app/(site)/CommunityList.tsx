@@ -1,34 +1,28 @@
 'use client';
 
-import {ReactElement, useEffect, useMemo, useState, use} from 'react';
+import {use} from 'react';
 import {Skeleton} from "components/ui/skeleton";
 import {Gamepad2} from 'lucide-react';
 import CommunityServerGroup from "components/home/CommunityServerGroup";
-import {simpleRandom} from "utils/generalUtils.ts";
+import {range, simpleRandom} from "utils/generalUtils.ts";
+import {useHydrated} from "lib/hooks/useHydrated";
 import {Community} from "types/community.ts";
 import {useTranslations} from "next-intl";
 
 export function CommunityListLoading() {
-    const [isClient, setIsClient] = useState(false);
-    useEffect(() => {
-        setIsClient(true);
-    })
-    const amount = simpleRandom(3, 6, isClient)
+    // Server and hydration render the minimum count; only afterwards is the count randomised.
+    const amount = simpleRandom(3, 6, useHydrated())
     return <div className="flex flex-col gap-3">
-        {Array.from({length: amount}).map((_, i) => (
+        {range(amount).map(i => (
             <Skeleton key={i} className="h-[160px] w-full rounded-lg" />
         ))}
     </div>
 }
 
-
-export default function CommunityList({ communitiesDataPromise }: { communitiesDataPromise: Promise<Community[]>}): ReactElement {
+export default function CommunityList({ communitiesDataPromise }: { communitiesDataPromise: Promise<Community[]>}) {
     const communities = use(communitiesDataPromise);
     const t = useTranslations('home');
-    const serverCount = useMemo(
-        () => communities.reduce((sum, c) => sum + c.servers.length, 0),
-        [communities],
-    );
+    const serverCount = communities.reduce((sum, c) => sum + c.servers.length, 0);
 
     return <>
         <div className="flex flex-row items-baseline gap-3 mb-3">

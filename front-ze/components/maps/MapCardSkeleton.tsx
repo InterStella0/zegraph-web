@@ -1,12 +1,10 @@
-import {simpleRandom} from "utils/generalUtils.ts";
 import {Skeleton} from "components/ui/skeleton.tsx";
-import {useEffect, useState} from "react";
+import {simpleRandom} from "utils/generalUtils.ts";
+import {useHydrated} from "lib/hooks/useHydrated";
 
 export default function MapCardSkeleton() {
-    const [ isClient, setIsClient ] = useState<boolean>(false);
-    useEffect(() => {
-        setIsClient(true);
-    }, [isClient])
+    // Map names vary in length, so the title placeholder does too; the server and the first client render use the minimum.
+    const titleWidth = simpleRandom(70, 120, useHydrated());
     return (
         <div className="flex-none w-[180px] rounded-lg overflow-hidden relative transition-all duration-200 ease-in-out shadow">
             <div className="relative w-full h-[100px]">
@@ -18,9 +16,7 @@ export default function MapCardSkeleton() {
             </div>
 
             <div className="p-5">
-                <Skeleton
-                    className={`h-[1.4rem] rounded w-[${simpleRandom(70, 120, isClient)}px]`}
-                />
+                <Skeleton className="h-[1.4rem] rounded" style={{width: titleWidth}} />
                 <Skeleton className="mt-2 mb-1 h-[1.2rem] w-3/5 rounded" />
             </div>
         </div>

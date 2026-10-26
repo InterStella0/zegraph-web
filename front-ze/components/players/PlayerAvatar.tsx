@@ -1,14 +1,18 @@
 'use client'
 import { Avatar, AvatarFallback } from "components/ui/avatar";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { loadPlayerPfp } from "lib/batchLoader";
 import { ErrorBoundary } from "react-error-boundary";
 import { useServerData } from "../../app/servers/[server_slug]/ServerDataProvider";
 import Image from "next/image";
 import { cn } from "components/lib/utils";
+import { hashString } from "utils/communityColor";
+
+const AVATAR_COLORS = ['#4CAF50', '#2196F3', '#9C27B0', '#F44336', '#FF9800', '#3F51B5', '#00BCD4', '#E91E63'];
+
+const avatarColor = (name: string) => name ? AVATAR_COLORS[hashString(name) % AVATAR_COLORS.length] : '#757575';
 
 function PlayerAvatarDisplay({ uuid, name, width = 40, height = 40, anonymous = false, className, serverId, pfp = null, ...props }) {
-    const avatarRef = useRef(null);
     const [playerImage, setPlayerImage] = useState(pfp);
     const data = useServerData();
     const server_id = serverId ?? data?.server?.id;
@@ -19,36 +23,20 @@ function PlayerAvatarDisplay({ uuid, name, width = 40, height = 40, anonymous = 
         }
     }, [server_id, uuid, playerImage, anonymous]);
 
-    const getAvatarColor = (name) => {
-        if (!name) return '#757575'; // Default gray for undefined names
-
-        const colors = [
-            '#4CAF50', '#2196F3', '#9C27B0', '#F44336',
-            '#FF9800', '#3F51B5', '#00BCD4', '#E91E63'
-        ];
-
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-            hash = name.charCodeAt(i) + ((hash << 5) - hash);
-        }
-
-        return colors[Math.abs(hash) % colors.length];
-    };
-
     const avatarKey = `avatar-${uuid}`;
 
     if (!playerImage || playerImage.full === "N/A") {
         return (
             <Avatar
                 key={avatarKey}
-                className={cn(className)}
+                className={className}
                 style={{ width: `${width}px`, height: `${height}px` }}
             >
                 <AvatarFallback
                     className="text-white font-semibold"
-                    style={{ backgroundColor: getAvatarColor(name) }}
+                    style={{ backgroundColor: avatarColor(name) }}
                 >
-                    {name && name.length > 0 ? [...name][0].toUpperCase() : '?'}
+                    {name ? [...name][0].toUpperCase() : '?'}
                 </AvatarFallback>
             </Avatar>
         );
@@ -61,7 +49,6 @@ function PlayerAvatarDisplay({ uuid, name, width = 40, height = 40, anonymous = 
             unoptimized
             title={name}
             alt={`${name}'s profile picture`}
-            ref={avatarRef}
             src={playerImage.full}
             width={width}
             height={height}

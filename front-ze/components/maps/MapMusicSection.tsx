@@ -1,39 +1,49 @@
 'use client'
 
-import {Suspense, use, useMemo, useState} from "react";
+import {ReactNode, Suspense, use, useMemo, useState} from "react";
 import { Music, Play, Clock, MoreHorizontal } from "lucide-react";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import { Info } from "lucide-react";
 import ErrorCatch from "../ui/ErrorMessage";
 import { cn } from "../lib/utils";
 import {MapMusicTrack, ServerMapMusic} from "types/maps";
 import MapMusicDialog from "./MapMusicDialog";
+import {InfoHint} from "./MapCardTitle";
 import {useTranslations} from 'next-intl';
 import {formatTrackDuration} from "utils/format";
 
-function shortenMapMusicBadgeUsage(text: string): string{
-    return text.split(".").at(-1) ?? text
+const TRUNCATE_MUSIC = 3
+const ICON_BOX = "p-1.5 sm:p-2 rounded-md bg-primary/10"
+
+function splitTrackName(name: string): { artist?: string, title: string } {
+    const separator = name.match(/\s+[-–—]\s+/);
+    if (separator?.index === undefined) return { title: name.trim() };
+    return {
+        artist: name.substring(0, separator.index).trim(),
+        title: name.substring(separator.index + separator[0].length).trim(),
+    };
 }
 
-function TrackCard({
-    track,
-    onClick
-}: {
-    track: MapMusicTrack;
-    onClick: () => void;
-}) {
+function TrackTile({ onClick, className, children }: { onClick: () => void, className?: string, children: ReactNode }) {
     return (
         <div
             className={cn(
-                "p-3 sm:p-3 rounded-lg border hover:bg-accent/50 active:bg-accent cursor-pointer transition-colors touch-manipulation",
-                "flex flex-col gap-2 h-full min-h-[5rem]"
+                "p-3 rounded-lg border hover:bg-accent/50 active:bg-accent cursor-pointer transition-colors touch-manipulation",
+                "flex flex-col gap-2 h-full min-h-[5rem]",
+                className,
             )}
             onClick={onClick}
         >
+            {children}
+        </div>
+    );
+}
+
+function TrackCard({ track, onClick }: { track: MapMusicTrack, onClick: () => void }) {
+    return (
+        <TrackTile onClick={onClick}>
             <div className="flex items-start gap-2">
-                <div className="p-1.5 sm:p-2 rounded-md bg-primary/10 shrink-0">
+                <div className={cn(ICON_BOX, "shrink-0")}>
                     <Music className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -48,13 +58,13 @@ function TrackCard({
             </div>
             <div className="flex items-center justify-between gap-2 mt-auto">
                 <div className="flex items-center gap-1 flex-wrap">
-                    {track.contexts.slice(0, 1).map((c, i) => (
-                        <Badge key={i} className="text-xs max-w-50 lg:max-w-45 max-md:max-w-40">
+                    {track.contexts.length > 0 && (
+                        <Badge className="text-xs max-w-50 lg:max-w-45 max-md:max-w-40">
                             <span className=" truncate ">
-                                {shortenMapMusicBadgeUsage(c)}
+                                {track.contexts[0].split(".").at(-1)}
                             </span>
                         </Badge>
-                    ))}
+                    )}
                     {track.contexts.length > 1 && (
                         <Badge variant="secondary" className="text-xs">
                             +{track.contexts.length - 1}
@@ -67,55 +77,18 @@ function TrackCard({
                     <span>{formatTrackDuration(track.duration)}</span>
                 </div>
             </div>
-        </div>
+        </TrackTile>
     );
 }
 
-function MoreTracksCard({
-    count,
-    onClick
-}: {
-    count: number;
-    onClick: () => void;
-}) {
+function MapMusicSectionDisplay({ musicsPromise }: { musicsPromise: Promise<ServerMapMusic[]> }) {
     const t = useTranslations('maps.music');
-    return (
-        <div
-            className={cn(
-                "p-3 rounded-lg border hover:bg-accent/50 active:bg-accent cursor-pointer transition-colors touch-manipulation",
-                "flex flex-col items-center justify-center h-full gap-2 min-h-[5rem]"
-            )}
-            onClick={onClick}
-        >
-            <div className="p-1.5 sm:p-2 rounded-md bg-primary/10">
-                <MoreHorizontal className="h-4 w-4 text-primary" />
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">
-                {t('moreCount', {count})}
-            </p>
-        </div>
-    );
-}
-
-const TRUNCATE_MUSIC = 3
-function MapMusicSectionDisplay({ musics }: { musics: ServerMapMusic[] }) {
-    const t = useTranslations('maps.music');
+    const musics = use(musicsPromise);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
 
     const tracks = useMemo<MapMusicTrack[]>(() => musics.map(music => {
-        const separatorMatch = music.name.match(/\s+[-–—]\s+/);
-        let artist: string | undefined;
-        let title: string;
-
-        if (separatorMatch && separatorMatch.index !== undefined) {
-            artist = music.name.substring(0, separatorMatch.index).trim();
-            title = music.name.substring(separatorMatch.index + separatorMatch[0].length).trim();
-        } else {
-            title = music.name.trim();
-            artist = undefined;
-        }
-
+        const { artist, title } = splitTrackName(music.name);
         return {
             id: music.id,
             title: title || t('unknownTrack'),
@@ -142,40 +115,33 @@ function MapMusicSectionDisplay({ musics }: { musics: ServerMapMusic[] }) {
     return (
         <>
             <Card className="p-3 sm:p-4">
-                <TooltipProvider>
-                    <div className="flex justify-between items-center mb-3 sm:mb-4">
-                        <div className="flex items-center gap-2">
-                            <Music className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                            <h2 className="text-base sm:text-lg font-bold text-primary">{t('title')}</h2>
-                        </div>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className="inline-flex">
-                                    <Info className="h-4 w-4 opacity-70" />
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{t('tooltip')}</p>
-                            </TooltipContent>
-                        </Tooltip>
+                <div className="flex justify-between items-center mb-3 sm:mb-4">
+                    <div className="flex items-center gap-2">
+                        <Music className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                        <h2 className="text-base sm:text-lg font-bold text-primary">{t('title')}</h2>
                     </div>
+                    <InfoHint text={t('tooltip')} />
+                </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
-                        {tracks.slice(0, TRUNCATE_MUSIC).map((track, index) => (
-                            <TrackCard
-                                key={track.id}
-                                track={track}
-                                onClick={() => handleTrackClick(index)}
-                            />
-                        ))}
-                        {tracks.length > TRUNCATE_MUSIC && (
-                            <MoreTracksCard
-                                count={tracks.length - TRUNCATE_MUSIC}
-                                onClick={() => handleTrackClick(0)}
-                            />
-                        )}
-                    </div>
-                </TooltipProvider>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+                    {tracks.slice(0, TRUNCATE_MUSIC).map((track, index) => (
+                        <TrackCard
+                            key={track.id}
+                            track={track}
+                            onClick={() => handleTrackClick(index)}
+                        />
+                    ))}
+                    {tracks.length > TRUNCATE_MUSIC && (
+                        <TrackTile onClick={() => handleTrackClick(0)} className="items-center justify-center">
+                            <div className={ICON_BOX}>
+                                <MoreHorizontal className="h-4 w-4 text-primary" />
+                            </div>
+                            <p className="text-sm font-medium text-muted-foreground">
+                                {t('moreCount', {count: tracks.length - TRUNCATE_MUSIC})}
+                            </p>
+                        </TrackTile>
+                    )}
+                </div>
             </Card>
 
             <MapMusicDialog
@@ -188,17 +154,12 @@ function MapMusicSectionDisplay({ musics }: { musics: ServerMapMusic[] }) {
     );
 }
 
-function MapMusicSectionResolved({ musicsPromise }: { musicsPromise: Promise<ServerMapMusic[]> }) {
-    const musics = use(musicsPromise);
-    return <MapMusicSectionDisplay musics={musics} />;
-}
-
 export default function MapMusicSection({ musicsPromise }: { musicsPromise: Promise<ServerMapMusic[]> }) {
     const t = useTranslations('maps.music');
     return (
         <ErrorCatch message={t('loadError')}>
             <Suspense fallback={null}>
-                <MapMusicSectionResolved musicsPromise={musicsPromise} />
+                <MapMusicSectionDisplay musicsPromise={musicsPromise} />
             </Suspense>
         </ErrorCatch>
     );

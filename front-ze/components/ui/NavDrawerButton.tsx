@@ -1,51 +1,39 @@
 'use client'
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-} from "components/ui/sheet";
+import {Sheet, SheetContent, SheetHeader} from "components/ui/sheet";
 import {Button} from "components/ui/button";
 import {useState} from "react";
 import {Menu, Coffee} from "lucide-react";
 import {Logo} from "./CommunitySelector";
 import LoginButton from "./LoginButton";
-import {isPageGroup, PageLink, pagesSelection} from "./PagesNavigation";
+import {isPageGroup, PageLink, pageLinks} from "./PagesNavigation";
 import {Server} from "types/community";
 import {useRouter, usePathname} from "next/navigation";
 import {SiDiscord, SiGithub} from "@icons-pack/react-simple-icons";
 import {SteamProfile} from "types/steam";
 import {useTranslations} from "next-intl";
 import LanguageToggle from "./LanguageToggle";
-import {DISCORD_URL} from "./DiscordButton";
+import {DISCORD_URL, REPO_URL} from "./siteLinks";
 
 export default function NavDrawerButton({ server, user }: { server: Server | null, user: SteamProfile | null }) {
     const t = useTranslations('nav');
     const currentLocation = usePathname();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const router = useRouter();
-    const selectedMode = server !== null? 'ServerSpecific': 'Community'
-    const pages = pagesSelection[selectedMode]
+    const { pages, resolve } = pageLinks(server)
 
-    const handleDrawerToggle = () => {
-        setDrawerOpen(!drawerOpen);
-    };
-
-    const handleNavigate = (link) => {
+    const handleNavigate = (link: string) => {
         setDrawerOpen(false);
         router.push(link);
     };
 
     const renderLink = (page: PageLink) => {
-        const linked = selectedMode === 'ServerSpecific'? page.href.replace(":server_id", server.gotoLink): page.href
-        const isActive = currentLocation === linked
+        const linked = resolve(page.href)
         return (
             <Button
                 variant="ghost"
                 onClick={() => handleNavigate(linked)}
-                className={`w-full justify-start ${
-                    isActive
-                        ? 'bg-primary/10 border-l-4 border-primary font-semibold text-primary'
-                        : 'border-l-4 border-transparent'
+                className={`w-full justify-start border-l-4 ${
+                    currentLocation === linked ? 'bg-primary/10 border-primary font-semibold text-primary' : 'border-transparent'
                 }`}
             >
                 {t(page.key)}
@@ -56,7 +44,7 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
         <Button
             variant="ghost"
             size="icon"
-            onClick={handleDrawerToggle}
+            onClick={() => setDrawerOpen(!drawerOpen)}
             className="min-[750px]:hidden"
         >
             <Menu className="h-5 w-5" />
@@ -103,19 +91,15 @@ export default function NavDrawerButton({ server, user }: { server: Server | nul
                     <div className="flex items-center justify-between gap-2 p-4">
                         <LoginButton user={user} />
                         <LanguageToggle />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                        >
-                            <a href="https://github.com/InterStella0/zegraph-web" target="_blank" rel="noopener noreferrer">
+                        <Button variant="ghost" size="icon" asChild>
+                            <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
                                 <SiGithub className="h-4 w-4 text-primary" />
                             </a>
                         </Button>
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => { handleNavigate('/donors'); }}
+                            onClick={() => handleNavigate('/donors')}
                             title="Support ZE Graph"
                         >
                             <Coffee className="h-4 w-4 text-primary" />

@@ -3,7 +3,7 @@ import * as React from "react"
 import { cn } from "components/lib/utils"
 
 const Textarea = React.forwardRef<
-  HTMLTextareaElement,
+  HTMLTextAreaElement,
   React.ComponentProps<"textarea">
 >(({ className, ...props }, ref) => {
   return (

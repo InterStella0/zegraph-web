@@ -17,9 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
         title,
         description,
-        alternates: {
-            canonical: '/maps'
-        },
+        alternates: {canonical: '/maps'},
         ...socialMeta({title, description, url: '/maps'}),
     }
 }

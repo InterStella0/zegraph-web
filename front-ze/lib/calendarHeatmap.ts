@@ -74,6 +74,10 @@ export function calendarMatrixOptions(colors: ChartTheme, dayNames: Record<strin
 
 type CellColor = (c: any) => string;
 
+// Cell size along one axis: the chart area split into `count` cells with a 1px gap.
+const cellSize = (count: number, span: (area: any) => number) => (c: any) =>
+    c.chart.chartArea ? span(c.chart.chartArea) / count - 1 : 0;
+
 export function calendarMatrixDataset<T>(data: T[], cols: number, backgroundColor: CellColor, borderColor: CellColor) {
     return {
         type: 'matrix' as const,
@@ -82,16 +86,8 @@ export function calendarMatrixDataset<T>(data: T[], cols: number, backgroundColo
         borderColor,
         borderWidth: 1,
         hoverBorderColor: 'grey',
-        width(c: any) {
-            const a = c.chart.chartArea;
-            if (!a) return 0;
-            return (a.right - a.left) / cols - 1;
-        },
-        height(c: any) {
-            const a = c.chart.chartArea;
-            if (!a) return 0;
-            return (a.bottom - a.top) / 7 - 1;
-        }
+        width: cellSize(cols, a => a.right - a.left),
+        height: cellSize(7, a => a.bottom - a.top),
     };
 }
 

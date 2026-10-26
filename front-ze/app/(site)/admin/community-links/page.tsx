@@ -1,18 +1,10 @@
 'use client';
 
+import type { CommunityLink } from 'types/community';
 import { TableCell } from 'components/ui/table';
 import { ExternalLink } from 'lucide-react';
 import { CrudPage } from '../components/CrudPage';
 import { CreateEditCommunityLinkDialog } from './CreateEditCommunityLinkDialog';
-
-export interface CommunityLink {
-  id: string;
-  name: string;
-  url: string;
-  description: string | null;
-  sort_order: number;
-  created_at: string;
-}
 
 export default function CommunityLinksAdminPage() {
   return (

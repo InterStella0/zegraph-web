@@ -1,47 +1,23 @@
 // @ts-nocheck
-import {
-    BarElement,
-    CategoryScale,
-    Chart as ChartJS,
-    Legend,
-    LinearScale,
-    LineController,
-    LineElement,
-    PointElement,
-    TimeScale,
-    Title,
-    Tooltip,
-    Filler
-} from 'chart.js';
-import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
-import zoomPlugin from 'chartjs-plugin-zoom';
-import annotationPlugin from 'chartjs-plugin-annotation';
+import type {Chart as ChartJS} from "chart.js";
 import type { AnnotationOptions } from 'chartjs-plugin-annotation';
-import dayjs from 'dayjs';
-import utc from "dayjs/plugin/utc";
-import timezone from "dayjs/plugin/timezone";
-import {Dispatch, useCallback, useEffect, useMemo, useReducer, useRef} from 'react';
+import dayjs from "lib/dayjs";
+import {Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef} from 'react';
 import {LazyMatrixChart as Chart} from 'components/graphs/LazyCharts';
 import {fetchUrl, REGION_COLORS, formatNumber} from 'utils/generalUtils'
+import {chartPrimary, markerLine} from 'utils/sessionUtils.js';
 import GraphToolbar from './GraphToolbar';
 import {DateSources, useDateState} from './DateStateManager';
-import {GraphServerState} from "types/graphServers";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {ServerCountData} from "../../app/servers/[server_slug]/util.ts";
 import {ServerMapPlayed} from "types/maps.ts";
 import {useChartTheme} from "lib/chartTheme";
+import {useResource} from "lib/hooks/useResource";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import { calculateTimeSeriesStats, formatDateRange, generateSeoTable } from "utils/chartSeoUtils.tsx";
 import { useLocale, useTranslations } from "next-intl";
 import { humanizeDurationLocalized } from "utils/durationFormat.ts";
 import {withErrorCatch} from "components/common/withErrorCatch";
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-ChartJS.register(
-    CategoryScale, LinearScale, PointElement, LineElement, LineController,
-    Title, Tooltip, Legend, TimeScale, zoomPlugin, annotationPlugin, BarElement, Filler
-);
 
 const TIMEZONE_CHOSEN_FROM = "Asia/Kuala_Lumpur"
 const MAX_ZOOM_OUT_MS = 365 * 24 * 60 * 60 * 1000
@@ -52,13 +28,13 @@ const REGION_MAPPING = [
     { start: 6, end: 12, label: "NA + EU" },
     { start: 12, end: 18, label: "NA + Asia" },
 ];
+const EMPTY_GRAPH = { playerCounts: [], joinCounts: [], leaveCounts: [], mapAnnotations: [] }
 
 function generateAnnotations(startDate: dayjs.Dayjs, endDate:dayjs.Dayjs): AnnotationOptions<"box">[] {
-    const start = startDate.tz(TIMEZONE_CHOSEN_FROM)
     const end = endDate.tz(TIMEZONE_CHOSEN_FROM)
-    let annotations: AnnotationOptions<"box">[] = []
+    const annotations: AnnotationOptions<"box">[] = []
 
-    let current = start;
+    let current = startDate.tz(TIMEZONE_CHOSEN_FROM);
     while (current.isBefore(end)) {
         const hour = current.hour();
         const region = REGION_MAPPING.find((r) => hour >= r.start && hour < r.end);
@@ -66,9 +42,8 @@ function generateAnnotations(startDate: dayjs.Dayjs, endDate:dayjs.Dayjs): Annot
             console.warn("REGION NOT FOUND FOR HOUR", hour)
             return []
         }
-        const delta = region.end - hour
-        let endX = current.add(delta, "hours").startOf('hour');
-        endX = endX.isBefore(end) ? endX : end
+        const regionEnd = current.add(region.end - hour, "hours").startOf('hour');
+        const endX = regionEnd.isBefore(end) ? regionEnd : end
 
         annotations.push({
             drawTime: "beforeDatasetsDraw",
@@ -89,100 +64,61 @@ function generateAnnotations(startDate: dayjs.Dayjs, endDate:dayjs.Dayjs): Annot
     return annotations;
 }
 
-const initialState: GraphServerState = {
-    data: {
-        playerCounts: [],
-        joinCounts: [],
-        leaveCounts: [],
-        mapAnnotations: []
-    },
-    loading: false,
-    maxPlayers: 64,
-};
+const toPoints = (data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count }))
 
-enum ActionGraph {
-    START_LOADING,
-    LOAD_SUCCESS,
-    LOAD_ERROR,
-    SET_MAX_PLAYERS,
-}
-type ActionGraphChange = {
-    type: ActionGraph,
-    payload?: any
-}
-function graphReducer(state: GraphServerState, action: ActionGraphChange): GraphServerState {
-    switch (action.type) {
-        case ActionGraph.START_LOADING:
-            return {
-                ...state,
-                loading: true,
-            };
-
-        case ActionGraph.LOAD_SUCCESS:
-            return {
-                ...state,
-                loading: false,
-                data: action.payload,
-            };
-
-        case ActionGraph.LOAD_ERROR:
-            return {
-                ...state,
-                loading: false,
-            };
-
-        case ActionGraph.SET_MAX_PLAYERS:
-            return {
-                ...state,
-                maxPlayers: action.payload
-            };
-
-        default:
-            return state;
+function clampZoomOut({ chart }) {
+    const { min, max } = chart.scales.x;
+    if (max - min > MAX_ZOOM_OUT_MS) {
+        const center = (min + max) / 2;
+        chart.zoomScale('x', {
+            min: center - MAX_ZOOM_OUT_MS / 2,
+            max: center + MAX_ZOOM_OUT_MS / 2
+        }, 'none');
     }
 }
 
-type ShowFlag = {
-    join: boolean, leave: boolean, toolbar: boolean
-}
-type ServerGraphProps = {
-    setShowPlayers?: Dispatch<boolean>,
-    setLoading: Dispatch<boolean>,
-    customDataSet?: any[],
-    showFlags?: ShowFlag
-}
-function ServerGraphDisplay(
-    { setLoading, customDataSet = [], showFlags = { join: true, leave: true, toolbar: true },
-        setShowPlayers=() => {} }: ServerGraphProps
-) {
+function ServerGraphDisplay({ setLoading, setShowPlayers }: { setShowPlayers: Dispatch<SetStateAction<boolean>>, setLoading: Dispatch<boolean> }) {
     const t = useTranslations('servers.graph');
     const locale = useLocale();
     const { start, end, setDates, source: lastSource, timestamp } = useDateState();
     const { server } = useServerData()
     const server_id = server.id
+    const maxPlayers = server?.max_players || 64
     const theme = useChartTheme();
     const isDark = theme.isDark;
-    const [state, dispatch] = useReducer(graphReducer, initialState);
     const chartRef = useRef<ChartJS | null>(null);
-    const abortControllerRef = useRef<AbortController | null>();
     const annotationRef = useRef<{annotations: AnnotationOptions<"box" | "line">[]}>({ annotations: [] });
     const zoomTimeoutRef = useRef<NodeJS.Timeout | null>();
 
-    useEffect(() => {
-        if (server?.max_players !== undefined) {
-            const newMax = server.max_players === 0 ? 64 : server.max_players;
-            dispatch({ type: ActionGraph.SET_MAX_PLAYERS, payload: newMax });
-        }
-    }, [server?.max_players]);
+    const { data, loading } = useResource(signal => {
+        if (!start.isBefore(end) || !server_id) return null;
+        const params = { start: start.toJSON(), end: end.toJSON() };
+        const graph = (path: string, extra = {}) =>
+            fetchUrl(`/graph/${server_id}/${path}`, { params: { ...extra, ...params }, signal })
+        const eventCounts = (event_type: string) => end.diff(start, "hour", true) <= MAX_EVENT_COUNT_HOURS
+            ? graph('event_count', { event_type }).then(toPoints).catch(() => [])
+            : Promise.resolve([])
+        const mapAnnotations = end.diff(start, "day") <= 2
+            ? graph('maps').then((maps: ServerMapPlayed[]) => maps.map(e => {
+                const duration = e.ended_at !== e.started_at
+                    ? ` (${humanizeDurationLocalized(dayjs(e.ended_at).diff(dayjs(e.started_at)), locale, { units: ['h', 'm'], maxDecimalPoints: 2 })})`
+                    : ''
+                return markerLine(e.started_at, theme.destructive, e.map + duration, theme.primary)
+            })).catch(() => [])
+            : Promise.resolve([])
+        return Promise.all([graph('unique_players').then(toPoints), eventCounts('Join'), eventCounts('Leave'), mapAnnotations])
+            .then(([playerCounts, joinCounts, leaveCounts, mapAnnotations]) => ({ playerCounts, joinCounts, leaveCounts, mapAnnotations }))
+    }, [start, end, server_id, locale], { keepData: true, errorLog: 'Failed to fetch graph data:' });
+    const graph = data ?? EMPTY_GRAPH;
 
     useEffect(() => {
-        if (!state.loading) {
+        if (!loading) {
             setLoading(false);
             return;
         }
         const timeout = setTimeout(() => setLoading(true), 1000);
         return () => clearTimeout(timeout);
-    }, [state.loading, setLoading]);
+    }, [loading, setLoading]);
 
     useEffect(() => {
         if (lastSource !== DateSources.ZOOM && chartRef.current) {
@@ -191,139 +127,23 @@ function ServerGraphDisplay(
         }
     }, [timestamp, lastSource, start, end]);
 
-    useEffect(() => {
-        if (!start.isBefore(end) || !server_id) return;
-
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
-        abortControllerRef.current = new AbortController();
-        const signal = abortControllerRef.current.signal;
-
-        dispatch({ type: ActionGraph.START_LOADING });
-
-        const params = { start: start.toJSON(), end: end.toJSON() };
-
-        const fetchData = async () => {
-            try {
-                const promises = [
-                    fetchUrl(`/graph/${server_id}/unique_players`, { params, signal })
-                        .then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count })))
-                ];
-
-                if (end.diff(start, "hour", true) <= MAX_EVENT_COUNT_HOURS) {
-                    promises.push(
-                        fetchUrl(`/graph/${server_id}/event_count`, {
-                            params: { event_type: 'Join', ...params },
-                            signal
-                        }).then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count })))
-                            .catch(() => []),
-
-                        fetchUrl(`/graph/${server_id}/event_count`, {
-                            params: { event_type: 'Leave', ...params },
-                            signal
-                        }).then((data: ServerCountData[]) => data.map(e => ({ x: e.bucket_time, y: e.player_count })))
-                            .catch(() => [])
-                    );
-                } else {
-                    promises.push(Promise.resolve([]), Promise.resolve([]));
-                }
-
-                if (end.diff(start, "day") <= 2) {
-                    promises.push(
-                        fetchUrl(`/graph/${server_id}/maps`, { params, signal })
-                            .then((data: ServerMapPlayed[]): any => data.map(e => {
-                                let text = e.map;
-                                if (e.ended_at !== e.started_at) {
-                                    let delta = dayjs(e.ended_at).diff(dayjs(e.started_at));
-                                    text += ` (${humanizeDurationLocalized(delta, locale, { units: ['h', 'm'], maxDecimalPoints: 2 })})`;
-                                }
-                                const mapBorderColor = theme.destructive;
-                                const mapLabelColor = theme.primary;
-                                return {
-                                    type: 'line',
-                                    xMin: e.started_at,
-                                    xMax: e.started_at,
-                                    borderColor: mapBorderColor,
-                                    label: {
-                                        backgroundColor: '#00000000',
-                                        content: text,
-                                        display: true,
-                                        rotation: 270,
-                                        color: mapLabelColor,
-                                        position: 'start',
-                                        xAdjust: 10,
-                                    }
-                                };
-                            }))
-                            .catch(() => [])
-                    );
-                } else {
-                    promises.push(Promise.resolve([]));
-                }
-
-                const [playerCounts, joinCounts, leaveCounts, mapAnnotations] = await Promise.all(promises);
-                if (!signal.aborted) {
-                    dispatch({
-                        type: ActionGraph.LOAD_SUCCESS,
-                        payload: { playerCounts, joinCounts, leaveCounts, mapAnnotations }
-                    });
-                }
-            } catch (error) {
-                if (!signal.aborted) {
-                    console.error('Failed to fetch graph data:', error);
-                    dispatch({ type: ActionGraph.LOAD_ERROR });
-                }
-            }
-        };
-
-        // @ts-ignore
-        fetchData().then(() => {}).catch(console.error);
-
-        return () => {
-            if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-            }
-        };
-    }, [start, end, server_id, locale]);
-
-    const handleZoomChange = useCallback((xScale: any) => {
-        const newStart = dayjs(xScale.min);
-        const newEnd = dayjs(xScale.max);
-
+    const zoomComplete = useCallback(({ chart }) => {
+        const { min, max } = chart.scales.x;
         clearTimeout(zoomTimeoutRef.current);
-        zoomTimeoutRef.current = setTimeout(() => {
-            setDates(newStart, newEnd, DateSources.ZOOM);
-        }, 500);
+        zoomTimeoutRef.current = setTimeout(() => setDates(dayjs(min), dayjs(max), DateSources.ZOOM), 500);
     }, [setDates]);
 
-    const zoomComplete = useCallback(({ chart }) => {
-        handleZoomChange(chart.scales.x);
-    }, [handleZoomChange]);
-
-    const clampZoomOut = useCallback(({ chart }) => {
-        const { min, max } = chart.scales.x;
-        if (max - min > MAX_ZOOM_OUT_MS) {
-            const center = (min + max) / 2;
-            chart.zoomScale('x', {
-                min: center - MAX_ZOOM_OUT_MS / 2,
-                max: center + MAX_ZOOM_OUT_MS / 2
-            }, 'none');
-        }
-    }, []);
-
     useEffect(() => {
-        if (!start.isBefore(end) || end.diff(start, "day") > 6) {
-            annotationRef.current.annotations = state.data.mapAnnotations;
-        } else {
-            annotationRef.current.annotations = [...generateAnnotations(start, end), ...state.data.mapAnnotations];
-        }
+        const showRegions = start.isBefore(end) && end.diff(start, "day") <= 6;
+        annotationRef.current.annotations = showRegions
+            ? [...generateAnnotations(start, end), ...graph.mapAnnotations]
+            : graph.mapAnnotations;
         chartRef.current?.update()
-    }, [start, end, state.data.mapAnnotations]);
+    }, [start, end, graph.mapAnnotations]);
 
+    // Kept stable across data loads so the chart keeps its zoom state; annotations update through the ref.
     const options = useMemo(() => ({
         animation: false,
-        responsive: true,
         maintainAspectRatio: false,
         tooltip: {
             position: 'nearest',
@@ -364,7 +184,7 @@ function ServerGraphDisplay(
             },
             y: {
                 min: 0,
-                max: state.maxPlayers,
+                max: maxPlayers,
                 ticks: {
                     color: theme.muted,
                 },
@@ -393,101 +213,71 @@ function ServerGraphDisplay(
                 }
             }
         },
-    }), [zoomComplete, clampZoomOut, annotationRef, state.maxPlayers, isDark, t])
+    }), [zoomComplete, maxPlayers, isDark, t])
 
-    const datasets = [...customDataSet]
-
-    if (showFlags.join) {
-        datasets.push({
+    const datasets = [
+        {
             type: 'bar',
             label: t('joinCount'),
-            data: state.data.joinCounts,
+            data: graph.joinCounts,
             borderColor: theme.success,
             backgroundColor: isDark ? 'hsla(142.1 76.2% 36.3% / 0.6)' : 'hsla(142.1 70.6% 45.3% / 0.6)',
             fill: true,
             order: 3
-        });
-    }
-
-    if (showFlags.leave) {
-        datasets.push({
+        },
+        {
             type: 'bar',
             label: t('leaveCount'),
-            data: state.data.leaveCounts,
+            data: graph.leaveCounts,
             borderColor: theme.destructive,
             backgroundColor: isDark ? 'hsla(0 84.2% 60.2% / 0.6)' : 'hsla(0 72.2% 50.6% / 0.6)',
             fill: true,
             order: 2
-        });
-    }
-
-    const primaryColor = isDark? 'oklch(0.488 0.2 330)': 'oklch(0.646 0.1 330)' // --chart-1
-    const primaryColorAlpha = isDark? 'oklch(0.488 0.2 330 / .35)': 'oklch(0.646 0.1 330 / .35)'
-    datasets.push(
+        },
         {
             type: 'line',
             label: t('playerCount'),
-            data: state.data.playerCounts,
-            borderColor: primaryColor,
-            backgroundColor: primaryColorAlpha,
+            data: graph.playerCounts,
+            borderColor: chartPrimary(isDark),
+            backgroundColor: chartPrimary(isDark, .35),
             pointRadius: 0,
             tension: .2,
             fill: true,
             order: 1,
-        }
-    )
+        },
+    ]
 
-    const summary = useMemo(() => {
-        if (!state.data.playerCounts || state.data.playerCounts.length === 0) {
-            return t('noServerData');
-        }
-
-        const data = state.data.playerCounts.map(d => ({
-            label: d.x,
-            value: d.y
-        }));
-        const stats = calculateTimeSeriesStats(data);
-        const dateRange = formatDateRange(state.data.playerCounts[0].x, state.data.playerCounts[state.data.playerCounts.length - 1].x);
-
-        return t('summary', {
-            dateRange,
+    const points = graph.playerCounts
+    let summary = t('noServerData')
+    let seoTable = null
+    if (points.length) {
+        const stats = calculateTimeSeriesStats(points.map(d => ({ label: d.x, value: d.y })));
+        summary = t('summary', {
+            dateRange: formatDateRange(points[0].x, points.at(-1).x),
             peak: formatNumber(stats.max),
             average: formatNumber(stats.avg, 1),
             lowest: formatNumber(stats.min),
             intervals: formatNumber(stats.count),
         });
-    }, [state.data.playerCounts, t]);
-
-    const seoTable = useMemo(() => {
-        if (!state.data.playerCounts || state.data.playerCounts.length === 0) {
-            return null;
-        }
-
-        const limitedData = state.data.playerCounts.slice(0, 20);
-        const rows = limitedData.map(d => {
-            const joins = state.data.joinCounts.find(j => j.x === d.x);
-            const leaves = state.data.leaveCounts.find(l => l.x === d.x);
-
-            return {
+        const countAt = (counts, x) => {
+            const found = counts.find(c => c.x === x);
+            return found ? formatNumber(found.y) : '0';
+        };
+        seoTable = generateSeoTable(
+            [t('timeAxis'), t('playerCount'), t('joins'), t('leaves')],
+            points.slice(0, 20).map(d => ({
                 [t('timeAxis')]: dayjs(d.x).format('MMM D, YYYY HH:mm'),
                 [t('playerCount')]: formatNumber(d.y),
-                [t('joins')]: joins ? formatNumber(joins.y) : '0',
-                [t('leaves')]: leaves ? formatNumber(leaves.y) : '0'
-            };
-        });
-
-        return generateSeoTable(
-            [t('timeAxis'), t('playerCount'), t('joins'), t('leaves')],
-            rows,
+                [t('joins')]: countAt(graph.joinCounts, d.x),
+                [t('leaves')]: countAt(graph.leaveCounts, d.x),
+            })),
             t('seoTableCaption')
         );
-    }, [state.data.playerCounts, state.data.joinCounts, state.data.leaveCounts, t]);
+    }
 
-    // @ts-ignore
-    const ChartValue = <Chart ref={chartRef} data={{ datasets }} options={options} />
     return (
         <>
-            {showFlags.toolbar && <GraphToolbar setShowPlayersAction={setShowPlayers} />}
+            <GraphToolbar setShowPlayersAction={setShowPlayers} />
             <div className="chart-wrapper">
                 <ScreenReaderOnly id="server-graph-summary">
                     {summary}
@@ -499,7 +289,7 @@ function ServerGraphDisplay(
                     aria-label={t('ariaLabel')}
                     aria-describedby="server-graph-summary"
                 >
-                    {ChartValue}
+                    <Chart ref={chartRef} data={{ datasets }} options={options} />
                 </div>
 
                 {seoTable && (

@@ -1,14 +1,9 @@
 'use client';
 
+import type { SpecialThanks } from 'types/community';
 import { TableCell } from 'components/ui/table';
 import { CrudPage } from '../components/CrudPage';
 import { CreateEditSpecialThanksDialog } from './CreateEditSpecialThanksDialog';
-
-export interface SpecialThanks {
-  id: string;
-  display_name: string;
-  description: string;
-}
 
 export default function SpecialThanksAdminPage() {
   return (

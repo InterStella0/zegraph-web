@@ -1,6 +1,5 @@
 'use client'
 import {ReactNode, useEffect} from "react"
-
 import posthog from 'posthog-js'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
 
@@ -10,14 +9,10 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
             api_host: '/cat',
             enable_heatmaps: true,
             ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-            person_profiles: 'always', // or 'always' to create profiles for anonymous users as well
+            person_profiles: 'always',
             defaults: '2025-11-30'
         })
     }, [])
 
-    return (
-        <PHProvider client={posthog}>
-            {children}
-        </PHProvider>
-    )
+    return <PHProvider client={posthog}>{children}</PHProvider>
 }

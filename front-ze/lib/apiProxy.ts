@@ -1,35 +1,33 @@
 import {NextResponse} from "next/server";
 import { auth } from "../auth";
 import { BACKEND_DOMAIN } from "utils/generalUtils";
-import { CACHE_HEADERS, withCacheHeaders } from './cacheHeaders';
+import { type CachePreset, withCacheHeaders } from './cacheHeaders';
 
-type CachePreset = keyof typeof CACHE_HEADERS;
+type Method = "POST" | "PUT" | "DELETE";
 type RouteParams = Record<string, string>;
 type RouteContext = { params: Promise<RouteParams> };
 type RoutePath = string | ((params: RouteParams) => string);
 
+const TIMEOUT_MS = 55_000;
+
 const resolvePath = async (path: RoutePath, context?: RouteContext) =>
     typeof path === 'string' ? path : path(await context.params);
 
-async function withTimeout(endpoint: string, timeoutMs: number, run: (signal: AbortSignal) => Promise<Response>) {
+export const jsonError = (msg: string, code: number) => NextResponse.json({ msg, code }, { status: code });
+
+async function withTimeout(endpoint: string, run: (signal: AbortSignal) => Promise<Response>) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
         return await run(controller.signal);
     } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
             console.error("Backend request timed out:", endpoint);
-            return NextResponse.json(
-                { msg: "Backend request timed out", code: 504 },
-                { status: 504 }
-            );
+            return jsonError("Backend request timed out", 504);
         }
         console.error("Error calling backend endpoint:", error);
-        return NextResponse.json(
-            { msg: "Internal server error", code: 500 },
-            { status: 500 }
-        );
+        return jsonError("Internal server error", 500);
     } finally {
         clearTimeout(timeoutId);
     }
@@ -41,100 +39,70 @@ const passThrough = async (response: Response) =>
         headers: { 'Content-Type': response.headers.get('Content-Type') ?? 'application/json' },
     });
 
-function callBackend(
-    endpoint: string,
-    backendUrl: URL,
-    init: RequestInit,
-    timeoutMs: number,
-    wrap: (response: Response, data?: any) => Response = response => response
-) {
-    return withTimeout(endpoint, timeoutMs, async signal => {
-        const backendResponse = await fetch(backendUrl.toString(), { ...init, signal });
-        if (backendResponse.ok){
-            const data = await backendResponse.json();
-            return wrap(NextResponse.json(data, { status: backendResponse.status }), data);
-        }
-        return wrap(await passThrough(backendResponse));
-    });
-}
-
-export async function proxyToBackend(
-    endpoint: string,
-    req?: Request,
-    addParams?: Record<string, string>,
-    cachePreset?: CachePreset,
-    timeoutMs: number = 55_000
-) {
+/**
+ * Calls the backend as the signed-in user. With a cache preset, only a fresh successful payload
+ * (`code` 0 and not `is_stale`) is marked cacheable; everything else gets NO_CACHE.
+ */
+async function callBackend(endpoint: string, params: Record<string, string>, init: RequestInit, cache?: CachePreset) {
     const session = await auth();
-
     const backendUrl = new URL(BACKEND_DOMAIN + endpoint);
-    if (req) {
-        new URL(req.url).searchParams.forEach((value, key) => backendUrl.searchParams.set(key, value));
-    }
-    for (const [key, value] of Object.entries(addParams ?? {})) {
-        backendUrl.searchParams.set(key, value);
-    }
+    for (const [key, value] of Object.entries(params)) backendUrl.searchParams.set(key, value);
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session?.backendJwt) headers.Authorization = `Bearer ${session.backendJwt}`;
 
-    const headers: HeadersInit = { "Content-Type": "application/json" };
-    if (session?.backendJwt) {
-        headers["Authorization"] = `Bearer ${session.backendJwt}`;
-    }
-
-    return callBackend(endpoint, backendUrl, { headers }, timeoutMs, (response, data) => {
-        if (!cachePreset) return response;
+    return withTimeout(endpoint, async signal => {
+        const backendResponse = await fetch(backendUrl.toString(), { ...init, headers, signal });
+        const data = backendResponse.ok ? await backendResponse.json() : undefined;
+        const response = backendResponse.ok
+            ? NextResponse.json(data, { status: backendResponse.status })
+            : await passThrough(backendResponse);
+        if (!cache) return response;
         const cacheable = data?.code === 0 && data?.data?.is_stale !== true;
-        return withCacheHeaders(response, cacheable ? cachePreset : 'NO_CACHE');
+        return withCacheHeaders(response, cacheable ? cache : 'NO_CACHE');
     });
 }
 
-export async function proxyToBackendChange<T>(
-    endpoint: string, payload?: T | null, method: "POST" | "PUT" | "DELETE" = "POST",
-    searchParams: Record<string, any> = undefined, timeoutMs: number = 55000
-){
-    const session = await auth()
-    const addition = searchParams? `?${new URLSearchParams(searchParams).toString()}`: ''
-    const backendUrl = new URL(BACKEND_DOMAIN + endpoint + addition)
-    const headers = {"Content-Type": "application/json"}
-    if(session?.backendJwt){
-        headers['Authorization'] = `Bearer ${session.backendJwt}`
-    }
-    const body = payload == null ? undefined : JSON.stringify(payload)
-    return callBackend(endpoint, backendUrl, { method, headers, cache: "no-store", body }, timeoutMs);
+export function proxyToBackendChange(endpoint: string, payload?: unknown, method: Method = "POST", params: Record<string, string> = {}) {
+    const body = payload == null ? undefined : JSON.stringify(payload);
+    return callBackend(endpoint, params, { method, cache: "no-store", body });
 }
 
-export async function withJsonBody<T = any>(req: Request, handle: (body: T) => Promise<Response>) {
-    let body: T;
+async function withJsonBody(req: Request, handle: (body: unknown) => Promise<Response>) {
+    let body: unknown;
     try {
         body = await req.json();
     } catch {
-        return NextResponse.json({ msg: "Invalid JSON body", code: 400 }, { status: 400 });
+        return jsonError("Invalid JSON body", 400);
     }
     return handle(body);
 }
 
+/** `query`: forward the request's query string (default), or not. */
 export const proxyGet = (path: RoutePath, { cache, query = true }: { cache?: CachePreset, query?: boolean } = {}) =>
     async (req: Request, context: RouteContext) =>
-        proxyToBackend(await resolvePath(path, context), query ? req : undefined, {}, cache);
+        callBackend(await resolvePath(path, context), query ? Object.fromEntries(new URL(req.url).searchParams) : {}, {}, cache);
 
-const proxyChange = (method: "POST" | "PUT" | "DELETE") =>
-    (path: RoutePath, { body = method !== "DELETE" }: { body?: boolean } = {}) =>
+/** `body`: forward the JSON body (default except DELETE). `query`: request query params to forward when non-empty. */
+const proxyChange = (method: Method) =>
+    (path: RoutePath, { body = method !== "DELETE", query = [] }: { body?: boolean, query?: string[] } = {}) =>
         async (req: Request, context: RouteContext) => {
             const endpoint = await resolvePath(path, context);
-            if (!body) return proxyToBackendChange(endpoint, null, method);
-            return withJsonBody(req, payload => proxyToBackendChange(endpoint, payload, method));
+            const incoming = new URL(req.url).searchParams;
+            const params = Object.fromEntries(query.filter(key => incoming.get(key)).map(key => [key, incoming.get(key)]));
+            const send = (payload: unknown) => proxyToBackendChange(endpoint, payload, method, params);
+            return body ? withJsonBody(req, send) : send(null);
         };
 
 export const proxyPost = proxyChange("POST");
 export const proxyPut = proxyChange("PUT");
 export const proxyDelete = proxyChange("DELETE");
 
-export const forwardRaw = (method: "POST" | "DELETE", path: RoutePath, body: 'form' | 'text' | 'none' = 'none', timeoutMs: number = 55_000) =>
+/** Forwards the raw request body (multipart form or JSON text) for uploads; requires a signed-in user. */
+export const forwardRaw = (method: "POST" | "DELETE", path: RoutePath, body: 'form' | 'text' | 'none' = 'none') =>
     async (req: Request, context: RouteContext) => {
         const endpoint = await resolvePath(path, context);
         const session = await auth();
-        if (!session?.backendJwt) {
-            return NextResponse.json({ msg: "Unauthorized", code: 401 }, { status: 401 });
-        }
+        if (!session?.backendJwt) return jsonError("Unauthorized", 401);
         const headers: Record<string, string> = { Authorization: `Bearer ${session.backendJwt}` };
         let payload: BodyInit | undefined;
         try {
@@ -145,9 +113,9 @@ export const forwardRaw = (method: "POST" | "DELETE", path: RoutePath, body: 'fo
                 headers["Content-Type"] = "application/json";
             }
         } catch {
-            return NextResponse.json({ msg: "Invalid request body", code: 400 }, { status: 400 });
+            return jsonError("Invalid request body", 400);
         }
 
-        return withTimeout(endpoint, timeoutMs, async signal =>
+        return withTimeout(endpoint, async signal =>
             passThrough(await fetch(BACKEND_DOMAIN + endpoint, { method, headers, body: payload, signal })));
     };

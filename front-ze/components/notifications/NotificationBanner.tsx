@@ -1,38 +1,26 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, use } from 'react';
 import { Bell, X } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import { usePushNotifications } from 'lib/hooks/usePushNotifications';
 import { SteamProfile } from 'types/steam';
 
-interface NotificationBannerProps {
-  userPromise: Promise<SteamProfile | null>;
-}
+const DISMISSED_KEY = 'notification-banner-dismissed';
 
-export function NotificationBanner({ userPromise }: NotificationBannerProps) {
+// Only ever rendered on the client (NotificationBannerLoader loads it with ssr: false), so reading localStorage during render is safe.
+export function NotificationBanner({ userPromise }: { userPromise: Promise<SteamProfile | null> }) {
   const user = use(userPromise);
   const { permission, isSubscribed, isSupported, subscribe, isLoading } = usePushNotifications(user != null);
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    const wasDismissed = localStorage.getItem('notification-banner-dismissed');
-    if (wasDismissed) {
-      setDismissed(true);
-    }
-  }, []);
+  const [dismissed, setDismissed] = useState(() => !!localStorage.getItem(DISMISSED_KEY));
 
   const handleDismiss = () => {
     setDismissed(true);
-    localStorage.setItem('notification-banner-dismissed', 'true');
+    localStorage.setItem(DISMISSED_KEY, 'true');
   };
 
   const handleEnable = async () => {
-    const success = await subscribe();
-    if (success) {
-      setDismissed(true);
-      localStorage.setItem('notification-banner-dismissed', 'true');
-    }
+    if (await subscribe()) handleDismiss();
   };
 
   if (!isSupported || !user || dismissed || (permission === 'granted' && isSubscribed)) {
@@ -49,11 +37,7 @@ export function NotificationBanner({ userPromise }: NotificationBannerProps) {
             Get notified about important announcements and updates. You can manage this in settings.
           </p>
           <div className="flex gap-2 mt-2 ">
-            <Button
-              size="sm"
-              onClick={handleEnable}
-              disabled={isLoading}
-            >
+            <Button size="sm" onClick={handleEnable} disabled={isLoading}>
               {isLoading ? 'Enabling...' : 'Enable'}
             </Button>
             <Button size="sm" variant="outline" onClick={handleDismiss}>
@@ -61,10 +45,7 @@ export function NotificationBanner({ userPromise }: NotificationBannerProps) {
             </Button>
           </div>
         </div>
-        <button
-          onClick={handleDismiss}
-          className="text-muted-foreground hover:text-foreground"
-        >
+        <button onClick={handleDismiss} className="text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
       </div>

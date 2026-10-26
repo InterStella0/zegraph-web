@@ -1,6 +1,5 @@
 'use client'
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
+import dayjs from "lib/dayjs";
 import {useLocale, useTranslations} from "next-intl";
 import {Badge} from "components/ui/badge";
 import {Avatar, AvatarImage} from "components/ui/avatar";
@@ -12,8 +11,6 @@ import {secondsToHours} from "utils/generalUtils.ts";
 import {cn} from "components/lib/utils";
 import {useCommunityColors} from "lib/hooks/useCommunityColors";
 import {Gamepad2} from "lucide-react";
-
-dayjs.extend(relativeTime)
 
 const MAX_LEGEND = 4;
 

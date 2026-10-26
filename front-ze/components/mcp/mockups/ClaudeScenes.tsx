@@ -8,23 +8,20 @@ import {
     SlidersHorizontal, Telescope, TriangleAlert, X,
 } from 'lucide-react';
 import {cn} from 'components/lib/utils';
-import {MockFrame, MockScene, MockToggle, spot, TypeIn} from './primitives';
+import {range} from 'utils/generalUtils';
+import {MockBoxProps, MockButton, MockFrame, MockInput, MockPhase, MockScene, MockToggle, spot, TypeIn} from './primitives';
 
-const OPEN_CONNECTORS = [900, 1100, 1200, 2600] as const;
+const OPEN_CONNECTORS: MockPhase[] = [
+    [900, 'nav-connectors'],
+    [1100, 'nav-connectors', 'click'],
+    [1200, 'add', 'click'],
+    [2600, 'add-custom'],
+];
 
 export function ClaudeOpenConnectors() {
     const t = useTranslations('mcp.mock');
     return (
-        <MockScene
-            label={t('claudeOpenConnectorsLabel')}
-            durations={OPEN_CONNECTORS}
-            cursor={phase => [
-                {target: 'nav-connectors'},
-                {target: 'nav-connectors', click: true},
-                {target: 'add', click: true},
-                {target: 'add-custom'},
-            ][phase]}
-        >
+        <MockScene label={t('claudeOpenConnectorsLabel')} phases={OPEN_CONNECTORS}>
             {phase => (
                 <ClaudeSettings
                     address={phase === 0 ? 'claude.ai/settings/general' : 'claude.ai/settings/connectors'}
@@ -46,9 +43,9 @@ export function ClaudeOpenConnectors() {
                     {phase >= 2 && (
                         <ClaudeMenu className="right-3 top-10 w-44">
                             <ClaudeMenuRow>{t('claudeBrowseConnectors')}</ClaudeMenuRow>
-                            <div data-mock="add-custom" className={cn('rounded-md', spot(phase === 3))}>
-                                <ClaudeMenuRow active={phase === 3}>{t('claudeAddCustomConnector')}</ClaudeMenuRow>
-                            </div>
+                            <ClaudeMenuRow data-mock="add-custom" active={phase === 3} spotlight={phase === 3}>
+                                {t('claudeAddCustomConnector')}
+                            </ClaudeMenuRow>
                         </ClaudeMenu>
                     )}
                 </ClaudeSettings>
@@ -57,22 +54,18 @@ export function ClaudeOpenConnectors() {
     );
 }
 
-const ADD_CONNECTOR = [900, 1500, 2400, 1100, 2600] as const;
+const ADD_CONNECTOR: MockPhase[] = [
+    [900, 'name'],
+    [1500, 'name'],
+    [2400, 'url'],
+    [1100, 'continue'],
+    [2600, 'continue', 'click'],
+];
 
 export function ClaudeAddConnector({mcpUrl}: { mcpUrl: string }) {
     const t = useTranslations('mcp.mock');
     return (
-        <MockScene
-            label={t('claudeAddConnectorLabel')}
-            durations={ADD_CONNECTOR}
-            cursor={phase => [
-                {target: 'name'},
-                {target: 'name'},
-                {target: 'url'},
-                {target: 'continue'},
-                {target: 'continue', click: true},
-            ][phase]}
-        >
+        <MockScene label={t('claudeAddConnectorLabel')} phases={ADD_CONNECTOR}>
             {phase => (
                 <ClaudeSettings address="claude.ai/settings/connectors" active="connectors">
                     <ClaudeDialog title={t('claudeAddCustomConnector')}>
@@ -82,20 +75,10 @@ export function ClaudeAddConnector({mcpUrl}: { mcpUrl: string }) {
                             })}
                         </p>
                         <ClaudeField data-mock="name" active={phase === 1} hint={t('claudeNameHint')}>
-                            <TypeIn
-                                text="ZE Graph"
-                                placeholder={t('name')}
-                                state={phase === 0 ? 'empty' : phase === 1 ? 'typing' : 'done'}
-                                ms={900}
-                            />
+                            <TypeIn text="ZE Graph" placeholder={t('name')} phase={phase} at={1} ms={900} />
                         </ClaudeField>
                         <ClaudeField data-mock="url" active={phase === 2} hint={t('claudeServerUrlHint')}>
-                            <TypeIn
-                                text={mcpUrl}
-                                placeholder={t('claudeServerUrl')}
-                                state={phase < 2 ? 'empty' : phase === 2 ? 'typing' : 'done'}
-                                ms={1700}
-                            />
+                            <TypeIn text={mcpUrl} placeholder={t('claudeServerUrl')} phase={phase} at={2} ms={1700} />
                         </ClaudeField>
                         <ClaudeDialogFooter>
                             <ClaudeButton>{t('cancel')}</ClaudeButton>
@@ -114,7 +97,7 @@ export function ClaudeAddConnector({mcpUrl}: { mcpUrl: string }) {
     );
 }
 
-const AUTH = [500, 1800, 2600] as const;
+const AUTH: MockPhase[] = [[500, 'continue-origin'], [1800, 'no-sign-in'], [2600, 'auth-add', 'click']];
 const AUTH_OPTIONS = [
     ['claudeSignInNow', 'claudeSignInNowHint'],
     ['claudeSignInLater', 'claudeSignInLaterHint'],
@@ -124,15 +107,7 @@ const AUTH_OPTIONS = [
 export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
     const t = useTranslations('mcp.mock');
     return (
-        <MockScene
-            label={t('claudeAuthLabel')}
-            durations={AUTH}
-            cursor={phase => [
-                {target: 'continue-origin'},
-                {target: 'no-sign-in'},
-                {target: 'auth-add', click: true},
-            ][phase]}
-        >
+        <MockScene label={t('claudeAuthLabel')} phases={AUTH}>
             {phase => (
                 <ClaudeSettings address="claude.ai/settings/connectors" active="connectors">
                     <ClaudeDialog title={t('claudeAddCustomConnector')}>
@@ -159,9 +134,7 @@ export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-1.5">
                                                 {t(label)}
-                                                {selected && (
-                                                    <span className="rounded bg-(--m-hover) px-1 text-[9px] text-(--m-soft)">{t('claudeDetected')}</span>
-                                                )}
+                                                {selected && <ClaudeCount>{t('claudeDetected')}</ClaudeCount>}
                                             </div>
                                             <div className="text-[10px] text-(--m-muted)">{t(hint)}</div>
                                         </div>
@@ -175,14 +148,10 @@ export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
                         </div>
                         <div className="space-y-1.5">
                             <div className="font-semibold">{t('claudeRequestHeaders')}</div>
-                            <ClaudeButton className="gap-1"><Plus className="size-3" /> {t('claudeAddHeader')}</ClaudeButton>
+                            <ClaudeButton><Plus className="size-3" /> {t('claudeAddHeader')}</ClaudeButton>
                         </div>
                         <ClaudeDialogFooter>
-                            <ClaudeButton
-                                data-mock="continue-origin"
-                                primary
-                                className="invisible absolute right-0 top-1"
-                            >
+                            <ClaudeButton data-mock="continue-origin" primary className="invisible absolute right-0 top-1">
                                 {t('continue')}
                             </ClaudeButton>
                             <ClaudeButton>{t('back')}</ClaudeButton>
@@ -195,24 +164,20 @@ export function ClaudeAuth({mcpUrl}: { mcpUrl: string }) {
     );
 }
 
-const CONNECT = [1100, 900, 1200, 1100, 500, 2600] as const;
+const CONNECT: MockPhase[] = [
+    [1100, 'connect'],
+    [900, 'connect', 'click'],
+    [1200, 'permission', 'click'],
+    [1100, 'always'],
+    [500, 'always', 'click'],
+    [2600],
+];
 const TOOLS = ['Get server stats', 'List servers', 'Search players'] as const;
 
 export function ClaudeConnect({mcpUrl}: { mcpUrl: string }) {
     const t = useTranslations('mcp.mock');
     return (
-        <MockScene
-            label={t('claudeConnectLabel')}
-            durations={CONNECT}
-            cursor={phase => [
-                {target: 'connect'},
-                {target: 'connect', click: true},
-                {target: 'permission', click: true},
-                {target: 'always'},
-                {target: 'always', click: true},
-                null,
-            ][phase]}
-        >
+        <MockScene label={t('claudeConnectLabel')} phases={CONNECT}>
             {phase => {
                 const always = phase === 5;
                 return (
@@ -250,7 +215,7 @@ export function ClaudeConnect({mcpUrl}: { mcpUrl: string }) {
                                     <div className="relative flex items-center gap-1.5">
                                         <ChevronDown className="size-3 text-(--m-muted)" />
                                         <span>{t('claudeReadOnlyTools')}</span>
-                                        <span className="rounded bg-(--m-hover) px-1 text-[9px] text-(--m-soft)">37</span>
+                                        <ClaudeCount>37</ClaudeCount>
                                         <span
                                             data-mock="permission"
                                             className={cn(
@@ -264,18 +229,13 @@ export function ClaudeConnect({mcpUrl}: { mcpUrl: string }) {
                                         </span>
                                         {(phase === 3 || phase === 4) && (
                                             <ClaudeMenu className="right-0 top-7 w-40">
-                                                <div data-mock="always" className={cn('rounded-md', spot(true))}>
-                                                    <ClaudeMenuRow icon={<CircleCheck className="size-3" />} active>
-                                                        {t('claudeAlwaysAllow')}
-                                                    </ClaudeMenuRow>
-                                                </div>
-                                                <ClaudeMenuRow
-                                                    icon={<Hand className="size-3" />}
-                                                    trailing={<Check className="size-3 text-(--m-link)" />}
-                                                >
+                                                <ClaudeMenuRow data-mock="always" icon={<CircleCheck />} active spotlight>
+                                                    {t('claudeAlwaysAllow')}
+                                                </ClaudeMenuRow>
+                                                <ClaudeMenuRow icon={<Hand />} trailing={<Check className="text-(--m-link)" />}>
                                                     {t('claudeNeedsApproval')}
                                                 </ClaudeMenuRow>
-                                                <ClaudeMenuRow icon={<Ban className="size-3" />}>{t('claudeBlocked')}</ClaudeMenuRow>
+                                                <ClaudeMenuRow icon={<Ban />}>{t('claudeBlocked')}</ClaudeMenuRow>
                                             </ClaudeMenu>
                                         )}
                                     </div>
@@ -312,23 +272,19 @@ function ToolPermission({value}: { value: number }) {
     );
 }
 
-const CHAT_TOOLS = [900, 900, 1000, 900, 2600] as const;
+const CHAT_TOOLS: MockPhase[] = [
+    [900, 'composer-plus'],
+    [900, 'composer-plus', 'click'],
+    [1000, 'menu-connectors'],
+    [900, 'zegraph-toggle'],
+    [2600, 'zegraph-toggle', 'click'],
+];
 const CHAT_CONNECTORS = [['Gmail', false], ['ZE Graph', true], ['Google Drive', false]] as const;
 
 export function ClaudeChatTools() {
     const t = useTranslations('mcp.mock');
     return (
-        <MockScene
-            label={t('claudeChatToolsLabel')}
-            durations={CHAT_TOOLS}
-            cursor={phase => [
-                {target: 'composer-plus'},
-                {target: 'composer-plus', click: true},
-                {target: 'menu-connectors'},
-                {target: 'zegraph-toggle'},
-                {target: 'zegraph-toggle', click: true},
-            ][phase]}
-        >
+        <MockScene label={t('claudeChatToolsLabel')} phases={CHAT_TOOLS}>
             {phase => (
                 <MockFrame variant="claude" address="claude.ai/new">
                     <div className="flex h-full min-h-80 flex-col items-center gap-4 bg-(--m-panel) p-3 pt-7">
@@ -353,49 +309,39 @@ export function ClaudeChatTools() {
                             </div>
                             {phase >= 1 && (
                                 <ClaudeMenu className="left-1 top-full mt-1 w-40">
-                                    <ClaudeMenuRow icon={<Paperclip className="size-3" />}>{t('claudeAddFiles')}</ClaudeMenuRow>
+                                    <ClaudeMenuRow icon={<Paperclip />}>{t('claudeAddFiles')}</ClaudeMenuRow>
                                     <ClaudeMenuDivider />
-                                    <ClaudeMenuRow icon={<ScrollText className="size-3" />} trailing={<ChevronRight className="size-3" />}>
-                                        {t('skills')}
+                                    <ClaudeMenuRow icon={<ScrollText />} trailing={<ChevronRight />}>{t('skills')}</ClaudeMenuRow>
+                                    <ClaudeMenuRow
+                                        data-mock="menu-connectors"
+                                        icon={<Blocks />}
+                                        trailing={<ChevronRight />}
+                                        active={phase >= 2}
+                                    >
+                                        {t('connectors')}
                                     </ClaudeMenuRow>
-                                    <div data-mock="menu-connectors">
-                                        <ClaudeMenuRow
-                                            icon={<Blocks className="size-3" />}
-                                            trailing={<ChevronRight className="size-3" />}
-                                            active={phase >= 2}
-                                        >
-                                            {t('connectors')}
-                                        </ClaudeMenuRow>
-                                    </div>
                                     <ClaudeMenuDivider />
-                                    <ClaudeMenuRow icon={<Telescope className="size-3" />}>{t('claudeResearch')}</ClaudeMenuRow>
+                                    <ClaudeMenuRow icon={<Telescope />}>{t('claudeResearch')}</ClaudeMenuRow>
                                 </ClaudeMenu>
                             )}
                             {phase >= 2 && (
                                 <ClaudeMenu className="left-[10.75rem] top-7 w-40 max-[420px]:left-auto max-[420px]:right-1">
-                                    <ClaudeMenuRow icon={<Plus className="size-3" />} trailing={<ChevronRight className="size-3" />}>
-                                        {t('claudeAddConnector')}
-                                    </ClaudeMenuRow>
-                                    <ClaudeMenuRow icon={<BriefcaseBusiness className="size-3" />}>{t('claudeManageConnectors')}</ClaudeMenuRow>
+                                    <ClaudeMenuRow icon={<Plus />} trailing={<ChevronRight />}>{t('claudeAddConnector')}</ClaudeMenuRow>
+                                    <ClaudeMenuRow icon={<BriefcaseBusiness />}>{t('claudeManageConnectors')}</ClaudeMenuRow>
                                     <ClaudeMenuDivider />
                                     {CHAT_CONNECTORS.map(([name, ours]) => (
-                                        <div
+                                        <ClaudeMenuRow
                                             key={name}
                                             data-mock={ours ? 'zegraph-toggle' : undefined}
-                                            className={cn('rounded-md', ours && spot(phase >= 3))}
+                                            spotlight={ours && phase >= 3}
+                                            icon={ours ? <ZeLogo className="size-3" /> : <AppTile name={name} />}
+                                            trailing={<MockToggle on={!ours || phase === 4} />}
                                         >
-                                            <ClaudeMenuRow
-                                                icon={ours ? <ZeLogo className="size-3" /> : <AppTile name={name} />}
-                                                trailing={<MockToggle on={!ours || phase === 4} />}
-                                            >
-                                                {name}
-                                            </ClaudeMenuRow>
-                                        </div>
+                                            {name}
+                                        </ClaudeMenuRow>
                                     ))}
                                     <ClaudeMenuDivider />
-                                    <ClaudeMenuRow icon={<Search className="size-3" />} trailing={<ChevronRight className="size-3" />}>
-                                        {t('claudeToolAccess')}
-                                    </ClaudeMenuRow>
+                                    <ClaudeMenuRow icon={<Search />} trailing={<ChevronRight />}>{t('claudeToolAccess')}</ClaudeMenuRow>
                                 </ClaudeMenu>
                             )}
                         </div>
@@ -446,6 +392,7 @@ function ClaudeSettings({address, active, children}: { address: string, active: 
 }
 
 const CONNECTOR_ROWS = [['GitHub', true], ['Gmail', true], ['Google Drive', false]] as const;
+const CONNECTOR_GRID = 'grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem] border-b border-(--m-border)';
 
 function ClaudeConnectorsPage({highlightAdd = false}: { highlightAdd?: boolean }) {
     const t = useTranslations('mcp.mock');
@@ -461,24 +408,18 @@ function ClaudeConnectorsPage({highlightAdd = false}: { highlightAdd?: boolean }
                     <Search className="size-3" />
                 </span>
                 <SlidersHorizontal className="hidden size-3.5 text-(--m-soft) sm:block" />
-                <span
-                    data-mock="add"
-                    className={cn(
-                        'ml-auto inline-flex items-center gap-1 rounded-md bg-(--m-primary) px-2 py-1 font-medium text-(--m-primary-fg) sm:ml-0',
-                        spot(highlightAdd),
-                    )}
-                >
+                <MockButton data-mock="add" primary className={cn('ml-auto px-2 sm:ml-0', spot(highlightAdd))}>
                     <Plus className="size-3" /> {t('add')} <ChevronDown className="size-3" />
-                </span>
+                </MockButton>
             </div>
             <div>
-                <div className="grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem] border-b border-(--m-border) pb-1 text-(--m-soft)">
+                <div className={cn(CONNECTOR_GRID, 'pb-1 text-(--m-soft)')}>
                     <span>{t('claudeConnectorColumn')}</span>
                     <span>{t('claudeTypeColumn')}</span>
                     <span>{t('claudeStatusColumn')}</span>
                 </div>
                 {CONNECTOR_ROWS.map(([name, connected]) => (
-                    <div key={name} className="grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem] items-center border-b border-(--m-border) py-1.5">
+                    <div key={name} className={cn(CONNECTOR_GRID, 'items-center py-1.5')}>
                         <span className="flex items-center gap-1.5 truncate font-medium">
                             <AppTile name={name} /> {name}
                         </span>
@@ -513,46 +454,22 @@ function ClaudeDialogFooter({children}: { children: ReactNode }) {
     return <div className="relative flex justify-end gap-1.5 pt-1">{children}</div>;
 }
 
-function ClaudeField({children, hint, active, ...rest}: {
-    children: ReactNode,
-    hint: string,
-    active?: boolean,
-    'data-mock'?: string,
-}) {
+function ClaudeField({hint, active, ...rest}: MockBoxProps & { hint: string, active?: boolean }) {
     return (
         <div className="space-y-1">
-            <div
-                {...rest}
-                className={cn(
-                    'truncate rounded-lg border bg-(--m-field) px-2 py-1.5 transition-colors',
-                    active ? 'border-(--m-soft)' : 'border-(--m-border)',
-                )}
-            >
-                {children}
-            </div>
+            <MockInput {...rest} active={active} className={cn('rounded-lg bg-(--m-field)', active && 'border-(--m-soft)')} />
             <div className="text-[10px] text-(--m-muted)">{hint}</div>
         </div>
     );
 }
 
-function ClaudeButton({children, primary, className, ...rest}: {
-    children: ReactNode,
-    primary?: boolean,
-    className?: string,
-    'data-mock'?: string,
-}) {
-    return (
-        <span
-            {...rest}
-            className={cn(
-                'inline-flex items-center justify-center rounded-md px-2.5 py-1 font-medium',
-                primary ? 'bg-(--m-primary) text-(--m-primary-fg)' : 'bg-(--m-hover)',
-                className,
-            )}
-        >
-            {children}
-        </span>
-    );
+/** Claude's secondary buttons are borderless and grey. */
+function ClaudeButton({primary, className, ...rest}: MockBoxProps & { primary?: boolean }) {
+    return <MockButton {...rest} primary={primary} className={cn(!primary && 'border-0 bg-(--m-hover)', className)} />;
+}
+
+function ClaudeCount({children}: { children: ReactNode }) {
+    return <span className="rounded bg-(--m-hover) px-1 text-[9px] text-(--m-soft)">{children}</span>;
 }
 
 function ClaudeMenu({className, children}: { className?: string, children: ReactNode }) {
@@ -570,17 +487,19 @@ function ClaudeMenuDivider() {
     return <div className="mx-1 my-1 border-t border-(--m-border)" />;
 }
 
-function ClaudeMenuRow({icon, trailing, active, children}: {
+function ClaudeMenuRow({icon, trailing, active, spotlight = false, children, ...rest}: {
     icon?: ReactNode,
     trailing?: ReactNode,
     active?: boolean,
+    spotlight?: boolean,
     children: ReactNode,
+    'data-mock'?: string,
 }) {
     return (
-        <div className={cn('flex items-center gap-1.5 rounded-md px-1.5 py-1', active && 'bg-(--m-hover)')}>
-            {icon && <span className="flex text-(--m-soft)">{icon}</span>}
+        <div {...rest} className={cn('flex items-center gap-1.5 rounded-md px-1.5 py-1', active && 'bg-(--m-hover)', spot(spotlight))}>
+            {icon && <span className="flex text-(--m-soft) [&>svg]:size-3">{icon}</span>}
             <span className="flex-1 truncate">{children}</span>
-            {trailing && <span className="flex text-(--m-muted)">{trailing}</span>}
+            {trailing && <span className="flex text-(--m-muted) [&>svg]:size-3">{trailing}</span>}
         </div>
     );
 }
@@ -606,7 +525,7 @@ function ZeLogo({className}: { className?: string }) {
 function ClaudeSpark({className}: { className?: string }) {
     return (
         <svg viewBox="0 0 24 24" className={className} aria-hidden>
-            {Array.from({length: 12}, (_, i) => (
+            {range(12).map(i => (
                 <rect key={i} x="11.1" y="1" width="1.8" height="10" rx="0.9" fill="currentColor" transform={`rotate(${i * 30} 12 12)`} />
             ))}
         </svg>

@@ -8,6 +8,8 @@ import {fetchGlobalContinents, fetchPopulationSeed} from "components/home/homeDa
 import {getTranslations} from "next-intl/server";
 import {Metadata} from "next";
 import {DOMAIN, socialMeta} from "utils/generalUtils.ts";
+import {JsonLd} from "components/common/JsonLd";
+import {DISCORD_URL, REPO_URL} from "components/ui/siteLinks";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
@@ -16,9 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
         title,
         description,
-        alternates: {
-            canonical: '/'
-        },
+        alternates: {canonical: '/'},
         ...socialMeta({title, description, url: '/'}),
     }
 }
@@ -29,34 +29,24 @@ export default async function Page() {
     const populationPromise = communitiesDataPromise.then(fetchPopulationSeed).catch(() => null);
     const t = await getTranslations('home');
 
+    const entity = (type: string, fields: object) => ({
+        "@context": "https://schema.org",
+        "@type": type,
+        "name": "ZE Graph",
+        "url": DOMAIN,
+        ...fields,
+    });
     const jsonLd = [
-        {
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            "name": "ZE Graph",
-            "url": DOMAIN,
+        entity("Organization", {
             "logo": `${DOMAIN}/icon-512x512.png`,
             "description": t('tagline'),
-            "sameAs": [
-                "https://goes.queeniemella.cc/s/discord-zegraph",
-                "https://github.com/InterStella0/zegraph-web",
-            ],
-        },
-        {
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            "name": "ZE Graph",
-            "url": DOMAIN,
-            "description": t('tagline'),
-            "inLanguage": "en",
-        },
+            "sameAs": [DISCORD_URL, REPO_URL],
+        }),
+        entity("WebSite", {"description": t('tagline'), "inLanguage": "en"}),
     ];
 
     return <>
-        <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{__html: JSON.stringify(jsonLd)}}
-        />
+        <JsonLd data={jsonLd} />
         <div className="min-h-screen py-2 sm:py-4">
             <div className="container max-w-screen-xl mx-auto px-1 sm:px-4">
                 <div className="flex flex-col gap-4 sm:gap-6">

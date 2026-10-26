@@ -7,89 +7,64 @@ import {
     fetchUrl,
     formatHours,
     formatTitle,
+    orNull,
     StillCalculate
 } from "utils/generalUtils";
 import {getPlayerDetailed, getPlayerStatSeeds, PlayerInfo} from "./util";
 import {Metadata} from "next";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
+import dayjs from "lib/dayjs";
 import {PlayerMostPlayedMap, PlayerProfilePicture, PlayerRegionTime, PlayerSessionPage} from "types/players.ts";
 import {Server} from "types/community.ts";
 import ResolvePlayerInformation from "./ResolvePlayerInformation.tsx";
 import {AdSpot} from "components/ui/AdSpot";
+import {JsonLd} from "components/common/JsonLd";
 import getServerUser from "../../../../getServerUser";
 import {recordView} from "lib/recordView";
 
-dayjs.extend(relativeTime);
 export async function generateMetadata({ params}: {
     params: Promise<{ server_slug: string, player_id: string }>
 }): Promise<Metadata> {
     return serverMetadata(params, async (server, t, { player_id }) => {
-        let player: PlayerInfo | null = null
+        let player: PlayerInfo
         try{
             player = await getPlayerDetailed(server.id, player_id, "raise")
         }catch(error){
             return metadataFallback(error, "player", formatTitle(player_id), server, t)
         }
+        const playerPath = `/players/${player.id}`
+        const [pages, pfp, mostPlayed, regions] = await Promise.all([
+            orNull<PlayerSessionPage>(fetchServerUrl(server.id, `${playerPath}/sessions`, { params: { page: 1 }, next: { revalidate: threeMinutes } })),
+            orNull<PlayerProfilePicture>(fetchUrl(`${playerPath}/pfp`, { next: { revalidate: oneDay } })),
+            orNull<PlayerMostPlayedMap[]>(fetchServerUrl(server.id, `${playerPath}/most_played_maps`)),
+            orNull<PlayerRegionTime[]>(fetchServerUrl(server.id, `${playerPath}/regions`)),
+        ])
         let description = t('playerHas', {hours: formatHours(player.total_playtime)})
-        try{
-            const pages: PlayerSessionPage = await fetchServerUrl(
-                server.id, `/players/${player.id}/sessions`, { params: { page: 1 }, next: { revalidate: threeMinutes } },
-            )
-            const totalRows = pages.rows.length * pages.total_pages
-            description += t('aboutSessions', {count: totalRows})
-        }catch (error){
-
-        }
-        if (player.ranks){
+        if (pages)
+            description += t('aboutSessions', {count: pages.rows.length * pages.total_pages})
+        if (player.ranks)
             description += ' ' + t('andRank', {rank: addOrdinalSuffix(player.ranks.server_playtime)})
-        }
         description += ' ' + t('onServer', {name: server.community_name})
         if (player.category){
-            let typePlayer
-            if (player.category === "mixed"){
-                const higherType =  player.casual_playtime > player.tryhard_playtime? "casual": "tryhard"
-                typePlayer = t('playerType', {category: player.category, hours: formatHours(player[`${higherType}_playtime`]), type: higherType})
-            }else{
-                typePlayer = t('playerType', {category: player.category, hours: formatHours(player[`${player.category}_playtime`]), type: player.category})
-            }
-            description += ` ${typePlayer}`;
+            const dominant = player.casual_playtime > player.tryhard_playtime ? "casual" : "tryhard"
+            const type = player.category === "mixed" ? dominant : player.category
+            description += ' ' + t('playerType', {category: player.category, hours: formatHours(player[`${type}_playtime`]), type})
         }
         if (player.online_since){
             description += ' ' + t('currentlyOnline', {time: dayjs(player.online_since).fromNow()});
         }else if (player.last_played_ended){
             description += ' ' + t('lastOnline', {time: dayjs(player.last_played_ended).fromNow()});
         }
-        let image = ""
-        try{
-            const pfp: PlayerProfilePicture | null = await fetchUrl(`/players/${player.id}/pfp`, {  next: { revalidate: oneDay } })
-            image = pfp.full
-        }catch(error){
-
-        }
-
-        try{
-            const mostPlayed: PlayerMostPlayedMap[] = await fetchServerUrl(server.id, `/players/${player.id}/most_played_maps`)
-            if (mostPlayed) {
-                const fav = mostPlayed[0]
-                description += ` Likes ${fav.map} with a playtime of ${formatHours(fav.duration)}.`
-            }
-        }catch(error){}
-        try{
-            const regions: PlayerRegionTime[] = await fetchServerUrl(server.id, `/players/${player.id}/regions`)
-            if (regions) {
-                regions.sort((a, b) => b.duration - a.duration);
-                const region = regions[0]
-                description += ` Mainly plays during ${region.name} time.`
-            }
-        }catch (error){
-
-        }
+        const favourite = mostPlayed?.[0]
+        if (favourite)
+            description += ` Likes ${favourite.map} with a playtime of ${formatHours(favourite.duration)}.`
+        const region = regions?.sort((a, b) => b.duration - a.duration)[0]
+        if (region)
+            description += ` Mainly plays during ${region.name} time.`
         return {
             title: `${player.name} on ${server.community_name}`,
             description,
-            path: `/players/${player.id}`,
-            social: {images: [image], noTwitter: true},
+            path: playerPath,
+            social: {images: [pfp?.full ?? ""], noTwitter: true},
         }
     })
 }
@@ -109,66 +84,47 @@ export default async function Page({ params, searchParams }: {
     const server = await getServerSlugOrNotFound(server_slug);
     const statSeeds = getPlayerStatSeeds(server.id, player_id, !!period);
 
-    const serverPlayerPromise = (async () => {
-        try {
-            const player = await getPlayerDetailed(server.id, player_id, "return")
-            return {player, server} as ServerPlayerDetailedWithError
-        } catch (error: any) {
-            return {
-                player: null,
-                server,
-                error: {
-                    code: error?.code || 500,
-                    message: error?.message || "An error occurred"
-                }
-            } as ServerPlayerDetailedWithError
-        }
-    })()
-
-    const serverPlayer = await serverPlayerPromise;
-    let jsonLd = null;
-    let viewsPromise: Promise<number | null> = Promise.resolve(null);
-
-    if (serverPlayer.player && !('code' in serverPlayer.player)) {
-        const player = serverPlayer.player;
-        viewsPromise = recordView('players', player.id);
-        const server = serverPlayer.server;
-
-        jsonLd = {
-            "@context": "https://schema.org",
-            "@type": "Person",
-            "name": player.name,
-            "identifier": player.id.toString(),
-            "memberOf": {
-                "@type": "Organization",
-                "name": server.community_name
-            },
-            "description": `Player on ${server.community_name} with ${formatHours(player.total_playtime)} of playtime`,
-            "mainEntityOfPage": {
-                "@type": "ProfilePage",
-                "url": `${DOMAIN}/servers/${server.gotoLink}/players/${player.id}`
+    const serverPlayerPromise: Promise<ServerPlayerDetailedWithError> = getPlayerDetailed(server.id, player_id, "return")
+        .then(player => ({player, server}))
+        .catch(error => ({
+            player: null,
+            server,
+            error: {
+                code: error?.code || 500,
+                message: error?.message || "An error occurred"
             }
-        };
+        }))
 
-        if (player.ranks?.server_playtime) {
-            jsonLd["award"] = `${addOrdinalSuffix(player.ranks.server_playtime)} rank on ${server.community_name}`;
-        }
-    }
+    const { player } = await serverPlayerPromise;
+    const found = player && !('code' in player) ? player : null;
+    const jsonLd = found && {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "name": found.name,
+        "identifier": found.id.toString(),
+        "memberOf": {
+            "@type": "Organization",
+            "name": server.community_name
+        },
+        "description": `Player on ${server.community_name} with ${formatHours(found.total_playtime)} of playtime`,
+        "mainEntityOfPage": {
+            "@type": "ProfilePage",
+            "url": `${DOMAIN}/servers/${server.gotoLink}/players/${found.id}`
+        },
+        ...(found.ranks?.server_playtime && {
+            "award": `${addOrdinalSuffix(found.ranks.server_playtime)} rank on ${server.community_name}`
+        }),
+    };
 
     return (
         <>
-            {jsonLd && (
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-                />
-            )}
+            <JsonLd data={jsonLd} />
             <div className="p-4">
                 <AdSpot className="mb-4" />
                 <ResolvePlayerInformation
                     serverPlayerPromise={serverPlayerPromise}
                     userPromise={getServerUser()}
-                    viewsPromise={viewsPromise}
+                    viewsPromise={found ? recordView('players', found.id) : Promise.resolve(null)}
                     statSeeds={statSeeds}
                 />
             </div>

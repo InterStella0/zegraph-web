@@ -1,7 +1,7 @@
 'use client'
-import { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
-import dayjs from 'dayjs';
-import {DateStateProvider} from "types/graphServers";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import dayjs, { Dayjs } from "lib/dayjs";
+import {DateState, DateStateProvider} from "types/graphServers";
 
 export enum DateSources {
     URL,
@@ -13,63 +13,31 @@ export enum DateSources {
 
 const LIVE_POLL_INTERVAL_MS = 150000;
 
-const dateReducer = (state, action) => {
-    switch (action.type) {
-        case 'SET_DATES':
-            return {
-                ...state,
-                start: action.start,
-                end: action.end,
-                source: action.source,
-                isLive: action.source === DateSources.LIVE,
-                timestamp: Date.now()
-            };
-        default:
-            return state;
-    }
-};
-
 const roundedNow = () => dayjs().startOf('minute');
 
-const getInitialDates = () => {
+const dateState = (start: Dayjs, end: Dayjs, source: DateSources): DateState =>
+    ({ start, end, source, isLive: source === DateSources.LIVE, timestamp: dayjs() });
+
+const getInitialDates = (): DateState => {
     const now = roundedNow();
-    return {
-        start: now.subtract(6, 'hours'),
-        end: now,
-        source: DateSources.URL,
-        timestamp: dayjs(),
-        isLive: true,
-        setDates: () => {},
-        goLive: () => {}
-    };
+    return { ...dateState(now.subtract(6, 'hours'), now, DateSources.URL), isLive: true };
 };
-const DateContext = createContext<DateStateProvider>(getInitialDates());
+const DateContext = createContext<DateStateProvider>({ ...getInitialDates(), setDates: () => {}, goLive: () => {} });
 
-export function DateProvider({ children }) {
-    const [dateState, dispatch] = useReducer(dateReducer, getInitialDates());
-    const dateStateRef = useRef(dateState);
+export function DateProvider({ children }: { children: ReactNode }) {
+    const [state, setState] = useState(getInitialDates);
 
-    useEffect(() => {
-        dateStateRef.current = dateState;
-    }, [dateState]);
+    const setDates = useCallback((start: Dayjs, end: Dayjs, source: DateSources) => {
+        setState(dateState(start, end, source));
+    }, []);
 
-    const setDates = useCallback((start: dayjs.Dayjs, end: dayjs.Dayjs, source: DateSources) => {
-        dispatch({ type: 'SET_DATES', start, end, source });
-
-        if (source !== DateSources.ZOOM) {
-        }
-    }, [
-    ]);
-
-    const goLive = useCallback(() => {
-        const { start, end } = dateStateRef.current;
-        const durationMs = end.diff(start);
+    const goLive = useCallback(() => setState(({ start, end }) => {
         const now = roundedNow();
-        setDates(now.subtract(durationMs, 'ms'), now, DateSources.LIVE);
-    }, [setDates]);
+        return dateState(now.subtract(end.diff(start), 'ms'), now, DateSources.LIVE);
+    }), []);
 
     useEffect(() => {
-        if (!dateState.isLive) return;
+        if (!state.isLive) return;
 
         const tick = () => {
             if (document.visibilityState === 'visible') goLive();
@@ -82,24 +50,13 @@ export function DateProvider({ children }) {
             clearInterval(intervalId);
             document.removeEventListener('visibilitychange', tick);
         };
-    }, [dateState.isLive, goLive]);
+    }, [state.isLive, goLive]);
 
-    const value = {
-        ...dateState,
-        setDates,
-        goLive
-    };
     return (
-        <DateContext.Provider value={value}>
+        <DateContext.Provider value={{ ...state, setDates, goLive }}>
             {children}
         </DateContext.Provider>
     );
 }
 
-export const useDateState = () => {
-    const context = useContext(DateContext);
-    if (!context) {
-        throw new Error('useDateState must be used within DateProvider');
-    }
-    return context;
-};
+export const useDateState = () => useContext(DateContext);

@@ -1,39 +1,18 @@
 import { Object3D } from 'three'
 
-export interface ProcessingOptions {
-  chunkSize?: number
-  onProgress?: (percent: number) => void
-  yieldInterval?: number
-}
-
+/** Visits every object of the scene, yielding to the event loop between chunks so big scenes don't freeze the page. */
 export async function traverseSceneChunked(
   scene: Object3D,
   callback: (obj: Object3D) => void | Promise<void>,
-  options: ProcessingOptions = {}
+  { chunkSize = 150, onProgress }: { chunkSize?: number, onProgress?: (percent: number) => void } = {}
 ): Promise<void> {
-  const { chunkSize = 150, onProgress, yieldInterval = 0 } = options
-
   const objects: Object3D[] = []
   scene.traverse(obj => objects.push(obj))
 
-  const total = objects.length
-  let processed = 0
-
-  for (let i = 0; i < total; i += chunkSize) {
-    const chunk = objects.slice(i, Math.min(i + chunkSize, total))
-
-    for (const obj of chunk) {
-      await callback(obj)
-    }
-
-    processed += chunk.length
-
-    if (onProgress) {
-      onProgress((processed / total) * 100)
-    }
-
-    if (i + chunkSize < total) {
-      await new Promise(resolve => setTimeout(resolve, yieldInterval))
-    }
+  for (let i = 0; i < objects.length; i += chunkSize) {
+    const chunk = objects.slice(i, i + chunkSize)
+    for (const obj of chunk) await callback(obj)
+    onProgress?.(((i + chunk.length) / objects.length) * 100)
+    if (i + chunkSize < objects.length) await new Promise(resolve => setTimeout(resolve, 0))
   }
 }

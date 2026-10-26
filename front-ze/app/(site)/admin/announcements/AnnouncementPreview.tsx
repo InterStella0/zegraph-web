@@ -33,14 +33,13 @@ function usePaneSize() {
   return [ref, size] as const;
 }
 
-interface AnnouncementPreviewProps {
+export function AnnouncementPreview({ type, title, content, publishedAt }: {
   type: AnnouncementType;
   title: string;
   content: string;
   publishedAt: string;
-}
-
-export function AnnouncementPreview({ type, title, content, publishedAt }: AnnouncementPreviewProps) {
+}) {
+  const isRich = type === 'Rich';
   const [paneRef, pane] = usePaneSize();
   const padding = pane.width > 0 && pane.width < 640 ? PANE_PADDING_NARROW : PANE_PADDING;
   const available = Math.max(pane.width - padding * 2, 0);
@@ -55,10 +54,10 @@ export function AnnouncementPreview({ type, title, content, publishedAt }: Annou
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between border-b px-4 py-2 text-xs text-muted-foreground">
         <span className="font-medium uppercase tracking-wide">
-          {type === 'Rich' ? 'Popup preview' : 'Banner preview'}
+          {isRich ? 'Popup preview' : 'Banner preview'}
         </span>
-        {type === 'Rich' && narrow && <span>Narrow screen width</span>}
-        {type === 'Rich' && !narrow && scale < 1 && (
+        {isRich && narrow && <span>Narrow screen width</span>}
+        {isRich && !narrow && scale < 1 && (
           <span>Scaled to {Math.round(scale * 100)}% · real width {POPUP_WIDTH}px</span>
         )}
       </div>
@@ -67,7 +66,7 @@ export function AnnouncementPreview({ type, title, content, publishedAt }: Annou
         className="relative min-h-0 flex-1 overflow-hidden bg-muted/40 bg-[radial-gradient(var(--border)_1px,transparent_1px)] [background-size:16px_16px]"
         style={{ padding }}
       >
-        {type === 'Rich' ? (
+        {isRich ? (
           <div
             className="mx-auto flex flex-col overflow-hidden rounded-lg border bg-background shadow-lg"
             style={{ width: popupWidth, zoom: scale, maxHeight }}

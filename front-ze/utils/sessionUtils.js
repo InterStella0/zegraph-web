@@ -1,7 +1,5 @@
-import dayjs from "dayjs";
-import duration from 'dayjs/plugin/duration';
+import dayjs from "lib/dayjs";
 import {color} from "chart.js/helpers";
-dayjs.extend(duration);
 
 export const formatDuration = (start, end, withSeconds = false) => {
     if (!start || !end) return withSeconds ? '0s' : '0m';
@@ -23,321 +21,191 @@ export const formatSeconds = (totalSeconds) => {
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 };
 
-export const formatTime = (timeStr, timeZone = undefined) => {
-    return new Date(timeStr).toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone
-    });
-};
+export const formatTime = (timeStr, timeZone = undefined) => new Date(timeStr).toLocaleTimeString('en-US', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone
+});
 
 export const getServerPopRange = (serverGraph) => {
-    if (serverGraph.length === 0) return '0-0';
-    const min = Math.min(...serverGraph.map(d => d.player_count));
-    const max = Math.max(...serverGraph.map(d => d.player_count));
-    return `${min}-${max}`;
+    const counts = serverGraph.map(d => d.player_count);
+    return counts.length ? `${Math.min(...counts)}-${Math.max(...counts)}` : '0-0';
 };
 
-export const generateMatchScoreData = (maps) => {
-    const data = [];
-    let all_match = maps.map(data => data.match_data).flat(2).map(match => {
-        match.timeAt = dayjs(match.occurred_at)
-        return match
-    })
-    all_match.sort((a, b) => a.timeAt.isAfter(b.timeAt) ? 1 : -1)
-    all_match.forEach(matchData => {
-        data.push({
-            x: matchData.occurred_at,
-            humanScore: matchData.human_score,
-            zombieScore: matchData.zombie_score
-        });
+/** The --chart-1 theme colour, which Chart.js cannot read from CSS. */
+export const chartPrimary = (isDark, alpha = 1) =>
+    isDark ? `oklch(0.488 0.2 330 / ${alpha})` : `oklch(0.646 0.1 330 / ${alpha})`;
+
+const palette = (isDark) => isDark ? {
+    text: 'rgba(255, 255, 255, 0.9)',
+    secondary: 'rgba(255, 255, 255, 0.6)',
+    divider: 'rgba(255, 255, 255, 0.12)',
+    paper: 'rgba(30, 30, 30, 0.95)',
+    line: 'rgba(255, 255, 255, 0.35)',
+} : {
+    text: 'rgba(0, 0, 0, 0.87)',
+    secondary: 'rgba(0, 0, 0, 0.6)',
+    divider: 'rgba(0, 0, 0, 0.12)',
+    paper: 'rgba(255, 255, 255, 0.95)',
+    line: 'rgba(0, 0, 0, 0.30)',
+};
+
+const toSecond = (time) => dayjs(time).millisecond(0);
+const byTime = (a, b) => dayjs(a.occurred_at).diff(b.occurred_at);
+
+/** Every round played across a player session's maps, in order. */
+export const sessionMatches = (maps) => maps.flatMap(map => map.match_data ?? []).sort(byTime);
+
+/** A vertical line annotation at `x`, labelled upwards along the line. */
+export const markerLine = (x, borderColor, content, labelColor, label = {}) => ({
+    type: 'line',
+    xMin: x,
+    xMax: x,
+    borderColor,
+    label: {
+        display: true,
+        content,
+        backgroundColor: '#00000000',
+        color: labelColor,
+        rotation: 270,
+        position: 'start',
+        xAdjust: 10,
+        ...label,
+    },
+});
+
+const mapStartAnnotations = (maps) => maps.map(map => {
+    const duration = map.ended_at !== map.started_at ? ` (${formatDuration(map.started_at, map.ended_at)})` : '';
+    return markerLine(toSecond(map.started_at).toDate(), 'rgb(255,52,154)', map.map + duration, 'rgb(255, 105, 180)');
+});
+
+const getRounds = (graphMatch, sessionInfo) => {
+    if (!graphMatch?.length) return [];
+    const sorted = [...graphMatch].sort(byTime);
+    let previous = {human_score: 0, zombie_score: 0};
+    const changes = sorted.filter(match => {
+        const changed = match.human_score !== previous.human_score || match.zombie_score !== previous.zombie_score;
+        if (changed) previous = match;
+        return changed;
     });
-    return data;
-};
-
-export const getMapStartAnnotations = (maps) => {
-    return maps.map(map => {
-        let text = map.map;
-        if (map.ended_at !== map.started_at) {
-            text += ` (${formatDuration(map.started_at, map.ended_at)})`;
-        }
-        let date = dayjs(map.started_at).millisecond(0).toDate()
-        return {
-            type: 'line',
-            xMin: date,
-            xMax: date,
-            borderColor: 'rgb(255,52,154)',
-            label: {
-                backgroundColor: '#00000000',
-                content: text,
-                display: true,
-                rotation: 270,
-                color: 'rgb(255, 105, 180)',
-                position: 'start',
-                xAdjust: 10,
-            }
-        }
-    });
-};
-
-export const getRounds = (graphMatch, sessionInfo) => {
-    if (!graphMatch || graphMatch.length === 0) return [];
-
-    const sorted = [...graphMatch].sort((a, b) =>
-        dayjs(a.occurred_at).isAfter(dayjs(b.occurred_at)) ? 1 : -1
-    );
-
-    const changes = [];
-    let prevHuman = 0;
-    let prevZombie = 0;
-
-    for (const match of sorted) {
-        const scoreChanged =
-            match.human_score !== prevHuman ||
-            match.zombie_score !== prevZombie;
-
-        if (!scoreChanged) continue;
-
-        changes.push(match);
-        prevHuman = match.human_score;
-        prevZombie = match.zombie_score;
-    }
-
-    const sessionEnd = sessionInfo?.ended_at ?? sorted[sorted.length - 1].occurred_at;
-
+    const sessionEnd = sessionInfo?.ended_at ?? sorted.at(-1).occurred_at;
     return changes.map((match, i) => {
         const endAt = i + 1 < changes.length ? changes[i + 1].occurred_at : sessionEnd;
         return {
             round: i + 1,
-            date: dayjs(match.occurred_at).millisecond(0).toDate(),
-            startMs: dayjs(match.occurred_at).millisecond(0).valueOf(),
-            endMs: dayjs(endAt).millisecond(0).valueOf(),
+            start: toSecond(match.occurred_at),
+            end: toSecond(endAt),
             duration: formatDuration(match.occurred_at, endAt, true),
-            humanScore: match.human_score,
-            zombieScore: match.zombie_score,
         };
     });
 };
 
+const toggleLabel = (display) => (ctx) => {
+    ctx.element.label.options.display = display;
+    return true;
+};
+
 export const getRoundChangeAnnotations = (graphMatch, sessionInfo, isDark) => {
-    const lineColor = isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.30)';
-    const labelColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
-    const textColor = isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.87)';
-    const tooltipBg = isDark ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)';
-    const dividerColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)';
-
-    const annotations = [];
-    for (const r of getRounds(graphMatch, sessionInfo)) {
-        annotations.push({
-            type: 'line',
-            xMin: r.date,
-            xMax: r.date,
-            borderColor: lineColor,
+    const colors = palette(isDark);
+    return getRounds(graphMatch, sessionInfo).flatMap(round => [
+        {
+            ...markerLine(round.start.toDate(), colors.line, round.duration, colors.secondary, {xAdjust: 8, font: {size: 10}}),
             borderWidth: 1.5,
-            label: {
-                display: true,
-                content: r.duration,
-                backgroundColor: '#00000000',
-                color: labelColor,
-                rotation: 270,
-                position: 'start',
-                xAdjust: 8,
-                font: {
-                    size: 10,
-                },
-            }
-        });
-
-        annotations.push({
+        },
+        {
             type: 'box',
-            xMin: r.startMs,
-            xMax: r.endMs,
+            xMin: round.start.valueOf(),
+            xMax: round.end.valueOf(),
             backgroundColor: 'rgba(0, 0, 0, 0)',
             borderColor: 'rgba(0, 0, 0, 0)',
-            enter(ctx) {
-                ctx.element.label.options.display = true;
-                return true;
-            },
-            leave(ctx) {
-                ctx.element.label.options.display = false;
-                return true;
-            },
+            enter: toggleLabel(true),
+            leave: toggleLabel(false),
             label: {
                 display: false,
-                content: [`Round ${r.round}`, `Lasted ${r.duration}`],
-                backgroundColor: tooltipBg,
-                color: textColor,
-                borderColor: dividerColor,
+                content: [`Round ${round.round}`, `Lasted ${round.duration}`],
+                backgroundColor: colors.paper,
+                color: colors.text,
+                borderColor: colors.divider,
                 borderWidth: 1,
                 borderRadius: 4,
-                position: {
-                    x: 'center',
-                    y: 'start',
-                },
+                position: {x: 'center', y: 'start'},
                 padding: 6,
-                font: {
-                    size: 11,
-                },
-            }
-        });
-    }
-    return annotations;
-};
-
-export const getServerPopChartData = (serverGraph, isDark) => {
-    const primaryColor = isDark? 'oklch(0.488 0.2 330)': 'oklch(0.646 0.1 330)' // --chart-1
-    const primaryColorAlpha = isDark? 'oklch(0.488 0.2 330 / .35)': 'oklch(0.646 0.1 330 / .35)'
-
-    const data = serverGraph.map(item => ({
-        x: item.bucket_time,
-        y: item.player_count
-    }));
-
-    return {
-        datasets: [
-            {
-                label: 'Player Count',
-                data,
-                borderColor: primaryColor,
-                backgroundColor: primaryColorAlpha,
-                borderWidth: 2,
-                pointBackgroundColor: primaryColor,
-                pointRadius: 0,
-                tension: 0.4,
-                fill: true
-            }
-        ]
-    };
-};
-
-export const getMatchScoreChartData = (data, type) => {
-    const successColor = 'hsl(142, 71%, 45%)'; // Green for humans
-    const errorColor = 'hsl(0, 84%, 60%)';     // Red for zombies
-
-    let matchData;
-    switch (type) {
-        case "player":
-            matchData = generateMatchScoreData(data);
-            break;
-        case "map":
-            matchData = data?.map(matchData => ({
-                x: matchData.occurred_at,
-                humanScore: matchData.human_score,
-                zombieScore: matchData.zombie_score
-            })) ?? [];
-            break;
-        default:
-            return { datasets: [] };
-    }
-
-    return {
-        datasets: [
-            {
-                label: 'Humans',
-                data: matchData.map(item => ({
-                    x: dayjs(item.x).millisecond(0).toDate(),
-                    y: item.humanScore
-                })),
-                borderColor: successColor,
-                backgroundColor: color(successColor).alpha(.33).toString(),
-                borderWidth: 2,
-                stepped: true,
-                pointRadius: 0,
-                pointHoverRadius: 6
+                font: {size: 11},
             },
-            {
-                label: 'Zombies',
-                data: matchData.map(item => ({
-                    x: dayjs(item.x).millisecond(0).toDate(),
-                    y: item.zombieScore
-                })),
-                borderColor: errorColor,
-                backgroundColor: color(errorColor).alpha(.33).toString(),
-                borderWidth: 2,
-                stepped: true,
-                pointRadius: 0,
-                pointHoverRadius: 6
-            }
-        ]
-    };
+        },
+    ]);
 };
+
+export const getServerPopChartData = (serverGraph, isDark) => ({
+    datasets: [{
+        label: 'Player Count',
+        data: serverGraph.map(item => ({x: item.bucket_time, y: item.player_count})),
+        borderColor: chartPrimary(isDark),
+        backgroundColor: chartPrimary(isDark, .35),
+        borderWidth: 2,
+        pointBackgroundColor: chartPrimary(isDark),
+        pointRadius: 0,
+        tension: 0.4,
+        fill: true,
+    }],
+});
+
+const scoreDataset = (label, lineColor, matches, score) => ({
+    label,
+    data: matches.map(match => ({x: toSecond(match.occurred_at).toDate(), y: match[score]})),
+    borderColor: lineColor,
+    backgroundColor: color(lineColor).alpha(.33).toString(),
+    borderWidth: 2,
+    stepped: true,
+    pointRadius: 0,
+    pointHoverRadius: 6,
+});
+
+export const getMatchScoreChartData = (matches) => ({
+    datasets: [
+        scoreDataset('Humans', 'hsl(142, 71%, 45%)', matches, 'human_score'),
+        scoreDataset('Zombies', 'hsl(0, 84%, 60%)', matches, 'zombie_score'),
+    ],
+});
 
 export const getChartOptionsWithAnnotations = (maps, sessionInfo, showLegend = false, suggestedMax = undefined, isDark = false, extraAnnotations = null) => {
-    const textColor = isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.87)';
-    const secondaryTextColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
-    const dividerColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)';
-    const paperBg = isDark ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)';
+    const colors = palette(isDark);
+    const axis = (ticks = {}) => ({
+        grid: {color: colors.divider},
+        border: {color: colors.divider},
+        ticks: {color: colors.secondary, font: {size: 12}, ...ticks},
+    });
 
     return {
-        responsive: true,
         maintainAspectRatio: false,
-        interaction: {
-            mode: 'index',
-            intersect: false,
-        },
+        interaction: {mode: 'index', intersect: false},
         plugins: {
-            legend: {
-                display: showLegend,
-                labels: {
-                    color: textColor
-                },
-            },
+            legend: {display: showLegend, labels: {color: colors.text}},
             annotation: {
-                annotations: [
-                    ...(maps ? getMapStartAnnotations(maps) : []),
-                    ...(extraAnnotations ?? []),
-                ],
+                annotations: [...(maps ? mapStartAnnotations(maps) : []), ...(extraAnnotations ?? [])],
             },
             tooltip: {
                 mode: 'index',
                 intersect: false,
-                backgroundColor: paperBg,
-                titleColor: textColor,
-                bodyColor: textColor,
-                borderColor: dividerColor,
+                backgroundColor: colors.paper,
+                titleColor: colors.text,
+                bodyColor: colors.text,
+                borderColor: colors.divider,
                 borderWidth: 1,
             },
         },
         scales: {
             x: {
+                ...axis(),
                 type: 'time',
                 min: sessionInfo?.started_at,
                 max: sessionInfo?.ended_at,
-                time: {
-                    displayFormats: {
-                        minute: 'h:mm a',
-                        hour: 'h:mm a',
-                    },
-                },
-                grid: {
-                    color: dividerColor
-                },
-                ticks: {
-                    color: secondaryTextColor,
-                    font: {
-                        size: 12,
-                    },
-                },
-                border: {
-                    color: dividerColor
-                },
+                time: {displayFormats: {minute: 'h:mm a', hour: 'h:mm a'}},
             },
             y: {
-                border: {
-                    color: dividerColor
-                },
-                grid: {
-                    color: dividerColor
-                },
-                ticks: {
-                    color: secondaryTextColor,
-                    font: {
-                        size: 12,
-                    },
-                    stepSize: 1,
-                },
-                suggestedMax: suggestedMax,
+                ...axis({stepSize: 1}),
+                suggestedMax,
                 min: 0,
             },
         },
