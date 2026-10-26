@@ -4,7 +4,8 @@ import {useTranslations} from "next-intl";
 import {Circle, Gamepad2} from "lucide-react";
 import dayjs from "lib/dayjs";
 import {SearchField} from "components/ui/SearchField";
-import {SkeletonText, Skeleton, varyWidth} from "components/ui/skeleton";
+import {SkeletonText, Skeleton} from "components/ui/skeleton";
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import InfoTooltip from "components/common/InfoTooltip";
@@ -20,6 +21,7 @@ export function sessionDuration(startedAt: string, wrapDays = false): string {
 }
 
 export function OnlinePlayersSkeleton() {
+    const varyWidth = useVaryWidth();
     return (
         <div className="p-2 space-y-1">
             {Array.from({ length: 20 }, (_, index) => (

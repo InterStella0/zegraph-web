@@ -113,7 +113,8 @@ export function SuggestSearch<T>({search, itemValue, itemKey = itemValue, render
 
     const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
         const last = suggestions.length - 1
-        if (isOpen && last >= 0 && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        // Also while still loading with no items, so the first suggestion is preselected when it arrives.
+        if (isOpen && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
             event.preventDefault()
             setSelected(i => event.key === 'ArrowDown' ? (i < last ? i + 1 : 0) : (i > 0 ? i - 1 : last))
         } else if (event.key === 'Enter') {

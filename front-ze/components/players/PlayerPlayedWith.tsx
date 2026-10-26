@@ -6,7 +6,8 @@ import {Loader2, RefreshCw, Search, Users} from "lucide-react";
 import {toast} from "sonner";
 import {Button} from "components/ui/button";
 import {Input} from "components/ui/input";
-import {Skeleton, SkeletonText, varyWidth} from "components/ui/skeleton";
+import {Skeleton, SkeletonText} from "components/ui/skeleton";
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {PlayerAvatar} from "./PlayerAvatar";
@@ -56,6 +57,7 @@ function PlayedWithRow({ player, server }: { player: PlayerSeen, server: Server 
 }
 
 function PlayedWithSkeletonRow({ index }: { index: number }) {
+    const varyWidth = useVaryWidth();
     return (
         <div className="flex items-center gap-3 px-2 py-2 rounded-md">
             <Skeleton className="w-[40px] h-[40px] rounded-[8%] flex-shrink-0" />

@@ -6,7 +6,8 @@ import Image from "next/image";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "components/ui/table";
 import {Badge} from "components/ui/badge";
 import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
-import {Skeleton, SkeletonBadge, SkeletonText, varyWidth} from "components/ui/skeleton";
+import {Skeleton, SkeletonBadge, SkeletonText} from "components/ui/skeleton";
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import MapNotifyButton from "components/maps/MapNotifyButton";
@@ -23,6 +24,7 @@ import {useTranslations, useLocale} from 'next-intl';
 export const MAPS_PAGE_SIZE = 25;
 
 const MapsRowSkeleton = ({ index, showNotify }: { index: number, showNotify: boolean }) => {
+    const varyWidth = useVaryWidth();
     return (
         <TableRow>
             <TableCell>

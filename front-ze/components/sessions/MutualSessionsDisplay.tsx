@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from 'components/ui/card';
-import { Skeleton, SkeletonText, varyWidth } from 'components/ui/skeleton';
+import { Skeleton, SkeletonText } from 'components/ui/skeleton';
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import { PlayerAvatar } from "../players/PlayerAvatar";
 import { MutualSessionReturn, SessionType } from "../../app/servers/[server_slug]/util";
 import { Server } from "types/community";
@@ -24,6 +25,7 @@ export default function MutualSessionsDisplay<T extends SessionType>(
     const [page, setPage] = useState(0);
     const isPlayer = type === 'player';
     const totalPages = Math.ceil((mutualSessions?.length ?? 0) / PAGE_SIZE);
+    const varyWidth = useVaryWidth();
 
     return (
         <Card>

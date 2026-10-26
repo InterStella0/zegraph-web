@@ -8,7 +8,8 @@ import {BriefPlayers, PlayerBrief} from "types/players";
 import {Server} from "types/community";
 import {ServerSlugPromise} from "../../app/servers/[server_slug]/util.ts";
 import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
-import { Skeleton, SkeletonText, varyWidth } from "components/ui/skeleton";
+import { Skeleton, SkeletonText } from "components/ui/skeleton";
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "components/ui/select.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {useResource} from "lib/hooks/useResource";
@@ -76,28 +77,31 @@ function LeaderboardItem({ player, server }: { player: PlayerBrief, server: Serv
     );
 }
 
-const LeaderboardSkeleton = () => (
-    <div>
-        {Array.from({ length: 20 }, (_, index) => (
-            <div key={index} className="py-2">
-                <div className="flex items-center w-full gap-4">
-                    <div className="text-xl font-bold min-w-[30px] text-center">
-                        <SkeletonText className="h-5 w-5" />
-                    </div>
-                    <div className="relative">
-                        <Skeleton className="w-[40px] h-[40px] rounded-[8%]" />
-                    </div>
-                    <div className="flex-1 max-sm:max-w-[9rem] max-w-[10rem] max-sm:text-sm">
-                        <SkeletonText className="h-4" style={varyWidth(index, 4, 5)} />
-                    </div>
-                    <div className="font-semibold max-sm:text-sm ms-auto min-sm:pr-2.5">
-                        <SkeletonText className="h-4 w-12" />
+function LeaderboardSkeleton() {
+    const varyWidth = useVaryWidth();
+    return (
+        <div>
+            {Array.from({ length: 20 }, (_, index) => (
+                <div key={index} className="py-2">
+                    <div className="flex items-center w-full gap-4">
+                        <div className="text-xl font-bold min-w-[30px] text-center">
+                            <SkeletonText className="h-5 w-5" />
+                        </div>
+                        <div className="relative">
+                            <Skeleton className="w-[40px] h-[40px] rounded-[8%]" />
+                        </div>
+                        <div className="flex-1 max-sm:max-w-[9rem] max-w-[10rem] max-sm:text-sm">
+                            <SkeletonText className="h-4" style={varyWidth(index, 4, 5)} />
+                        </div>
+                        <div className="font-semibold max-sm:text-sm ms-auto min-sm:pr-2.5">
+                            <SkeletonText className="h-4 w-12" />
+                        </div>
                     </div>
                 </div>
-            </div>
-        ))}
-    </div>
-);
+            ))}
+        </div>
+    );
+}
 
 /** Without `setTab` the picker renders disabled, for the loading state. */
 function TimeFramePicker({ tab = 0, setTab }: { tab?: number, setTab?: (tab: number) => void }) {

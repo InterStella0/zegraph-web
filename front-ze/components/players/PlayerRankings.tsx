@@ -7,7 +7,8 @@ import {PlayersTableRanked, PlayerTableRank, RankingMode, RankMode, SearchPlayer
 import {Server} from "types/community";
 import {ServerSlugPromise} from "../../app/servers/[server_slug]/util.ts";
 import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
-import { Skeleton, SkeletonText, varyWidth } from "components/ui/skeleton";
+import { Skeleton, SkeletonText } from "components/ui/skeleton";
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {cn} from "components/lib/utils";
@@ -27,38 +28,41 @@ const RANKING_MODES: RankingMode[] = [
     {id: 'tryhard', labelKey: 'modeTryhard', value: 'TryHard'},
 ]
 
-const PlayerListSkeleton = ({ showMatchedSkeleton = false }) => (
-    <>
-        {showMatchedSkeleton && (
-            <div className="p-4 bg-accent/50 rounded-md mb-4">
-                <Skeleton className="w-2/5 h-5"/>
-            </div>
-        )}
-        <div>
-            {Array.from({length: PAGE_SIZE}, (_, index) => (
-                <div
-                    key={index}
-                    className="flex items-center gap-3 rounded-md mb-2 border border-border p-3"
-                >
-                    <Skeleton className="w-[40px] h-[40px] rounded-[8%] flex-shrink-0"/>
-                    <div className="flex-1 min-w-0">
-                        <div className="font-medium">
-                            <SkeletonText className="h-4" style={varyWidth(index, 5, 8)}/>
-                        </div>
-                        <div className="text-sm max-sm:text-xs">
-                            <SkeletonText className="h-3 w-20"/>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="text-xl max-sm:text-sm">
-                            <SkeletonText className="h-4 w-14"/>
-                        </div>
-                    </div>
+function PlayerListSkeleton({ showMatchedSkeleton = false }) {
+    const varyWidth = useVaryWidth();
+    return (
+        <>
+            {showMatchedSkeleton && (
+                <div className="p-4 bg-accent/50 rounded-md mb-4">
+                    <Skeleton className="w-2/5 h-5"/>
                 </div>
-            ))}
-        </div>
-    </>
-);
+            )}
+            <div>
+                {Array.from({length: PAGE_SIZE}, (_, index) => (
+                    <div
+                        key={index}
+                        className="flex items-center gap-3 rounded-md mb-2 border border-border p-3"
+                    >
+                        <Skeleton className="w-[40px] h-[40px] rounded-[8%] flex-shrink-0"/>
+                        <div className="flex-1 min-w-0">
+                            <div className="font-medium">
+                                <SkeletonText className="h-4" style={varyWidth(index, 5, 8)}/>
+                            </div>
+                            <div className="text-sm max-sm:text-xs">
+                                <SkeletonText className="h-3 w-20"/>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="text-xl max-sm:text-sm">
+                                <SkeletonText className="h-4 w-14"/>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+}
 
 function PlayerListItem({ player, mode, server }: { player: PlayerTableRank, mode: RankMode, server: Server }) {
     const t = useTranslations('players.listItem');

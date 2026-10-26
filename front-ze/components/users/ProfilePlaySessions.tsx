@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import dayjs from "lib/dayjs";
 
-import { fetchApiUrl, formatNumber, range } from "utils/generalUtils";
+import { fetchApiUrl, formatNumber, range, simpleRandom } from "utils/generalUtils";
 import { formatDuration } from "utils/sessionUtils";
 import { GlobalPlayerSession, GlobalPlayerSessionPage } from "types/players.ts";
 import { Badge } from "components/ui/badge";
-import { Skeleton, varyWidth } from "components/ui/skeleton";
+import { Skeleton } from "components/ui/skeleton";
 import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
+import {useHydrated} from "lib/hooks/useHydrated";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import SessionDateFilter from "components/players/SessionDateFilter";
 import { useResource } from "lib/hooks/useResource";
@@ -23,14 +24,16 @@ const CONTENT = "flex min-h-0 flex-1 flex-col";
 const LIST = "min-h-[240px] flex-1 overflow-y-auto px-1 py-1 space-y-2 contain-size";
 
 function SessionSkeletons() {
+    // Random widths only after hydration; the server and the first client render use the minimum.
+    const hydrated = useHydrated();
     return range(6).map(index => (
         <div key={index} className="flex items-center gap-3 rounded-lg border border-border/60 p-3">
             <Skeleton className="h-9 w-1 shrink-0 rounded-full" />
             <div className="min-w-0 flex-1 space-y-1.5">
-                <Skeleton className="h-[15px]" style={varyWidth(index, 9, 3, 1)} />
-                <Skeleton className="h-[12px]" style={varyWidth(index, 4, 3, 1)} />
+                <Skeleton className="h-[15px]" style={{ width: simpleRandom(140, 190, hydrated) }} />
+                <Skeleton className="h-[12px]" style={{ width: simpleRandom(60, 110, hydrated) }} />
             </div>
-            <Skeleton className="h-[20px] shrink-0 rounded-full" style={varyWidth(index, 2.5, 1, 0.5)} />
+            <Skeleton className="h-[20px] shrink-0 rounded-full" style={{ width: simpleRandom(36, 55, hydrated) }} />
         </div>
     ));
 }

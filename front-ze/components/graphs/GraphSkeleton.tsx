@@ -1,6 +1,8 @@
+'use client'
 import { Skeleton } from "components/ui/skeleton";
 import { cn } from "components/lib/utils";
 import { range } from "utils/generalUtils";
+import { useVaried } from "lib/hooks/useVaryWidth";
 
 export default function GraphSkeleton({
     height = 200,
@@ -9,6 +11,7 @@ export default function GraphSkeleton({
     height?: number;
     className?: string;
 }) {
+    const vary = useVaried();
     return (
         <div
             className={cn(
@@ -20,7 +23,7 @@ export default function GraphSkeleton({
             <Skeleton className="w-[10%] h-[15px] my-2" />
             <div className="flex items-end gap-2 justify-evenly w-[90%]">
                 {range(50).map(index => (
-                    <Skeleton key={index} className="w-2" style={{ height: 2 + (index * 37) % 78 }} />
+                    <Skeleton key={index} className="w-2" style={{ height: vary(index, 2, 78, 37) }} />
                 ))}
             </div>
             <Skeleton className="w-[95%] h-[15px] my-2" />

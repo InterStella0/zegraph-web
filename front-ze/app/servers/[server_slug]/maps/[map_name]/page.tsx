@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: {
         if (region)
             description += ' ' + t('mainlyPlayed', {region: region.region_name, hours: formatHours(region.total_play_duration)})
         const topPlayer = topPlayers?.players?.sort((a, b) => b.total_playtime - a.total_playtime)[0]
-        if (topPlayer)
+        if (topPlayer && !topPlayer.is_anonymous)
             description += ' ' + t('mostActivePlayer', {name: topPlayer.name, hours: formatHours(topPlayer.total_playtime)})
 
         return {title, description, path: `/maps/${map_name}`, social: {images: [image]}}

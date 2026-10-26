@@ -147,10 +147,17 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: ServerPlayerProp
     const t = useTranslations('players.infractions');
     const { server, playerId } = useServerPlayer(serverPlayerPromise);
     const { seed, idle } = usePlayerStatSeed<PlayerInfraction[]>('infractions');
-    const { data, setData, loading } = useResource<PlayerInfraction[]>(
-        () => playerId && !idle ? fetchApiServerUrl(server.id, `/players/${playerId}/infractions`).then(withInfractionFlags) : null,
-        [server.id, playerId], { initial: seed ? withInfractionFlags(seed) : undefined, keepData: true });
-    const [updating, setUpdating] = useState(false);
+    const [refreshCount, setRefreshCount] = useState(0);
+    const stored = () => fetchApiServerUrl(server.id, `/players/${playerId}/infractions`);
+    // Re-scrapes the ban sites; if that fails, the stored list is shown instead.
+    const rescrape = () => fetchApiServerUrl(server.id, `/players/${playerId}/infraction_update`)
+        .then((resp: PlayerInfractionUpdate) => resp.infractions.sort((a, b) => dayjs(b.infraction_time).diff(dayjs(a.infraction_time))), stored);
+    // A refresh goes through the same resource, so it cancels a first load still in flight instead of racing it.
+    // keepError keeps "no records" up while refreshing after a failed first load, rather than the skeleton.
+    const { data, loading, error } = useResource<PlayerInfraction[]>(
+        () => !playerId || (idle && !refreshCount) ? null : (refreshCount ? rescrape() : stored()).then(withInfractionFlags),
+        [server.id, playerId, refreshCount], { initial: seed ? withInfractionFlags(seed) : undefined, keepData: true, keepError: true });
+    const updating = loading && refreshCount > 0;
     const [viewInfraction, setViewInfraction] = useState(null);
     const { period } = usePeriod();
     const bounds = period ? periodBounds(period) : null;
@@ -161,14 +168,6 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: ServerPlayerProp
         return time >= bounds.start && time < bounds.end;
     });
 
-    const updateData = () => {
-        setUpdating(true);
-        fetchApiServerUrl(server.id, `/players/${playerId}/infraction_update`)
-            .then((resp: PlayerInfractionUpdate) => setData(withInfractionFlags(resp.infractions)
-                .sort((a, b) => dayjs(b.infraction_time).diff(dayjs(a.infraction_time)))))
-            .finally(() => setUpdating(false));
-    };
-
     return (
         <Card className="min-h-[460px] p-4">
             <div className="flex flex-row justify-between items-center mb-4">
@@ -176,7 +175,7 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: ServerPlayerProp
 
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={updateData} disabled={updating}>
+                        <Button variant="ghost" size="icon" onClick={() => setRefreshCount(n => n + 1)} disabled={updating}>
                             {updating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
                         </Button>
                     </TooltipTrigger>
@@ -186,7 +185,7 @@ function PlayerInfractionRecordDisplay({ serverPlayerPromise }: ServerPlayerProp
                 </Tooltip>
             </div>
 
-            {loading ? (
+            {loading && !data && !error ? (
                 <div className="h-[380px] overflow-hidden pt-2 space-y-3">
                     {range(3).map(i => <Skeleton key={i} className="h-[110px] w-full rounded-xl" />)}
                 </div>

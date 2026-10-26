@@ -5,7 +5,8 @@ import {range, secondsToHours, withImageDomain} from "utils/generalUtils";
 import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "components/ui/table";
 import {Badge} from "components/ui/badge";
-import {Skeleton, varyWidth} from "components/ui/skeleton";
+import {Skeleton} from "components/ui/skeleton";
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {MapCategoryChips} from "components/ui/CategoryChip.tsx";
 import {FavoriteButton} from "../FavoriteButton";
@@ -63,6 +64,7 @@ export function LastPlayed({ map, short = false }: { map: GlobalMapPlayed, short
 }
 
 function GlobalMapRowSkeleton({ index }: { index: number }) {
+    const varyWidth = useVaryWidth();
     return (
         <TableRow>
             <TableCell>

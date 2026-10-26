@@ -8,7 +8,8 @@ import Link from "next/link";
 import Image from "next/image";
 import {CountryStatistic} from "types/players.ts";
 import { Button } from "components/ui/button";
-import { Skeleton, SkeletonText, varyWidth } from "components/ui/skeleton";
+import { Skeleton, SkeletonText } from "components/ui/skeleton";
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {useResource} from "lib/hooks/useResource";
 import {withErrorCatch} from "components/common/withErrorCatch";
@@ -17,25 +18,28 @@ import {IconCard} from "./IconCard";
 const COUNTRIES_PER_PAGE = 10;
 const TITLE_CLASS = "text-lg max-sm:text-sm font-semibold";
 
-const CountriesSkeleton = () => (
-    <div className="p-2 space-y-2">
-        {Array.from({ length: 10 }, (_, index) => (
-            <div key={index} className="py-2">
-                <div className="flex items-center w-full justify-between">
-                    <div className="flex items-center gap-2">
-                        <Skeleton className="w-6 h-4" />
-                        <div>
-                            <SkeletonText className="h-4" style={varyWidth(index, 5, 5)} />
+function CountriesSkeleton() {
+    const varyWidth = useVaryWidth();
+    return (
+        <div className="p-2 space-y-2">
+            {Array.from({ length: 10 }, (_, index) => (
+                <div key={index} className="py-2">
+                    <div className="flex items-center w-full justify-between">
+                        <div className="flex items-center gap-2">
+                            <Skeleton className="w-6 h-4" />
+                            <div>
+                                <SkeletonText className="h-4" style={varyWidth(index, 5, 5)} />
+                            </div>
+                        </div>
+                        <div className="font-semibold">
+                            <SkeletonText className="h-4 w-10" />
                         </div>
                     </div>
-                    <div className="font-semibold">
-                        <SkeletonText className="h-4 w-10" />
-                    </div>
                 </div>
-            </div>
-        ))}
-    </div>
-);
+            ))}
+        </div>
+    );
+}
 
 function PlayerByCountriesDisplay({ initialDataPromise }: { initialDataPromise: Promise<{ countries: CountryStatistic[] }> }) {
     const t = useTranslations('players.byCountries');

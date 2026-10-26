@@ -15,21 +15,23 @@ import {periodBounds, usePeriod} from "components/period/Period";
 import {usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import {useResource} from "lib/hooks/useResource";
+import {useVaried} from "lib/hooks/useVaryWidth";
 import {ServerPlayerProps, useServerPlayer} from "./common";
 
 function SessionSkeleton({ index }: { index: number }) {
+    const vary = useVaried();
     return (
         <Card className="my-1">
             <CardContent className="m-0">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                        <Skeleton className="h-[22px]" style={{ width: 90 + (index * 7) % 15 }} />
+                        <Skeleton className="h-[22px]" style={{ width: vary(index, 90, 15, 7) }} />
                         <span className="hidden sm:block text-sm text-muted-foreground">
                             →
                         </span>
-                        <Skeleton className="h-[22px]" style={{ width: 90 + (index * 11) % 15 }} />
+                        <Skeleton className="h-[22px]" style={{ width: vary(index, 90, 15, 11) }} />
                     </div>
-                    <Skeleton className="h-[22px] rounded-full" style={{ width: 35 + (index * 13) % 40 }} />
+                    <Skeleton className="h-[22px] rounded-full" style={{ width: vary(index, 35, 40, 13) }} />
                 </div>
             </CardContent>
         </Card>
