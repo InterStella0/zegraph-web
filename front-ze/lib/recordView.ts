@@ -6,11 +6,9 @@ export type ViewKind = 'players' | 'maps'
 
 const VIEW_TIMEOUT_MS = 3000
 
-function isPrefetch(incoming: Headers): boolean {
-    return incoming.has('next-router-prefetch')
-        || incoming.get('sec-purpose')?.includes('prefetch') === true
-        || incoming.get('purpose') === 'prefetch'
-}
+const isPrefetch = (incoming: Headers) => incoming.has('next-router-prefetch')
+    || incoming.get('sec-purpose')?.includes('prefetch') === true
+    || incoming.get('purpose') === 'prefetch'
 
 /**
  * Records a page view and resolves to the page's view count, or null when it could not be had.
@@ -27,13 +25,11 @@ export async function recordView(kind: ViewKind, id: string): Promise<number | n
         const incoming = await headers()
         if (isPrefetch(incoming)) return null
 
+        const session = await auth()
         const requestHeaders: Record<string, string> = {
             'Content-Type': 'application/json',
             'X-View-Secret': secret,
-        }
-        const session = await auth()
-        if (session?.backendJwt) {
-            requestHeaders['Authorization'] = `Bearer ${session.backendJwt}`
+            ...(session?.backendJwt && {Authorization: `Bearer ${session.backendJwt}`}),
         }
 
         const response = await fetch(`${BACKEND_DOMAIN}/views/${kind}/${encodeURIComponent(id)}`, {

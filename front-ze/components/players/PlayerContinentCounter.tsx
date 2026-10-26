@@ -1,18 +1,18 @@
 'use client'
 import { ContinentStatistics } from "types/players.ts";
 
-export default function PlayerContinentCounter({ continentData, truncate = 3 }: { continentData: ContinentStatistics, truncate?: number }) {
-    const continentColors = {
-        "North America": "#4CAF50",
-        "South America": "#8BC34A",
-        "Europe": "#2196F3",
-        "Asia": "#F44336",
-        "Africa": "#FF9800",
-        "Oceania": "#9C27B0",
-        "Antarctica": "#00BCD4",
-        "Seven seas (open ocean)": "#00e1ff",
-    };
+const CONTINENT_COLORS = {
+    "North America": "#4CAF50",
+    "South America": "#8BC34A",
+    "Europe": "#2196F3",
+    "Asia": "#F44336",
+    "Africa": "#FF9800",
+    "Oceania": "#9C27B0",
+    "Antarctica": "#00BCD4",
+    "Seven seas (open ocean)": "#00e1ff",
+};
 
+export default function PlayerContinentCounter({ continentData, truncate = 3 }: { continentData: ContinentStatistics, truncate?: number }) {
     const sortedContinents = continentData?.continents
         ? [...continentData.continents].sort((a, b) => b.count - a.count)
         : [];
@@ -22,7 +22,7 @@ export default function PlayerContinentCounter({ continentData, truncate = 3 }: 
             <div className="space-y-3">
                 {sortedContinents.slice(0, truncate).map((continent) => {
                     const percentage = ((continent.count / continentData.contain_countries) * 100).toFixed(2);
-                    const color = continentColors[continent.name] || 'hsl(var(--primary))';
+                    const color = CONTINENT_COLORS[continent.name] || 'hsl(var(--primary))';
 
                     return (
                         <div key={continent.name}>

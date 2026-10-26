@@ -3,36 +3,34 @@ import { useState, useEffect } from 'react';
 import { Bell, BellOff, Server, Globe } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-    DropdownMenuSeparator,
-    DropdownMenuLabel,
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from 'components/ui/dropdown-menu';
-import LoginDialog from 'components/ui/LoginDialog';
+import {useLoginDialog} from 'components/ui/LoginDialog';
 import { usePushNotifications } from 'lib/hooks/usePushNotifications';
 import { fetchApiUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import { toast } from 'sonner';
 import { SteamProfile } from 'types/steam';
 import {useTranslations} from 'next-intl';
+import {cn} from 'components/lib/utils';
+import {toastRequest, ToastMessages} from 'components/maps/toastRequest';
+
+type SubscriptionType = 'server' | 'all' | null;
 
 interface MapNotifyButtonProps {
     mapName: string;
     serverId: string;
     user: SteamProfile | null;
-    notifySubscriptionType: 'server' | 'all' | null;
-    onSubscriptionChange?: (type: 'server' | 'all' | null) => void;
+    notifySubscriptionType: SubscriptionType;
+    onSubscriptionChange?: (type: SubscriptionType) => void;
 }
-
-type SubscriptionType = 'server' | 'all' | null;
 
 export default function MapNotifyButton({ mapName, serverId, user, notifySubscriptionType, onSubscriptionChange }: MapNotifyButtonProps) {
     const t = useTranslations('maps.notify');
     const { isSupported, subscription, subscribe, isLoading: pushLoading } = usePushNotifications(user != null);
     const [subscriptionType, setSubscriptionType] = useState<SubscriptionType>(notifySubscriptionType);
     const [loading, setLoading] = useState(false);
-    const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+    const {openLogin, loginDialog} = useLoginDialog();
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     useEffect(() => {
@@ -41,10 +39,21 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
 
     const handleButtonClick = () => {
         if (!user) {
-            setLoginDialogOpen(true);
+            openLogin();
             return;
         }
         setDropdownOpen(true);
+    };
+
+    const update = async (request: () => Promise<unknown>, type: SubscriptionType, messages: ToastMessages) => {
+        setLoading(true);
+        await toastRequest(async () => {
+            await request();
+            setSubscriptionType(type);
+            onSubscriptionChange?.(type);
+        }, messages);
+        setLoading(false);
+        setDropdownOpen(false);
     };
 
     const handleSubscribe = async (type: 'server' | 'all') => {
@@ -62,63 +71,25 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
             toast.success(t('enabled'));
         }
 
-        setLoading(true);
-        try {
-            await fetchApiUrl('/accounts/me/push/map-notify/subscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    map_name: mapName,
-                    server_id: type === 'server' ? serverId : null,
-                    subscription_id: subscriptionToUse!.id,
-                }),
+        await update(async () => {
+            await sendJson('/accounts/me/push/map-notify/subscribe', 'POST', {
+                map_name: mapName,
+                server_id: type === 'server' ? serverId : null,
+                subscription_id: subscriptionToUse!.id,
             });
-
-            try {
-                await fetchApiUrl('/accounts/me/push/preferences', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ map_specific_enabled: true }),
-                });
-            } catch (err) {
-                console.warn('Failed to auto-enable map_specific_enabled preference:', err);
-            }
-
-            setSubscriptionType(type);
-            onSubscriptionChange?.(type);
-            const message = type === 'server'
-                ? t('subscribedServer', {mapName})
-                : t('subscribedAll', {mapName});
-            toast.success(message);
-        } catch (error) {
-            toast.error(t('subscribeFailed'));
-            console.error('Subscribe error:', error);
-        } finally {
-            setLoading(false);
-            setDropdownOpen(false);
-        }
+            await sendJson('/accounts/me/push/preferences', 'PUT', { map_specific_enabled: true })
+                .catch(err => console.warn('Failed to auto-enable map_specific_enabled preference:', err));
+        }, type, {
+            success: type === 'server' ? t('subscribedServer', {mapName}) : t('subscribedAll', {mapName}),
+            failure: t('subscribeFailed'),
+            log: 'Subscribe error:',
+        });
     };
 
-    const handleUnsubscribe = async () => {
-        setLoading(true);
-        try {
-            const url = subscriptionType === 'server'
-                ? `/accounts/me/push/map-notify/${encodeURIComponent(mapName)}?server_id=${encodeURIComponent(serverId)}`
-                : `/accounts/me/push/map-notify/${encodeURIComponent(mapName)}`;
-
-            await fetchApiUrl(url, { method: 'DELETE' });
-
-            setSubscriptionType(null);
-            onSubscriptionChange?.(null);
-            toast.success(t('cancelled'));
-        } catch (error) {
-            toast.error(t('unsubscribeFailed'));
-            console.error('Unsubscribe error:', error);
-        } finally {
-            setLoading(false);
-            setDropdownOpen(false);
-        }
-    };
+    const handleUnsubscribe = () => update(() => {
+        const serverQuery = subscriptionType === 'server' ? `?server_id=${encodeURIComponent(serverId)}` : '';
+        return fetchApiUrl(`/accounts/me/push/map-notify/${encodeURIComponent(mapName)}${serverQuery}`, { method: 'DELETE' });
+    }, null, { success: t('cancelled'), failure: t('unsubscribeFailed'), log: 'Unsubscribe error:' });
 
     if (!isSupported) {
         return null;
@@ -135,13 +106,9 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
                         size="icon"
                         onClick={handleButtonClick}
                         disabled={loading || pushLoading}
-                        className={`transition-all hover:scale-110 ${isSubscribed ? 'text-primary' : ''}`}
+                        className={cn("transition-all hover:scale-110", isSubscribed && 'text-primary')}
                     >
-                        {isSubscribed ? (
-                            <Bell className="h-5 w-5 fill-current" />
-                        ) : (
-                            <Bell className="h-5 w-5" />
-                        )}
+                        <Bell className={cn("h-5 w-5", isSubscribed && "fill-current")} />
                     </Button>
                 </DropdownMenuTrigger>
                 {user && (
@@ -164,17 +131,11 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
                             </DropdownMenuItem>
                         ) : (
                             <>
-                                <DropdownMenuItem
-                                    onClick={() => handleSubscribe('server')}
-                                    disabled={loading}
-                                >
+                                <DropdownMenuItem onClick={() => handleSubscribe('server')} disabled={loading}>
                                     <Server className="mr-2 h-4 w-4" />
                                     {t('thisServer')}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={() => handleSubscribe('all')}
-                                    disabled={loading}
-                                >
+                                <DropdownMenuItem onClick={() => handleSubscribe('all')} disabled={loading}>
                                     <Globe className="mr-2 h-4 w-4" />
                                     {t('allServers')}
                                 </DropdownMenuItem>
@@ -183,7 +144,7 @@ export default function MapNotifyButton({ mapName, serverId, user, notifySubscri
                     </DropdownMenuContent>
                 )}
             </DropdownMenu>
-            <LoginDialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)} />
+            {loginDialog}
         </>
     );
 }

@@ -1,27 +1,19 @@
 'use client';
 
-import { Input } from 'components/ui/input';
 import { Textarea } from 'components/ui/textarea';
 import { toast } from 'sonner';
-import { sendJson } from 'lib/sendJson';
-import { Field, FormDialog, useResetForm, useSave } from '../components/AdminUI';
-import type { CrudDialogProps } from '../components/CrudPage';
-import type { CommunityLink } from './page';
+import { Field, FormDialog, InputField, upsertJson, useFormDialog, type CrudDialogProps } from '../components/AdminUI';
+import type { CommunityLink } from 'types/community';
 
-export function CreateEditCommunityLinkDialog({
-  open,
-  onOpenChange,
-  item: link,
-  onSuccess,
-}: CrudDialogProps<CommunityLink>) {
+export function CreateEditCommunityLinkDialog(props: CrudDialogProps<CommunityLink>) {
+  const link = props.item;
   const isEdit = link !== null;
-  const [form, set] = useResetForm(open, link, () => ({
+  const { form, bind, save, dialog } = useFormDialog(props, () => ({
     name: link?.name ?? '',
     url: link?.url ?? '',
     description: link?.description ?? '',
     sortOrder: link ? String(link.sort_order) : '0',
   }));
-  const { submitting, save } = useSave(onSuccess, onOpenChange);
   const { name, url, description, sortOrder } = form;
 
   const handleSubmit = () => {
@@ -41,7 +33,7 @@ export function CreateEditCommunityLinkDialog({
 
     const parsedSort = parseInt(sortOrder, 10);
 
-    return save(() => sendJson(isEdit ? `/admin/community-links/${link.id}` : '/admin/community-links', isEdit ? 'PUT' : 'POST', {
+    return save(() => upsertJson('/admin/community-links', link?.id, {
       name,
       url: trimmedUrl,
       description: description || null,
@@ -54,50 +46,18 @@ export function CreateEditCommunityLinkDialog({
 
   return (
     <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
+      {...dialog}
       title={<>{isEdit ? 'Edit' : 'Add'} Community Link</>}
       description={isEdit ? 'Update this community link' : 'Add a new ZE community website or tool'}
       onSubmit={handleSubmit}
-      submitting={submitting}
       submitLabel={isEdit ? 'Update' : 'Add'}
     >
-      <Field label="Name *">
-        <Input
-          value={name}
-          onChange={(e) => set('name')(e.target.value)}
-          placeholder="e.g. s2ze.com"
-          maxLength={100}
-        />
-      </Field>
-
-      <Field label="URL *">
-        <Input
-          type="url"
-          value={url}
-          onChange={(e) => set('url')(e.target.value)}
-          placeholder="https://example.com"
-        />
-      </Field>
-
+      <InputField label="Name *" {...bind('name')} placeholder="e.g. s2ze.com" maxLength={100} />
+      <InputField label="URL *" type="url" {...bind('url')} placeholder="https://example.com" />
       <Field label="Description (optional)">
-        <Textarea
-          value={description}
-          onChange={(e) => set('description')(e.target.value)}
-          placeholder="What is this site / tool about?"
-          rows={3}
-        />
+        <Textarea {...bind('description')} placeholder="What is this site / tool about?" rows={3} />
       </Field>
-
-      <Field label="Sort Order (lower shows first)">
-        <Input
-          type="number"
-          step="1"
-          value={sortOrder}
-          onChange={(e) => set('sortOrder')(e.target.value)}
-          placeholder="0"
-        />
-      </Field>
+      <InputField label="Sort Order (lower shows first)" type="number" step="1" {...bind('sortOrder')} placeholder="0" />
     </FormDialog>
   );
 }

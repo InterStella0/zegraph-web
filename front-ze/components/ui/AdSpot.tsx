@@ -6,7 +6,7 @@ export function AdSpot({ className }: { className?: string }) {
   const adSlot = process.env.NEXT_PUBLIC_ADSENSE_AD_SLOT
   const adShow = process.env.NEXT_PUBLIC_AD_SHOW
   if (!adShow || adShow.toUpperCase() == "FALSE"){
-    return <></>
+    return null
   }
   if (!adClient || !adSlot) {
     return (

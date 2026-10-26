@@ -4,8 +4,8 @@ import {getTranslations} from "next-intl/server";
 import {GAME_META} from "components/ui/ServerIndicator";
 import {DOMAIN} from "utils/generalUtils";
 import {Community} from "types/community";
-
-const DISCORD_URL = "https://goes.queeniemella.cc/s/discord-zegraph";
+import {JsonLd} from "components/common/JsonLd";
+import {DISCORD_URL} from "components/ui/siteLinks";
 
 const GAME_ORDER = ["730_cs2", "730_csgo", "240"];
 
@@ -17,13 +17,11 @@ function gameLabels(communities: Community[]): string[] {
 }
 
 function richToPlain(node: React.ReactNode): string {
-    if (node === null || node === undefined || typeof node === "boolean") return "";
     if (typeof node === "string" || typeof node === "number") return String(node);
     if (Array.isArray(node)) return node.map(richToPlain).join("");
     if (React.isValidElement(node)) {
         const props = node.props as {children?: React.ReactNode; "aria-hidden"?: boolean};
-        if (props["aria-hidden"]) return "";
-        return richToPlain(props.children);
+        return props["aria-hidden"] ? "" : richToPlain(props.children);
     }
     return "";
 }
@@ -126,10 +124,7 @@ export default async function HomeFaq(
     };
 
     return <section className="px-1 sm:px-0 max-w-3xl mx-auto flex flex-col gap-3 mt-2">
-        <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{__html: JSON.stringify(jsonLd).replace(/</g, '\\u003c')}}
-        />
+        <JsonLd data={jsonLd} />
         {faqs.map(({q, body}) => (
             <details key={q} className="group rounded-xl border bg-card px-4 py-3 sm:px-5 sm:py-4">
                 <summary className="flex cursor-pointer list-none items-start justify-between gap-4 [&::-webkit-details-marker]:hidden">

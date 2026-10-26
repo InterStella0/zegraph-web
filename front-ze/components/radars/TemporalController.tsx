@@ -1,52 +1,43 @@
 import {useState, useEffect, useRef, useCallback, createContext, useContext, SetStateAction, Dispatch, ComponentProps, ReactNode} from 'react';
-import dayjs, {ManipulateType} from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
+import dayjs, {Dayjs, ManipulateType} from "lib/dayjs";
 import { Button } from "components/ui/button";
 import { Slider } from "components/ui/slider";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "components/ui/select";
 import { Play, Pause, Circle, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "components/lib/utils";
 import {getIntervalCallback} from "utils/generalUtils.ts";
 import {useTranslations} from 'next-intl';
+import {wmsTimeRange} from "./RadarPreview.tsx";
 
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.extend(localizedFormat);
+const INTERVALS = ['10min', '30min', '1hour', '6hours', '12hours', '1day', '1week', '1month'] as const;
+type TimeIntervals = typeof INTERVALS[number]
+export type TemporalData = { cursor: Dayjs, interval: TimeIntervals, isLive: boolean}
+export const TemporalContext = createContext<{ data: TemporalData | null, set: Dispatch<SetStateAction<TemporalData>> }>({ data: null, set: () => {}})
 
-
-export const formatDateWMS = (date) => {
-    return date.toISOString()
+// How far an interval steps, and how far back the range of the same name reaches.
+const SPANS: Record<string, [number, ManipulateType]> = {
+    '10min': [10, 'minute'], '30min': [30, 'minute'], '1hour': [1, 'hour'], '6hours': [6, 'hour'], '12hours': [12, 'hour'],
+    '1day': [1, 'day'], '1week': [1, 'week'], '1month': [1, 'month'], '1year': [1, 'year'],
 };
-
-export type TimeIntervals = '10min' | '1hour' | '12hours' | '1day' | '1month'
-export type TemporalData = { cursor: dayjs.Dayjs, interval: TimeIntervals, isLive: boolean}
-export type TemporalContextData = {
-    data: TemporalData | null,
-    set: Dispatch<SetStateAction<TemporalData>>
-}
-export const TemporalContext = createContext<TemporalContextData>({ data: null, set: () => {}})
-
+const intervalSpan = (interval: string) => SPANS[interval] ?? [1, 'hour'] as const;
+// The slider step length of each unit; a month counts as 30 days.
 const MINUTE_MS = 60 * 1000;
-const STEP_MS: Record<string, number> = {
-    '10min': 10 * MINUTE_MS,
-    '30min': 30 * MINUTE_MS,
-    '1hour': 60 * MINUTE_MS,
-    '6hours': 6 * 60 * MINUTE_MS,
-    '12hours': 12 * 60 * MINUTE_MS,
-    '1day': 24 * 60 * MINUTE_MS,
-    '1week': 7 * 24 * 60 * MINUTE_MS,
-    '1month': 30 * 24 * 60 * MINUTE_MS,
+const UNIT_MS: Partial<Record<ManipulateType, number>> = {
+    minute: MINUTE_MS, hour: 60 * MINUTE_MS, day: 24 * 60 * MINUTE_MS, week: 7 * 24 * 60 * MINUTE_MS, month: 30 * 24 * 60 * MINUTE_MS,
 };
-const INTERVAL_STEPS: Record<string, [number, ManipulateType]> = {
-    '10min': [10, 'minute'], '30min': [30, 'minute'], '1hour': [1, 'hour'], '6hours': [6, 'hour'],
-    '12hours': [12, 'hour'], '1day': [1, 'day'], '1week': [1, 'week'], '1month': [1, 'month'],
+// The range options in display order, with the intervals each one offers.
+const RANGE_INTERVALS: Record<string, readonly TimeIntervals[]> = {
+    'all': INTERVALS,
+    '1year': INTERVALS,
+    '1month': INTERVALS.slice(0, -1),
+    '1week': ['1hour', '6hours', '12hours', '1day'],
+    '1day': ['10min', '30min', '1hour', '6hours'],
+    '12hours': ['10min', '30min', '1hour'],
+    '6hours': ['10min', '30min', '1hour'],
 };
-const RANGE_SPANS: Record<string, [number, ManipulateType]> = {
-    '1year': [1, 'year'], '1month': [1, 'month'], '1week': [1, 'week'], '1day': [1, 'day'], '12hours': [12, 'hour'], '6hours': [6, 'hour'],
-};
+
+const formatDateDisplay = (date: Dayjs) => date.format('YYYY-MM-DD HH:mm:ss');
 
 function TipButton({ tip, ...props }: ComponentProps<typeof Button> & { tip: ReactNode }) {
     return (
@@ -85,46 +76,24 @@ function LabeledSelect({ label, value, onValueChange, options, disabled }: {
     );
 }
 
-export default function TemporalController({ wmsLayerRef, initialStartDate, initialEndDate,
-                                               intervals = null
-                                           }){
+export default function TemporalController({ wmsLayerRef, initialStartDate, initialEndDate }) {
     const t = useTranslations('radar.temporal');
-    intervals = intervals ?? [
-        { label: t('interval10min'), value: '10min' },
-        { label: t('interval1hour'), value: '1hour' },
-        { label: t('interval12hours'), value: '12hours' },
-        { label: t('interval1day'), value: '1day' },
-        { label: t('interval1month'), value: '1month' }
-    ];
-    const rangeOptions = [
-        { label: t('rangeAll'), value: 'all' },
-        { label: t('range1year'), value: '1year' },
-        { label: t('range1month'), value: '1month' },
-        { label: t('range1week'), value: '1week' },
-        { label: t('range1day'), value: '1day' },
-        { label: t('range12hours'), value: '12hours' },
-        { label: t('range6hours'), value: '6hours' }
-    ];
+    const rangeOptions = Object.keys(RANGE_INTERVALS).map(value => ({ label: t(value === 'all' ? 'rangeAll' : `range${value}`), value }));
 
     const [startDate, setStartDate] = useState(initialStartDate);
     const [endDate, setEndDate] = useState(initialEndDate);
-    const timeContext = useContext(TemporalContext)
-    const currentTime = timeContext.data.cursor
-    const timeContextSet = timeContext.set
-    const setCurrentTime = time => {
-        timeContextSet(prop => {
-            prop.cursor = typeof time === 'function' ? time(prop.cursor) : time;
-            return { ...prop };
-        });
-    };
+    const { data: { cursor: currentTime }, set: timeContextSet } = useContext(TemporalContext)
+    const setCurrentTime = time => timeContextSet(prop => {
+        prop.cursor = typeof time === 'function' ? time(prop.cursor) : time;
+        return { ...prop };
+    });
     const [sliderValue, setSliderValue] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [selectedInterval, setSelectedInterval] = useState<TimeIntervals>('10min');
     const [selectedRange, setSelectedRange] = useState('1month');
     const [isLive, setIsLive] = useState(true);
-    const [availableIntervals, setAvailableIntervals] = useState(intervals);
+    const availableIntervals = RANGE_INTERVALS[selectedRange].map(value => ({ label: t(`interval${value}`), value }));
 
-    const animationTimerRef = useRef(null)
     const liveUpdateTimerRef = useRef(null)
     const debounceTimer = useRef(null)
     useEffect(() => {
@@ -132,97 +101,55 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
     }, [isLive, timeContextSet])
 
     const getTimeIncrement = useCallback(getIntervalCallback(selectedInterval), [selectedInterval])
-    const formatDateDisplay = (date) => {
-        return date.format('YYYY-MM-DD HH:mm:ss');
-    };
+    const [stepAmount, stepUnit] = intervalSpan(selectedInterval);
+    const stepSizePercent = (stepAmount * UNIT_MS[stepUnit] / endDate.diff(startDate)) * 100;
+    const percentOf = (time: Dayjs) => Math.min(100, (time.diff(startDate) / endDate.diff(startDate)) * 100);
 
-    const getStepSizePercent = () => {
-        const totalRange = endDate.diff(startDate);
-
-        const stepMs = STEP_MS[selectedInterval] || 60 * MINUTE_MS;
-
-        return (stepMs / totalRange) * 100;
-    };
-
-    const rawUpdateWMSLayer = useCallback((start) => {
-        if (!wmsLayerRef.current?.length) return;
-
-        const startStr = formatDateWMS(start);
-        const endStr = formatDateWMS(getTimeIncrement(start));
-        wmsLayerRef.current.forEach(ref => {
-            ref.setParams({
-                ...ref.options,
-                TIME: `${startStr}/${endStr}`,
-            });
-        });
+    const updateWMSLayer = useCallback((start: Dayjs) => {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+            const TIME = wmsTimeRange(start, getTimeIncrement(start));
+            wmsLayerRef.current.forEach(ref => ref.setParams({ ...ref.options, TIME }));
+        }, 120);
     }, [wmsLayerRef, getTimeIncrement]);
 
-    const updateWMSLayer = useCallback((start) => {
-        if (debounceTimer.current) {
-            clearTimeout(debounceTimer.current);
-        }
-        debounceTimer.current = setTimeout(() => {
-            rawUpdateWMSLayer(start);
-        }, 120);
-    }, [rawUpdateWMSLayer]);
-
     useEffect(() => {
-        if (selectedInterval != null) {
-            updateWMSLayer(currentTime);
-        }
+        updateWMSLayer(currentTime);
     }, [selectedInterval, updateWMSLayer, currentTime]);
-    const setChangeInterval = useCallback((state) => {
-        setSelectedInterval(state);
-        timeContextSet(props => {
-            props.interval = state
-            return {...props}
+
+    const setChangeInterval = (interval: TimeIntervals) => {
+        setSelectedInterval(interval);
+        timeContextSet(prop => {
+            prop.interval = interval
+            return {...prop}
         })
-    }, [timeContextSet])
+    }
 
-    useEffect(() => {
-        return () => {
-            if (debounceTimer.current) {
-                clearTimeout(debounceTimer.current);
-            }
-        };
-    }, []);
+    useEffect(() => () => clearTimeout(debounceTimer.current), []);
 
-    const updateTimeFromSlider = (sliderPos) => {
-        if (isLive) {
-            setIsLive(false);
-            clearInterval(liveUpdateTimerRef.current);
-        }
-
-        const totalDuration = endDate.diff(startDate);
-        const currentOffset = totalDuration * (sliderPos / 100);
-        const newTime = startDate.add(currentOffset, 'millisecond');
-        const absoluteTime = newTime.second(0)
-        setCurrentTime(absoluteTime);
-        updateWMSLayer(absoluteTime);
+    const stopLive = () => {
+        if (!isLive) return;
+        setIsLive(false);
+        clearInterval(liveUpdateTimerRef.current);
     };
 
-    const handleSliderChange = (newValue) => {
-        const stepSize = getStepSizePercent();
-        const roundedValue = Math.round(newValue / stepSize) * stepSize;
-
+    const handleSliderChange = (newValue: number) => {
+        const roundedValue = Math.round(newValue / stepSizePercent) * stepSizePercent;
         setSliderValue(roundedValue);
-        updateTimeFromSlider(roundedValue);
+        stopLive();
+        const time = startDate.add(endDate.diff(startDate) * (roundedValue / 100), 'millisecond').second(0);
+        setCurrentTime(time);
+        updateWMSLayer(time);
     };
 
     const animate = () => {
         setCurrentTime(prevTime => {
             const nextTime = getTimeIncrement(prevTime);
-
             if (nextTime.isAfter(endDate)) {
                 setIsPlaying(false);
                 return prevTime;
             }
-
-            const totalTime = endDate.diff(startDate);
-            const elapsedTime = nextTime.diff(startDate);
-            const percentage = Math.min(100, (elapsedTime / totalTime) * 100);
-            setSliderValue(percentage);
-
+            setSliderValue(percentOf(nextTime));
             updateWMSLayer(nextTime);
             return nextTime;
         });
@@ -230,108 +157,44 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
 
     const updateToLive = () => {
         const now = dayjs();
-
         if (now.isAfter(endDate)) {
-            const range = endDate.diff(startDate);
-            const newEnd = now;
-            const newStart = now.subtract(range, 'millisecond');
-
-            setStartDate(newStart);
-            setEndDate(newEnd);
+            setStartDate(now.subtract(endDate.diff(startDate), 'millisecond'));
+            setEndDate(now);
         }
-
         setCurrentTime(now);
-
-        const totalTime = endDate.diff(startDate);
-        const elapsedTime = now.diff(startDate);
-        const percentage = Math.min(100, (elapsedTime / totalTime) * 100);
-        setSliderValue(percentage);
-
+        setSliderValue(percentOf(now));
         updateWMSLayer(now);
     };
 
-    const updateDateRange = (rangeValue) => {
+    const updateDateRange = (range: string) => {
         const now = dayjs();
-        const newEndDate = now;
-        const newStartDate = rangeValue === 'all'
-            ? dayjs(initialStartDate)
-            : now.subtract(...(RANGE_SPANS[rangeValue] ?? [1, 'month'] as const));
-
+        const newStartDate = range === 'all' ? dayjs(initialStartDate) : now.subtract(...SPANS[range]);
         setStartDate(newStartDate);
-        setEndDate(newEndDate);
+        setEndDate(now);
         setCurrentTime(currentTime < newStartDate ? newStartDate : currentTime.add(0, 'ms'))
     };
 
-    const getIntervalOptionsForRange = (rangeValue) => {
-        const intervalMap = {
-            'all': ['1month', '1week', '1day', '12hours', '6hours', '1hour', '30min', '10min'],
-            '1year': ['1month', '1week', '1day', '12hours', '6hours', '1hour', '30min', '10min'],
-            '1month': ['1week', '1day', '12hours', '6hours', '1hour', '30min', '10min'],
-            '1week': ['1day', '12hours', '6hours', '1hour'],
-            '1day': ['6hours', '1hour', '30min', '10min'],
-            '12hours': ['1hour', '30min', '10min'],
-            '6hours': ['1hour', '30min', '10min']
-        };
-
-        const validIntervalValues = intervalMap[rangeValue] || ['1hour'];
-
-        return [
-            { label: t('interval10min'), value: '10min' },
-            { label: t('interval30min'), value: '30min' },
-            { label: t('interval1hour'), value: '1hour' },
-            { label: t('interval6hours'), value: '6hours' },
-            { label: t('interval12hours'), value: '12hours' },
-            { label: t('interval1day'), value: '1day' },
-            { label: t('interval1week'), value: '1week' },
-            { label: t('interval1month'), value: '1month' }
-        ].filter(interval => validIntervalValues.includes(interval.value));
-    };
-
-    const handleRangeChange = (event) => {
-        const newRange = event.target.value;
-        setSelectedRange(newRange);
-        updateDateRange(newRange);
-
-        const newIntervals = getIntervalOptionsForRange(newRange);
-        setAvailableIntervals(newIntervals);
-
-        if (!newIntervals.some(interval => interval.value === selectedInterval)) {
-            setChangeInterval(newIntervals[0].value);
+    const handleRangeChange = (range: string) => {
+        setSelectedRange(range);
+        updateDateRange(range);
+        const intervals = RANGE_INTERVALS[range];
+        if (!intervals.includes(selectedInterval)) {
+            setChangeInterval(intervals[0]);
         }
     };
 
     useEffect(() => {
-        if (isPlaying) {
-            if (isLive) {
-                setIsLive(false);
-                clearInterval(liveUpdateTimerRef.current);
-            }
-
-            animationTimerRef.current = setInterval(animate, 1000);
-        } else {
-            clearInterval(animationTimerRef.current);
-        }
-
-        return () => {
-            clearInterval(animationTimerRef.current);
-        };
+        if (!isPlaying) return;
+        stopLive();
+        const timer = setInterval(animate, 1000);
+        return () => clearInterval(timer);
     }, [isPlaying]);
 
     useEffect(() => {
-        if (isLive) {
-            if (isPlaying) {
-                setIsPlaying(false);
-                clearInterval(animationTimerRef.current);
-            }
-            updateToLive();
-            liveUpdateTimerRef.current = setInterval(updateToLive, 60000);
-        } else {
-            clearInterval(liveUpdateTimerRef.current);
-        }
-
-        return () => {
-            clearInterval(liveUpdateTimerRef.current);
-        };
+        if (!isLive) return;
+        updateToLive();
+        liveUpdateTimerRef.current = setInterval(updateToLive, 60000);
+        return () => clearInterval(liveUpdateTimerRef.current);
     }, [isLive]);
 
     useEffect(() => {
@@ -340,31 +203,21 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
     }, [startDate, endDate]);
 
     useEffect(() => {
-        const totalTime = endDate.diff(startDate);
-        const elapsedTime = currentTime.diff(startDate);
-        const percentage = Math.min(100, (elapsedTime / totalTime) * 100);
-        setSliderValue(percentage);
+        setSliderValue(percentOf(currentTime));
     }, [currentTime]);
 
     useEffect(() => {
-        const initialIntervals = getIntervalOptionsForRange(selectedRange)
-        setAvailableIntervals(initialIntervals)
-        updateDateRange(initialIntervals)
+        updateDateRange(selectedRange)
     }, []);
 
-    const handleIntervalChange = (event) => {
-        setChangeInterval(event.target.value);
+    const handleIntervalChange = (interval: TimeIntervals) => {
+        setChangeInterval(interval);
         updateWMSLayer(currentTime);
     };
 
-    const stepTo = (time: dayjs.Dayjs) => {
-        if (isLive) {
-            setIsLive(false);
-            clearInterval(liveUpdateTimerRef.current);
-        }
-        if (isPlaying) {
-            setIsPlaying(false);
-        }
+    // The step buttons are disabled while playing, so stepping only has to leave live mode.
+    const stepTo = (time: Dayjs) => {
+        stopLive();
         setCurrentTime(time);
         updateWMSLayer(time);
     };
@@ -373,21 +226,17 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
         setIsLive(!isLive);
         if (!isLive) {
             setChangeInterval('10min');
-            if (isPlaying) {
-                setIsPlaying(false);
-            }
+            setIsPlaying(false);
         }
     };
     return (
-        <TooltipProvider delayDuration={200}>
         <div
             className={cn(
                 "absolute bottom-5 left-1/2 -translate-x-1/2",
                 "z-[1000] w-[80vw] mx-3",
                 "bg-background/80 dark:bg-background/70 backdrop-blur-md",
                 "border border-border/40 rounded-xl shadow-lg",
-                "p-2.5 cursor-default",
-                "slider-container"
+                "p-2.5 cursor-default"
             )}
         >
             <div className="flex flex-col md:flex-row items-center gap-2 flex-wrap">
@@ -396,8 +245,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                         <TipButton
                             tip={t('stepBackward')}
                             onClick={() => {
-                                const [amount, unit] = INTERVAL_STEPS[selectedInterval] ?? [1, 'hour'];
-                                const prevTime = currentTime.subtract(amount, unit);
+                                const prevTime = currentTime.subtract(...intervalSpan(selectedInterval));
                                 stepTo(prevTime.isBefore(startDate) ? startDate : prevTime);
                             }}
                             disabled={currentTime?.isSame(startDate) || isPlaying}
@@ -411,10 +259,7 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                             onClick={() => setIsPlaying(!isPlaying)}
                             className="bg-accent/50 hover:bg-accent"
                         >
-                            {isPlaying ?
-                                <Pause className="h-4 w-4" /> :
-                                <Play className="h-4 w-4" />
-                            }
+                            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                         </TipButton>
 
                         <TipButton
@@ -431,10 +276,9 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                     </div>
                 </div>
 
-                <LabeledSelect label={t('range')} value={selectedRange} options={rangeOptions}
-                    onValueChange={(value) => handleRangeChange({ target: { value } })} />
+                <LabeledSelect label={t('range')} value={selectedRange} options={rangeOptions} onValueChange={handleRangeChange} />
                 <LabeledSelect label={t('interval')} value={selectedInterval} options={availableIntervals} disabled={isLive}
-                    onValueChange={(value) => handleIntervalChange({ target: { value } })} />
+                    onValueChange={handleIntervalChange} />
 
                 <div className="flex-none">
                     <TipButton
@@ -463,47 +307,37 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                 <div className="flex-1 w-full md:w-auto min-w-0 mt-2 md:mt-0">
                     <div className="relative h-[30px] w-full flex items-center mt-2">
                         <div className="absolute -top-[18px] left-1/2 -translate-x-1/2 text-xs font-bold text-center whitespace-nowrap">
-                            {isLive ? 'LIVE: ' : ''}{formatDateDisplay(currentTime)}{!isLive ? ` - ${formatDateDisplay(getTimeIncrement(currentTime))}` : ''}
+                            {isLive
+                                ? `LIVE: ${formatDateDisplay(currentTime)}`
+                                : `${formatDateDisplay(currentTime)} - ${formatDateDisplay(getTimeIncrement(currentTime))}`}
                         </div>
 
                         <div className="absolute top-0 left-1 right-1 h-full flex justify-between pointer-events-none before:absolute before:top-[14px] before:left-0 before:right-0 before:h-0.5 before:bg-border before:z-0">
-                            {[0, 4].map((mark) => (
-                                <div
-                                    key={mark}
-                                    className={cn(
-                                        "w-px mt-2.5 relative z-10",
-                                        mark % 2 === 0 ? "h-2.5 bg-foreground" : "h-1.5 bg-muted-foreground"
-                                    )}
-                                />
-                            ))}
+                            {[0, 4].map(mark => <div key={mark} className="w-px mt-2.5 relative z-10 h-2.5 bg-foreground" />)}
                         </div>
 
                         <div className="w-full z-10">
                             <Slider
                                 value={[sliderValue]}
-                                onValueChange={(values) => {
-                                    handleSliderChange(values[0]);
-                                }}
+                                onValueChange={([value]) => handleSliderChange(value)}
                                 min={0}
                                 max={100}
-                                step={getStepSizePercent()}
+                                step={stepSizePercent}
                                 className="w-full"
                             />
                         </div>
 
                         <div className="absolute -bottom-[18px] left-0 right-0 flex justify-between px-0.5">
-                            <span className="text-[0.65rem] text-muted-foreground truncate">
-                                {formatDateDisplay(startDate)}
-                            </span>
-                            <span className="text-[0.65rem] text-muted-foreground truncate">
-                                {formatDateDisplay(endDate)}
-                            </span>
+                            {[startDate, endDate].map((date, i) => (
+                                <span key={i} className="text-[0.65rem] text-muted-foreground truncate">
+                                    {formatDateDisplay(date)}
+                                </span>
+                            ))}
                         </div>
                     </div>
                 </div>
 
             </div>
         </div>
-        </TooltipProvider>
     );
 };

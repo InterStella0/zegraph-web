@@ -1,6 +1,3 @@
-import { proxyToBackendChange } from "lib/apiProxy";
+import { proxyPost } from "lib/apiProxy";
 
-export async function POST(_req: Request, context: { params: Promise<{ server_id: string, map_name: string }> }) {
-    const { server_id, map_name } = await context.params;
-    return proxyToBackendChange(`/servers/${server_id}/maps/${map_name}/unset-favorite`);
-}
+export const POST = proxyPost(p => `/servers/${p.server_id}/maps/${p.map_name}/unset-favorite`, { body: false });

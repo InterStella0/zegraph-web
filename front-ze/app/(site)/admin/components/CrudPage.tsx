@@ -1,18 +1,14 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'components/ui/table';
+import { TableCell, TableRow } from 'components/ui/table';
 import { Button } from 'components/ui/button';
 import { Plus } from 'lucide-react';
 import { fetchApiUrl } from 'utils/generalUtils';
-import { AdminHeader, AdminSpinner, EditDeleteItems, EmptyRow, RowActions, useAdminData, useDialogTarget } from './AdminUI';
-
-export interface CrudDialogProps<T> {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  item: T | null;
-  onSuccess: () => void;
-}
+import {
+  AdminHeader, AdminSpinner, AdminTable, EditDeleteItems, logFailure, RowActions, runAction, useAdminData, useDialogTarget,
+  type CrudDialogProps,
+} from './AdminUI';
 
 export function CrudPage<T extends { id: string }>({
   endpoint, label, title, description, addLabel, headers, emptyText, deleteConfirm, deleteLabel, renderCells, renderDialog,
@@ -32,15 +28,10 @@ export function CrudPage<T extends { id: string }>({
   const { data: items, initialLoading, reload: fetchData } = useAdminData<T[]>(endpoint, (data) => (data as T[]) || [], [], label);
   const dialog = useDialogTarget<T>();
 
-  const deleteItem = async (id: string) => {
-    if (!confirm(deleteConfirm)) return;
-    try {
-      await fetchApiUrl(`${endpoint}/${id}`, { method: 'DELETE' });
-      fetchData();
-    } catch (error) {
-      console.error(`Failed to delete ${deleteLabel}:`, error);
-    }
-  };
+  const deleteItem = (id: string) => runAction(() => fetchApiUrl(`${endpoint}/${id}`, { method: 'DELETE' }), fetchData, {
+    confirm: deleteConfirm,
+    failure: logFailure(`Failed to delete ${deleteLabel}:`),
+  });
 
   if (initialLoading) return <AdminSpinner />;
 
@@ -58,35 +49,20 @@ export function CrudPage<T extends { id: string }>({
         }
       />
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {headers.map((header) => <TableHead key={header}>{header}</TableHead>)}
-            <TableHead>Actions</TableHead>
+      <AdminTable headers={[...headers, 'Actions']} rows={items} empty={emptyText}>
+        {(item) => (
+          <TableRow key={item.id}>
+            {renderCells(item)}
+            <TableCell>
+              <RowActions>
+                <EditDeleteItems onEdit={() => dialog.show(item)} onDelete={() => deleteItem(item.id)} />
+              </RowActions>
+            </TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.length === 0 ? (
-            <EmptyRow colSpan={headers.length + 1}>{emptyText}</EmptyRow>
-          ) : (
-            items.map((item) => (
-              <TableRow key={item.id}>
-                {renderCells(item)}
-                <TableCell>
-                  <RowActions>
-                    <EditDeleteItems
-                      onEdit={() => dialog.show(item)}
-                      onDelete={() => deleteItem(item.id)}
-                    />
-                  </RowActions>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+        )}
+      </AdminTable>
 
-      {renderDialog({ open: dialog.open, onOpenChange: dialog.setOpen, item: dialog.item, onSuccess: fetchData })}
+      {renderDialog(dialog.dialogProps(fetchData))}
     </div>
   );
 }

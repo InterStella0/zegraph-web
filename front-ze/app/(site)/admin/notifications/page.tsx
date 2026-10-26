@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Bell, Send } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import { Input } from 'components/ui/input';
@@ -8,13 +8,22 @@ import { Textarea } from 'components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'components/ui/card';
 import { sendJson } from 'lib/sendJson';
 import { toast } from 'sonner';
-import { AdminHeader } from '../components/AdminUI';
+import { AdminHeader, runAction } from '../components/AdminUI';
 
 interface SendResult {
   success: number;
   failed: number;
   total: number;
   errors: string[];
+}
+
+function LabeledField({ label, children }: { label: ReactNode; children: ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-2">{label}</label>
+      {children}
+    </div>
+  );
 }
 
 export default function AdminNotificationsPage() {
@@ -27,23 +36,17 @@ export default function AdminNotificationsPage() {
   const sendTestNotification = async () => {
     setSending(true);
     setResult(null);
-
-    try {
-      const payload = {
-        title,
-        body,
-        user_id: userId ,
-      };
-
-      const data: SendResult = await sendJson('/admin/push/test', 'POST', payload, { credentials: 'include' });
+    await runAction(async () => {
+      const data: SendResult = await sendJson('/admin/push/test', 'POST', { title, body, user_id: userId }, { credentials: 'include' });
       setResult(data);
       toast.success(`Sent to ${data.success} users`);
-    } catch (error) {
-      console.error('Failed to send test notification:', error);
-      toast.error('Failed to send notification');
-    } finally {
-      setSending(false);
-    }
+    }, () => {}, {
+      failure: (error) => {
+        console.error('Failed to send test notification:', error);
+        toast.error('Failed to send notification');
+      },
+    });
+    setSending(false);
   };
 
   return (
@@ -64,36 +67,17 @@ export default function AdminNotificationsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Title</label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Notification title"
-            />
-          </div>
+          <LabeledField label="Title">
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Notification title" />
+          </LabeledField>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Body</label>
-            <Textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Notification message"
-              rows={4}
-            />
-          </div>
+          <LabeledField label="Body">
+            <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Notification message" rows={4} />
+          </LabeledField>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              User ID (optional - leave empty to send to all)
-            </label>
-            <Input
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="76561198012345678"
-              type="number"
-            />
-          </div>
+          <LabeledField label="User ID (optional - leave empty to send to all)">
+            <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="76561198012345678" type="number" />
+          </LabeledField>
 
           <Button
             onClick={sendTestNotification}
@@ -112,7 +96,7 @@ export default function AdminNotificationsPage() {
                 <li className="text-green-600">Success: {result.success}</li>
                 <li className="text-red-600">Failed: {result.failed}</li>
               </ul>
-              {result.errors && result.errors.length > 0 && (
+              {result.errors?.length > 0 && (
                 <div className="mt-2">
                   <h4 className="font-medium text-sm">Errors:</h4>
                   <ul className="text-xs text-muted-foreground">

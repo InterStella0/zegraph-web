@@ -1,21 +1,8 @@
 'use client'
 
 import { useState } from 'react';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from 'components/ui/dialog';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from 'components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from 'components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from 'components/ui/select';
 import { Textarea } from 'components/ui/textarea';
 import { Input } from 'components/ui/input';
 import { Button } from 'components/ui/button';
@@ -31,10 +18,10 @@ interface MusicReportDialogProps {
     currentYoutubeId?: string | null;
 }
 
-const reportReasons = [
-    { value: 'video_unavailable', labelKey: 'reasonUnavailable' },
-    { value: 'wrong_video', labelKey: 'reasonWrongVideo' },
-];
+const REPORT_REASONS = {
+    video_unavailable: 'reasonUnavailable',
+    wrong_video: 'reasonWrongVideo',
+};
 
 export default function MusicReportDialog({
     open,
@@ -61,9 +48,6 @@ export default function MusicReportDialog({
             toast.success(t('submitSuccess'), {
                 description: t('submitSuccessDesc')
             });
-            setReason('');
-            setDetails('');
-            setYoutubeUrl('');
             onClose();
         } catch (error: any) {
             toast.error(t('submitFailed'), {
@@ -74,13 +58,9 @@ export default function MusicReportDialog({
         }
     };
 
+    // The parent unmounts this dialog on close, which also clears the form.
     const handleClose = () => {
-        if (!submitting) {
-            setReason('');
-            setDetails('');
-            setYoutubeUrl('');
-            onClose();
-        }
+        if (!submitting) onClose();
     };
 
     return (
@@ -107,9 +87,9 @@ export default function MusicReportDialog({
                                 <SelectValue placeholder={t('selectIssueType')} />
                             </SelectTrigger>
                             <SelectContent>
-                                {reportReasons.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        {t(option.labelKey)}
+                                {Object.entries(REPORT_REASONS).map(([value, labelKey]) => (
+                                    <SelectItem key={value} value={value}>
+                                        {t(labelKey)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>

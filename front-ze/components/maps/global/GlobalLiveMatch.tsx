@@ -10,13 +10,14 @@ import LiveServerList from "./LiveServerList";
 import {LiveMatch, liveServers, loadLiveMatch, PrefetchedLiveMatch} from "./liveMatch";
 
 const REFRESH_MS = 65_000;
+const LAYOUT = "grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] gap-4 mb-6";
 
 // The list rows already batch-load every live map's image, so the panel reuses that cache.
 const cachedImage = (serverId: string, map: string) => loadMapImage(map, serverId);
 
 export function GlobalLiveMatchLoading() {
     return (
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] gap-4 mb-6">
+        <div className={LAYOUT}>
             <CurrentMatchSkeleton className="h-full"/>
             <div className="h-80 xl:h-auto border border-border rounded-lg bg-card"/>
         </div>
@@ -100,7 +101,7 @@ export default function GlobalLiveMatch({ userPromise, topLiveMatchPromise }: {
     }, [serverId, mapHint, topLiveMatchPromise]);
 
     return (
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] gap-4 mb-6">
+        <div className={LAYOUT}>
             <Suspense fallback={<CurrentMatchSkeleton className="h-full"/>}>
                 <LiveMatchPanel
                     server={selected}

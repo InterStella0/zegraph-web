@@ -1,17 +1,16 @@
 'use client';
 
-import { useDeferredValue, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import { useDeferredValue, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { Eye, Loader2, Megaphone, PanelTop, Pencil, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
-import dayjs from 'dayjs';
+import dayjs from "lib/dayjs";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from 'components/ui/dialog';
 import { Button } from 'components/ui/button';
 import { Input } from 'components/ui/input';
-import { Label } from 'components/ui/label';
 import { Switch } from 'components/ui/switch';
 import { cn } from 'components/lib/utils';
-import { sendJson } from 'lib/sendJson';
 import type { Announcement, AnnouncementType, CreateAnnouncementDto } from 'types/announcements';
+import { Field, upsertJson, useSave } from '../components/AdminUI';
 import { AnnouncementPreview } from './AnnouncementPreview';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { insertLink, MOD_KEY, wrapSelection } from './markdownEditing';
@@ -81,28 +80,10 @@ function validate(form: FormState) {
   return errors;
 }
 
-function TypeOption({ active, onClick, icon, label, hint }: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-  hint: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={hint}
-      className={cn(
-        'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-        active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
+const TYPE_OPTIONS: { type: AnnouncementType; icon: ReactNode; label: string; hint: string }[] = [
+  { type: 'Rich', icon: <Megaphone className="h-4 w-4" />, label: 'Popup', hint: 'Rich markdown dialog shown once to each visitor' },
+  { type: 'Basic', icon: <PanelTop className="h-4 w-4" />, label: 'Banner', hint: 'One-line banner above server pages' },
+];
 
 export function CreateEditAnnouncementDialog({
   open,
@@ -113,7 +94,7 @@ export function CreateEditAnnouncementDialog({
   const isEdit = announcement !== null;
   const [initial] = useState(() => initialState(announcement));
   const [form, setForm] = useState<FormState>(initial);
-  const [submitting, setSubmitting] = useState(false);
+  const { submitting, save } = useSave(onSuccess, onOpenChange);
   const [showErrors, setShowErrors] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [mobileView, setMobileView] = useState<'edit' | 'preview'>('edit');
@@ -144,28 +125,23 @@ export function CreateEditAnnouncementDialog({
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const payload: CreateAnnouncementDto = {
-        type: form.type,
-        title: isRich ? form.title.trim() : null,
-        text: form.content.trim(),
-        published_at: form.publishedAt ? dayjs(form.publishedAt).toISOString() : dayjs().toISOString(),
-        expires_at: form.expiresAt ? dayjs(form.expiresAt).toISOString() : null,
-        show: form.show,
-      };
-
-      await sendJson(isEdit ? `/admin/announcements/${announcement.id}` : '/admin/announcements', isEdit ? 'PUT' : 'POST', payload);
-      toast.success(isEdit ? 'Announcement updated' : 'Announcement created');
-      onSuccess();
-      onOpenChange(false);
-    } catch (error) {
-      toast.error('Failed to save announcement', {
+    await save(
+      () => {
+        const payload: CreateAnnouncementDto = {
+          type: form.type,
+          title: isRich ? form.title.trim() : null,
+          text: form.content.trim(),
+          published_at: form.publishedAt ? dayjs(form.publishedAt).toISOString() : dayjs().toISOString(),
+          expires_at: form.expiresAt ? dayjs(form.expiresAt).toISOString() : null,
+          show: form.show,
+        };
+        return upsertJson('/admin/announcements', announcement?.id, payload);
+      },
+      isEdit ? 'Announcement updated' : 'Announcement created',
+      (error) => toast.error('Failed to save announcement', {
         description: error instanceof Error ? error.message : undefined,
-      });
-    } finally {
-      setSubmitting(false);
-    }
+      }),
+    );
   };
 
   const handleTextareaKeys = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -181,20 +157,23 @@ export function CreateEditAnnouncementDialog({
 
   const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes('Files');
 
+  const uploadMedia = (files: File[]) => {
+    if (isRich) upload(files);
+    else toast.error('Banners are text only. Switch to Popup to add media.');
+  };
+
   const handleDrop = (e: DragEvent) => {
     if (!hasFiles(e)) return;
     e.preventDefault();
     setDragging(false);
-    if (isRich) upload(Array.from(e.dataTransfer.files));
-    else toast.error('Banners are text only. Switch to Popup to add media.');
+    uploadMedia(Array.from(e.dataTransfer.files));
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const files = Array.from(e.clipboardData.files);
     if (files.length === 0) return;
     e.preventDefault();
-    if (isRich) upload(files);
-    else toast.error('Banners are text only. Switch to Popup to add media.');
+    uploadMedia(files);
   };
 
   return (
@@ -218,20 +197,23 @@ export function CreateEditAnnouncementDialog({
             </DialogDescription>
           </div>
           <div className="flex rounded-lg bg-muted p-1">
-            <TypeOption
-              active={isRich}
-              onClick={() => update('type', 'Rich')}
-              icon={<Megaphone className="h-4 w-4" />}
-              label="Popup"
-              hint="Rich markdown dialog shown once to each visitor"
-            />
-            <TypeOption
-              active={!isRich}
-              onClick={() => update('type', 'Basic')}
-              icon={<PanelTop className="h-4 w-4" />}
-              label="Banner"
-              hint="One-line banner above server pages"
-            />
+            {TYPE_OPTIONS.map((option) => (
+              <button
+                key={option.type}
+                type="button"
+                onClick={() => update('type', option.type)}
+                title={option.hint}
+                className={cn(
+                  'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  form.type === option.type
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {option.icon}
+                {option.label}
+              </button>
+            ))}
           </div>
           <label className="flex items-center gap-2 text-sm">
             <Switch checked={form.show} onCheckedChange={(v) => update('show', v)} />
@@ -269,8 +251,7 @@ export function CreateEditAnnouncementDialog({
           >
             <div className="grid gap-3 border-b p-4 sm:grid-cols-2">
               {isRich && (
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="announcement-title">Title</Label>
+                <Field label="Title" htmlFor="announcement-title" className="space-y-1.5 sm:col-span-2">
                   <Input
                     id="announcement-title"
                     value={form.title}
@@ -279,10 +260,9 @@ export function CreateEditAnnouncementDialog({
                     aria-invalid={showErrors && !!errors.title}
                   />
                   {showErrors && errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
-                </div>
+                </Field>
               )}
-              <div className="space-y-1.5">
-                <Label htmlFor="announcement-publish">Publish at</Label>
+              <Field label="Publish at" htmlFor="announcement-publish" className="space-y-1.5">
                 <Input
                   id="announcement-publish"
                   type="datetime-local"
@@ -292,9 +272,8 @@ export function CreateEditAnnouncementDialog({
                 {form.publishedAt && dayjs(form.publishedAt).isAfter(dayjs()) && (
                   <p className="text-xs text-muted-foreground">Scheduled. It stays hidden until then.</p>
                 )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="announcement-expire">Expires at</Label>
+              </Field>
+              <Field label="Expires at" htmlFor="announcement-expire" className="space-y-1.5">
                 <div className="flex gap-1">
                   <Input
                     id="announcement-expire"
@@ -320,7 +299,7 @@ export function CreateEditAnnouncementDialog({
                 ) : !form.expiresAt && (
                   <p className="text-xs text-muted-foreground">Never expires.</p>
                 )}
-              </div>
+              </Field>
             </div>
 
             <div className="border-b px-2 py-1">

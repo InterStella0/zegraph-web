@@ -1,64 +1,121 @@
 'use client'
-import {useTranslations} from 'next-intl';
+import {useLocale, useTranslations} from 'next-intl';
 import {useState, useEffect, use} from 'react';
-import { Search, Trophy, Loader2 } from 'lucide-react';
-import {fetchApiServerUrl} from "utils/generalUtils";
-import PlayerListItem from "./PlayerListItem";
-import {PlayersTableRanked, RankingMode, SearchPlayer} from "types/players";
+import { Trophy } from 'lucide-react';
+import {fetchApiServerUrl, secondsToHours} from "utils/generalUtils";
+import {PlayersTableRanked, PlayerTableRank, RankingMode, RankMode, SearchPlayer} from "types/players";
+import {Server} from "types/community";
 import {ServerSlugPromise} from "../../app/servers/[server_slug]/util.ts";
-import { Card, CardContent, CardHeader } from "components/ui/card";
-import { Input } from "components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "components/ui/tabs";
-import { Skeleton } from "components/ui/skeleton";
+import { Skeleton, SkeletonText } from "components/ui/skeleton";
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import PaginationPage from "components/ui/PaginationPage.tsx";
-import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "components/ui/command";
-import {PlayerName} from "./PlayerName";
+import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
+import {cn} from "components/lib/utils";
 import {useResource} from "lib/hooks/useResource";
-import {SearchField} from "./OnlinePlayers";
+import {SearchField} from "components/ui/SearchField";
+import {SuggestSearch, useSuggestSearch} from "components/ui/SuggestSearch";
 import {withErrorCatch} from "components/common/withErrorCatch";
+import {PlayerAvatar} from "./PlayerAvatar";
+import {BotBadge, PlayerName} from "./PlayerName";
+import {IconCard} from "./IconCard";
 
-const PlayerListSkeleton = ({ count = 5, showMatchedSkeleton = false }) => (
-    <>
-        {showMatchedSkeleton && (
-            <div className="p-4 bg-accent/50 rounded-md mb-4">
-                <Skeleton className="w-2/5 h-5"/>
-            </div>
-        )}
-        <div>
-            {Array.from({length: count}).map((_, index) => (
-                <div
-                    key={index}
-                    className="flex items-center gap-3 rounded-md mb-2 border border-border p-3"
-                >
-                    <Skeleton className="w-[40px] h-[40px] rounded-[8%] flex-shrink-0"/>
-                    <div className="flex-1 min-w-0">
-                        <div className="font-medium">
-                            <Skeleton className="inline-block align-middle h-4" style={{width: `${5 + (index * 3) % 8}rem`}}/>{'\u200b'}
-                        </div>
-                        <div className="text-sm max-sm:text-xs">
-                            <Skeleton className="inline-block align-middle h-3 w-20"/>{'\u200b'}
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="text-xl max-sm:text-sm">
-                            <Skeleton className="inline-block align-middle h-4 w-14"/>{'\u200b'}
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-    </>
-);
-const SUGGESTION_MIN_CHARS = 3;
-const SUGGESTION_DEBOUNCE_MS = 300;
-const COMMIT_DEBOUNCE_MS = 3000;
+const PAGE_SIZE = 5;
 
-const rankingModes: RankingMode[] = [
+const RANKING_MODES: RankingMode[] = [
     {id: 'total', labelKey: 'modeTotalTime', value: 'Total'},
     {id: 'casual', labelKey: 'modeCasual', value: 'Casual'},
     {id: 'tryhard', labelKey: 'modeTryhard', value: 'TryHard'},
 ]
+
+function PlayerListSkeleton({ showMatchedSkeleton = false }) {
+    const varyWidth = useVaryWidth();
+    return (
+        <>
+            {showMatchedSkeleton && (
+                <div className="p-4 bg-accent/50 rounded-md mb-4">
+                    <Skeleton className="w-2/5 h-5"/>
+                </div>
+            )}
+            <div>
+                {Array.from({length: PAGE_SIZE}, (_, index) => (
+                    <div
+                        key={index}
+                        className="flex items-center gap-3 rounded-md mb-2 border border-border p-3"
+                    >
+                        <Skeleton className="w-[40px] h-[40px] rounded-[8%] flex-shrink-0"/>
+                        <div className="flex-1 min-w-0">
+                            <div className="font-medium">
+                                <SkeletonText className="h-4" style={varyWidth(index, 5, 8)}/>
+                            </div>
+                            <div className="text-sm max-sm:text-xs">
+                                <SkeletonText className="h-3 w-20"/>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="text-xl max-sm:text-sm">
+                                <SkeletonText className="h-4 w-14"/>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+}
+
+function PlayerListItem({ player, mode, server }: { player: PlayerTableRank, mode: RankMode, server: Server }) {
+    const t = useTranslations('players.listItem');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
+    const rankLabel = player.is_bot
+        ? <><BotBadge className="ml-0 mr-1.5"/>{t('botUnranked')}</>
+        : player.rank === -1
+            ? t('unranked')
+            : t('ranked', {rank: tCommon('ordinal', {n: player.rank})});
+    return (
+        <div className="flex items-center gap-3 rounded-md mb-2 border border-border p-3 transition-all duration-200 hover:bg-accent/50">
+            <div className="flex-shrink-0">
+                <PlayerAvatar uuid={player.id} name={player.name} width={40} height={40} anonymous={player.is_anonymous} />
+            </div>
+            <div className="flex-1 min-w-0">
+                {player.is_anonymous ? (
+                    <div className="font-medium"><PlayerName name={player.name} isAnonymous /></div>
+                ) : (
+                    <HoverPrefetchLink href={`/servers/${server.gotoLink}/players/${player.id}`} className="hover:underline">
+                        <PlayerName
+                            name={player.name}
+                            hiddenFromOthers={player.hidden_from_others}
+                            className="font-medium max-w-[25rem] max-sm:max-w-[9rem] truncate block"
+                        />
+                    </HoverPrefetchLink>
+                )}
+                <div className={cn("text-sm text-muted-foreground", !player.is_anonymous && "max-sm:text-xs")}>{rankLabel}</div>
+            </div>
+            <div className="flex items-center gap-2">
+                <span className="text-xl max-sm:text-sm text-primary font-semibold">
+                    {t('hoursShort', {hours: secondsToHours(player[`${mode.toLowerCase()}_playtime`], locale)})}
+                </span>
+            </div>
+        </div>
+    );
+}
+
+/** Without `setTab` the tabs render disabled, for the loading state. */
+function ModeTabs({ tab = 0, setTab }: { tab?: number, setTab?: (tab: number) => void }) {
+    const t = useTranslations('players.rankings');
+    return (
+        <Tabs value={tab.toString()} onValueChange={setTab && (value => setTab(Number(value)))} className="mb-4">
+            <TabsList className="grid w-full grid-cols-3">
+                {RANKING_MODES.map((mode, index) => (
+                    <TabsTrigger key={mode.id} value={index.toString()} disabled={!setTab}>
+                        {t(mode.labelKey)}
+                    </TabsTrigger>
+                ))}
+            </TabsList>
+        </Tabs>
+    );
+}
 
 type PlayerRankingsProps = { serverPromise: ServerSlugPromise, initialDataPromise: Promise<PlayersTableRanked> };
 
@@ -67,254 +124,97 @@ const PlayerRankingsDisplay = ({ serverPromise, initialDataPromise }: PlayerRank
     const server = use(serverPromise)
     const serverId = server.id;
     const initialData = use(initialDataPromise);
-    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
     const [rankingTab, setRankingTab] = useState<number>(0);
     const [rankingPage, setRankingPage] = useState<number>(0);
-    const [suggestions, setSuggestions] = useState<SearchPlayer[]>([]);
-    const [suggestionsLoading, setSuggestionsLoading] = useState<boolean>(false);
-    const [suggestionsOpen, setSuggestionsOpen] = useState<boolean>(false);
-    const [selectedIndex, setSelectedIndex] = useState<number>(-1);
-    const [searchInput, setSearchInput] = useState<string>('');
-    const currentMode = rankingModes[rankingTab]
-    const isSuggestionsOpen = suggestionsOpen && (suggestionsLoading || suggestions.length > 0);
+    const currentMode = RANKING_MODES[rankingTab]
+    const search = useSuggestSearch<SearchPlayer>({
+        fetch: (player_name, signal) => fetchApiServerUrl(serverId, '/players/autocomplete', {params: {player_name}, signal}),
+    });
+    const searchTerm = search.term;
 
-    const commitSearch = (value: string) => {
-        setDebouncedSearchTerm(value.trim());
-        setSuggestionsOpen(false);
-        setSelectedIndex(-1);
-    };
-
-    const handleSearchInputChange = (value: string) => {
-        setSearchInput(value);
-        setSelectedIndex(-1);
-        setSuggestionsOpen(value.trim().length >= SUGGESTION_MIN_CHARS);
-    };
-
-    const handleSelectSuggestion = (playerName: string) => {
-        setSearchInput(playerName);
-        commitSearch(playerName);
-    };
-
-    const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'ArrowDown' && isSuggestionsOpen) {
-            event.preventDefault();
-            setSelectedIndex(prev => prev < suggestions.length - 1 ? prev + 1 : 0);
-        } else if (event.key === 'ArrowUp' && isSuggestionsOpen) {
-            event.preventDefault();
-            setSelectedIndex(prev => prev > 0 ? prev - 1 : suggestions.length - 1);
-        } else if (event.key === 'Enter') {
-            if (isSuggestionsOpen && selectedIndex >= 0) {
-                handleSelectSuggestion(suggestions[selectedIndex].name);
-            } else {
-                commitSearch(searchInput);
-            }
-        }
-    };
-
-    const { data: playerRankings, loading: playerRankingsLoading, error } = useResource<PlayersTableRanked>(signal => {
+    const { data: playerRankings, loading, error } = useResource<PlayersTableRanked>(signal => {
         const params = {
             page: rankingPage,
             mode: currentMode.value,
-            ...(debouncedSearchTerm.trim() && {player_name: debouncedSearchTerm.trim()})
+            ...(searchTerm && {player_name: searchTerm})
         };
         return fetchApiServerUrl(serverId, '/players/table', {params, signal});
-    }, [serverId, rankingPage, debouncedSearchTerm, currentMode], { initial: initialData, keepData: true, errorLog: 'Error fetching player rankings:' });
-    const playerRankingsError = error?.message;
-    const totalPages = playerRankings === initialData
-        ? Math.max(1, Math.ceil((initialData?.total_players || 0) / 5))
-        : Math.ceil((playerRankings?.total_players || 0) / 5);
+    }, [serverId, rankingPage, searchTerm, currentMode], { initial: initialData, keepData: true, errorLog: 'Error fetching player rankings:' });
+    const pages = Math.ceil((playerRankings?.total_players || 0) / PAGE_SIZE);
+    const totalPages = playerRankings === initialData ? Math.max(1, pages) : pages;
 
-    useEffect(() => {
-        setRankingPage(0);
-    }, [debouncedSearchTerm, rankingTab]);
-
-    useEffect(() => {
-        const trimmed = searchInput.trim();
-        if (!trimmed) {
-            setDebouncedSearchTerm('');
-            return;
-        }
-
-        const timer = setTimeout(() => {
-            setDebouncedSearchTerm(trimmed);
-        }, COMMIT_DEBOUNCE_MS);
-
-        return () => clearTimeout(timer);
-    }, [searchInput]);
-
-    useEffect(() => {
-        const trimmed = searchInput.trim();
-        if (trimmed.length < SUGGESTION_MIN_CHARS) {
-            setSuggestions([]);
-            setSuggestionsLoading(false);
-            return;
-        }
-
-        const abortController = new AbortController();
-        const signal = abortController.signal;
-        const timer = setTimeout(() => {
-            setSuggestionsLoading(true);
-            fetchApiServerUrl(serverId, '/players/autocomplete', {params: {player_name: trimmed}, signal})
-                .then((data: SearchPlayer[]) => setSuggestions(data ?? []))
-                .catch(error => {
-                    if (signal.aborted) return;
-                    console.error('Error fetching search suggestions:', error);
-                    setSuggestions([]);
-                })
-                .finally(() => setSuggestionsLoading(false));
-        }, SUGGESTION_DEBOUNCE_MS);
-
-        return () => {
-            clearTimeout(timer);
-            abortController.abort("Changed");
-        };
-    }, [serverId, searchInput]);
+    useEffect(() => setRankingPage(0), [searchTerm, rankingTab]);
 
     return (
-        <Card className="mb-6">
-            <CardHeader className="flex flex-row items-center gap-2 pb-3">
-                <Trophy className="w-5 h-5 text-primary"/>
-                <h2 className="text-lg max-sm:text-md font-semibold">{t('title')}</h2>
-            </CardHeader>
-            <CardContent className="pt-0">
-                <Popover open={isSuggestionsOpen} onOpenChange={setSuggestionsOpen}>
-                    <PopoverTrigger asChild>
-                        <div className="relative mb-4">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                            <Input
-                                placeholder={t('searchPlaceholder')}
-                                value={searchInput}
-                                onChange={(e) => handleSearchInputChange(e.target.value)}
-                                onKeyDown={handleSearchKeyDown}
-                                onFocus={() => {
-                                    if (searchInput.trim().length >= SUGGESTION_MIN_CHARS) setSuggestionsOpen(true);
-                                }}
-                                className="pl-10 pr-10"
-                            />
-                            {suggestionsLoading && (
-                                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground"/>
-                            )}
-                        </div>
-                    </PopoverTrigger>
-                    <PopoverContent
-                        className="p-0"
-                        align="start"
-                        style={{width: 'var(--radix-popover-trigger-width)'}}
-                        onOpenAutoFocus={(e) => e.preventDefault()}
-                    >
-                        <Command shouldFilter={false}>
-                            <CommandList>
-                                <CommandEmpty>{t('noSuggestions')}</CommandEmpty>
-                                <CommandGroup>
-                                    {suggestions.map((option, index) => (
-                                        <CommandItem
-                                            key={option.id}
-                                            value={option.name}
-                                            data-selected={index === selectedIndex}
-                                            onSelect={() => handleSelectSuggestion(option.name)}
-                                        >
-                                            <PlayerName
-                                                name={option.name}
-                                                isAnonymous={option.is_anonymous}
-                                                hiddenFromOthers={option.hidden_from_others}
-                                                isBot={option.is_bot}
-                                                className="font-medium"
-                                            />
-                                        </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                </Popover>
+        <IconCard icon={Trophy} title={t('title')} className="mb-6">
+            <SuggestSearch
+                search={search}
+                className="mb-4"
+                placeholder={t('searchPlaceholder')}
+                empty={t('noSuggestions')}
+                itemValue={option => option.name}
+                itemKey={option => option.id}
+                renderItem={option => <PlayerName
+                    name={option.name}
+                    isAnonymous={option.is_anonymous}
+                    hiddenFromOthers={option.hidden_from_others}
+                    isBot={option.is_bot}
+                    className="font-medium"
+                />}
+            />
 
-                <Tabs value={rankingTab.toString()} onValueChange={(v) => setRankingTab(Number(v))} className="mb-4">
-                    <TabsList className="grid w-full grid-cols-3">
-                        {rankingModes.map((mode, index) => (
-                            <TabsTrigger key={mode.id} value={index.toString()}>
-                                {t(mode.labelKey)}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
+            <ModeTabs tab={rankingTab} setTab={setRankingTab} />
 
-                {playerRankingsLoading ? (
-                    <PlayerListSkeleton showMatchedSkeleton={!!debouncedSearchTerm} />
-                ) : playerRankingsError ? (
-                    <div className="p-4 text-center">
-                        <p className="text-destructive">Error loading player rankings: {playerRankingsError}</p>
-                    </div>
-                ) : (
-                    <>
-                        {playerRankings?.players?.length === 0 ? (
-                            <div className="p-8 text-center">
-                                <h3 className="text-lg font-semibold text-muted-foreground mb-2">
-                                    {t('noPlayersFound')}
-                                </h3>
-                                <p className="text-sm text-muted-foreground">
-                                    {debouncedSearchTerm ?
-                                        t('noResultsFor', {query: debouncedSearchTerm}) :
-                                        t('noPlayersAvailable')
-                                    }
-                                </p>
-                            </div>
-                        ) : (
-                            <>
-                                {debouncedSearchTerm && (
-                                    <div className="p-4 bg-accent/50 rounded-md mb-4">
-                                        <p className="text-sm text-muted-foreground">
-                                            Found {playerRankings?.total_players?.toLocaleString() || 0} players matching "{debouncedSearchTerm}"
-                                        </p>
-                                    </div>
-                                )}
-                                <div>
-                                    {playerRankings?.players?.map((player) => (
-                                        <PlayerListItem
-                                            key={player.id}
-                                            player={player}
-                                            mode={rankingModes[rankingTab].value}
-                                            server={server}
-                                        />
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </>
-                )}
-
-                <div className="flex justify-center mt-4">
-                    <PaginationPage totalPages={totalPages} page={rankingPage} setPage={setRankingPage} />
+            {loading ? (
+                <PlayerListSkeleton showMatchedSkeleton={!!searchTerm} />
+            ) : error?.message ? (
+                <div className="p-4 text-center">
+                    <p className="text-destructive">Error loading player rankings: {error.message}</p>
                 </div>
-            </CardContent>
-        </Card>
+            ) : playerRankings?.players?.length === 0 ? (
+                <div className="p-8 text-center">
+                    <h3 className="text-lg font-semibold text-muted-foreground mb-2">
+                        {t('noPlayersFound')}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                        {searchTerm ? t('noResultsFor', {query: searchTerm}) : t('noPlayersAvailable')}
+                    </p>
+                </div>
+            ) : (
+                <>
+                    {searchTerm && (
+                        <div className="p-4 bg-accent/50 rounded-md mb-4">
+                            <p className="text-sm text-muted-foreground">
+                                Found {playerRankings?.total_players?.toLocaleString() || 0} players matching "{searchTerm}"
+                            </p>
+                        </div>
+                    )}
+                    <div>
+                        {playerRankings?.players?.map((player) => (
+                            <PlayerListItem key={player.id} player={player} mode={currentMode.value} server={server} />
+                        ))}
+                    </div>
+                </>
+            )}
+
+            <div className="flex justify-center mt-4">
+                <PaginationPage totalPages={totalPages} page={rankingPage} setPage={setRankingPage} />
+            </div>
+        </IconCard>
     );
 };
 
 export function PlayerRankingsLoading() {
     const t = useTranslations('players.rankings');
     return (
-        <Card className="mb-6">
-            <CardHeader className="flex flex-row items-center gap-2 pb-3">
-                <Trophy className="w-5 h-5 text-primary"/>
-                <h2 className="text-lg max-sm:text-md font-semibold">{t('title')}</h2>
-            </CardHeader>
-            <CardContent className="pt-0">
-                <SearchField placeholder={t('searchPlaceholder')} disabled/>
-                <Tabs value="0" className="mb-4">
-                    <TabsList className="grid w-full grid-cols-3">
-                        {rankingModes.map((mode, index) => (
-                            <TabsTrigger key={mode.id} value={index.toString()} disabled>
-                                {t(mode.labelKey)}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
-                <PlayerListSkeleton/>
-                <div className="flex justify-center mt-4">
-                    <Skeleton className="h-9 w-64"/>
-                </div>
-            </CardContent>
-        </Card>
+        <IconCard icon={Trophy} title={t('title')} className="mb-6">
+            <SearchField className="mb-4" placeholder={t('searchPlaceholder')} disabled/>
+            <ModeTabs />
+            <PlayerListSkeleton/>
+            <div className="flex justify-center mt-4">
+                <Skeleton className="h-9 w-64"/>
+            </div>
+        </IconCard>
     );
 }
 

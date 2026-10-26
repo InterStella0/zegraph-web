@@ -1,6 +1,3 @@
-import { proxyToBackendChange } from "lib/apiProxy";
+import { proxyPost } from "lib/apiProxy";
 
-export async function POST(_req: Request, context: { params: Promise<{ map_name: string }> }) {
-    const { map_name } = await context.params;
-    return proxyToBackendChange(`/maps/${encodeURIComponent(map_name)}/unset-favorite`);
-}
+export const POST = proxyPost(p => `/maps/${encodeURIComponent(p.map_name)}/unset-favorite`, { body: false });

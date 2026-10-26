@@ -1,11 +1,10 @@
-import * as React from "react";
-import {Suspense} from "react";
+import {ReactNode, Suspense} from "react";
 import {Metadata} from "next";
 import {ThemeProvider} from "components/providers/theme-provider";
 import {CommunityServerProvider} from "components/ui/ServerProvider";
 import {getCommunity} from "./getCommunity";
 import './globals.css'
-import {DOMAIN, hasSession} from "utils/generalUtils.ts";
+import {DOMAIN, hasSession, socialMeta} from "utils/generalUtils.ts";
 import {Toaster} from "components/ui/sonner";
 import {SakuraBackground} from "components/backgrounds/SakuraBackground";
 import {inter} from './fonts';
@@ -34,46 +33,17 @@ export async function generateMetadata(): Promise<Metadata> {
         publisher: 'ZE Graph',
         authors: [{name: 'InterStella0'}],
         keywords: [
-            'zombie escape',
-            'ze',
-            'cs2 zombie escape',
-            'cs2ze',
-            'cs zombie escape',
-            'counter-strike zombie escape',
-            'counter-strike zombie escape graph',
-            'csgo zombie escape',
-            'css zombie escape',
-            'zombie escape servers',
-            'zombie escape communities',
-            'zombie escape stats',
-            'zombie escape analytics',
-            'ze graph',
-            'zombie escape graph',
-            'cs zombie escape graph',
+            'zombie escape', 'ze', 'cs2 zombie escape', 'cs2ze', 'cs zombie escape',
+            'counter-strike zombie escape', 'counter-strike zombie escape graph',
+            'csgo zombie escape', 'css zombie escape',
+            'zombie escape servers', 'zombie escape communities', 'zombie escape stats', 'zombie escape analytics',
+            'ze graph', 'zombie escape graph', 'cs zombie escape graph',
         ],
-        openGraph: {
-            type: 'website',
-            siteName: 'ZE Graph',
-            title: 'ZE Graph',
-            description,
-            url: '/',
-            locale: 'en_US',
-        },
-        twitter: {
-            card: 'summary_large_image',
-            title: 'ZE Graph',
-            description,
-            creator: '@queeniemella',
-        },
+        ...socialMeta({title: 'ZE Graph', description, url: '/'}),
     }
 }
 
-
-export default async function RootLayout({
-    children,
-}: {
-    children: React.ReactNode
-}) {
+export default async function RootLayout({children}: {children: ReactNode}) {
     const communities = getCommunity();
     const user = getServerUser();
     const donorBanner = getDonorBanner();

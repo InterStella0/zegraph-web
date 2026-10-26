@@ -1,17 +1,5 @@
 'use client';
-import {
-    Chart as ChartJS,
-    Filler,
-    Legend,
-    LinearScale,
-    LineElement,
-    PointElement,
-    TimeScale,
-    Tooltip,
-} from 'chart.js';
-import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
-import zoomPlugin from 'chartjs-plugin-zoom';
-import dayjs from 'dayjs';
+import dayjs from "lib/dayjs";
 import {Maximize2, Minimize2} from 'lucide-react';
 import {use, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useChartTheme} from "lib/chartTheme";
@@ -22,10 +10,10 @@ import {useServerMap} from 'components/ui/ServerProvider';
 import {PopulationTimeType} from 'types/home';
 import CommunityMultiSelect from './CommunityMultiSelect';
 import {
-    fetchAllCommunityPopulation,
     fetchCommunityPopulation,
     INITIAL_POPULATION_TIME_TYPE,
     INITIAL_SELECTED_COMMUNITIES,
+    PopulationPoint,
     PopulationSeed,
 } from './homeData';
 import {useCommunityColors} from 'lib/hooks/useCommunityColors';
@@ -34,34 +22,24 @@ import {useTranslations} from 'next-intl';
 const MAX_SELECTED_COMMUNITIES = 8;
 const ALL_COMMUNITY_ID = 'all';
 
-ChartJS.register(LinearScale, PointElement, LineElement, TimeScale, Tooltip, Legend, Filler, zoomPlugin);
-
-const TIME_OPTIONS: {labelKey: string, value: PopulationTimeType}[] = [
-    {labelKey: 'interval10Min', value: 'TenMinutes'},
-    {labelKey: 'interval1Hour', value: 'OneHour'},
-    {labelKey: 'interval1Day', value: 'OneDay'},
-];
-
-const BUCKET_COUNT = 32;
-const INTERVAL_MINUTES: Record<PopulationTimeType, number> = {
-    TenMinutes: 10,
-    OneHour: 60,
-    OneDay: 60 * 24,
+const INTERVALS: Record<PopulationTimeType, {labelKey: string, minutes: number}> = {
+    TenMinutes: {labelKey: 'interval10Min', minutes: 10},
+    OneHour: {labelKey: 'interval1Hour', minutes: 60},
+    OneDay: {labelKey: 'interval1Day', minutes: 60 * 24},
 };
+const BUCKET_COUNT = 32;
+const intervalMs = (timeType: PopulationTimeType) => INTERVALS[timeType].minutes * 60_000;
+const windowMs = (timeType: PopulationTimeType) => BUCKET_COUNT * intervalMs(timeType);
 
-function windowMs(timeType: PopulationTimeType) {
-    return BUCKET_COUNT * INTERVAL_MINUTES[timeType] * 60_000;
-}
+type Line = {id: string, name: string, points: PopulationPoint[]};
 
-type Line = {id: string, name: string, points: {x: string, y: number}[]};
-
-type Props = {
+export type PopulationChartProps = {
     isExpanded: boolean;
     onToggleExpand: () => void;
     populationPromise: Promise<PopulationSeed | null>;
 };
 
-export default function PopulationChart({isExpanded, onToggleExpand, populationPromise}: Props) {
+export default function PopulationChart({isExpanded, onToggleExpand, populationPromise}: PopulationChartProps) {
     const t = useTranslations('home');
     const communityData = useServerMap();
     const theme = useChartTheme();
@@ -78,23 +56,16 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [communities]);
 
-    const selectableCommunities = useMemo(
-        () => [{id: ALL_COMMUNITY_ID, name: t('allCommunities')}, ...communities],
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [communities, t],
-    );
+    const selectableCommunities = [{id: ALL_COMMUNITY_ID, name: t('allCommunities')}, ...communities];
 
-    const selectedCommunities = useMemo(() => {
-        return selectedIds
-            .map(id => {
-                if (id === ALL_COMMUNITY_ID) return {id, name: t('allCommunities'), icon_url: null};
-                const community = communities.find(c => c.id === id);
-                if (!community) return null;
-                return {id, name: community.name, icon_url: community.icon_url};
-            })
-            .filter((c): c is {id: string, name: string, icon_url: string | null} => c !== null);
+    // Memoised: the population fetch effect below depends on this list.
+    const selectedCommunities = useMemo(() => selectedIds
+        .map(id => id === ALL_COMMUNITY_ID
+            ? {id, name: t('allCommunities'), icon_url: null}
+            : communities.find(c => c.id === id))
+        .filter(Boolean),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedIds, communities]);
+        [selectedIds, communities]);
 
     const colors = useCommunityColors(selectedCommunities.map(c => ({
         key: c.id,
@@ -125,24 +96,17 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
         const controller = new AbortController();
         setLoading(true);
         const time = cursor.toJSON();
-        const results: (Line | null)[] = new Array(selectedCommunities.length).fill(null);
+        const results: Line[] = [];
         let remaining = selectedCommunities.length;
         let flushTimer: ReturnType<typeof setTimeout> | null = null;
         const flush = () => {
             flushTimer = null;
-            setLines(results.filter((l): l is Line => l !== null));
+            setLines(results.filter(Boolean));
         };
         selectedCommunities.forEach((c, i) => {
-            const request = c.id === ALL_COMMUNITY_ID
-                ? fetchAllCommunityPopulation(timeType, time, controller.signal)
-                : fetchCommunityPopulation(c.id, timeType, time, controller.signal);
-            request.then(data => {
+            fetchCommunityPopulation(c.id, timeType, time, controller.signal).then(points => {
                 if (controller.signal.aborted) return;
-                results[i] = {
-                    id: c.id,
-                    name: c.name,
-                    points: data.map(d => ({x: d.bucket_time, y: d.player_count})),
-                };
+                results[i] = {id: c.id, name: c.name, points};
                 if (flushTimer) clearTimeout(flushTimer);
                 if (--remaining === 0) {
                     flush();
@@ -163,9 +127,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
         if (panTimeout.current) clearTimeout(panTimeout.current);
         panTimeout.current = setTimeout(() => {
             const now = dayjs();
-            let next = dayjs(edge);
-            if (next.isAfter(now)) next = now;
-            setCursor(next);
+            setCursor(dayjs(edge).isAfter(now) ? now : dayjs(edge));
         }, 400);
     }, []);
 
@@ -196,7 +158,6 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
 
     const options = useMemo(() => ({
         animation: false,
-        responsive: true,
         maintainAspectRatio: false,
         interaction: {mode: 'index', intersect: false},
         scales: {
@@ -234,9 +195,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
                     mode: 'x',
                     onZoomComplete: handleZoomComplete,
                 },
-                limits: {
-                    x: {minRange: INTERVAL_MINUTES[timeType] * 60_000 * 2},
-                },
+                limits: {x: {minRange: intervalMs(timeType) * 2}},
             },
         },
     }), [theme, handlePanComplete, handleZoomComplete, cursor, timeType]);
@@ -272,18 +231,18 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
                             maxSelected={MAX_SELECTED_COMMUNITIES}
                         />
                         <div className="flex flex-row rounded-md border border-border p-0.5 text-xs">
-                            {TIME_OPTIONS.map(opt => (
+                            {Object.entries(INTERVALS).map(([value, {labelKey}]) => (
                                 <button
-                                    key={opt.value}
+                                    key={value}
                                     type="button"
-                                    onClick={() => selectTimeType(opt.value)}
+                                    onClick={() => selectTimeType(value as PopulationTimeType)}
                                     className={`px-2.5 py-1 rounded transition-colors ${
-                                        timeType === opt.value
+                                        timeType === value
                                             ? 'bg-primary text-primary-foreground'
                                             : 'text-muted-foreground hover:text-foreground'
                                     }`}
                                 >
-                                    {t(opt.labelKey)}
+                                    {t(labelKey)}
                                 </button>
                             ))}
                         </div>
@@ -308,17 +267,16 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
                 </div>
 
                 <div className={`relative flex-1 ${isExpanded? "min-h-[400px]": "min-h-[240px]"}`}>
-                    {!loading && !hasData && (
-                        <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground text-center px-4">
-                            {t('noPopulationData')}
-                        </div>
-                    )}
-                    {(hasData || loading) && (
+                    {hasData || loading ? (
                         <LazyLineChart
                             data={data}
                             // @ts-ignore dynamic() collapses the chart generics; option literals widen to string
                             options={options}
                         />
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground text-center px-4">
+                            {t('noPopulationData')}
+                        </div>
                     )}
                 </div>
             </CardContent>

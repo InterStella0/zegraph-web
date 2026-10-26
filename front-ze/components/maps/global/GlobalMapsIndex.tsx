@@ -8,13 +8,14 @@ import {GlobalMapPaginated} from "types/maps.ts";
 import {SteamProfile} from "types/steam";
 import {Skeleton} from "components/ui/skeleton";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "components/ui/select";
-import LoginDialog from "components/ui/LoginDialog.tsx";
 import {GAME_META} from "components/ui/ServerIndicator";
-import MapsSearchControls from "components/maps/MapsSearchControls.tsx";
-import MapsFilterTabs, {FilterTypes} from "components/maps/MapsFilterTab.tsx";
+import MapsSearchControls, {MAP_SUGGEST, MapSuggestion} from "components/maps/MapsSearchControls.tsx";
+import {useSuggestSearch} from "components/ui/SuggestSearch";
+import MapsFilterTabs, {FILTER_MODES, FilterTypes} from "components/maps/MapsFilterTab.tsx";
 import {withErrorCatch} from "components/common/withErrorCatch";
-import {SortByIndex} from "../../../app/servers/[server_slug]/maps/MapsSearchIndex.tsx";
+import {SortByIndex} from "components/maps/MapsSearchControls";
 import GlobalMapsTable from "./GlobalMapsTable";
+import {useFavoriteToggle} from "../FavoriteButton";
 import GlobalMapsMobileView from "./GlobalMapsMobileView";
 import {GLOBAL_MAPS_DEFAULT_SORT, GLOBAL_MAPS_PAGE_SIZE} from "./constants";
 
@@ -71,17 +72,6 @@ function recordFavorite(mapName: string, isFavorite: boolean) {
     }
 }
 
-function getFilterMode(tab: FilterTypes) {
-    switch (tab) {
-        case 'casual': return 'Casual';
-        case 'tryhard': return 'TryHard';
-        case 'lasers': return 'HasLaser';
-        case 'playing': return 'Playing';
-        case 'favorites': return 'Favorite';
-        default: return null;
-    }
-}
-
 function favoritesOf(data: GlobalMapPaginated | null): Set<string> {
     return new Set(data?.maps
         .filter(map => favoriteOverrides.get(map.map) ?? map.is_favorite)
@@ -122,55 +112,23 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
     const initialData = use(initialDataPromise);
     const user = use(userPromise);
 
-    const [searchInput, setSearchInput] = useState<string>('');
-    const [searchTerm, setSearchTerm] = useState<string>('');
     const [sortBy, setSortBy] = useState<SortByIndex>(GLOBAL_MAPS_DEFAULT_SORT);
     const [filterTab, setFilterTab] = useState<FilterTypes>('all');
     const [game, setGame] = useState<string>(ALL_GAMES);
     const [page, setPage] = useState<number>(0);
     const [favoritesTick, bumpFavorites] = useReducer((n: number) => n + 1, 0);
-    const [autocompleteOptions, setAutocompleteOptions] = useState<{map: string}[]>([]);
-    const [autocompleteLoading, setAutocompleteLoading] = useState<boolean>(false);
-    const [loginDialogOpen, setLoginDialogOpen] = useState<boolean>(false);
     const isDesktop = useMediaQuery('(min-width: 48rem)');
 
-    useEffect(() => {
-        const trimmed = searchInput.trim();
-        const timer = setTimeout(() => {
-            setSearchTerm(trimmed);
-            setPage(0);
-        }, trimmed ? SEARCH_DEBOUNCE_MS : 0);
-        return () => clearTimeout(timer);
-    }, [searchInput]);
+    const search = useSuggestSearch<MapSuggestion>({
+        ...MAP_SUGGEST,
+        fetch: (map, signal) => fetchUrl('/maps/autocomplete', {params: {map}, signal})
+            .then((data: MapSuggestion[]) => data.slice(0, 10)),
+        commitDelay: SEARCH_DEBOUNCE_MS,
+        onCommit: () => setPage(0),
+    });
+    const searchTerm = search.term;
 
-    useEffect(() => {
-        const trimmed = searchInput.trim();
-        if (!trimmed) {
-            setAutocompleteOptions([]);
-            return;
-        }
-        const controller = new AbortController();
-        const timer = setTimeout(() => {
-            setAutocompleteLoading(true);
-            fetchUrl('/maps/autocomplete', {params: {map: trimmed}, signal: controller.signal})
-                .then((data: {map: string}[]) => setAutocompleteOptions(data.slice(0, 10)))
-                .catch(err => {
-                    if (!controller.signal.aborted) {
-                        console.error('Failed to load autocomplete:', err);
-                        setAutocompleteOptions([]);
-                    }
-                })
-                .finally(() => {
-                    if (!controller.signal.aborted) setAutocompleteLoading(false);
-                });
-        }, 300);
-        return () => {
-            clearTimeout(timer);
-            controller.abort();
-        };
-    }, [searchInput]);
-
-    const filterMode = getFilterMode(filterTab);
+    const filterMode = FILTER_MODES[filterTab] ?? null;
     const key = pageKey(page, sortBy, searchTerm, filterMode, game);
     const [initialKey] = useState(key);
     const [shown, setShown] = useState<{key: string, data: GlobalMapPaginated}>({key: initialKey, data: initialData});
@@ -212,35 +170,21 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const favorites = useMemo(() => favoritesOf(data), [data, favoritesTick]);
 
-    const toggleFavorite = async (mapName: string) => {
-        if (!user) {
-            setLoginDialogOpen(true);
-            return;
-        }
-        const isFavorite = favorites.has(mapName);
-        const action = isFavorite ? 'unset-favorite' : 'set-favorite';
-        try {
-            await fetchApiUrl(`/maps/${encodeURIComponent(mapName)}/${action}`, {method: 'POST'});
-            recordFavorite(mapName, !isFavorite);
-            bumpFavorites();
-        } catch (err) {
-            console.error('Failed to toggle favorite:', err);
-        }
-    };
+    const {toggleFavorite, loginDialog} = useFavoriteToggle(!!user, favorites, (mapName, favorite) => {
+        recordFavorite(mapName, favorite);
+        bumpFavorites();
+    });
+    const listProps = {mapsData: data, page, setPage, favorites, toggleFavorite, loading};
 
     return (
         <>
             <GlobalMapsHeader total={initialData?.total_maps ?? 0}/>
 
             <MapsSearchControls
-                searchInput={searchInput}
-                setSearchInput={setSearchInput}
-                setSearchTerm={setSearchTerm}
+                search={search}
                 setPage={setPage}
                 sortBy={sortBy}
                 setSortBy={setSortBy}
-                autocompleteOptions={autocompleteOptions}
-                autocompleteLoading={autocompleteLoading}
                 sortOptions={GLOBAL_SORT_OPTIONS}
             >
                 <Select
@@ -270,30 +214,12 @@ function GlobalMapsIndexDisplay({ initialDataPromise, userPromise }: {
                 </div>
             ) : (
                 <>
-                    {isDesktop !== false && <div className="hidden md:block">
-                        <GlobalMapsTable
-                            mapsData={data}
-                            page={page}
-                            setPage={setPage}
-                            favorites={favorites}
-                            toggleFavorite={toggleFavorite}
-                            loading={loading}
-                        />
-                    </div>}
-                    {isDesktop !== true && <div className="block md:hidden">
-                        <GlobalMapsMobileView
-                            mapsData={data}
-                            page={page}
-                            setPage={setPage}
-                            favorites={favorites}
-                            toggleFavorite={toggleFavorite}
-                            loading={loading}
-                        />
-                    </div>}
+                    {isDesktop !== false && <div className="hidden md:block"><GlobalMapsTable {...listProps}/></div>}
+                    {isDesktop !== true && <div className="block md:hidden"><GlobalMapsMobileView {...listProps}/></div>}
                 </>
             )}
 
-            <LoginDialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)}/>
+            {loginDialog}
         </>
     );
 }

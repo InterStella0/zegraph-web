@@ -1,26 +1,22 @@
 "use client"
 import {useTranslations} from "next-intl";
-import {useCallback, useEffect, useRef, useState} from "react";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
+import {useCallback, useEffect, useState} from "react";
+import dayjs from "lib/dayjs";
 import { Button } from "components/ui/button";
 import { History, RefreshCw } from "lucide-react";
-import { fetchApiServerUrl, StillCalculate } from "utils/generalUtils";
+import { fetchApiServerUrl, NO_CACHE, StillCalculate } from "utils/generalUtils";
 import { DetailedPlayer } from "types/players.ts";
 import { STALE_PATHS, usePlayerStatsPatch } from "./PlayerStatsPatch.tsx";
-import { usePlayerPeriod } from "./PlayerPeriod.tsx";
-
-dayjs.extend(relativeTime)
+import {usePeriod} from "components/period/Period";
 
 const POLL_INTERVAL_MS = 30000;
 
 const DEPENDENT_PATHS = STALE_PATHS.filter(path => path !== "detail");
-const NO_CACHE = { cache: "no-store", headers: { "Cache-Control": "no-cache" } } as const;
 
 type StalePlayerStatsProps = { serverId: string, playerId: string, calculatedAt: string | null };
 
 export default function StalePlayerStats(props: StalePlayerStatsProps) {
-    const { period } = usePlayerPeriod();
+    const { period } = usePeriod();
     if (period) return null;
     return <StalePlayerStatsBanner {...props} />;
 }
@@ -31,9 +27,7 @@ function StalePlayerStatsBanner({ serverId, playerId, calculatedAt }: StalePlaye
     const [stillStale, setStillStale] = useState(false);
     const [done, setDone] = useState(false);
     const [cycle, setCycle] = useState(0);
-    const patch = usePlayerStatsPatch();
-
-    const applyPatches = patch?.applyPatches;
+    const applyPatches = usePlayerStatsPatch()?.applyPatches;
 
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
@@ -55,9 +49,8 @@ function StalePlayerStatsBanner({ serverId, playerId, calculatedAt }: StalePlaye
 
             const entries: [string, unknown][] = [["detail", detail]];
             results.forEach((result, index) => {
-                if (result.status !== "fulfilled") return;
-                if (result.value instanceof StillCalculate || result.value == null) return;
-                entries.push([DEPENDENT_PATHS[index], result.value]);
+                if (result.status === "fulfilled" && result.value != null && !(result.value instanceof StillCalculate))
+                    entries.push([DEPENDENT_PATHS[index], result.value]);
             });
 
             applyPatches?.(entries);
@@ -70,17 +63,11 @@ function StalePlayerStatsBanner({ serverId, playerId, calculatedAt }: StalePlaye
         }
     }, [serverId, playerId, applyPatches]);
 
-    const onRefreshRef = useRef(onRefresh);
-    useEffect(() => {
-        onRefreshRef.current = onRefresh;
-    }, [onRefresh]);
-
     useEffect(() => {
         if (done) return;
-
-        const interval = setInterval(() => onRefreshRef.current(), POLL_INTERVAL_MS);
+        const interval = setInterval(onRefresh, POLL_INTERVAL_MS);
         return () => clearInterval(interval);
-    }, [done, cycle]);
+    }, [done, cycle, onRefresh]);
 
     if (done) return null;
 
@@ -110,12 +97,7 @@ function StalePlayerStatsBanner({ serverId, playerId, calculatedAt }: StalePlaye
                 )}
             </div>
 
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onRefresh()}
-                disabled={isRefreshing}
-            >
+            <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 {isRefreshing ? t('refreshing') : t('fetchLatest')}
             </Button>

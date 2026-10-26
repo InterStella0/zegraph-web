@@ -7,6 +7,7 @@ import {Check, Pause, Play} from 'lucide-react';
 import {cn} from 'components/lib/utils';
 import {Button} from 'components/ui/button';
 import {MockPlayback, usePrefersReducedMotion} from './mockups/primitives';
+import {useInView} from 'lib/hooks/useInView';
 
 export type SetupGuideStep = {
     title: string,
@@ -25,19 +26,11 @@ export default function SetupStep({steps}: { steps: SetupGuideStep[] }) {
     const panelRef = useRef<HTMLDivElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const [progress, setProgress] = useState<Progress>(() => fresh(0));
-    const [visible, setVisible] = useState(false);
+    const visible = useInView(panelRef);
     const [userPaused, setUserPaused] = useState(false);
     const current = progress.step;
     const step = steps[current];
     const paused = reduced || userPaused || !visible;
-
-    useEffect(() => {
-        const el = panelRef.current;
-        if (!el) return;
-        const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {threshold: 0.4});
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, []);
 
     useEffect(() => {
         if (!progress.barDone || !progress.sceneDone) return;

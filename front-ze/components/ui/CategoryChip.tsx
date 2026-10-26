@@ -1,8 +1,9 @@
 'use client'
 import { Badge } from "components/ui/badge";
 import { cn } from "components/lib/utils";
-import { useEffect, useState } from "react";
 import {useTranslations} from 'next-intl';
+import {useHydrated} from "lib/hooks/useHydrated";
+import type {MapPlayed} from "types/maps";
 
 const CATEGORY_STYLES = {
     'casual': 'border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
@@ -12,23 +13,11 @@ const CATEGORY_STYLES = {
     'no noms': 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-400',
 };
 
-const CATEGORY_KEYS = {
-    'casual': 'casual',
-    'tryhard': 'tryhard',
-    'mixed': 'mixed',
-    'lasers': 'lasers',
-    'no noms': 'noNoms',
-};
-
 export default function CategoryChip({ category, size = "medium", ...other }) {
     const t = useTranslations('maps.category');
-    const [isClient, setIsClient] = useState(false);
+    const isClient = useHydrated();
     const styleClass = CATEGORY_STYLES[category] || 'border-muted-foreground bg-muted text-muted-foreground';
-    const label = CATEGORY_KEYS[category] ? t(CATEGORY_KEYS[category]) : category;
-
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
+    const label = CATEGORY_STYLES[category] ? t(category === 'no noms' ? 'noNoms' : category) : category;
 
     if (!isClient) {
         return (
@@ -53,4 +42,16 @@ export default function CategoryChip({ category, size = "medium", ...other }) {
             {label}
         </Badge>
     );
+}
+
+/** The play-style, lasers and no-noms chips of a map. */
+export function MapCategoryChips({ map }: { map: Pick<MapPlayed, 'is_casual' | 'is_tryhard' | 'has_lasers' | 'no_noms'> }) {
+    const t = useTranslations('maps.table');
+    return <>
+        {map.is_casual && !map.is_tryhard && <CategoryChip category="casual" size="small" />}
+        {map.is_tryhard && !map.is_casual && <CategoryChip category="tryhard" size="small" />}
+        {map.is_tryhard && map.is_casual && <CategoryChip category="mixed" size="small" />}
+        {map.has_lasers && <CategoryChip category="lasers" title={t('lasersTitle')} size="small" />}
+        {map.no_noms && <CategoryChip category="no noms" title={t('noNomsTitle')} size="small" />}
+    </>
 }

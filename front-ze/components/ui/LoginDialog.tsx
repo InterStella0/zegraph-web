@@ -7,6 +7,7 @@ import {
 } from "components/ui/dialog";
 import {Button} from "components/ui/button";
 import {signIn} from "next-auth/react";
+import {useState} from "react";
 import {SiSteam} from "@icons-pack/react-simple-icons";
 
 export default function LoginDialog({ open, onClose }: { open: boolean, onClose: () => void}) {
@@ -14,7 +15,6 @@ export default function LoginDialog({ open, onClose }: { open: boolean, onClose:
         onClose();
         signIn("steam")
     };
-
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md">
@@ -46,4 +46,9 @@ export default function LoginDialog({ open, onClose }: { open: boolean, onClose:
             </DialogContent>
         </Dialog>
     );
+}
+/** Login dialog state: call `openLogin()` and render `loginDialog`. */
+export function useLoginDialog() {
+    const [open, setOpen] = useState(false);
+    return {openLogin: () => setOpen(true), loginDialog: <LoginDialog open={open} onClose={() => setOpen(false)} />};
 }

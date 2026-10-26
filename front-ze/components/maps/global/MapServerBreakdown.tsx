@@ -1,14 +1,11 @@
 'use client'
-import {use, useCallback, useMemo, useState} from "react";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
+import {useCallback, useMemo, useState} from "react";
+import dayjs from "lib/dayjs";
 import {AlertTriangle} from "lucide-react";
-import {BarController, BarElement, Chart as ChartJS, Legend, Tooltip} from "chart.js";
 import {useLocale, useTranslations} from 'next-intl';
 import {LazyBarChart} from "components/graphs/LazyCharts";
 import {Badge} from "components/ui/badge";
 import {Skeleton} from "components/ui/skeleton";
-import {TooltipProvider} from "components/ui/tooltip";
 import {Tabs, TabsList, TabsTrigger} from "components/ui/tabs";
 import {ScreenReaderOnly} from "components/ui/ScreenReaderOnly";
 import {GAME_META} from "components/ui/ServerIndicator";
@@ -25,11 +22,8 @@ import {useServerColors} from "lib/hooks/useServerColors";
 import useWeekdayLabels from "lib/hooks/useWeekdayLabels";
 import {heatmapTooltip, useChartTheme} from "lib/chartTheme";
 import {weekdayKey} from "lib/calendarHeatmap";
-import {formatHours, formatNumber} from "utils/generalUtils.ts";
+import {formatHours, formatNumber, range} from "utils/generalUtils.ts";
 import {DailyMapServer, GlobalMapInfo, MapServerTime} from "types/maps.ts";
-
-dayjs.extend(utc);
-ChartJS.register(BarElement, BarController, Tooltip, Legend);
 
 type Metric = 'map' | 'player'
 
@@ -53,10 +47,9 @@ function MapServerBreakdownDisplay({ initialDataPromise }: MapServerBreakdownPro
     const theme = useChartTheme()
     const dayNames = useWeekdayLabels()
     const [metric, setMetric] = useState<Metric>('map')
-    const initialData = initialDataPromise ? use(initialDataPromise) : null
     const { data: fetched, loading, error, notReady } = useResource<DailyMapServer[]>(() => name
         ? fetchMap('/heat-servers')
-        : null, [name], { initial: initialData ?? undefined, retryNotReady: true })
+        : null, [name], { seed: initialDataPromise, retryNotReady: true })
     const heat = fetched ?? []
     const mapServers = info?.map.servers ?? []
 
@@ -128,9 +121,8 @@ function MapServerBreakdownDisplay({ initialDataPromise }: MapServerBreakdownPro
     }), [totals, labelOf, colorOf])
 
     const barOptions = useMemo(() => ({
-        responsive: true,
         maintainAspectRatio: false,
-        indexAxis: 'y',
+        indexAxis: 'y' as const,
         scales: {
             x: {
                 stacked: true,
@@ -176,12 +168,6 @@ function MapServerBreakdownDisplay({ initialDataPromise }: MapServerBreakdownPro
         })
     }, [playedDays, totals, dayNames, labelOf, locale, t])
 
-    const allTimeSeconds = (serverId: string) => {
-        const server = mapServers.find(s => s.server_id === serverId)
-        if (!server) return null
-        return metric === 'map' ? server.total_time : server.total_cum_time
-    }
-
     return (
         <div>
             <div className="p-4">
@@ -194,12 +180,10 @@ function MapServerBreakdownDisplay({ initialDataPromise }: MapServerBreakdownPro
                                 <TabsTrigger value="player" className="text-xs px-2.5">{t('playerHours')}</TabsTrigger>
                             </TabsList>
                         </Tabs>
-                        <TooltipProvider>
-                            <InfoTooltip
-                                text={error ? (notReady ? t('dataNotReady') : t('somethingWrong')) : t(metric === 'map' ? 'tooltipMap' : 'tooltipPlayer')}
-                                icon={error ? <AlertTriangle className="h-4 w-4" /> : undefined}
-                            />
-                        </TooltipProvider>
+                        <InfoTooltip
+                            text={error ? (notReady ? t('dataNotReady') : t('somethingWrong')) : t(metric === 'map' ? 'tooltipMap' : 'tooltipPlayer')}
+                            icon={error ? <AlertTriangle className="h-4 w-4" /> : undefined}
+                        />
                     </div>
                 </div>
 
@@ -227,64 +211,59 @@ function MapServerBreakdownDisplay({ initialDataPromise }: MapServerBreakdownPro
             <div className="p-6 px-8">
                 <h3 className="text-sm text-muted-foreground font-bold">{t('distributionTitle')}</h3>
                 <div className="flex flex-col gap-4">
-                    <div>
-                        <div className="h-[100px] w-full relative" role="img" aria-label={t('distributionTitle')}>
-                            {loading && (
-                                <div className="flex justify-center items-center h-full w-full absolute top-0 left-0">
-                                    <Skeleton className="w-full h-[50px] rounded" />
-                                </div>
-                            )}
-                            {/* @ts-ignore */}
-                            {!loading && totals.length > 0 && <LazyBarChart data={barData} options={barOptions} />}
-                            {!loading && totals.length === 0 && (
-                                <div className="flex justify-center items-center h-full">
-                                    <p className="text-muted-foreground">{t('noData')}</p>
-                                </div>
-                            )}
-                        </div>
+                    <div className="h-[100px] w-full relative" role="img" aria-label={t('distributionTitle')}>
+                        {loading && (
+                            <div className="flex justify-center items-center h-full w-full absolute top-0 left-0">
+                                <Skeleton className="w-full h-[50px] rounded" />
+                            </div>
+                        )}
+                        {!loading && totals.length > 0 && <LazyBarChart data={barData} options={barOptions} />}
+                        {!loading && totals.length === 0 && (
+                            <div className="flex justify-center items-center h-full">
+                                <p className="text-muted-foreground">{t('noData')}</p>
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <div className="border-t border-border pt-4 w-full">
-                            <h3 className="text-sm text-muted-foreground font-bold mb-3">{t('servers')}</h3>
-                            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-                                {mapServers.length === 0 && Array.from({length: 3}).map((_, i) => (
-                                    <li key={i} className="flex items-center gap-2">
-                                        <Skeleton className="w-3 h-3 rounded-sm" />
-                                        <Skeleton className="h-3.5 w-40" />
-                                    </li>
-                                ))}
-                                {mapServers.map(server => {
-                                    const known = serversMapped.get(server.server_id)
-                                    const state = stateOf(server)
-                                    const gameMeta = GAME_META[server.game]
-                                    const seconds = allTimeSeconds(server.server_id)
-                                    return (
-                                        <li key={server.server_id} className="flex items-start gap-2">
-                                            <div
-                                                className="w-3 h-3 rounded-sm shrink-0 mt-1"
-                                                style={{backgroundColor: colorOf(server.server_id)}}
+                    <div className="border-t border-border pt-4 w-full">
+                        <h3 className="text-sm text-muted-foreground font-bold mb-3">{t('servers')}</h3>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
+                            {mapServers.length === 0 && range(3).map(i => (
+                                <li key={i} className="flex items-center gap-2">
+                                    <Skeleton className="w-3 h-3 rounded-sm" />
+                                    <Skeleton className="h-3.5 w-40" />
+                                </li>
+                            ))}
+                            {mapServers.map(server => {
+                                const known = serversMapped.get(server.server_id)
+                                const state = stateOf(server)
+                                const gameMeta = GAME_META[server.game]
+                                const seconds = metric === 'map' ? server.total_time : server.total_cum_time
+                                return (
+                                    <li key={server.server_id} className="flex items-start gap-2">
+                                        <div
+                                            className="w-3 h-3 rounded-sm shrink-0 mt-1"
+                                            style={{backgroundColor: colorOf(server.server_id)}}
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <MapServerLabel
+                                                serverId={server.server_id}
+                                                href={`/servers/${known?.gotoLink ?? server.server_id}/maps/${name}`}
+                                                className="text-sm"
                                             />
-                                            <div className="min-w-0 flex-1">
-                                                <MapServerLabel
-                                                    serverId={server.server_id}
-                                                    href={`/servers/${known?.gotoLink ?? server.server_id}/maps/${name}`}
-                                                    className="text-sm"
-                                                />
-                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                                                    {gameMeta && (
-                                                        <Badge variant="outline" className={`h-4 px-1 text-[9px] ${gameMeta.className}`}>
-                                                            {gameMeta.label}
-                                                        </Badge>
-                                                    )}
-                                                    <span className={`font-semibold ${STATUS_TONE[state.tone]}`}>{state.label}</span>
-                                                    {seconds != null && <span>· {t('allTime', {hours: formatHours(seconds, locale)})}</span>}
-                                                </div>
+                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                                {gameMeta && (
+                                                    <Badge variant="outline" className={`h-4 px-1 text-[9px] ${gameMeta.className}`}>
+                                                        {gameMeta.label}
+                                                    </Badge>
+                                                )}
+                                                <span className={`font-semibold ${STATUS_TONE[state.tone]}`}>{state.label}</span>
+                                                {seconds != null && <span>· {t('allTime', {hours: formatHours(seconds, locale)})}</span>}
                                             </div>
-                                        </li>
-                                    )
-                                })}
-                            </ul>
-                        </div>
+                                        </div>
+                                    </li>
+                                )
+                            })}
+                        </ul>
                     </div>
                 </div>
             </div>

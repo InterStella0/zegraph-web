@@ -9,7 +9,6 @@
     --m-muted: #73726c;
     --m-border: #e8e6dc;
     --m-accent: #c96442;
-    --m-accent-fg: #ffffff;
     --m-primary: #141413;
     --m-primary-fg: #faf9f5;
     --m-link: #2c7ad6;
@@ -46,10 +45,8 @@
     --m-muted: #5d5d5d;
     --m-border: #e5e5e5;
     --m-accent: #0d0d0d;
-    --m-accent-fg: #ffffff;
     --m-primary: #0d0d0d;
     --m-primary-fg: #ffffff;
-    --m-display: inherit;
 }
 
 .dark .mock-chatgpt {
@@ -60,7 +57,6 @@
     --m-muted: #afafaf;
     --m-border: #3a3a3a;
     --m-accent: #ececec;
-    --m-accent-fg: #0d0d0d;
     --m-primary: #ffffff;
     --m-primary-fg: #0d0d0d;
     --m-knob: #0d0d0d;

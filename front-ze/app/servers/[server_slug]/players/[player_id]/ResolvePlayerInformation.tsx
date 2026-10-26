@@ -16,6 +16,14 @@ import PeriodSelector from "components/period/PeriodSelector.tsx";
 import AccessDenied from "./AccessDenied.tsx";
 import {SteamProfile} from "types/steam";
 
+const STAT_CARDS = [
+    ["col-span-12 md:col-span-6 xl:col-span-4", PlayerSessionTabs],
+    ["col-span-12 md:col-span-6 xl:col-span-8", PlayerTopMap],
+    ["col-span-12 md:col-span-6 xl:col-span-4", PlayerRegionPlayTime],
+    ["col-span-12 md:col-span-6 xl:col-span-4", PlayerInfractionRecord],
+    ["col-span-12 xl:col-span-8", PlayerHourOfDay],
+] as const;
+
 export default function ResolvePlayerInformation({ serverPlayerPromise, userPromise, viewsPromise, statSeeds }: {
     serverPlayerPromise: Promise<ServerPlayerDetailedWithError>,
     userPromise: Promise<SteamProfile | null>,
@@ -24,15 +32,15 @@ export default function ResolvePlayerInformation({ serverPlayerPromise, userProm
 }) {
     const { player, server, error } = use(serverPlayerPromise)
 
-    if (error && error.code === 403) {
+    if (error?.code === 403) {
         return <AccessDenied />;
     }
 
-    if (error && error.code === 404) {
+    if (error?.code === 404) {
         notFound();
     }
 
-    if (player === null || player === undefined || player instanceof StillCalculate || !player.id) {
+    if (!player || player instanceof StillCalculate || !player.id) {
         return <StillCalculatingPlayer />;
     }
 
@@ -51,31 +59,13 @@ export default function ResolvePlayerInformation({ serverPlayerPromise, userProm
                 <div className="col-span-12 xl:col-span-8">
                     <PlayerCardDetail serverPlayerPromise={serverPlayerPromise} userPromise={userPromise} viewsPromise={viewsPromise} />
                 </div>
-                <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                    <PlayerStatSuspense>
-                        <PlayerSessionTabs serverPlayerPromise={serverPlayerPromise} />
-                    </PlayerStatSuspense>
-                </div>
-                <div className="col-span-12 md:col-span-6 xl:col-span-8">
-                    <PlayerStatSuspense>
-                        <PlayerTopMap serverPlayerPromise={serverPlayerPromise} />
-                    </PlayerStatSuspense>
-                </div>
-                <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                    <PlayerStatSuspense>
-                        <PlayerRegionPlayTime serverPlayerPromise={serverPlayerPromise} />
-                    </PlayerStatSuspense>
-                </div>
-                <div className="col-span-12 md:col-span-6 xl:col-span-4">
-                    <PlayerStatSuspense>
-                        <PlayerInfractionRecord serverPlayerPromise={serverPlayerPromise} />
-                    </PlayerStatSuspense>
-                </div>
-                <div className="col-span-12 xl:col-span-8">
-                    <PlayerStatSuspense>
-                        <PlayerHourOfDay serverPlayerPromise={serverPlayerPromise} />
-                    </PlayerStatSuspense>
-                </div>
+                {STAT_CARDS.map(([span, Stat], index) => (
+                    <div key={index} className={span}>
+                        <PlayerStatSuspense>
+                            <Stat serverPlayerPromise={serverPlayerPromise} />
+                        </PlayerStatSuspense>
+                    </div>
+                ))}
             </div>
         </PlayerPeriodProvider>
         </PlayerStatSeedsProvider>

@@ -1,52 +1,84 @@
-import { useEffect, useRef } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import { useTheme } from 'next-themes';
 import { useServerData } from "../../app/servers/[server_slug]/ServerDataProvider.tsx";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { LayersControl, MapContainer, TileLayer } from "react-leaflet";
-import ThemedZoomControl from "components/radars/ThemedZoomControl.tsx";
-import HomeButton from "components/radars/HomeButton.tsx";
+import { HomeButton, ThemedZoomControl } from "components/radars/leafletControls";
 import NonTiledWMSLayer from "components/radars/NonTiledWMSLayer";
-import { DARK_BASEMAP, formWMSUrl, LIGHT_BASEMAP } from "components/radars/RadarPreview.tsx";
+import { DARK_BASEMAP, LIGHT_BASEMAP, playerWMS, wmsTimeRange } from "components/radars/RadarPreview.tsx";
 import { Button } from "components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "components/ui/tooltip";
-import L from 'leaflet';  // L is used by nontiledlayer
-import 'leaflet.nontiledlayer'
-import { formatDateWMS } from "components/radars/TemporalController.tsx";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import L from 'leaflet';
 import NightShadingLayer from "components/radars/NightShadingLayer.tsx";
-import { Dayjs } from "dayjs";
+import type { Dayjs } from "lib/dayjs";
 
+const WORLD_BOUNDS = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
 
-function formatDateDisplay(dateDisplay: { start: Dayjs, end: Dayjs }) {
-    const startStr = formatDateWMS(dateDisplay.start);
-    const endStr = formatDateWMS(dateDisplay.end);
-    return `${startStr}/${endStr}`
+export const midpoint = (start: Dayjs, end: Dayjs) => start.add(end.diff(start) / 2, 'millisecond');
+
+export function RadarMapContainer({ zoom, height, children }: { zoom: number, height: string, children: ReactNode }) {
+    return (
+        <MapContainer
+            // @ts-ignore react-leaflet prop types clash with this @types/react version
+            center={[0, 0]}
+            zoom={zoom}
+            minZoom={zoom}
+            style={{ height, width: '100%', cursor: 'default' }}
+            zoomControl={false}
+            zoomAnimation={true}
+            zoomAnimationThreshold={8}
+            fadeAnimation={true}
+            zoomDelta={0.25}
+            maxBounds={WORLD_BOUNDS}
+            maxBoundsViscosity={.5}
+            wheelPxPerZoomLevel={300}
+        >
+            {children}
+        </MapContainer>
+    );
+}
+
+/** The light/dark basemap pair; 1 is Leaflet's default tile zIndex. */
+export function BasemapLayers({ isDarkMode, names: [lightName, darkName], zIndex = 1 }: { isDarkMode: boolean, names: [string, string], zIndex?: number }) {
+    return <>
+        <LayersControl.BaseLayer name={lightName} checked={!isDarkMode}>
+            <TileLayer url={LIGHT_BASEMAP} attribution="&copy; OpenStreetMap contributors" zIndex={zIndex} />
+        </LayersControl.BaseLayer>
+        <LayersControl.BaseLayer name={darkName} checked={isDarkMode}>
+            <TileLayer
+                url={DARK_BASEMAP}
+                attribution={`&copy; <a href="https://basemap.queeniemella.cc/">queeniemella</a>, &copy; OpenStreetMap contributors`}
+                zIndex={zIndex}
+            />
+        </LayersControl.BaseLayer>
+    </>
+}
+
+export function CountriesOverlay({ name, isDarkMode, zIndex }: { name: string, isDarkMode: boolean, zIndex: number }) {
+    return (
+        <LayersControl.Overlay checked={true} name={name}>
+            <TileLayer url={`/tiles/countries_${isDarkMode ? 'dark' : 'light'}/{z}/{x}/{y}.png`} attribution="&copy; queeniemella" zIndex={zIndex} />
+        </LayersControl.Overlay>
+    );
 }
 
 export default function RadarMap({ dateDisplay, height, fullscreen = false }) {
     const { resolvedTheme } = useTheme();
-    const center = [0, 0];
     const timedLayer = useRef(null);
     const maxLimit = dateDisplay ? dateDisplay.end.diff(dateDisplay.start, 'day') > 1 : true
-    const nightShadingTime = dateDisplay ? dateDisplay.start.add(dateDisplay.end.diff(dateDisplay.start) / 2, 'millisecond') : undefined
+    const nightShadingTime = dateDisplay ? midpoint(dateDisplay.start, dateDisplay.end) : undefined
     const nightShadingChecked = dateDisplay ? dateDisplay.end.diff(dateDisplay.start, 'minute') <= 60 : true
     const isDarkMode = resolvedTheme === "dark";
-    const zoom = fullscreen ? 2 : 1;
     const { server } = useServerData()
-    const server_id = server.id
-
-    const worldBounds = L.latLngBounds(
-        L.latLng(-90, -180),
-        L.latLng(90, 180)
-    )
 
     useEffect(() => {
-        const ref = timedLayer.current
-        if (ref === null || dateDisplay === null || maxLimit) return
+        const layer = timedLayer.current
+        if (layer === null || maxLimit) return
 
-        ref.setParams({
-            ...ref.options,
-            TIME: formatDateDisplay(dateDisplay),
+        layer.setParams({
+            ...layer.options,
+            TIME: wmsTimeRange(dateDisplay.start, dateDisplay.end),
         });
     }, [maxLimit, timedLayer, dateDisplay, fullscreen]);
 
@@ -60,106 +92,50 @@ export default function RadarMap({ dateDisplay, height, fullscreen = false }) {
                         </p>
                         <div className="flex items-center gap-4">
                             <span className="font-semibold text-sm sm:text-base md:text-lg">Go to</span>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            asChild
-                                            className={isDarkMode ? 'bg-black/50' : 'bg-black/25'}
-                                        >
-                                            <Link href={`/servers/${server_id}/radar`}>
-                                                <ExternalLink className="h-4 w-4" />
-                                            </Link>
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Historical Radar</TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        asChild
+                                        className={isDarkMode ? 'bg-black/50' : 'bg-black/25'}
+                                    >
+                                        <Link href={`/servers/${server.id}/radar`}>
+                                            <ExternalLink className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Historical Radar</TooltipContent>
+                            </Tooltip>
                             <span className="font-semibold text-sm sm:text-base md:text-lg">instead.</span>
                         </div>
                     </div>
                 </div>
             )}
-            <div>
-                <MapContainer
-                    key={server_id}
-                    // @ts-ignore (this is a dumb one)
-                    center={center}
-                    zoom={zoom}
-                    style={{ height: height, width: '100%', cursor: 'default' }}
-                    zoomControl={false}
-                    zoomAnimation={true}
-                    zoomAnimationThreshold={8}
-                    fadeAnimation={true}
-                    zoomDelta={0.25}
-                    minZoom={fullscreen ? 2 : 1}
-                    maxBounds={worldBounds}
-                    maxBoundsViscosity={.5}
-                    wheelPxPerZoomLevel={300}
-                >
-                    {fullscreen && <ThemedZoomControl />}
-                    {fullscreen && <HomeButton />}
-                    <LayersControl
-                        // @ts-ignore it does exist bitch
-                        position="bottomleft">
-                        <LayersControl.BaseLayer name="Light Basemap" checked={!isDarkMode}>
-                            <TileLayer
-                                url={LIGHT_BASEMAP}
-                                // @ts-ignore it does exist bitch
-                                attribution="&copy; OpenStreetMap contributors"
-                            />
-                        </LayersControl.BaseLayer>
-                        <LayersControl.BaseLayer name="Dark Basemap" checked={isDarkMode}>
-                            <TileLayer
-                                url={DARK_BASEMAP}
-                                // @ts-ignore it does exist bitch
-                                attribution={`&copy; <a href="https://basemap.queeniemella.cc/">queeniemella</a>, &copy; OpenStreetMap contributors`}
-                            />
-                        </LayersControl.BaseLayer>
-
-                        <LayersControl.Overlay checked={nightShadingChecked} name="Night Shading">
-                            <NightShadingLayer time={nightShadingTime} live={!dateDisplay} />
-                        </LayersControl.Overlay>
-
-                        <LayersControl.Overlay checked={false} name="Live Players">
-                            <NonTiledWMSLayer
-                                url={formWMSUrl(server?.id, true)}
-                                layers="player_server_mapped"
-                                version="1.1.1"
-                                format="image/png"
-                                transparent={true}
-                                opacity={0.8}
-                                attribution="© queeniemella"
-                                zIndex={20}
-                            />
-                        </LayersControl.Overlay>
-
-                        <LayersControl.Overlay checked={true} name="Historical Players">
-                            {!maxLimit && <NonTiledWMSLayer
-                                url={formWMSUrl(server?.id, false, !maxLimit ? formatDateDisplay(dateDisplay) : '')}
-                                ref={timedLayer}
-                                layers="player_server_timed"
-                                version="1.1.1"
-                                format="image/png"
-                                transparent={true}
-                                opacity={0.8}
-                                attribution="© queeniemella"
-                                zIndex={20}
-                            />}
-                        </LayersControl.Overlay>
-                        <LayersControl.Overlay checked={true} name="Countries">
-                            <TileLayer
-                                url={`/tiles/countries_${isDarkMode ? 'dark' : 'light'}/{z}/{x}/{y}.png`}
-                                // @ts-ignore it does exist bitch
-                                attribution="© queeniemella"
-                                zIndex={15}
-                            />
-                        </LayersControl.Overlay>
-                    </LayersControl>
-                </MapContainer>
-            </div>
+            <RadarMapContainer key={server.id} zoom={fullscreen ? 2 : 1} height={height}>
+                {fullscreen && <>
+                    <ThemedZoomControl />
+                    <HomeButton />
+                </>}
+                <LayersControl
+                    // @ts-ignore react-leaflet prop types clash with this @types/react version
+                    position="bottomleft">
+                    <BasemapLayers isDarkMode={isDarkMode} names={['Light Basemap', 'Dark Basemap']} />
+                    <LayersControl.Overlay checked={nightShadingChecked} name="Night Shading">
+                        <NightShadingLayer time={nightShadingTime} live={!dateDisplay} />
+                    </LayersControl.Overlay>
+                    <LayersControl.Overlay checked={false} name="Live Players">
+                        <NonTiledWMSLayer {...playerWMS(server?.id, true)} />
+                    </LayersControl.Overlay>
+                    <LayersControl.Overlay checked={true} name="Historical Players">
+                        {!maxLimit && <NonTiledWMSLayer
+                            ref={timedLayer}
+                            {...playerWMS(server?.id, false, wmsTimeRange(dateDisplay.start, dateDisplay.end))}
+                        />}
+                    </LayersControl.Overlay>
+                    <CountriesOverlay name="Countries" isDarkMode={isDarkMode} zIndex={15} />
+                </LayersControl>
+            </RadarMapContainer>
         </div>
     );
 }

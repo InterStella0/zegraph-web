@@ -15,7 +15,8 @@ import {
 } from 'components/ui/dialog';
 import { Input } from 'components/ui/input';
 import { Label } from 'components/ui/label';
-import { fetchApiServerUrl, fetchApiUrl } from 'utils/generalUtils';
+import { fetchApiServerUrl } from 'utils/generalUtils';
+import { sendJson } from 'lib/sendJson';
 import { SearchPlayer } from 'types/players';
 import { PlayerName } from './PlayerName';
 
@@ -46,8 +47,8 @@ export default function AssociatePlayerDialog(
             return;
         }
 
-        const abortController = new AbortController();
-        const { signal } = abortController;
+        const controller = new AbortController();
+        const { signal } = controller;
         const timer = setTimeout(() => {
             fetchApiServerUrl(serverId, '/players/autocomplete', { params: { player_name: trimmed }, signal })
                 .then((data: SearchPlayer[]) => setSuggestions((data ?? []).filter(p => p.id !== playerId)))
@@ -60,27 +61,31 @@ export default function AssociatePlayerDialog(
 
         return () => {
             clearTimeout(timer);
-            abortController.abort('Changed');
+            controller.abort('Changed');
         };
     }, [open, search, serverId, playerId]);
 
-    const handleClose = () => {
-        if (submitting) return;
+    const clearSearch = () => {
         setSearch('');
         setSuggestions([]);
-        setTarget(associatedPlayerId ?? '');
+    };
+
+    const close = () => {
+        clearSearch();
         setTargetLabel(null);
         setOpen(false);
+    };
+
+    const handleClose = () => {
+        if (submitting) return;
+        setTarget(associatedPlayerId ?? '');
+        close();
     };
 
     const save = async (value: string | null) => {
         setSubmitting(true);
         try {
-            const result = await fetchApiUrl(`/admin/players/${playerId}/associated`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ associated_player_id: value }),
-            });
+            const result = await sendJson(`/admin/players/${playerId}/associated`, 'PUT', { associated_player_id: value });
             if (result === 'NAME_CONFLICT') {
                 toast.warning('Profile unlinked and merge reverted', {
                     description: `Another profile is already named ${playerName}, so new sessions under that name may go to either.`,
@@ -88,10 +93,7 @@ export default function AssociatePlayerDialog(
             } else {
                 toast.success(value ? 'Profile linked and merged' : 'Profile unlinked and merge reverted');
             }
-            setOpen(false);
-            setSearch('');
-            setSuggestions([]);
-            setTargetLabel(null);
+            close();
             router.refresh();
         } catch (error: any) {
             toast.error('Failed to update link', {
@@ -173,8 +175,7 @@ export default function AssociatePlayerDialog(
                                             onClick={() => {
                                                 setTarget(player.id);
                                                 setTargetLabel(player.name);
-                                                setSearch('');
-                                                setSuggestions([]);
+                                                clearSearch();
                                             }}
                                             className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors"
                                         >

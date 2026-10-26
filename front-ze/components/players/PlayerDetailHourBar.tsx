@@ -1,22 +1,15 @@
 'use client'
 import {useTranslations} from 'next-intl';
-import dayjs from 'dayjs';
+import dayjs from "lib/dayjs";
 import { Card } from "components/ui/card";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "components/ui/select";
 import PlayTimeHeatmap from "./PlayTimeHeatmap";
 import { ReactNode, useState } from "react";
-import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 import { Server } from "types/community.ts";
 import { PlayerInfo } from "../../app/servers/[server_slug]/players/[player_id]/util.ts";
-import type { PlayerSessionTime } from "./PlayTimeHeatmap";
-import { PeriodChip, splitPeriod, splitRange, usePlayerPeriod } from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {splitPeriod, splitRange, usePeriod} from "components/period/Period";
 import { PlayerStatSuspense } from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
+import { PeriodTitle } from "./common";
 
 export function LabeledSelect({ label, value, onValueChange, options }: {
     label: string, value: string, onValueChange: (value: string) => void, options: [string, ReactNode][],
@@ -52,7 +45,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
     const [ totalPlayTime, setTotalPlayTime ] = useState<number>(0)
 
     const [ sumMethodYearly, setSumMethodYearly ] = useState<"monthly" | "yearly">("yearly")
-    const { period } = usePlayerPeriod()
+    const { period } = usePeriod()
     const range = period ? splitRange(period) : null
     const scope = period && !range ? splitPeriod(period) : null
     const [ periodGroup, setPeriodGroup ] = useState<"daily" | "monthly">("daily")
@@ -64,15 +57,9 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
     const viewYear = scope?.year ?? selectedYear
     const viewMonth = scope?.month != null ? scope.month - 1 : selectedMonth
     const viewSumMethod = period ? "monthly" : sumMethodYearly
-    const handleGroupChange = (value: string) => {
-        setGroupByTime(value as "daily" | "monthly" | "yearly")
-    }
-
-    const handleDataLoaded = (data: { years: number[], months: number[], rawData: PlayerSessionTime[] }) => {
-        setAvailableYears(data.years)
-        if (data.years.length > 0) {
-            setSelectedYear(data.years[0])
-        }
+    const handleYearsLoaded = (years: number[]) => {
+        setAvailableYears(years)
+        setSelectedYear(years[0])
     }
 
     const monthNames = Array.from({length: 12}, (_, i) => dayjs().month(i).format('MMM'))
@@ -85,12 +72,11 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
     return (
         <Card className="overflow-hidden border-0">
             <div className="flex justify-between items-center flex-col sm:flex-row gap-2 p-2 border-b">
-                <div className="flex flex-col sm:flex-row items-center gap-2">
-                    <h2 className="text-base font-medium">
-                        {t('title', {hours: totalPlayTime.toLocaleString()})}
-                    </h2>
-                    <PeriodChip />
-                </div>
+                <PeriodTitle
+                    title={t('title', {hours: totalPlayTime.toLocaleString()})}
+                    className="flex-col sm:flex-row"
+                    titleClassName="text-base font-medium"
+                />
 
                 {scope && scope.month === null && (
                     <LabeledSelect label={t('groupBy')} value={periodGroup} onValueChange={(v) => setPeriodGroup(v as "daily" | "monthly")}
@@ -98,7 +84,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                 )}
 
                 {!period && <div className="flex gap-2 flex-wrap justify-end">
-                    <LabeledSelect label={t('groupBy')} value={groupByTime} onValueChange={handleGroupChange}
+                    <LabeledSelect label={t('groupBy')} value={groupByTime} onValueChange={(v) => setGroupByTime(v as "daily" | "monthly" | "yearly")}
                         options={translatedOptions('daily', 'monthly', 'yearly')} />
 
                     {groupByTime === 'daily' && yearSelect}
@@ -130,7 +116,7 @@ export default function PlayerDetailHourBar({ player, server }: { server: Server
                         selectedYear={viewYear}
                         selectedMonth={viewMonth}
                         sumMethodYearly={viewSumMethod}
-                        onDataLoaded={handleDataLoaded}
+                        onYearsLoaded={handleYearsLoaded}
                         onChangeTotalPlayed={setTotalPlayTime}
                         rangeFrom={range?.from.toISOString().slice(0, 10)}
                         rangeTo={range?.to.toISOString().slice(0, 10)}

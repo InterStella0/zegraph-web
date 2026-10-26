@@ -5,7 +5,7 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from "components/ui/tabs";
 import PlayerSessionList from "./PlayerSessionList.tsx";
 import PlayerPlayedWith from "./PlayerPlayedWith.tsx";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
-import {PeriodChip} from "../../app/servers/[server_slug]/players/[player_id]/PlayerPeriod.tsx";
+import {PeriodChip} from "components/period/Period";
 
 type SessionTab = 'sessions' | 'playedWith';
 

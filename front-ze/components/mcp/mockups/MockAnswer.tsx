@@ -3,21 +3,16 @@
 import {useTranslations} from 'next-intl';
 import {Check, Loader2} from 'lucide-react';
 import {cn} from 'components/lib/utils';
-import {MockFrame, MockScene, MockVariant} from './primitives';
+import {MockFrame, MockPhase, MockScene, MockVariant} from './primitives';
 
-const ANSWER = [700, 1500, 3400] as const;
-
-const ROWS = [
-    ['GFL', '62/64'],
-    ['Mapeadores', '57/64'],
-    ['Nide', '41/64'],
-] as const;
+const ANSWER: MockPhase[] = [[700], [1500], [3400]];
+const ROWS = [['GFL', '62/64'], ['Mapeadores', '57/64'], ['Nide', '41/64']] as const;
 
 export function MockAnswer({variant}: { variant: MockVariant }) {
     const t = useTranslations('mcp.mock');
     const claude = variant === 'claude';
     return (
-        <MockScene label={t('answerLabel')} durations={ANSWER}>
+        <MockScene label={t('answerLabel')} phases={ANSWER}>
             {phase => (
                 <MockFrame variant={variant} address={claude ? 'claude.ai/chat' : 'chatgpt.com/c'}>
                     <div className={cn('h-full min-h-60', claude && 'bg-(--m-panel)')}>

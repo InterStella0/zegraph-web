@@ -17,19 +17,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { color } from "chart.js/helpers";
-import { fetchApiUrl } from "utils/generalUtils";
-import { useLocalDayjs } from "lib/hooks/useHydrated";
+import { sendJson } from "lib/sendJson";
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import { cn } from "components/lib/utils";
 import ServerSessionStrip from "./ServerSessionStrip";
 import { ProfileCommunity, useProfileCommunities } from "./ProfileContext";
 import { COLLAPSE, SWAP, stagger } from "./profileMotion";
+import { tint } from "./profileChart";
+
+export type AnonymizeType = "location" | "anonymous";
 
 interface CommunityConnectionCardProps {
     community: ProfileCommunity;
     share: number;
     settings: UserAnonymization | null;
-    onToggleAnonymize: (communityId: string | number, type: "location" | "anonymous", value: boolean, settings: UserAnonymization | null) => void;
+    onToggleAnonymize: (communityId: string, type: AnonymizeType, value: boolean, settings: UserAnonymization | null) => void;
     showAnonymizeToggle?: boolean;
     scaleMax: number;
     defaultOpen?: boolean;
@@ -38,13 +40,13 @@ interface CommunityConnectionCardProps {
 
 export const CONNECTION_COLUMNS = "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] md:grid-cols-[2.5rem_minmax(0,1.2fr)_minmax(0,1fr)_7rem_1rem] items-center gap-x-4";
 
-export function CommunityBadge({ community, className }: { community: ProfileCommunity, className?: string }) {
+function CommunityBadge({ community }: { community: ProfileCommunity }) {
     return (
-        <Avatar className={cn("size-10", className)}>
+        <Avatar className="size-10">
             {community.iconUrl && <AvatarImage src={community.iconUrl} alt={community.name} />}
             <AvatarFallback
                 className="text-xs font-bold"
-                style={{ backgroundColor: color(community.color).alpha(0.18).rgbString(), color: community.color }}
+                style={{ backgroundColor: tint(community.color, 0.18), color: community.color }}
             >
                 {community.tag}
             </AvatarFallback>
@@ -95,11 +97,8 @@ function MergeAccountsButton({ serverId, serverName, count }: { serverId: string
     const merge = async () => {
         setSubmitting(true);
         try {
-            const result: { merged_profiles: number; sessions_moved: number } = await fetchApiUrl('/accounts/me/merge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ server_id: serverId }),
-            });
+            const result: { merged_profiles: number; sessions_moved: number } =
+                await sendJson('/accounts/me/merge', 'POST', { server_id: serverId });
             toast.success(t('success', { count: result.merged_profiles, sessions: result.sessions_moved }));
             setOpen(false);
             router.refresh();
@@ -155,12 +154,7 @@ export default function CommunityConnectionCard({
     const [open, setOpen] = useState(defaultOpen);
     const { detail } = community;
     const isOnlineHere = detail.servers.some(s => s.is_online);
-    const hasAnyPlaytime = community.playtime > 0;
-    const lastPlayed = detail.servers
-        .map(s => s.last_played)
-        .filter(Boolean)
-        .sort()
-        .at(-1);
+    const lastPlayed = detail.servers.map(s => s.last_played).filter(Boolean).sort().at(-1);
     const isFocused = focused === community.id;
 
     return (
@@ -272,39 +266,23 @@ export default function CommunityConnectionCard({
                     ))}
 
                     <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
-                        {showAnonymizeToggle && hasAnyPlaytime ? (
+                        {showAnonymizeToggle && community.playtime > 0 ? (
                             <div className="flex flex-wrap gap-4">
-                                <div className="flex items-center gap-2">
-                                    <Switch
-                                        id={`hide-location-${community.id}`}
-                                        checked={settings?.hide_location ?? false}
-                                        onCheckedChange={(checked) => onToggleAnonymize(
-                                            community.id, "location", checked, settings
-                                        )}
-                                    />
-                                    <Label
-                                        htmlFor={`hide-location-${community.id}`}
-                                        className="text-sm text-muted-foreground cursor-pointer"
-                                    >
-                                        {t('hideRadar')}
-                                    </Label>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <Switch
-                                        id={`anonymize-${community.id}`}
-                                        checked={settings?.anonymized ?? false}
-                                        onCheckedChange={(checked) => onToggleAnonymize(
-                                            community.id, "anonymous", checked, settings
-                                        )}
-                                    />
-                                    <Label
-                                        htmlFor={`anonymize-${community.id}`}
-                                        className="text-sm text-muted-foreground cursor-pointer"
-                                    >
-                                        {t('anonymize')}
-                                    </Label>
-                                </div>
+                                {([
+                                    ["location", "hide-location", settings?.hide_location, t('hideRadar')],
+                                    ["anonymous", "anonymize", settings?.anonymized, t('anonymize')],
+                                ] as const).map(([type, idPrefix, checked, label]) => (
+                                    <div key={type} className="flex items-center gap-2">
+                                        <Switch
+                                            id={`${idPrefix}-${community.id}`}
+                                            checked={checked ?? false}
+                                            onCheckedChange={value => onToggleAnonymize(community.id, type, value, settings)}
+                                        />
+                                        <Label htmlFor={`${idPrefix}-${community.id}`} className="text-sm text-muted-foreground cursor-pointer">
+                                            {label}
+                                        </Label>
+                                    </div>
+                                ))}
                             </div>
                         ) : <span />}
                         <Button
@@ -315,9 +293,7 @@ export default function CommunityConnectionCard({
                             onClick={() => setFocused(isFocused ? null : community.id)}
                         >
                             <Crosshair className="size-4" />
-                            {isFocused
-                                ? tFocus('unfocus', { community: community.tag })
-                                : tFocus('focusOn', { community: community.tag })}
+                            {tFocus(isFocused ? 'unfocus' : 'focusOn', { community: community.tag })}
                         </Button>
                     </div>
                 </div>

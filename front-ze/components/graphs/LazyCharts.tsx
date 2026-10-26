@@ -1,43 +1,15 @@
 import dynamic from 'next/dynamic'
 import GraphSkeleton from "./GraphSkeleton"
 import { Skeleton } from "components/ui/skeleton"
+import type * as Charts from './chartSetup'
 
-export const LazyBarChart = dynamic(
-  () => import('react-chartjs-2').then(mod => ({ default: mod.Bar })),
-  {
-    ssr: false,
-    loading: () => <GraphSkeleton />
-  }
-)
+type ChartKind = 'Bar' | 'Line' | 'Doughnut' | 'PolarArea' | 'Chart'
 
-export const LazyLineChart = dynamic(
-  () => import('react-chartjs-2').then(mod => ({ default: mod.Line })),
-  {
-    ssr: false,
-    loading: () => <GraphSkeleton />
-  }
-)
+const lazyChart = <K extends ChartKind>(kind: K, loading = () => <GraphSkeleton />) =>
+    dynamic(() => import('./chartSetup').then(mod => ({ default: mod[kind] as any })), { ssr: false, loading }) as (typeof Charts)[K]
 
-export const LazyDoughnutChart = dynamic(
-  () => import('react-chartjs-2').then(mod => ({ default: mod.Doughnut })),
-  {
-    ssr: false,
-    loading: () => <GraphSkeleton />
-  }
-)
-
-export const LazyPolarAreaChart = dynamic(
-  () => import('react-chartjs-2').then(mod => ({ default: mod.PolarArea })),
-  {
-    ssr: false,
-    loading: () => <GraphSkeleton />
-  }
-)
-
-export const LazyMatrixChart = dynamic(
-  () => import('react-chartjs-2').then(mod => ({ default: mod.Chart })),
-  {
-    ssr: false,
-    loading: () => <Skeleton className="w-full h-[150px]" />
-  }
-)
+export const LazyBarChart = lazyChart('Bar')
+export const LazyLineChart = lazyChart('Line')
+export const LazyDoughnutChart = lazyChart('Doughnut')
+export const LazyPolarAreaChart = lazyChart('PolarArea')
+export const LazyMatrixChart = lazyChart('Chart', () => <Skeleton className="w-full h-[150px]" />)

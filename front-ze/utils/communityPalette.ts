@@ -88,15 +88,11 @@ function isSeparated(color: Swatch, taken: Swatch[]): boolean {
 }
 
 function separation(color: Swatch, taken: Swatch[]): number {
-    let worst = Infinity
-    for (const other of taken) {
-        worst = Math.min(
-            worst,
-            deltaE(color.lab, other.lab) / MIN_DELTA_E,
-            deltaE(color.protan, other.protan) / MIN_CVD_DELTA_E,
-            deltaE(color.deutan, other.deutan) / MIN_CVD_DELTA_E,
-        )
-    }
+    const worst = Math.min(...taken.flatMap(other => [
+        deltaE(color.lab, other.lab) / MIN_DELTA_E,
+        deltaE(color.protan, other.protan) / MIN_CVD_DELTA_E,
+        deltaE(color.deutan, other.deutan) / MIN_CVD_DELTA_E,
+    ]))
     return Math.round(worst * 1e6)
 }
 
@@ -132,8 +128,7 @@ function candidateGrid(): Candidate[] {
 }
 
 function candidateSwatch(candidate: Candidate): Swatch {
-    if (!candidate.swatch) candidate.swatch = swatch(linearToHex(candidate.linear))
-    return candidate.swatch
+    return candidate.swatch ??= swatch(linearToHex(candidate.linear))
 }
 
 function nearestSeparated(wanted: Swatch, taken: Swatch[]): Swatch {

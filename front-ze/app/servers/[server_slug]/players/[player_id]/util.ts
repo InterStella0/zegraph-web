@@ -1,6 +1,6 @@
 import { DetailedPlayerInfo } from "types/players";
 import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
-import dayjs from "dayjs";
+import dayjs from "lib/dayjs";
 import { threeMinutes} from "../../util.ts";
 
 export type PlayerInfo = DetailedPlayerInfo
@@ -33,14 +33,6 @@ type PlayerDetailReturnTypes = {
 }
 type PlayerDetailReturn<T extends keyof PlayerDetailReturnTypes> = PlayerDetailReturnTypes[T]
 
-function handleOnStillCalculate(value: DetailReturningType){
-    switch (value){
-        case "raise":
-            return true
-        case "return":
-            return false
-    }
-}
 export async function getPlayerDetailed(
     server_id: string,
     player_id: string,
@@ -53,29 +45,21 @@ export async function getPlayerDetailed(
 ): Promise<PlayerInfo | StillCalculate>;
 
 export async function getPlayerDetailed<T extends DetailReturningType>(server_id: string, player_id: string, onStillCalculate: T = "raise" as T): Promise<PlayerDetailReturn<T>> {
-    const stillCalculate = handleOnStillCalculate(onStillCalculate)
-
+    const raise = onStillCalculate === "raise"
     const [playerData, playingData] = await Promise.all([
-        fetchApiServerUrl(server_id, `/players/${player_id}/detail`, {}, stillCalculate),
-        fetchApiServerUrl(server_id, `/players/${player_id}/playing`, { next: { revalidate: threeMinutes } }, stillCalculate),
+        fetchApiServerUrl(server_id, `/players/${player_id}/detail`, {}, raise),
+        fetchApiServerUrl(server_id, `/players/${player_id}/playing`, { next: { revalidate: threeMinutes } }, raise),
     ])
 
     if (playerData instanceof StillCalculate)
         return playerData as PlayerDetailReturn<T>
 
-    let prop: PlayerInfo = {
+    const ended = playingData?.ended_at ?? null
+    return {
         ...playerData,
         last_played: playingData?.started_at ?? null,
-        last_played_ended: playingData?.ended_at ?? null,
-        online_since: null,
-        last_played_duration: null
+        last_played_ended: ended,
+        online_since: playingData && ended == null ? playingData.started_at : null,
+        last_played_duration: playingData && ended != null ? dayjs(ended).diff(dayjs(playingData.started_at), "seconds") : null,
     }
-    if (!playingData)
-        return prop
-    if (prop.last_played_ended == null)
-        prop.online_since = playingData.started_at
-    else {
-        prop.last_played_duration = dayjs(playingData.ended_at).diff(dayjs(playingData.started_at), "seconds")
-    }
-    return prop
 }

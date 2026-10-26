@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -22,8 +22,8 @@ import { Button } from 'components/ui/button';
 import { Label } from 'components/ui/label';
 import { toast } from 'sonner';
 import { Plus, X } from 'lucide-react';
-import LoginDialog from 'components/ui/LoginDialog';
-import { fetchApiUrl } from 'utils/generalUtils';
+import {useLoginDialog} from 'components/ui/LoginDialog';
+import { sendJson } from 'lib/sendJson';
 import { SteamProfile } from 'types/steam';
 
 interface ServerEntry {
@@ -31,41 +31,41 @@ interface ServerEntry {
     readableLink: string;
 }
 
+const EMPTY_SERVER: ServerEntry = { ipPort: '', readableLink: '' };
+const EMPTY_FORM = { communityName: '', iconUrl: '', gameType: '', elaboration: '' };
+
 interface RequestServerDialogProps {
     user: SteamProfile | null;
     open: boolean;
     onClose: () => void;
 }
 
-export default function RequestServerDialog({ user, open, onClose }: RequestServerDialogProps) {
-    const [loginOpen, setLoginOpen] = useState(false);
-    const [communityName, setCommunityName] = useState('');
-    const [iconUrl, setIconUrl] = useState('');
-    const [servers, setServers] = useState<ServerEntry[]>([{ ipPort: '', readableLink: '' }]);
-    const [gameType, setGameType] = useState<string>('');
-    const [elaboration, setElaboration] = useState('');
-    const [submitting, setSubmitting] = useState(false);
+function Field({ label, htmlFor, required = false, children }: { label: string, htmlFor?: string, required?: boolean, children: ReactNode }) {
+    return (
+        <div className="grid gap-2">
+            <Label htmlFor={htmlFor}>
+                {label} {required
+                    ? <span className="text-destructive">*</span>
+                    : <span className="text-xs text-muted-foreground">(optional)</span>}
+            </Label>
+            {children}
+        </div>
+    );
+}
 
-    const handleOpen = (isOpen: boolean) => {
-        if (!isOpen) handleClose();
-    };
+export default function RequestServerDialog({ user, open, onClose }: RequestServerDialogProps) {
+    const {openLogin, loginDialog} = useLoginDialog();
+    const [form, setForm] = useState(EMPTY_FORM);
+    const [servers, setServers] = useState<ServerEntry[]>([EMPTY_SERVER]);
+    const [submitting, setSubmitting] = useState(false);
+    const { communityName, iconUrl, gameType, elaboration } = form;
+    const setField = (field: keyof typeof EMPTY_FORM) => (value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
     const handleClose = () => {
         if (submitting) return;
-        setCommunityName('');
-        setIconUrl('');
-        setServers([{ ipPort: '', readableLink: '' }]);
-        setGameType('');
-        setElaboration('');
+        setForm(EMPTY_FORM);
+        setServers([EMPTY_SERVER]);
         onClose();
-    };
-
-    const addServer = () => {
-        setServers(prev => [...prev, { ipPort: '', readableLink: '' }]);
-    };
-
-    const removeServer = (index: number) => {
-        setServers(prev => prev.filter((_, i) => i !== index));
     };
 
     const updateServer = (index: number, field: keyof ServerEntry, value: string) => {
@@ -75,57 +75,35 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
     const handleSubmit = async () => {
         if (!user) {
             onClose();
-            setLoginOpen(true);
+            openLogin();
             return;
         }
 
-        if (!communityName.trim()) {
-            toast.error('Community name is required');
-            return;
-        }
-        if (!gameType) {
-            toast.error('Please select a game');
-            return;
-        }
+        if (!communityName.trim()) return toast.error('Community name is required');
+        if (!gameType) return toast.error('Please select a game');
         for (const s of servers) {
-            if (!s.ipPort.trim()) {
-                toast.error('All server IP:port fields must be filled in');
-                return;
-            }
-            if (!s.readableLink.trim() || s.readableLink.length > 20) {
-                toast.error('Readable link must be 1–20 characters');
-                return;
-            }
+            if (!s.ipPort.trim()) return toast.error('All server IP:port fields must be filled in');
+            if (!s.readableLink.trim() || s.readableLink.length > 20) return toast.error('Readable link must be 1–20 characters');
         }
 
         const parsedServers = [];
         for (const s of servers) {
             const lastColon = s.ipPort.lastIndexOf(':');
-            if (lastColon === -1) {
-                toast.error(`Invalid format "${s.ipPort}" — use IP:port`);
-                return;
-            }
+            if (lastColon === -1) return toast.error(`Invalid format "${s.ipPort}" — use IP:port`);
             const ip = s.ipPort.slice(0, lastColon).trim();
             const port = parseInt(s.ipPort.slice(lastColon + 1).trim(), 10);
-            if (!ip || isNaN(port) || port < 1 || port > 65535) {
-                toast.error(`Invalid IP or port in "${s.ipPort}"`);
-                return;
-            }
+            if (!ip || isNaN(port) || port < 1 || port > 65535) return toast.error(`Invalid IP or port in "${s.ipPort}"`);
             parsedServers.push({ ip, port, readable_link: s.readableLink.trim() });
         }
 
         setSubmitting(true);
         try {
-            await fetchApiUrl('/server-requests', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    community_name: communityName.trim(),
-                    icon_url: iconUrl.trim() || null,
-                    servers: parsedServers,
-                    game_type: gameType,
-                    elaboration: elaboration.trim() || null,
-                }),
+            await sendJson('/server-requests', 'POST', {
+                community_name: communityName.trim(),
+                icon_url: iconUrl.trim() || null,
+                servers: parsedServers,
+                game_type: gameType,
+                elaboration: elaboration.trim() || null,
             });
             toast.success('Server request submitted!', {
                 description: 'Thank you! We\'ll review your request soon.',
@@ -142,8 +120,8 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
 
     return (
         <>
-            <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
-            <Dialog open={open} onOpenChange={handleOpen}>
+            {loginDialog}
+            <Dialog open={open} onOpenChange={isOpen => !isOpen && handleClose()}>
                 <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Request a Server</DialogTitle>
@@ -153,34 +131,27 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                     </DialogHeader>
 
                     <div className="grid gap-5 py-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="communityName">
-                                Community Name <span className="text-destructive">*</span>
-                            </Label>
+                        <Field label="Community Name" htmlFor="communityName" required>
                             <Input
                                 id="communityName"
                                 placeholder="e.g. GFL"
                                 value={communityName}
-                                onChange={e => setCommunityName(e.target.value)}
+                                onChange={e => setField('communityName')(e.target.value)}
                                 maxLength={100}
                             />
-                        </div>
+                        </Field>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="iconUrl">Community Icon URL <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                        <Field label="Community Icon URL" htmlFor="iconUrl">
                             <Input
                                 id="iconUrl"
                                 placeholder="https://example.com/icon.png"
                                 value={iconUrl}
-                                onChange={e => setIconUrl(e.target.value)}
+                                onChange={e => setField('iconUrl')(e.target.value)}
                             />
-                        </div>
+                        </Field>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="gameType">
-                                Game <span className="text-destructive">*</span>
-                            </Label>
-                            <Select value={gameType} onValueChange={setGameType}>
+                        <Field label="Game" htmlFor="gameType" required>
+                            <Select value={gameType} onValueChange={setField('gameType')}>
                                 <SelectTrigger id="gameType">
                                     <SelectValue placeholder="Select a game" />
                                 </SelectTrigger>
@@ -189,12 +160,9 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                                     <SelectItem value="csgo">CS:GO</SelectItem>
                                 </SelectContent>
                             </Select>
-                        </div>
+                        </Field>
 
-                        <div className="grid gap-2">
-                            <Label>
-                                Servers <span className="text-destructive">*</span>
-                            </Label>
+                        <Field label="Servers" required>
                             <div className="space-y-2">
                                 {servers.map((server, index) => (
                                     <div key={index} className="flex gap-2 items-start">
@@ -215,7 +183,7 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                onClick={() => removeServer(index)}
+                                                onClick={() => setServers(prev => prev.filter((_, i) => i !== index))}
                                                 className="mt-1 text-muted-foreground hover:text-destructive flex-shrink-0"
                                                 type="button"
                                             >
@@ -228,29 +196,26 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={addServer}
+                                onClick={() => setServers(prev => [...prev, EMPTY_SERVER])}
                                 type="button"
                                 className="w-fit"
                             >
                                 <Plus className="h-4 w-4 mr-1" />
                                 Add Server
                             </Button>
-                        </div>
+                        </Field>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="elaboration">
-                                Elaboration <span className="text-xs text-muted-foreground">(optional)</span>
-                            </Label>
+                        <Field label="Elaboration" htmlFor="elaboration">
                             <Textarea
                                 id="elaboration"
                                 placeholder="Anything else we should know about this server or community?"
                                 value={elaboration}
-                                onChange={e => setElaboration(e.target.value)}
+                                onChange={e => setField('elaboration')(e.target.value)}
                                 rows={3}
                                 maxLength={1000}
                             />
                             <p className="text-xs text-muted-foreground">{elaboration.length}/1000</p>
-                        </div>
+                        </Field>
                     </div>
 
                     <DialogFooter>

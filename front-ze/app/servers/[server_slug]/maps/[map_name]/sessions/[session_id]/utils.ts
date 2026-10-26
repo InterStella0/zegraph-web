@@ -23,14 +23,7 @@ export type SessionData = {
 
 export default async function getSessionData(server: Server, mapName: string, sessionId: string): Promise<SessionData> {
     const serverId = server.id;
-    const [
-        sessionInfo,
-        mutualSessions,
-        graphData,
-        serverGraph,
-        mapImage,
-        continents
-    ] = await Promise.all([
+    const [sessionInfo, mutualSessions, graphData, serverGraph, mapImage, continents] = await Promise.all([
         getSessionInfo(serverId, sessionId, "map", mapName),
         getMutualSessions(serverId, sessionId, "map", mapName),
         fetchServerUrl(serverId, `/sessions/${sessionId}/all-match`),

@@ -4,7 +4,7 @@ import {Server} from "types/community";
 import NavDrawerButton from "./NavDrawerButton";
 import PagesNavigation from "./PagesNavigation";
 import ServerIndicator from "./ServerIndicator";
-import {use} from "react";
+import {Dispatch, use} from "react";
 import {SteamProfile} from "types/steam";
 import LanguageToggle from "./LanguageToggle";
 import Link from "./Link";

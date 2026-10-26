@@ -4,25 +4,20 @@ import {DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale, negotiateLocale} from './con
 
 type Messages = Record<string, unknown>;
 
+const isMessages = (value: unknown): value is Messages =>
+    !!value && typeof value === 'object' && !Array.isArray(value);
+
 function deepMerge(base: Messages, override: Messages): Messages {
     const result: Messages = {...base};
     for (const [key, value] of Object.entries(override)) {
         const baseValue = result[key];
-        if (
-            value && typeof value === 'object' && !Array.isArray(value) &&
-            baseValue && typeof baseValue === 'object' && !Array.isArray(baseValue)
-        ) {
-            result[key] = deepMerge(baseValue as Messages, value as Messages);
-        } else {
-            result[key] = value;
-        }
+        result[key] = isMessages(value) && isMessages(baseValue) ? deepMerge(baseValue, value) : value;
     }
     return result;
 }
 
 export default getRequestConfig(async () => {
-    const store = await cookies();
-    const candidate = store.get(LOCALE_COOKIE)?.value;
+    const candidate = (await cookies()).get(LOCALE_COOKIE)?.value;
     const locale = isAppLocale(candidate)
         ? candidate
         : negotiateLocale((await headers()).get('accept-language')) ?? DEFAULT_LOCALE;

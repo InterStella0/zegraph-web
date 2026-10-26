@@ -1,54 +1,48 @@
 'use client'
 import { useLocale, useTranslations } from 'next-intl';
-import { ReactElement, use, useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-import timezone from "dayjs/plugin/timezone";
-import { color } from "chart.js/helpers";
+import dayjs from "lib/dayjs";
 
-import { fetchApiUrl, formatNumber, simpleRandom } from "utils/generalUtils";
+import { fetchApiUrl, formatNumber, range, simpleRandom } from "utils/generalUtils";
 import { formatDuration } from "utils/sessionUtils";
 import { GlobalPlayerSession, GlobalPlayerSessionPage } from "types/players.ts";
 import { Badge } from "components/ui/badge";
-import { Card, CardContent } from "components/ui/card";
 import { Skeleton } from "components/ui/skeleton";
-import { useLocalDayjs } from "lib/hooks/useHydrated";
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
+import {useHydrated} from "lib/hooks/useHydrated";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import SessionDateFilter from "components/players/SessionDateFilter";
 import { useResource } from "lib/hooks/useResource";
 import { useProfileCommunities } from "./ProfileContext";
 import { ENTER, LIFT, SWAP, stagger } from "./profileMotion";
+import { ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { tint } from "./profileChart";
 
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-const CARD = "flex h-full flex-col border-border/40 bg-card/50 backdrop-blur-xl";
+const CARD = "flex h-full flex-col";
+const CONTENT = "flex min-h-0 flex-1 flex-col";
 const LIST = "min-h-[240px] flex-1 overflow-y-auto px-1 py-1 space-y-2 contain-size";
 
-function SessionSkeleton() {
-    const [isClient, setIsClient] = useState<boolean>(false);
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
-    return (
-        <div className="flex items-center gap-3 rounded-lg border border-border/60 p-3">
+function SessionSkeletons() {
+    // Random widths only after hydration; the server and the first client render use the minimum.
+    const hydrated = useHydrated();
+    return range(6).map(index => (
+        <div key={index} className="flex items-center gap-3 rounded-lg border border-border/60 p-3">
             <Skeleton className="h-9 w-1 shrink-0 rounded-full" />
             <div className="min-w-0 flex-1 space-y-1.5">
-                <Skeleton className="h-[15px]" style={{ width: simpleRandom(140, 190, isClient) }} />
-                <Skeleton className="h-[12px]" style={{ width: simpleRandom(60, 110, isClient) }} />
+                <Skeleton className="h-[15px]" style={{ width: simpleRandom(140, 190, hydrated) }} />
+                <Skeleton className="h-[12px]" style={{ width: simpleRandom(60, 110, hydrated) }} />
             </div>
-            <Skeleton className="h-[20px] shrink-0 rounded-full" style={{ width: simpleRandom(36, 55, isClient) }} />
+            <Skeleton className="h-[20px] shrink-0 rounded-full" style={{ width: simpleRandom(36, 55, hydrated) }} />
         </div>
-    );
+    ));
 }
 
-function SessionRow({ session, index }: { session: GlobalPlayerSession, index: number }): ReactElement {
+function SessionRow({ session, index }: { session: GlobalPlayerSession, index: number }) {
     const t = useTranslations('players.sessions');
     const toDayjs = useLocalDayjs();
     const { communityOf, colorOf } = useProfileCommunities();
-    const community = communityOf(session.community_id);
-    const where = community?.name ?? session.community_name ?? session.server_name ?? t('unknownServer');
+    const where = communityOf(session.community_id)?.name ?? session.community_name ?? session.server_name ?? t('unknownServer');
     const accent = colorOf(session.community_id);
     const start = toDayjs(session.started_at);
     const end = session.ended_at ? toDayjs(session.ended_at) : null;
@@ -70,7 +64,7 @@ function SessionRow({ session, index }: { session: GlobalPlayerSession, index: n
             <Badge
                 variant="secondary"
                 className="shrink-0 px-2 text-[11px] font-bold tabular-nums"
-                style={{ backgroundColor: color(accent).alpha(0.2).rgbString(), color: accent }}
+                style={{ backgroundColor: tint(accent, 0.2), color: accent }}
             >
                 {end ? formatDuration(session.started_at, session.ended_at) : t('ongoing')}
             </Badge>
@@ -78,42 +72,30 @@ function SessionRow({ session, index }: { session: GlobalPlayerSession, index: n
     );
 }
 
-export function ProfilePlaySessionsLoading(): ReactElement {
+export function ProfilePlaySessionsLoading() {
     const t = useTranslations('players.sessions');
     return (
-        <Card className={CARD}>
-            <CardContent className="flex min-h-0 flex-1 flex-col p-4 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-2">
-                    <h2 className="text-xl font-semibold">{t('title')}</h2>
-                    <Skeleton className="h-8 w-28" />
-                </div>
-                <div className={LIST}>
-                    {Array.from({ length: 6 }).map((_, index) => (<SessionSkeleton key={index} />))}
-                </div>
-            </CardContent>
-        </Card>
+        <ProfileCardLoading className={CARD} contentClassName={CONTENT} title={t('title')} controlSize="h-8 w-28">
+            <div className={LIST}><SessionSkeletons /></div>
+        </ProfileCardLoading>
     );
 }
 
 export default function ProfilePlaySessions({ userId, initialDataPromise }: {
     userId: string,
     initialDataPromise: Promise<GlobalPlayerSessionPage | null>,
-}): ReactElement {
+}) {
     const t = useTranslations('players.sessions');
     const tProfile = useTranslations('players.profile');
     const locale = useLocale();
-    const initialData = use(initialDataPromise);
-    const [page, setPage] = useState<number>(0);
+    const [page, setPage] = useState(0);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
-    const { data, loading } = useResource<GlobalPlayerSessionPage>(signal => {
-        const params: { page: number, datetime?: string } = { page };
-        if (selectedDate) {
-            params.datetime = dayjs(selectedDate).utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
-        }
-        return fetchApiUrl(`/players/${userId}/sessions`, { params, signal });
-    }, [userId, page, selectedDate], { initial: initialData ?? undefined, keepData: true, errorLog: 'Failed to fetch global sessions:' });
-    const sessionList: GlobalPlayerSession[] = data?.rows ?? [];
+    const { data, loading } = useResource<GlobalPlayerSessionPage>(signal => fetchApiUrl(`/players/${userId}/sessions`, {
+        params: { page, ...(selectedDate && { datetime: dayjs(selectedDate).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') }) },
+        signal,
+    }), [userId, page, selectedDate], { seed: initialDataPromise, keepData: true, errorLog: 'Failed to fetch global sessions:' });
+    const sessionList = data?.rows ?? [];
     const totalPages = data?.total_pages ?? 1;
 
     const handleDateChange = (newDate: Date | undefined) => {
@@ -122,40 +104,33 @@ export default function ProfilePlaySessions({ userId, initialDataPromise }: {
     };
 
     return (
-        <Card className={`${CARD} ${ENTER} delay-150`}>
-            <CardContent className="flex min-h-0 flex-1 flex-col p-4 sm:p-6">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-xl font-semibold">{t('title')}</h2>
-                        {data && (
-                            <Badge variant="secondary" className="text-xs">
-                                {tProfile('total', { count: formatNumber(data.total_rows ?? 0, 0, locale) })}
-                            </Badge>
-                        )}
-                    </div>
-                    <SessionDateFilter selectedDate={selectedDate} onSelectDate={handleDateChange} compact />
-                </div>
+        <ProfileCard className={`${CARD} ${ENTER} delay-150`} contentClassName={CONTENT}>
+            <ProfileCardHeader
+                title={t('title')}
+                className="gap-2"
+                badge={data && tProfile('total', { count: formatNumber(data.total_rows ?? 0, 0, locale) })}
+                actions={<SessionDateFilter selectedDate={selectedDate} onSelectDate={handleDateChange} compact />}
+            />
 
-                <div className={LIST}>
-                    {loading ? (
-                        Array.from({ length: 6 }).map((_, index) => (<SessionSkeleton key={index} />))
-                    ) : sessionList.length > 0 ? (
-                        sessionList.map((session, index) => (
-                            <SessionRow key={session.id} session={session} index={index} />
-                        ))
-                    ) : (
-                        <div className="flex h-full items-center justify-center text-center">
-                            <p className="text-sm text-muted-foreground">{t('noSessions')}</p>
-                        </div>
-                    )}
-                </div>
-
-                {totalPages > 1 && (
-                    <div className="mt-3 flex justify-center">
-                        <PaginationPage totalPages={totalPages} page={page} setPage={setPage} compact />
+            <div className={LIST}>
+                {loading ? (
+                    <SessionSkeletons />
+                ) : sessionList.length > 0 ? (
+                    sessionList.map((session, index) => (
+                        <SessionRow key={session.id} session={session} index={index} />
+                    ))
+                ) : (
+                    <div className="flex h-full items-center justify-center text-center">
+                        <p className="text-sm text-muted-foreground">{t('noSessions')}</p>
                     </div>
                 )}
-            </CardContent>
-        </Card>
+            </div>
+
+            {totalPages > 1 && (
+                <div className="mt-3 flex justify-center">
+                    <PaginationPage totalPages={totalPages} page={page} setPage={setPage} compact />
+                </div>
+            )}
+        </ProfileCard>
     );
 }

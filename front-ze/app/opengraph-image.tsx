@@ -20,8 +20,7 @@ export default async function Image() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: '#0A0A0A',
-                    backgroundImage:
-                        'radial-gradient(circle at 50% 35%, #2A0528 0%, #0A0A0A 70%)',
+                    backgroundImage: 'radial-gradient(circle at 50% 35%, #2A0528 0%, #0A0A0A 70%)',
                     color: '#FFFFFF',
                     fontFamily: 'sans-serif',
                 }}
@@ -32,44 +31,15 @@ export default async function Image() {
                     width={168}
                     height={168}
                     alt=""
-                    style={{
-                        borderRadius: '9999px',
-                        marginBottom: 28,
-                        border: '4px solid #f48fb1',
-                    }}
+                    style={{borderRadius: '9999px', marginBottom: 28, border: '4px solid #f48fb1'}}
                 />
-                <div
-                    style={{
-                        display: 'flex',
-                        fontSize: 96,
-                        fontWeight: 700,
-                        color: '#f48fb1',
-                        letterSpacing: -2,
-                    }}
-                >
+                <div style={{display: 'flex', fontSize: 96, fontWeight: 700, color: '#f48fb1', letterSpacing: -2}}>
                     ZE Graph
                 </div>
-                <div
-                    style={{
-                        display: 'flex',
-                        marginTop: 16,
-                        fontSize: 44,
-                        fontWeight: 600,
-                        textAlign: 'center',
-                        maxWidth: 900,
-                    }}
-                >
+                <div style={{display: 'flex', marginTop: 16, fontSize: 44, fontWeight: 600, textAlign: 'center', maxWidth: 900}}>
                     Zombie Escape Server &amp; Player Stats
                 </div>
-                <div
-                    style={{
-                        display: 'flex',
-                        marginTop: 28,
-                        fontSize: 30,
-                        color: '#B9B4B8',
-                        letterSpacing: 4,
-                    }}
-                >
+                <div style={{display: 'flex', marginTop: 28, fontSize: 30, color: '#B9B4B8', letterSpacing: 4}}>
                     CS2 · CS:GO · CS:S
                 </div>
             </div>

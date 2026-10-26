@@ -10,11 +10,13 @@ import { cn } from "../lib/utils";
 import { MapMusicTrack } from "types/maps";
 import {useMapScope} from "lib/hooks/useMapScope";
 import MusicReportDialog from "./MusicReportDialog";
-import { fetchApiUrl } from "utils/generalUtils";
+import { sendJson } from "lib/sendJson";
 import {PlayerAvatar} from "components/players/PlayerAvatar.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {useTranslations} from 'next-intl';
 import {formatTrackDuration} from "utils/format";
+
+const PLAYLIST_LINE = "truncate w-full text-left max-w-53.5 max-sm:max-w-43.5"
 
 interface MapMusicDialogProps {
     open: boolean;
@@ -33,12 +35,8 @@ export default function MapMusicDialog({
     const { mapHref } = useMapScope()
     const [currentIndex, setCurrentIndex] = useState(initialTrackIndex);
     const trackRefs = useRef<(HTMLButtonElement | null)[]>([]);
-    const [reportDialogOpen, setReportDialogOpen] = useState(false);
     const [reportingTrack, setReportingTrack] = useState<MapMusicTrack | null>(null);
-
     const currentTrack = tracks[currentIndex];
-    const hasPrevious = currentIndex > 0;
-    const hasNext = currentIndex < tracks.length - 1;
 
     useEffect(() => {
         if (open) {
@@ -47,49 +45,28 @@ export default function MapMusicDialog({
     }, [open, initialTrackIndex]);
 
     useEffect(() => {
-        const currentTrackElement = trackRefs.current[currentIndex];
-        if (currentTrackElement) {
-            currentTrackElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'nearest',
-            });
-        }
+        trackRefs.current[currentIndex]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, [currentIndex]);
 
-    const goToPrevious = () => {
-        if (hasPrevious) {
-            setCurrentIndex(currentIndex - 1);
-        }
-    };
-
-    const goToNext = () => {
-        if (hasNext) {
-            setCurrentIndex(currentIndex + 1);
-        }
-    };
-
-    const selectTrack = (index: number) => {
-        setCurrentIndex(index);
-    };
-
     const handleReportSubmit = async (reason: string, details?: string, youtubeUrl?: string) => {
-        if (!reportingTrack) return;
-
-        await fetchApiUrl(`/music/${reportingTrack.id}/report`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                reason,
-                details: details || '',
-                suggested_youtube_url: youtubeUrl || null
-            })
+        await sendJson(`/music/${reportingTrack.id}/report`, 'POST', {
+            reason,
+            details: details || '',
+            suggested_youtube_url: youtubeUrl || null
         });
     };
 
-    const openReportDialog = () => {
-        setReportingTrack(currentTrack);
-        setReportDialogOpen(true);
-    };
+    const stepButton = (step: number, Icon: typeof ChevronLeft) => (
+        <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 sm:h-7 sm:w-7"
+            onClick={() => setCurrentIndex(currentIndex + step)}
+            disabled={!tracks[currentIndex + step]}
+        >
+            <Icon className="h-4 w-4" />
+        </Button>
+    );
 
     if (!currentTrack) return null;
 
@@ -117,7 +94,7 @@ export default function MapMusicDialog({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={openReportDialog}
+                                onClick={() => setReportingTrack(currentTrack)}
                                 className="gap-2"
                             >
                                 <Flag className="h-4 w-4" />
@@ -149,9 +126,7 @@ export default function MapMusicDialog({
 
                         <div className="mt-2 sm:mt-3 space-y-2">
                             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                                {currentTrack.contexts.map((c, idx) => <Badge key={idx} className="text-xs">
-                                    {c}
-                                </Badge>)}
+                                {currentTrack.contexts.map((c, idx) => <Badge key={idx} className="text-xs">{c}</Badge>)}
 
                                 <span className="text-xs sm:text-sm text-muted-foreground">
                                     {formatTrackDuration(currentTrack.duration)}
@@ -195,27 +170,11 @@ export default function MapMusicDialog({
                         <div className="flex items-center justify-between mb-2 sm:mb-3">
                             <h3 className="text-sm font-medium">{t('playlist')}</h3>
                             <div className="flex items-center gap-1.5 sm:gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 sm:h-7 sm:w-7"
-                                    onClick={goToPrevious}
-                                    disabled={!hasPrevious}
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
+                                {stepButton(-1, ChevronLeft)}
                                 <span className="text-xs text-muted-foreground min-w-12 text-center">
                                     {currentIndex + 1} / {tracks.length}
                                 </span>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 sm:h-7 sm:w-7"
-                                    onClick={goToNext}
-                                    disabled={!hasNext}
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
+                                {stepButton(1, ChevronRight)}
                             </div>
                         </div>
                         <ScrollArea className="flex flex-col overflow-y-auto p-2">
@@ -229,18 +188,18 @@ export default function MapMusicDialog({
                                             "h-auto py-2.5 sm:py-2 px-2.5 sm:px-3 justify-start touch-manipulation",
                                             index === currentIndex && "ring-2 ring-primary"
                                         )}
-                                        onClick={() => selectTrack(index)}
+                                        onClick={() => setCurrentIndex(index)}
                                     >
                                         <div className="flex items-center gap-2 w-full min-w-0">
                                             {index === currentIndex && (
                                                 <Play className="h-3 w-3 fill-current shrink-0" />
                                             )}
                                             <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
-                                                <span className="truncate text-sm font-medium w-full text-left max-w-53.5 max-sm:max-w-43.5">
+                                                <span className={cn(PLAYLIST_LINE, "text-sm font-medium")}>
                                                     {track.title}
                                                 </span>
                                                 {track.artist && (
-                                                    <span className="truncate text-xs text-muted-foreground w-full text-left max-w-53.5 max-sm:max-w-43.5">
+                                                    <span className={cn(PLAYLIST_LINE, "text-xs text-muted-foreground")}>
                                                         {track.artist}
                                                     </span>
                                                 )}
@@ -260,11 +219,8 @@ export default function MapMusicDialog({
 
             {reportingTrack && (
                 <MusicReportDialog
-                    open={reportDialogOpen}
-                    onClose={() => {
-                        setReportDialogOpen(false);
-                        setReportingTrack(null);
-                    }}
+                    open
+                    onClose={() => setReportingTrack(null)}
                     onSubmit={handleReportSubmit}
                     musicTitle={reportingTrack.title}
                     currentYoutubeId={reportingTrack.youtubeVideoId}

@@ -1,23 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from 'components/ui/avatar';
 import { Badge } from 'components/ui/badge';
 import { Skeleton } from 'components/ui/skeleton';
-import { fetchApiUrl } from 'utils/generalUtils';
+import { fetchApiUrl, range } from 'utils/generalUtils';
+import { useResource } from 'lib/hooks/useResource';
 import { formatDate } from './utils';
 import type { AuditFieldChange, AuditLogEntry, AuditLogsResponse } from 'types/admin';
 
-export const AUDIT_ACTION_LABELS: Record<string, string> = {
-  update_global: 'Global',
-  update_server: 'Per-Server',
-  delete_map: 'Deleted',
+const AUDIT_ACTIONS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' }> = {
+  update_global: { label: 'Global', variant: 'default' },
+  update_server: { label: 'Per-Server', variant: 'secondary' },
+  delete_map: { label: 'Deleted', variant: 'destructive' },
 };
 
-export function auditActionBadgeVariant(action: string): 'default' | 'secondary' | 'destructive' {
-  if (action === 'delete_map') return 'destructive';
-  if (action === 'update_server') return 'secondary';
-  return 'default';
+export function AuditActionBadge({ action, className }: { action: string; className?: string }) {
+  return (
+    <Badge variant={AUDIT_ACTIONS[action]?.variant ?? 'default'} className={className}>
+      {AUDIT_ACTIONS[action]?.label ?? action}
+    </Badge>
+  );
+}
+
+export function AuditUserAvatar({ log, className, fallbackClassName }: {
+  log: AuditLogEntry;
+  className: string;
+  fallbackClassName?: string;
+}) {
+  return (
+    <Avatar className={className}>
+      <AvatarImage src={log.user_avatar || undefined} />
+      <AvatarFallback className={fallbackClassName}>
+        {log.user_name?.[0]?.toUpperCase() || 'U'}
+      </AvatarFallback>
+    </Avatar>
+  );
 }
 
 export function AuditChangesList({ changes }: { changes: AuditFieldChange[] }) {
@@ -38,30 +55,17 @@ export function AuditChangesList({ changes }: { changes: AuditFieldChange[] }) {
 }
 
 export function MapAuditHistory({ mapName, refreshKey }: { mapName: string; refreshKey?: number }) {
-  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetchApiUrl('/admin/audit-logs', { params: { map_name: mapName, page: '1', limit: '20' } })
-      .then((data) => {
-        if (!cancelled) setLogs((data as AuditLogsResponse).logs ?? []);
-      })
-      .catch((e) => {
-        console.error('Failed to fetch map audit history:', e);
-        if (!cancelled) setLogs([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [mapName, refreshKey]);
+  const { data: logs, loading } = useResource(
+    () => fetchApiUrl('/admin/audit-logs', { params: { map_name: mapName, page: '1', limit: '20' } })
+      .then((data: AuditLogsResponse) => data.logs ?? []),
+    [mapName, refreshKey],
+    { errorLog: 'Failed to fetch map audit history:' },
+  );
 
   if (loading) {
     return (
       <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {range(3).map((i) => (
           <div key={i} className="space-y-1.5">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />
@@ -71,7 +75,7 @@ export function MapAuditHistory({ mapName, refreshKey }: { mapName: string; refr
     );
   }
 
-  if (logs.length === 0) {
+  if (!logs?.length) {
     return <p className="text-sm text-muted-foreground">No edits recorded yet.</p>;
   }
 
@@ -80,18 +84,11 @@ export function MapAuditHistory({ mapName, refreshKey }: { mapName: string; refr
       {logs.map((log) => (
         <div key={log.id} className="rounded-md border p-2.5 space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <Avatar className="h-5 w-5">
-              <AvatarImage src={log.user_avatar || undefined} />
-              <AvatarFallback className="text-[10px]">
-                {log.user_name?.[0]?.toUpperCase() || 'U'}
-              </AvatarFallback>
-            </Avatar>
+            <AuditUserAvatar log={log} className="h-5 w-5" fallbackClassName="text-[10px]" />
             <span className="text-xs font-medium truncate max-w-[10rem]">
               {log.user_name || log.user_id}
             </span>
-            <Badge variant={auditActionBadgeVariant(log.action)} className="text-[10px] px-1.5 py-0">
-              {AUDIT_ACTION_LABELS[log.action] ?? log.action}
-            </Badge>
+            <AuditActionBadge action={log.action} className="text-[10px] px-1.5 py-0" />
           </div>
           {log.server_name && (
             <div className="text-xs text-muted-foreground">{log.server_name}</div>

@@ -1,62 +1,28 @@
-import {createControlComponent} from "@react-leaflet/core";
-import {DomUtil} from "leaflet";
-import ReactDOM from "react-dom/client";
-import {useEffect, useRef, useState} from "react";
-import L from 'leaflet'
-import ErrorCatch from "../ui/ErrorMessage.tsx";
-import {WMS_URL} from "./RadarPreview.tsx";
+import {useState} from "react";
 import {Skeleton} from "components/ui/skeleton";
 import {ChevronDown, ChevronUp, Globe} from "lucide-react";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "components/ui/collapsible";
 import {useTheme} from "next-themes";
 import {useTranslations} from 'next-intl';
+import {withErrorCatch} from "components/common/withErrorCatch";
+import {useResource} from "lib/hooks/useResource";
+import {WMS_URL} from "./RadarPreview.tsx";
 import {NIGHT_SHADING_STYLE} from "./NightShadingLayer.tsx";
+import {useReactControl} from "./leafletControls";
 import {TWILIGHT_ALTITUDES} from "utils/terminator.ts";
 
-
-
-function LegendWrapper({ setUpdateFn }) {
-    const [data, setData] = useState<{theme: string, legendLabel: string, errorLabel: string | null, nightLabel: string | null}>({theme: 'light', legendLabel: null, errorLabel: null, nightLabel: null});
-    useEffect(() => {
-        setUpdateFn(setData);
-    }, [setUpdateFn]);
-
-    return <ErrorCatch message={data.errorLabel ?? "Error showing legend :/"}>
-        <LegendWrapped reactData={data} />
-    </ErrorCatch>
+async function fetchLegend(name: string, style: string, signal: AbortSignal) {
+    const params = {SERVICE: "WMS", REQUEST: "GetLegendGraphic", LAYERS: name, STYLES: style, FORMAT: "application/json"};
+    const resp = await fetch(`${WMS_URL}?${new URLSearchParams(params)}`, {signal}).then(resp => resp.json());
+    const node = resp.nodes[0];
+    return node && {title: node.title, icon: node.symbols?.[0]?.icon ?? node.icon};
 }
+
 function WMSLegendImage({name, style = ""}){
-    const [title, setTitle] = useState(name)
-    const [ imageSrc, setImage ] = useState(null)
-
-    useEffect(() => {
-        const params = {
-            SERVICE: "WMS",
-            REQUEST: "GetLegendGraphic",
-            LAYERS: name,
-            STYLES: style,
-            FORMAT: "application/json"
-        }
-        const url = `${WMS_URL}?${new URLSearchParams(params).toString()}`
-        fetch(url)
-            .then(resp => resp.json())
-            .then(resp => {
-                for(const node of resp.nodes){
-                    setTitle(node.title)
-                    if (node.symbols){
-                        for (const symbol of node.symbols){
-                            setImage(`data:image/png;base64, ${symbol.icon}`)
-                            return
-                        }
-                    }
-                    setImage(`data:image/png;base64, ${node.icon}`)
-                    return
-                }
-            })
-
-    }, [name, style]);
+    const {data} = useResource(signal => fetchLegend(name, style, signal), [name, style], {keepData: true});
+    const title = data?.title ?? name;
     return <div className="flex flex-row gap-2 mt-3">
-        {imageSrc? <img width="20px" height="20px" src={imageSrc} alt={title}/>: <Skeleton className="w-5 h-5" />}
+        {data ? <img width="20px" height="20px" src={`data:image/png;base64, ${data.icon}`} alt={title}/> : <Skeleton className="w-5 h-5" />}
         <p className="text-primary">{title}</p>
     </div>
 }
@@ -68,20 +34,19 @@ function stackedFill(band: { fillColor: string, fillOpacity: number }): string {
 
 function NightShadingLegend({ label, isDarkMode }){
     const { basemap, night } = NIGHT_SHADING_STYLE[isDarkMode ? 'dark' : 'light'];
-    const nightFill = stackedFill(night);
     return <div className="flex flex-row gap-2 mt-3">
         <div className="w-5 h-5 border" style={{
             backgroundColor: basemap,
-            backgroundImage: `linear-gradient(to right, transparent 50%, ${nightFill} 50%)`,
+            backgroundImage: `linear-gradient(to right, transparent 50%, ${stackedFill(night)} 50%)`,
         }} />
         <p className="text-primary">{label}</p>
     </div>
 }
 
-function LegendWrapped({ reactData }){
-    const isDarkMode = reactData?.theme === "dark"
+function LegendPanel({ isDarkMode }: { isDarkMode: boolean }){
+    const t = useTranslations('radar');
     const [ isExpanded, setExpanded ] = useState(true)
-    return <>
+    return (
         <div className="backdrop-blur-[10px] bg-background border transition-all duration-300 max-w-[250px]">
             <Collapsible open={isExpanded}>
                 <CollapsibleTrigger
@@ -91,14 +56,10 @@ function LegendWrapped({ reactData }){
                         setExpanded(e => !e)
                     }}
                 >
-
                     <div className="flex items-center gap-2">
                         <Globe />
-                        {isExpanded && (
-                            <p className="text-primary font-semibold">{reactData?.legendLabel ?? "Legend"}</p>
-                        )}
+                        {isExpanded && <p className="text-primary font-semibold">{t('legend')}</p>}
                     </div>
-
                     {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </CollapsibleTrigger>
 
@@ -107,63 +68,19 @@ function LegendWrapped({ reactData }){
                         <WMSLegendImage name="player_server_timed" />
                         <WMSLegendImage name="player_server_mapped" />
                         <WMSLegendImage name={`countries_${isDarkMode ? "dark" : "light"}`} />
-                        <NightShadingLegend label={reactData?.nightLabel ?? "Night Shading"} isDarkMode={isDarkMode} />
+                        <NightShadingLegend label={t('layers.nightShading')} isDarkMode={isDarkMode} />
                     </div>
                 </CollapsibleContent>
             </Collapsible>
         </div>
-    </>
+    );
 }
 
-const LegendControlExtends = L.Control.extend({
-    initialize: function(options) {
-        L.Util.setOptions(this, options)
-        this._container = null;
-        this._setReactDataFn = () => {}
-    },
-    updateData: function(data){
-        L.Util.setOptions(this, data)
-        if (this._setReactDataFn) {
-            this._setReactDataFn(data);
-        }
-    },
-    onAdd: function(_map) {
-        this._container = DomUtil.create('div', 'leaflet-control leaflet-bar');
-        const container = this._container;
-        container.style.display = 'none';
-
-        L.DomEvent.disableClickPropagation(this._container);
-        L.DomEvent.disableScrollPropagation(this._container);
-
-        const reactRoot = ReactDOM.createRoot(this._container);
-        reactRoot.render(<LegendWrapper setUpdateFn={(fn) => {
-            this._setReactDataFn = fn;
-            fn({theme: this.options.theme, legendLabel: this.options.legendLabel, errorLabel: this.options.errorLabel, nightLabel: this.options.nightLabel})
-            container.style.display = '';
-        }} />);
-        return this._container;
-    },
-
-    onRemove: function(_map) {
-        this._container = null;
-    }
-})
-
-const LegendWrapperComponent = createControlComponent(
-    (props) => {
-        return new LegendControlExtends(props);
-    }
-);
+const SafeLegendPanel = withErrorCatch(LegendPanel, t => t('radar.legendError'));
 
 export default function LegendControl(){
-    const t = useTranslations('radar');
+    // next-themes context does not reach the control's own React root.
     const { resolvedTheme } = useTheme();
-    const ref = useRef<InstanceType<typeof LegendControlExtends>>(null)
-    const data = {theme: resolvedTheme, legendLabel: t('legend'), errorLabel: t('legendError'), nightLabel: t('layers.nightShading')}
-
-    useEffect(() => {
-        ref.current?.updateData(data)
-    }, [data.theme, data.legendLabel, data.errorLabel, data.nightLabel]);
-
-    return <LegendWrapperComponent ref={ref} position="topright" {...data} />
+    useReactControl(<SafeLegendPanel isDarkMode={resolvedTheme === "dark"} />, 'topright', 'leaflet-bar');
+    return null;
 }

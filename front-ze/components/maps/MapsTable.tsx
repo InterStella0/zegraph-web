@@ -1,33 +1,30 @@
 'use client'
-import { Ban, Clock, Heart} from 'lucide-react';
-import dayjs from 'dayjs';
-import {secondsToHours} from "utils/generalUtils";
-import {loadMapImage} from "lib/batchLoader";
-import {useLocalDayjs} from "lib/hooks/useHydrated";
-import {useEffect, useState} from "react";
-import duration from "dayjs/plugin/duration";
-import relativeTime from "dayjs/plugin/relativeTime";
+import {Ban, Clock} from 'lucide-react';
+import {secondsToHours, range} from "utils/generalUtils";
+import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import Image from "next/image";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "components/ui/table";
 import {Badge} from "components/ui/badge";
 import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
-import {Button} from "components/ui/button";
-import {Skeleton} from "components/ui/skeleton";
+import {Skeleton, SkeletonBadge, SkeletonText} from "components/ui/skeleton";
+import {useVaryWidth} from "lib/hooks/useVaryWidth";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import MapNotifyButton from "components/maps/MapNotifyButton";
+import {useMapImage} from "components/maps/useMapImage";
 import {SteamProfile} from "types/steam";
 import {Server} from "types/community.ts";
 import {MapPlayed, MapPlayedPaginated} from "types/maps.ts";
-import CategoryChip from "components/ui/CategoryChip.tsx";
+import {MapCategoryChips} from "components/ui/CategoryChip.tsx";
+import {FavoriteButton} from "components/maps/FavoriteButton";
 import {isBlocked, mapBlockers} from "utils/mapCooldown";
 import {useMapCooldownText} from "lib/hooks/useMapCooldownText";
 import {useTranslations, useLocale} from 'next-intl';
 
-dayjs.extend(duration);
-dayjs.extend(relativeTime);
+export const MAPS_PAGE_SIZE = 25;
 
 const MapsRowSkeleton = ({ index, showNotify }: { index: number, showNotify: boolean }) => {
+    const varyWidth = useVaryWidth();
     return (
         <TableRow>
             <TableCell>
@@ -36,17 +33,17 @@ const MapsRowSkeleton = ({ index, showNotify }: { index: number, showNotify: boo
                     <div>
                         <div className="w-32 md:w-32 lg:w-60 xl:w-72 max-w-72">
                             <div className="text-sm font-medium">
-                                <Skeleton className="inline-block align-middle h-3.5" style={{width: `${7 + (index * 5) % 6}rem`}} />{'\u200b'}
+                                <SkeletonText className="h-3.5" style={varyWidth(index, 7, 6, 5)} />
                             </div>
                         </div>
                         <div className="flex gap-1 mt-1">
-                            <Skeleton className="inline-flex border border-transparent px-2 py-0.5 text-xs rounded-full w-14">{'\u200b'}</Skeleton>
+                            <SkeletonBadge className="w-14" />
                         </div>
                     </div>
                 </div>
             </TableCell>
             <TableCell>
-                <Skeleton className="inline-flex border border-transparent px-2 py-0.5 text-xs rounded-full w-[5.75rem]">{'\u200b'}</Skeleton>
+                <SkeletonBadge className="w-[5.75rem]" />
             </TableCell>
             <TableCell align="right">
                 <span className="text-sm"><Skeleton className="inline-block align-middle h-3.5 w-16" /></span>
@@ -114,6 +111,24 @@ export const StatusChip = ({ map }: { map: MapPlayed }) => {
     return <Badge variant="outline" className="border-green-500 text-green-600 dark:text-green-500">{t('ready')}</Badge>;
 };
 
+/** Category chips plus the player limits that differ from the server's. */
+export function MapChips({ map, server }: { map: MapPlayed, server: Server }) {
+    const t = useTranslations('maps.table');
+    return <>
+        <MapCategoryChips map={map} />
+        {map.min_players != null && map.min_players > 0 && (
+            <Badge variant="outline" className="text-xs">
+                {t('min', {count: map.min_players})}
+            </Badge>
+        )}
+        {map.max_players != null && (map.max_players != server.max_players && map.max_players != 0)  && (
+            <Badge variant="outline" className="text-xs">
+                {t('max', {count: map.max_players})}
+            </Badge>
+        )}
+    </>
+}
+
 function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionType, onNotificationChange }: {
     server: Server;
     map: MapPlayed;
@@ -123,14 +138,9 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
     getSubscriptionType: (mapName: string, serverId: string) => 'server' | 'all' | null;
     onNotificationChange: () => void;
 }) {
-    const t = useTranslations('maps.table');
     const locale = useLocale();
     const toDayjs = useLocalDayjs();
-    const [ mapImage, setMapImage ] = useState(null);
-    const server_id = server.id
-    useEffect(() => {
-        loadMapImage(map.map, server_id).then(e => setMapImage(e? e.small: null))
-    }, [server_id, map.map])
+    const { data: mapImage } = useMapImage(map.map, server.id, 'small')
 
     return (
         <TableRow
@@ -164,21 +174,7 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
                             </HoverPrefetchLink>
                         </div>
                         <div className="flex gap-1 mt-1">
-                            {map.is_casual && !map.is_tryhard && <CategoryChip category="casual" size="small" />}
-                            {map.is_tryhard && !map.is_casual  && <CategoryChip category="tryhard" size="small" />}
-                            {map.is_tryhard && map.is_casual && <CategoryChip category="mixed" size="small" />}
-                            {map.has_lasers && <CategoryChip category="lasers" title={t('lasersTitle')} size="small" />}
-                            {map.no_noms && <CategoryChip category="no noms" title={t('noNomsTitle')} size="small" />}
-                            {map.min_players != null && map.min_players > 0 && (
-                                <Badge variant="outline" className="text-xs">
-                                    {t('min', {count: map.min_players})}
-                                </Badge>
-                            )}
-                            {map.max_players != null && (map.max_players != server.max_players && map.max_players != 0)  && (
-                                <Badge variant="outline" className="text-xs">
-                                    {t('max', {count: map.max_players})}
-                                </Badge>
-                            )}
+                            <MapChips map={map} server={server} />
                         </div>
                     </div>
                 </div>
@@ -215,21 +211,7 @@ function MapRow({ server, map, favorites, toggleFavorite, user, getSubscriptionT
                 />
             </TableCell>
             <TableCell align="center">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(map.map);
-                    }}
-                    className={`transition-all hover:scale-110 ${favorites.has(map.map) ? 'text-primary' : ''}`}
-                >
-                    {favorites.has(map.map) ? (
-                        <Heart className="h-5 w-5 fill-current" />
-                    ) : (
-                        <Heart className="h-5 w-5" />
-                    )}
-                </Button>
+                <FavoriteButton mapName={map.map} favorites={favorites} toggleFavorite={toggleFavorite} />
             </TableCell>
         </TableRow>
     );
@@ -259,9 +241,7 @@ export default function MapsTable({
     onNotificationChange: () => void;
 }) {
     const t = useTranslations('maps.table');
-    const totalPages = Math.ceil((mapsData?.total_maps || 0) / 25);
-    const startItem = page * 25 + 1;
-    const endItem = Math.min((page + 1) * 25, mapsData?.total_maps || 0);
+    const totalMaps = mapsData?.total_maps || 0;
 
     return (
         <div className="border border-border rounded-lg bg-card overflow-hidden">
@@ -292,7 +272,7 @@ export default function MapsTable({
                             onNotificationChange={onNotificationChange}
                         />
                     ))}
-                    {loading && Array.from({ length: 25 }).map((_, i) =>
+                    {loading && range(MAPS_PAGE_SIZE).map(i =>
                         <MapsRowSkeleton key={i} index={i} showNotify={!!user} />
                     )}
                 </TableBody>
@@ -300,9 +280,17 @@ export default function MapsTable({
 
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                 <p className="text-sm text-muted-foreground">
-                    {t('showing', {start: startItem, end: endItem, total: mapsData?.total_maps || 0})}
+                    {t('showing', {
+                        start: page * MAPS_PAGE_SIZE + 1,
+                        end: Math.min((page + 1) * MAPS_PAGE_SIZE, totalMaps),
+                        total: totalMaps,
+                    })}
                 </p>
-                <PaginationPage totalPages={totalPages} page={page} setPage={(pageNum) => handleChangePage(null, pageNum)} />
+                <PaginationPage
+                    totalPages={Math.ceil(totalMaps / MAPS_PAGE_SIZE)}
+                    page={page}
+                    setPage={(pageNum) => handleChangePage(null, pageNum)}
+                />
             </div>
         </div>
     );
