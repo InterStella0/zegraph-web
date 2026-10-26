@@ -12,10 +12,10 @@ import { cn } from "components/lib/utils";
 const HEADING = "text-xl font-semibold";
 const ROWS_PER_PAGE = 10;
 
-// Over a player's Steam background the card turns to light frosted glass that clears while hovered,
-// and everything with text or a chart sits on a denser surface inside it, so the image shows in
-// between (see profile-frame and profile-surface in globals.css). Without a background these
-// classes do nothing.
+// Over a player's Steam background the card is one sheet of frosted glass. Hovering clears it to show
+// the image, and everything with text or a chart then gets a backing of its own from the surface it
+// sits on (see profile-frame and profile-surface in globals.css). Without a background these classes
+// do nothing.
 /** The frosted surface alone, for an element that already has its shape. */
 export const SURFACE = "profile-bg:profile-surface";
 /** A surface block around a chart, list or table. */

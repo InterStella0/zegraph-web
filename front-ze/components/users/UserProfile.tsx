@@ -33,8 +33,8 @@ interface UserProfileProps {
 }
 
 const SECTION_LABEL = "text-xs font-medium uppercase tracking-wider text-muted-foreground";
-// Over a Steam background the name and the headline stats each get their own panel, leaving the
-// avatar and the space between them on the card's glass.
+// Over a Steam background the name and the headline stats each get their own panel while the card is
+// hovered, leaving the avatar and the space between them on the cleared glass.
 const HERO_PANEL = `profile-bg:justify-center profile-bg:rounded-xl profile-bg:px-5 profile-bg:py-4 ${SURFACE}`;
 
 // The player's Steam profile background behind the whole page, as on their Steam profile. Fixed

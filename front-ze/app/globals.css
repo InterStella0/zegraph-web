@@ -4,18 +4,35 @@
 @custom-variant dark (&:is(.dark *));
 /* While a player's Steam background is behind the profile page. */
 @custom-variant profile-bg (&:where(body:has([data-profile-background]) *));
-/* Frosted glass over that background, which clears while hovered to show the image. It carries no
-   text itself. The frost is drawn by a layer behind the card's content rather than by the card:
-   a backdrop-filter (or filter, or opacity below 1) on the card would stop the surfaces inside
-   from seeing past it to the image. For the same reason the frost waits out the card's fade-in
-   (ENTER in profileMotion.ts) before fading in itself, or it would pop in as that fade ends. */
+/* A card over that background is one even sheet of frosted glass, readable whatever the image: the
+   blur wipes out its texture, and the backdrop is darkened (dark mode) or faded towards white (light
+   mode) far enough that neither a white-hot nor a pitch-black patch can drown the text. Muted text
+   moves a step further from the glass, which buys back the contrast a solid card would have had.
+   Hovering clears the glass to show the image, and the surfaces inside (profile-surface) take over
+   behind the text and charts with their own lighter-blurred, more tinted backing.
+   The frost is drawn by a layer behind the card's content rather than by the card: a backdrop-filter
+   (or filter, or opacity below 1) on the card would stop the surfaces inside from seeing past it to
+   the image. For the same reason the frost waits out the card's fade-in (ENTER in profileMotion.ts)
+   before fading in itself, or it would pop in as that fade ends. */
 @utility profile-frame {
+    --muted-foreground: var(--profile-muted);
     position: relative;
     isolation: isolate;
-    background-color: var(--profile-frame);
+    background-color: var(--profile-glass);
     border-color: var(--profile-frame-border);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+    /* The surfaces inside stay clear until hovered. These inherit, so they reach every one of them,
+       and transition, so the surfaces fade in with the card's glass clearing. */
+    --profile-surface: transparent;
+    --profile-surface-blur: 0px;
+    --profile-surface-contrast: 1;
+    --profile-surface-brightness: 1;
+    --profile-surface-saturate: 1;
+    transition-property: background-color, --profile-surface, --profile-surface-blur, --profile-surface-contrast,
+        --profile-surface-brightness, --profile-surface-saturate;
+    transition-duration: 300ms;
+    transition-timing-function: ease-out;
     &::before {
         content: "";
         position: absolute;
@@ -23,14 +40,22 @@
         z-index: -1;
         border-radius: inherit;
         pointer-events: none;
-        -webkit-backdrop-filter: var(--profile-frost);
-        backdrop-filter: var(--profile-frost);
+        -webkit-backdrop-filter: var(--profile-glass-filter);
+        backdrop-filter: var(--profile-glass-filter);
         transition: backdrop-filter 300ms ease-out, -webkit-backdrop-filter 300ms ease-out;
     }
     @media (hover: hover) {
+        &:hover {
+            background-color: var(--profile-clear);
+            --profile-surface: var(--profile-panel);
+            --profile-surface-blur: var(--profile-panel-blur);
+            --profile-surface-contrast: var(--profile-panel-contrast);
+            --profile-surface-brightness: var(--profile-panel-brightness);
+            --profile-surface-saturate: var(--profile-panel-saturate);
+        }
         &:hover::before {
-            -webkit-backdrop-filter: var(--profile-frost-cleared);
-            backdrop-filter: var(--profile-frost-cleared);
+            -webkit-backdrop-filter: var(--profile-clear-filter);
+            backdrop-filter: var(--profile-clear-filter);
         }
     }
     @media (prefers-reduced-motion: no-preference) {
@@ -46,14 +71,41 @@
         opacity: 0;
     }
 }
-/* Frosted backing for text and charts, readable whatever the image. The blur wipes out its
-   texture and the tint caps how far it can shift the contrast. The backdrop is first darkened
-   (dark mode) or flattened towards grey (light mode), so neither a white-hot nor a pitch-black
-   patch can drown the text. */
+/* Backing behind text and charts. Inside a card it is clear until the card is hovered; on its own
+   (the site header, banner and footer) it is the card's frosted glass. */
 @utility profile-surface {
+    --muted-foreground: var(--profile-muted);
     background-color: var(--profile-surface);
-    -webkit-backdrop-filter: var(--profile-surface-filter);
-    backdrop-filter: var(--profile-surface-filter);
+    -webkit-backdrop-filter: blur(var(--profile-surface-blur)) contrast(var(--profile-surface-contrast))
+        brightness(var(--profile-surface-brightness)) saturate(var(--profile-surface-saturate));
+    backdrop-filter: blur(var(--profile-surface-blur)) contrast(var(--profile-surface-contrast))
+        brightness(var(--profile-surface-brightness)) saturate(var(--profile-surface-saturate));
+}
+/* Typed so a card can transition them, and inherited so it can set them for every surface inside. */
+@property --profile-surface {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: transparent;
+}
+@property --profile-surface-blur {
+    syntax: "<length>";
+    inherits: true;
+    initial-value: 0px;
+}
+@property --profile-surface-contrast {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1;
+}
+@property --profile-surface-brightness {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1;
+}
+@property --profile-surface-saturate {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1;
 }
 html {
     scroll-behavior: smooth;
@@ -111,12 +163,30 @@ html {
     --sidebar-ring: oklch(0.708 0.05 330);
     --background: oklch(0.949 0.05 330);
     --foreground: oklch(0.145 0.08 35);
-    --profile-frame: color-mix(in oklab, var(--background) 25%, transparent);
+    /* Profile glass over a Steam background (profile-frame and profile-surface). The glass is a
+       card at rest, the clear tint a hovered card, the panel the backing its text then gets. */
     --profile-frame-border: oklch(1 0 0 / 50%);
-    --profile-frost: blur(12px);
-    --profile-frost-cleared: blur(0px);
-    --profile-surface: color-mix(in oklab, var(--background) 85%, transparent);
-    --profile-surface-filter: blur(24px) contrast(.5);
+    --profile-muted: oklch(0.45 0.08 340);
+    --profile-glass: color-mix(in oklab, var(--background) 60%, transparent);
+    --profile-glass-blur: 20px;
+    --profile-glass-contrast: .4;
+    --profile-glass-brightness: 1.5;
+    --profile-glass-saturate: 1;
+    --profile-clear: color-mix(in oklab, var(--background) 20%, transparent);
+    --profile-panel: color-mix(in oklab, var(--background) 75%, transparent);
+    --profile-panel-blur: 8px;
+    --profile-panel-contrast: .5;
+    --profile-panel-brightness: 1.4;
+    --profile-panel-saturate: 1;
+    --profile-glass-filter: blur(var(--profile-glass-blur)) contrast(var(--profile-glass-contrast))
+        brightness(var(--profile-glass-brightness)) saturate(var(--profile-glass-saturate));
+    --profile-clear-filter: blur(0px) contrast(1) brightness(1) saturate(1);
+    /* Surfaces outside a card are the glass. */
+    --profile-surface: var(--profile-glass);
+    --profile-surface-blur: var(--profile-glass-blur);
+    --profile-surface-contrast: var(--profile-glass-contrast);
+    --profile-surface-brightness: var(--profile-glass-brightness);
+    --profile-surface-saturate: var(--profile-glass-saturate);
 }
 .body-before-footer{
     display: flex;
@@ -360,12 +430,19 @@ body {
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0.05 330);
-    --profile-frame: color-mix(in oklab, var(--background) 20%, transparent);
     --profile-frame-border: oklch(1 0 0 / 15%);
-    --profile-frost: blur(12px) brightness(.85);
-    --profile-frost-cleared: blur(0px) brightness(1);
-    --profile-surface: color-mix(in oklab, var(--background) 75%, transparent);
-    --profile-surface-filter: blur(24px) brightness(.5);
+    --profile-muted: oklch(0.85 0 0);
+    --profile-glass: color-mix(in oklab, var(--background) 30%, transparent);
+    --profile-glass-blur: 20px;
+    --profile-glass-contrast: 1;
+    --profile-glass-brightness: .45;
+    --profile-glass-saturate: 1.8;
+    --profile-clear: color-mix(in oklab, var(--background) 15%, transparent);
+    --profile-panel: color-mix(in oklab, var(--background) 50%, transparent);
+    --profile-panel-blur: 8px;
+    --profile-panel-contrast: 1;
+    --profile-panel-brightness: .5;
+    --profile-panel-saturate: 1.5;
 }
 
 @layer base {

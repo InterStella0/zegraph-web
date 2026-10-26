@@ -219,7 +219,7 @@ export default function ProfilePlaytimeHistory({ heatmapPromise, statsPromise }:
                 </div>
             )}
 
-            <dl key={selectedYear} className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 md:grid-cols-4">
+            <dl key={selectedYear} className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 profile-bg:bg-transparent md:grid-cols-4">
                 {tiles.map(([label, value, detail]) => (
                     <div key={label} className={`min-w-0 bg-card px-4 py-3 ${SURFACE}`}>
                         <dt className="truncate text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</dt>
