@@ -2,6 +2,79 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:is(.dark *));
+/* While a player's Steam background is behind the profile page. */
+@custom-variant profile-bg (&:where(body:has([data-profile-background]) *));
+/* A card over that background keeps its frosted glass, blurred less so the image shows through.
+   Hovering leaves the glass as it is and blurs the image further behind the card's text and charts
+   (profile-surface), so they read over any image; where nothing can hover, that is always on.
+   The frost is drawn by a layer behind the card's content rather than by the card: a backdrop-filter
+   (or filter, or opacity below 1) on the card would stop the surfaces inside from seeing past it to
+   the image. For the same reason the frost waits out the card's fade-in (ENTER in profileMotion.ts)
+   before fading in itself, or it would pop in as that fade ends. */
+@utility profile-frame {
+    --muted-foreground: var(--profile-muted);
+    position: relative;
+    isolation: isolate;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        pointer-events: none;
+        -webkit-backdrop-filter: blur(var(--profile-glass-blur));
+        backdrop-filter: blur(var(--profile-glass-blur));
+    }
+    @media (hover: hover) {
+        &:not(:hover) {
+            --profile-surface-shown: 0;
+        }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        &::before {
+            animation: profile-frost-in 900ms ease-out backwards;
+            animation-delay: inherit;
+        }
+    }
+}
+/* Holds the frost back for the 500ms of the card's fade-in, then fades it in. */
+@keyframes profile-frost-in {
+    0%, 56% {
+        opacity: 0;
+    }
+}
+/* The extra blur behind text or a chart in a card. It spreads past the element, so the element sits
+   in the strong middle of it rather than on its fading edge, and fades out over the feather, slowly
+   enough that two strengths of blur meet without an edge you can see. Two elements closer than half
+   the spread overlap their fades into a darker seam. It is drawn beneath the card's content, so it never
+   covers another element's own background, and it must not sit in anything that clips it (overflow)
+   or fades it (an animation's opacity), or its edge shows or its blur drops out. */
+@utility profile-surface {
+    position: relative;
+    &::before {
+        --fade: transparent, rgb(0 0 0 / 16%) calc(var(--profile-feather) * .25),
+            rgb(0 0 0 / 50%) calc(var(--profile-feather) * .5), rgb(0 0 0 / 84%) calc(var(--profile-feather) * .75),
+            #000 var(--profile-feather), #000 calc(100% - var(--profile-feather)),
+            rgb(0 0 0 / 84%) calc(100% - var(--profile-feather) * .75), rgb(0 0 0 / 50%) calc(100% - var(--profile-feather) * .5),
+            rgb(0 0 0 / 16%) calc(100% - var(--profile-feather) * .25), transparent;
+        content: "";
+        position: absolute;
+        inset: calc(var(--profile-spread) * -1);
+        z-index: -1;
+        pointer-events: none;
+        background-color: var(--profile-panel);
+        -webkit-backdrop-filter: var(--profile-panel-filter);
+        backdrop-filter: var(--profile-panel-filter);
+        -webkit-mask-image: linear-gradient(to right, var(--fade)), linear-gradient(to bottom, var(--fade));
+        mask-image: linear-gradient(to right, var(--fade)), linear-gradient(to bottom, var(--fade));
+        -webkit-mask-composite: source-in;
+        mask-composite: intersect;
+        opacity: var(--profile-surface-shown, 1);
+        transition: opacity 300ms ease-out;
+    }
+}
 html {
     scroll-behavior: smooth;
     font-size: 16px;
@@ -58,6 +131,15 @@ html {
     --sidebar-ring: oklch(0.708 0.05 330);
     --background: oklch(0.949 0.05 330);
     --foreground: oklch(0.145 0.08 35);
+    /* Profile glass over a Steam background (profile-frame and profile-surface): the cards' blur, and
+       the panel a hovered card puts behind its text and charts. The panel reaches the spread past
+       them (no further than a card's padding, 28px on a phone) and fades out over the feather. */
+    --profile-muted: oklch(0.45 0.08 340);
+    --profile-glass-blur: 10px;
+    --profile-spread: 24px;
+    --profile-feather: 36px;
+    --profile-panel: color-mix(in oklab, var(--background) 30%, transparent);
+    --profile-panel-filter: blur(20px) contrast(.85) brightness(1.1);
 }
 .body-before-footer{
     display: flex;
@@ -301,6 +383,9 @@ body {
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0.05 330);
+    --profile-muted: oklch(0.85 0 0);
+    --profile-panel: color-mix(in oklab, var(--background) 25%, transparent);
+    --profile-panel-filter: blur(20px) brightness(.8);
 }
 
 @layer base {

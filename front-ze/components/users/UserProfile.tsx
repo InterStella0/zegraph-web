@@ -23,7 +23,7 @@ import { SPLIT_SEGMENTS } from "components/players/PlayerStats";
 import { useGlobalPlaytime } from "./useGlobalPlaytime";
 import { useProfileCommunities } from "./ProfileContext";
 import { ENTER, stagger } from "./profileMotion";
-import { ProfileCard } from "./ProfileCard";
+import { ProfileCard, SURFACE } from "./ProfileCard";
 import ViewCount from "components/ui/ViewCount";
 
 interface UserProfileProps {
@@ -35,11 +35,12 @@ interface UserProfileProps {
 const SECTION_LABEL = "text-xs font-medium uppercase tracking-wider text-muted-foreground";
 
 // The player's Steam profile background behind the whole page, as on their Steam profile. Fixed
-// below the sakura layer (z-index -1), so the petals and the frosted profile cards sit on top.
+// below the sakura layer (z-index -1), so the petals and the frosted profile cards sit on top. Its
+// data-profile-background switches the cards to their less blurred `profile-bg:` glass.
 function ProfilePageBackground({ background }: { background: SteamProfileBackground }) {
     const animated = background.video_webm || background.video_mp4;
     return (
-        <div aria-hidden className="pointer-events-none fixed inset-0" style={{ zIndex: -2 }}>
+        <div aria-hidden data-profile-background className="pointer-events-none fixed inset-0" style={{ zIndex: -2 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={background.image} alt="" className="absolute inset-0 size-full object-cover object-top" />
             {animated && (
@@ -106,7 +107,7 @@ function StaleNotice({ global }: { global: GlobalPlaytimeSummary }) {
         : t('neverVerified');
 
     return (
-        <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm">
+        <div className={`mb-6 flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm ${SURFACE}`}>
             {global.is_calculating
                 ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-500" />
                 : <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />}
@@ -237,7 +238,9 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                         />
                     </div>
 
-                    <div className="flex min-w-0 flex-1 flex-col items-center lg:items-start text-center lg:text-left gap-3">
+                    {/* Over a Steam background the name and the stats hug their content, so the blur a
+                        hovered card puts behind them stays on them rather than the space between. */}
+                    <div className={`flex min-w-0 flex-1 profile-bg:lg:flex-initial flex-col items-center lg:items-start text-center lg:text-left gap-3 ${SURFACE}`}>
                         <div className="flex items-center justify-center lg:justify-start gap-3 flex-wrap">
                             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight break-all">
                                 {displayName}
@@ -310,7 +313,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-center lg:items-end gap-4">
+                    <div className={`flex flex-col items-center lg:items-end gap-4 profile-bg:lg:ml-auto ${SURFACE}`}>
                         <div className="flex flex-wrap justify-center lg:justify-end gap-8 text-center lg:text-right">
                             <div>
                                 <div className="flex items-center justify-center lg:justify-end gap-1.5">
@@ -365,7 +368,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                 {communities.length > 0 && (
                     <div className="mt-8 grid gap-x-10 gap-y-6 lg:grid-cols-2">
                         {splits.map(([key, segments]) => (
-                            <div key={key}>
+                            <div key={key} className={SURFACE}>
                                 <span className={cn(SECTION_LABEL, "mb-2 block")}>{t(key)}</span>
                                 <SplitBar ariaLabel={t(key)} formatValue={formatHours} segments={segments} />
                             </div>

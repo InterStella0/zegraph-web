@@ -15,7 +15,7 @@ import { GlobalPlayerSessionTime } from "types/community";
 import { PlayerSessionStats } from "types/players";
 import { FocusChip, useFocusFilter, useProfileCommunities } from "./ProfileContext";
 import { ENTER, SWAP } from "./profileMotion";
-import { ChartFigure, Empty, ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { ChartFigure, Empty, ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE } from "./ProfileCard";
 import { categoryAxis, communitySeries, valueAxis } from "./profileChart";
 
 type GroupBy = "daily" | "monthly" | "yearly";
@@ -193,12 +193,13 @@ export default function ProfilePlaytimeHistory({ heatmapPromise, statsPromise }:
             {rawData.length === 0 ? (
                 <Empty className="h-[150px]">{tHeat('noDataShort')}</Empty>
             ) : groupBy === "daily" ? (
-                <ScrollArea key={`daily-${selectedYear}`} className={SWAP}>
+                // The surface goes on the scroll area, which does not clip it the way its viewport would.
+                <ScrollArea key={`daily-${selectedYear}`} className={SURFACE}>
                     <ChartFigure
                         id="profile-history-summary"
                         summary={summary}
                         label={t('ariaLabel', { year: selectedYear })}
-                        className="flex justify-center items-center"
+                        className={`flex justify-center items-center ${SWAP}`}
                     >
                         <MapDailyHeatmap
                             days={yearDays}
@@ -213,21 +214,26 @@ export default function ProfilePlaytimeHistory({ heatmapPromise, statsPromise }:
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
             ) : (
-                <div key={`${groupBy}-${selectedYear}`} className={`h-[220px] ${SWAP}`} role="img" aria-label={tHeat('yearlyAriaLabel')}>
-                    {/* @ts-ignore */}
-                    <LazyBarChart data={barData} options={barOptions} />
+                <div key={`${groupBy}-${selectedYear}`} className={`h-[220px] ${SURFACE}`} role="img" aria-label={tHeat('yearlyAriaLabel')}>
+                    <div className={`size-full ${SWAP}`}>
+                        {/* @ts-ignore */}
+                        <LazyBarChart data={barData} options={barOptions} />
+                    </div>
                 </div>
             )}
 
-            <dl key={selectedYear} className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 md:grid-cols-4">
-                {tiles.map(([label, value, detail]) => (
-                    <div key={label} className="min-w-0 bg-card px-4 py-3">
-                        <dt className="truncate text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</dt>
-                        <dd className="mt-1 truncate text-2xl font-bold tabular-nums">{value}</dd>
-                        {detail && <dd className="mt-0.5 truncate text-xs text-muted-foreground">{detail}</dd>}
-                    </div>
-                ))}
-            </dl>
+            {/* The surface wraps the tiles, as their grid clips anything that spreads past it. */}
+            <div className={`mt-6 ${SURFACE}`}>
+                <dl key={selectedYear} className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 md:grid-cols-4">
+                    {tiles.map(([label, value, detail]) => (
+                        <div key={label} className="min-w-0 bg-card px-4 py-3">
+                            <dt className="truncate text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</dt>
+                            <dd className="mt-1 truncate text-2xl font-bold tabular-nums">{value}</dd>
+                            {detail && <dd className="mt-0.5 truncate text-xs text-muted-foreground">{detail}</dd>}
+                        </div>
+                    ))}
+                </dl>
+            </div>
         </ProfileCard>
     );
 }

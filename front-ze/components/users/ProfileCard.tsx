@@ -12,12 +12,21 @@ import { cn } from "components/lib/utils";
 const HEADING = "text-xl font-semibold";
 const ROWS_PER_PAGE = 10;
 
+// Over a player's Steam background the card keeps its frosted glass, blurred less, and hovering it
+// blurs the image further behind what reads: its text, charts and tables, with an edge that fades
+// out (see profile-frame and profile-surface in globals.css). Without a background these classes do
+// nothing.
+/** More blur behind a block of text, a chart or a table while its card is hovered. */
+export const SURFACE = "profile-bg:profile-surface";
+/** The same, hugging a line of text or a small group of controls. */
+export const TAG = `${SURFACE} profile-bg:w-fit`;
+
 type ProfileCardProps = { className?: string, contentClassName?: string, children: ReactNode };
 
-/** The frosted card every profile section sits in. */
+/** The frosted card every profile section sits in; less blurred over a Steam background. */
 export function ProfileCard({ className, contentClassName, children }: ProfileCardProps) {
     return (
-        <Card className={cn("border-border/40 bg-card/50 backdrop-blur-xl", className)}>
+        <Card className={cn("border-border/40 bg-card/50 backdrop-blur-xl profile-bg:profile-frame", className)}>
             <CardContent className={cn("p-4 sm:p-6", contentClassName)}>{children}</CardContent>
         </Card>
     );
@@ -33,12 +42,12 @@ export function ProfileCardHeader({ title, badge, actions, className, groupClass
 }) {
     return (
         <div className={cn("mb-4 flex flex-wrap items-center justify-between gap-3", className)}>
-            <div className={groupClassName}>
+            <div className={cn(groupClassName, TAG)}>
                 <h2 className={HEADING}>{title}</h2>
                 {badge ? <Badge variant="secondary" className="text-xs">{badge}</Badge> : null}
                 {children}
             </div>
-            {actions}
+            {actions ? <div className={SURFACE}>{actions}</div> : null}
         </div>
     );
 }
@@ -52,7 +61,7 @@ export function ProfileCardLoading({ title, titleWidth, controlSize, children, .
     return (
         <ProfileCard {...card}>
             <div className="mb-4 flex items-center justify-between gap-2">
-                {title ? <h2 className={HEADING}>{title}</h2> : <Skeleton className={cn("h-7", titleWidth)} />}
+                {title ? <h2 className={cn(HEADING, TAG)}>{title}</h2> : <Skeleton className={cn("h-7", titleWidth)} />}
                 {controlSize && <Skeleton className={controlSize} />}
             </div>
             {children}
@@ -61,7 +70,7 @@ export function ProfileCardLoading({ title, titleWidth, controlSize, children, .
 }
 
 export function Empty({ className, children }: { className: string, children: ReactNode }) {
-    return <div className={cn("flex items-center justify-center text-muted-foreground", className)}>{children}</div>;
+    return <div className={cn("flex items-center justify-center text-muted-foreground", SURFACE, className)}>{children}</div>;
 }
 
 /** A chart exposed to screen readers as one image, described by a text summary. */

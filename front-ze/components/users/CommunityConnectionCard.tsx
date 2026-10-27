@@ -2,7 +2,6 @@
 
 import { UserAnonymization } from "types/community";
 import { formatNumber, secondsToHours } from "utils/generalUtils";
-import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 import { Switch } from "components/ui/switch";
 import { Label } from "components/ui/label";
 import { Badge } from "components/ui/badge";
@@ -21,9 +20,8 @@ import { sendJson } from "lib/sendJson";
 import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import { cn } from "components/lib/utils";
 import ServerSessionStrip from "./ServerSessionStrip";
-import { ProfileCommunity, useProfileCommunities } from "./ProfileContext";
+import { CommunityLogo, ProfileCommunity, useProfileCommunities } from "./ProfileContext";
 import { COLLAPSE, SWAP, stagger } from "./profileMotion";
-import { tint } from "./profileChart";
 
 export type AnonymizeType = "location" | "anonymous";
 
@@ -39,20 +37,6 @@ interface CommunityConnectionCardProps {
 }
 
 export const CONNECTION_COLUMNS = "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] md:grid-cols-[2.5rem_minmax(0,1.2fr)_minmax(0,1fr)_7rem_1rem] items-center gap-x-4";
-
-function CommunityBadge({ community }: { community: ProfileCommunity }) {
-    return (
-        <Avatar className="size-10">
-            {community.iconUrl && <AvatarImage src={community.iconUrl} alt={community.name} />}
-            <AvatarFallback
-                className="text-xs font-bold"
-                style={{ backgroundColor: tint(community.color, 0.18), color: community.color }}
-            >
-                {community.tag}
-            </AvatarFallback>
-        </Avatar>
-    );
-}
 
 function LinkedNamesPanel({ names }: { names: { name: string; total_playtime: number; is_current: boolean }[] }) {
     const t = useTranslations('players.profile.connectionCard');
@@ -165,7 +149,7 @@ export default function CommunityConnectionCard({
             style={stagger(index, 60)}
         >
             <CollapsibleTrigger className={cn(CONNECTION_COLUMNS, "w-full px-4 py-3 text-left transition-colors hover:bg-muted/40")}>
-                <CommunityBadge community={community} />
+                <CommunityLogo {...community} className="size-10" />
                 <span className="block min-w-0">
                     <span className="block truncate font-semibold">{community.name}</span>
                     <span className="block truncate text-xs text-muted-foreground" suppressHydrationWarning>

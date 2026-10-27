@@ -14,9 +14,9 @@ import {useHydrated} from "lib/hooks/useHydrated";
 import PaginationPage from "components/ui/PaginationPage.tsx";
 import SessionDateFilter from "components/players/SessionDateFilter";
 import { useResource } from "lib/hooks/useResource";
-import { useProfileCommunities } from "./ProfileContext";
+import { CommunityLogo, communityTag, useProfileCommunities } from "./ProfileContext";
 import { ENTER, LIFT, SWAP, stagger } from "./profileMotion";
-import { ProfileCard, ProfileCardHeader, ProfileCardLoading } from "./ProfileCard";
+import { ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE, TAG } from "./ProfileCard";
 import { tint } from "./profileChart";
 
 const CARD = "flex h-full flex-col";
@@ -28,7 +28,7 @@ function SessionSkeletons() {
     const hydrated = useHydrated();
     return range(6).map(index => (
         <div key={index} className="flex items-center gap-3 rounded-lg border border-border/60 p-3">
-            <Skeleton className="h-9 w-1 shrink-0 rounded-full" />
+            <Skeleton className="size-9 shrink-0 rounded-full" />
             <div className="min-w-0 flex-1 space-y-1.5">
                 <Skeleton className="h-[15px]" style={{ width: simpleRandom(140, 190, hydrated) }} />
                 <Skeleton className="h-[12px]" style={{ width: simpleRandom(60, 110, hydrated) }} />
@@ -42,7 +42,8 @@ function SessionRow({ session, index }: { session: GlobalPlayerSession, index: n
     const t = useTranslations('players.sessions');
     const toDayjs = useLocalDayjs();
     const { communityOf, colorOf } = useProfileCommunities();
-    const where = communityOf(session.community_id)?.name ?? session.community_name ?? session.server_name ?? t('unknownServer');
+    const community = communityOf(session.community_id);
+    const where = community?.name ?? session.community_name ?? session.server_name ?? t('unknownServer');
     const accent = colorOf(session.community_id);
     const start = toDayjs(session.started_at);
     const end = session.ended_at ? toDayjs(session.ended_at) : null;
@@ -54,7 +55,13 @@ function SessionRow({ session, index }: { session: GlobalPlayerSession, index: n
             className={`flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-3 hover:border-primary/60 hover:bg-accent/40 ${LIFT} ${SWAP}`}
             style={stagger(index)}
         >
-            <span className="h-9 w-1 shrink-0 rounded-full" style={{ backgroundColor: accent }} aria-hidden />
+            <CommunityLogo
+                name={where}
+                tag={community?.tag ?? communityTag(where)}
+                iconUrl={community?.iconUrl ?? session.community_icon_url}
+                color={accent}
+                className="size-9"
+            />
             <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium" suppressHydrationWarning>
                     {start.format('MMM D, h:mm a')} → {end ? end.format(endFormat) : t('ongoing')}
@@ -112,22 +119,25 @@ export default function ProfilePlaySessions({ userId, initialDataPromise }: {
                 actions={<SessionDateFilter selectedDate={selectedDate} onSelectDate={handleDateChange} compact />}
             />
 
-            <div className={LIST}>
-                {loading ? (
-                    <SessionSkeletons />
-                ) : sessionList.length > 0 ? (
-                    sessionList.map((session, index) => (
-                        <SessionRow key={session.id} session={session} index={index} />
-                    ))
-                ) : (
-                    <div className="flex h-full items-center justify-center text-center">
-                        <p className="text-sm text-muted-foreground">{t('noSessions')}</p>
-                    </div>
-                )}
+            {/* One surface for the whole list, outside it: the list clips what spreads past it. */}
+            <div className={`flex flex-1 flex-col ${SURFACE}`}>
+                <div className={LIST}>
+                    {loading ? (
+                        <SessionSkeletons />
+                    ) : sessionList.length > 0 ? (
+                        sessionList.map((session, index) => (
+                            <SessionRow key={session.id} session={session} index={index} />
+                        ))
+                    ) : (
+                        <div className="flex h-full items-center justify-center text-center">
+                            <p className="text-sm text-muted-foreground">{t('noSessions')}</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {totalPages > 1 && (
-                <div className="mt-3 flex justify-center">
+                <div className={`mt-3 flex justify-center profile-bg:mx-auto ${TAG}`}>
                     <PaginationPage totalPages={totalPages} page={page} setPage={setPage} compact />
                 </div>
             )}

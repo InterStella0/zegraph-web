@@ -6,7 +6,10 @@ import { X } from "lucide-react";
 import { ProfileCommunityDetail, ProfileResponse } from "types/community";
 import { useCommunityColors } from "lib/hooks/useCommunityColors";
 import { getServerAvatarText } from "components/ui/CommunitySelector";
+import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 import { Badge } from "components/ui/badge";
+import { cn } from "components/lib/utils";
+import { tint } from "./profileChart";
 
 const UNKNOWN_COLOR = "grey";
 
@@ -95,6 +98,24 @@ export function useProfileCommunities(): ProfileCommunitiesValue {
 export function useFocusFilter(): (communityId: CommunityId) => boolean {
     const { focused } = useProfileCommunities();
     return useCallback((communityId) => !focused || communityId === focused, [focused]);
+}
+
+/** A community's logo, or its tag in its colour where it has none. */
+export function CommunityLogo({ name, tag, iconUrl, color, className }: {
+    name?: string,
+    tag: string,
+    iconUrl?: string | null,
+    color: string,
+    className?: string,
+}) {
+    return (
+        <Avatar className={cn("shrink-0", className)} title={name}>
+            {iconUrl && <AvatarImage src={iconUrl} alt={name} />}
+            <AvatarFallback className="text-xs font-bold" style={{ backgroundColor: tint(color, 0.18), color }}>
+                {tag}
+            </AvatarFallback>
+        </Avatar>
+    );
 }
 
 export function FocusChip() {
