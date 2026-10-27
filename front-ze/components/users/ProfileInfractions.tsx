@@ -13,10 +13,9 @@ import { formatFlagName, formatNumber, InfractionFlags, InfractionInt } from "ut
 import { GlobalPlayerInfraction } from "types/players";
 import { ProfileResponse } from "types/community";
 import { useServerMap } from "components/ui/ServerProvider";
-import { communityTag, useProfileCommunities } from "./ProfileContext";
+import { CommunityLogo, communityTag, useProfileCommunities } from "./ProfileContext";
 import { ENTER, SWAP } from "./profileMotion";
 import { PageFooter, ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE, usePaged } from "./ProfileCard";
-import { tint } from "./profileChart";
 
 type Infraction = Omit<GlobalPlayerInfraction, 'flags'> & { flags: InfractionInt, restrictions: string[] };
 
@@ -62,11 +61,11 @@ export default function ProfileInfractions({ profilePromise, infractionsPromise 
 
     const describe = (communityId: string) => {
         const known = communityOf(communityId);
-        if (known) return { name: known.name, tag: known.tag };
+        if (known) return { name: known.name, tag: known.tag, iconUrl: known.iconUrl };
         const other = allCommunities?.find(community => community.id === communityId);
         return other
-            ? { name: other.name, tag: communityTag(other.name, other.shorten_name) }
-            : { name: undefined, tag: '?' };
+            ? { name: other.name, tag: communityTag(other.name, other.shorten_name), iconUrl: other.icon_url ?? null }
+            : { name: undefined, tag: '?', iconUrl: null };
     };
 
     return (
@@ -128,13 +127,7 @@ export default function ProfileInfractions({ profilePromise, infractionsPromise 
                                             onClick={() => openInfraction(row, playerId, viewed => setViewInfraction(viewed))}
                                         >
                                             <TableCell>
-                                                <span
-                                                    className="inline-flex h-6 min-w-8 items-center justify-center rounded px-1.5 text-[11px] font-bold"
-                                                    style={{ backgroundColor: tint(accent, 0.18), color: accent }}
-                                                    title={community.name}
-                                                >
-                                                    {community.tag}
-                                                </span>
+                                                <CommunityLogo {...community} color={accent} className="size-8" />
                                             </TableCell>
                                             <TableCell className="whitespace-normal">
                                                 <p className={cn("text-sm", !row.reason && "italic text-muted-foreground")}>
