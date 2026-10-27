@@ -12,22 +12,18 @@ import { cn } from "components/lib/utils";
 const HEADING = "text-xl font-semibold";
 const ROWS_PER_PAGE = 10;
 
-// Over a player's Steam background the card is one sheet of frosted glass. Hovering clears it to show
-// the image, and everything with text or a chart then gets a backing of its own from the surface it
-// sits on (see profile-frame and profile-surface in globals.css). Without a background these classes
-// do nothing.
-/** The frosted surface alone, for an element that already has its shape. */
+// Over a player's Steam background the card keeps its frosted glass, blurred less, and hovering it
+// blurs the image further behind what reads: its text, charts and tables, with an edge that fades
+// out (see profile-frame and profile-surface in globals.css). Without a background these classes do
+// nothing.
+/** More blur behind a block of text, a chart or a table while its card is hovered. */
 export const SURFACE = "profile-bg:profile-surface";
-/** A surface block around a chart, list or table. */
-export const PANEL = `${SURFACE} profile-bg:rounded-lg profile-bg:p-3`;
-/** A surface hugging a line of text. */
-export const TAG = `${SURFACE} profile-bg:w-fit profile-bg:rounded-lg profile-bg:px-3 profile-bg:py-1.5`;
-/** A surface tray around a group of controls. */
-export const TRAY = `${SURFACE} profile-bg:rounded-lg profile-bg:p-1`;
+/** The same, hugging a line of text or a small group of controls. */
+export const TAG = `${SURFACE} profile-bg:w-fit`;
 
 type ProfileCardProps = { className?: string, contentClassName?: string, children: ReactNode };
 
-/** The frosted card every profile section sits in; lighter glass over a Steam background. */
+/** The frosted card every profile section sits in; less blurred over a Steam background. */
 export function ProfileCard({ className, contentClassName, children }: ProfileCardProps) {
     return (
         <Card className={cn("border-border/40 bg-card/50 backdrop-blur-xl profile-bg:profile-frame", className)}>
@@ -51,7 +47,7 @@ export function ProfileCardHeader({ title, badge, actions, className, groupClass
                 {badge ? <Badge variant="secondary" className="text-xs">{badge}</Badge> : null}
                 {children}
             </div>
-            {actions ? <div className={TRAY}>{actions}</div> : null}
+            {actions ? <div className={SURFACE}>{actions}</div> : null}
         </div>
     );
 }
@@ -74,7 +70,7 @@ export function ProfileCardLoading({ title, titleWidth, controlSize, children, .
 }
 
 export function Empty({ className, children }: { className: string, children: ReactNode }) {
-    return <div className={cn("flex items-center justify-center text-muted-foreground profile-bg:rounded-lg", SURFACE, className)}>{children}</div>;
+    return <div className={cn("flex items-center justify-center text-muted-foreground", SURFACE, className)}>{children}</div>;
 }
 
 /** A chart exposed to screen readers as one image, described by a text summary. */
@@ -88,7 +84,7 @@ export function ChartFigure({ id, summary, label, className, children }: {
     return (
         <>
             <ScreenReaderOnly id={id}>{summary}</ScreenReaderOnly>
-            <div className={cn(PANEL, className)} role="img" aria-label={label} aria-describedby={id}>
+            <div className={className} role="img" aria-label={label} aria-describedby={id}>
                 {children}
             </div>
         </>
@@ -114,7 +110,7 @@ export function usePaged<T>(rows: T[], resetDeps: DependencyList) {
 export function PageFooter({ paged: { page, setPage, total, totalPages }, compact }: { paged: Paged<unknown>, compact?: boolean }) {
     const t = useTranslations('players.profile');
     return (
-        <div className={cn("flex flex-wrap items-center justify-between gap-2 profile-bg:rounded-lg profile-bg:px-3 profile-bg:py-1.5", SURFACE)}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm text-muted-foreground">
                 {t('pageRange', {
                     from: total === 0 ? 0 : page * ROWS_PER_PAGE + 1,

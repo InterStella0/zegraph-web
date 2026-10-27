@@ -23,7 +23,7 @@ import { SPLIT_SEGMENTS } from "components/players/PlayerStats";
 import { useGlobalPlaytime } from "./useGlobalPlaytime";
 import { useProfileCommunities } from "./ProfileContext";
 import { ENTER, stagger } from "./profileMotion";
-import { PANEL, ProfileCard, SURFACE } from "./ProfileCard";
+import { ProfileCard, SURFACE } from "./ProfileCard";
 import ViewCount from "components/ui/ViewCount";
 
 interface UserProfileProps {
@@ -33,13 +33,10 @@ interface UserProfileProps {
 }
 
 const SECTION_LABEL = "text-xs font-medium uppercase tracking-wider text-muted-foreground";
-// Over a Steam background the name and the headline stats each get their own panel while the card is
-// hovered, leaving the avatar and the space between them on the cleared glass.
-const HERO_PANEL = `profile-bg:justify-center profile-bg:rounded-xl profile-bg:px-5 profile-bg:py-4 ${SURFACE}`;
 
 // The player's Steam profile background behind the whole page, as on their Steam profile. Fixed
-// below the sakura layer (z-index -1), so the petals and the profile cards sit on top. Its
-// data-profile-background switches the cards to the clearer `profile-bg:` glass.
+// below the sakura layer (z-index -1), so the petals and the frosted profile cards sit on top. Its
+// data-profile-background switches the cards to their less blurred `profile-bg:` glass.
 function ProfilePageBackground({ background }: { background: SteamProfileBackground }) {
     const animated = background.video_webm || background.video_mp4;
     return (
@@ -59,8 +56,8 @@ function ProfilePageBackground({ background }: { background: SteamProfileBackgro
                     {background.video_mp4 && <source src={background.video_mp4} type="video/mp4" />}
                 </video>
             )}
-            {/* A light dim to settle the image; text and charts get their own frosted surfaces. */}
-            <div className="absolute inset-0 bg-background/25" />
+            {/* Text outside the cards (section headings, footer) sits straight on the background. */}
+            <div className="absolute inset-0 bg-background/50" />
         </div>
     );
 }
@@ -228,8 +225,8 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
             {background && <ProfilePageBackground background={background} />}
             <ProfileCard className={cn("w-full", ENTER)} contentClassName="p-6 sm:p-8">
                 <StaleNotice global={global} />
-                <div className="flex flex-col lg:flex-row items-center lg:items-start profile-bg:lg:items-stretch gap-6">
-                    <div className="relative shrink-0 profile-bg:lg:self-center">
+                <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
+                    <div className="relative shrink-0">
                         <UserAvatar
                             userId={steamid}
                             pfpPromise={pfpPromise}
@@ -241,7 +238,9 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                         />
                     </div>
 
-                    <div className={`flex min-w-0 flex-1 profile-bg:lg:flex-initial flex-col items-center lg:items-start text-center lg:text-left gap-3 ${HERO_PANEL}`}>
+                    {/* Over a Steam background the name and the stats hug their content, so the blur a
+                        hovered card puts behind them stays on them rather than the space between. */}
+                    <div className={`flex min-w-0 flex-1 profile-bg:lg:flex-initial flex-col items-center lg:items-start text-center lg:text-left gap-3 ${SURFACE}`}>
                         <div className="flex items-center justify-center lg:justify-start gap-3 flex-wrap">
                             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight break-all">
                                 {displayName}
@@ -314,7 +313,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                         </div>
                     </div>
 
-                    <div className={`flex flex-col items-center lg:items-end gap-4 profile-bg:lg:ml-auto ${HERO_PANEL}`}>
+                    <div className={`flex flex-col items-center lg:items-end gap-4 profile-bg:lg:ml-auto ${SURFACE}`}>
                         <div className="flex flex-wrap justify-center lg:justify-end gap-8 text-center lg:text-right">
                             <div>
                                 <div className="flex items-center justify-center lg:justify-end gap-1.5">
@@ -369,7 +368,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                 {communities.length > 0 && (
                     <div className="mt-8 grid gap-x-10 gap-y-6 lg:grid-cols-2">
                         {splits.map(([key, segments]) => (
-                            <div key={key} className={PANEL}>
+                            <div key={key} className={SURFACE}>
                                 <span className={cn(SECTION_LABEL, "mb-2 block")}>{t(key)}</span>
                                 <SplitBar ariaLabel={t(key)} formatValue={formatHours} segments={segments} />
                             </div>

@@ -32,7 +32,7 @@ export default function Footer() {
         <>
             <FooterFab />
 
-            <footer className="relative mt-auto w-full overflow-hidden border-t-1 py-6 profile-bg:profile-surface">
+            <footer className="relative mt-auto w-full overflow-hidden border-t-1 py-6">
                 <div className="container mx-auto max-w-6xl px-4">
                     <div className="mb-4 flex flex-col items-center justify-between gap-6 md:mb-3 md:flex-row">
                         <div className="flex items-center gap-2">

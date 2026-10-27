@@ -25,7 +25,7 @@ export function DonorBanner({ bannerPromise }: { bannerPromise: Promise<DonorBan
   const suffix = banner.remaining > 0 ? ` +${banner.remaining} more` : '';
 
   return (
-    <div className="w-full bg-muted/50 border-b border-border/30 py-1.5 px-4 text-center text-xs text-muted-foreground relative profile-bg:profile-surface">
+    <div className="w-full bg-muted/50 border-b border-border/30 py-1.5 px-4 text-center text-xs text-muted-foreground relative">
       <span>
         {'❤ Thanks to our supporters: '}
         <span className="font-medium text-foreground/80">{banner.names}{suffix}</span>

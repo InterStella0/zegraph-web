@@ -72,33 +72,36 @@ export default function UserCommunityConnections({ profilePromise }: { profilePr
                 title={t('heading')}
                 className="gap-2"
                 badge={ordered.length > 0 && tHeader('communitiesServers', { communities: ordered.length, servers: serverCount })}
-                actions={ordered.length > 0 && <span className="text-sm text-muted-foreground profile-bg:px-2">{t('expandHint')}</span>}
+                actions={ordered.length > 0 && <span className="text-sm text-muted-foreground">{t('expandHint')}</span>}
             />
 
             {ordered.length === 0 ? (
-                <p className={`py-8 text-center text-muted-foreground profile-bg:rounded-lg ${SURFACE}`}>{t('empty')}</p>
+                <p className={`py-8 text-center text-muted-foreground ${SURFACE}`}>{t('empty')}</p>
             ) : (
-                <div className={`overflow-hidden rounded-lg border border-border/60 ${SURFACE}`}>
-                    <div className={`${CONNECTION_COLUMNS} hidden border-b border-border/60 bg-muted/40 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground md:grid`}>
-                        <span />
-                        <span>{t('community')}</span>
-                        <span>{t('playtime')}</span>
-                        <span className="text-right">{t('rank')}</span>
-                        <span />
+                // The surface goes outside the table, which clips anything that spreads past it.
+                <div className={SURFACE}>
+                    <div className="overflow-hidden rounded-lg border border-border/60">
+                        <div className={`${CONNECTION_COLUMNS} hidden border-b border-border/60 bg-muted/40 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground md:grid`}>
+                            <span />
+                            <span>{t('community')}</span>
+                            <span>{t('playtime')}</span>
+                            <span className="text-right">{t('rank')}</span>
+                            <span />
+                        </div>
+                        {ordered.map((community, index) => (
+                            <CommunityConnectionCard
+                                key={community.id}
+                                community={community}
+                                share={totalPlaytime > 0 ? community.playtime / totalPlaytime : 0}
+                                settings={optimisticSettings.get(community.id) ?? null}
+                                onToggleAnonymize={handleToggleAnonymize}
+                                showAnonymizeToggle={canManageAnonymization}
+                                scaleMax={scaleMax}
+                                defaultOpen={index === 0}
+                                index={index}
+                            />
+                        ))}
                     </div>
-                    {ordered.map((community, index) => (
-                        <CommunityConnectionCard
-                            key={community.id}
-                            community={community}
-                            share={totalPlaytime > 0 ? community.playtime / totalPlaytime : 0}
-                            settings={optimisticSettings.get(community.id) ?? null}
-                            onToggleAnonymize={handleToggleAnonymize}
-                            showAnonymizeToggle={canManageAnonymization}
-                            scaleMax={scaleMax}
-                            defaultOpen={index === 0}
-                            index={index}
-                        />
-                    ))}
                 </div>
             )}
         </ProfileCard>

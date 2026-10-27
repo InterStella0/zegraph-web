@@ -139,65 +139,65 @@ export default function ProfileMaps({ mapsPromise }: { mapsPromise: Promise<Glob
             {maps.length === 0 ? (
                 <Empty className="h-[400px]">{t('noMaps')}</Empty>
             ) : view === "chart" ? (
-                <ChartFigure id="profile-maps-summary" summary={summary} label={t('ariaLabel')} className={`h-[400px] ${SWAP}`}>
-                    {/* @ts-ignore */}
-                    <LazyBarChart data={chartData} options={chartOptions} />
+                <ChartFigure id="profile-maps-summary" summary={summary} label={t('ariaLabel')} className={`h-[400px] ${SURFACE}`}>
+                    <div className={`size-full ${SWAP}`}>
+                        {/* @ts-ignore */}
+                        <LazyBarChart data={chartData} options={chartOptions} />
+                    </div>
                 </ChartFigure>
             ) : (
-                <div className={`space-y-3 ${SWAP}`}>
-                    <SearchField
-                        value={search}
-                        onChange={event => setSearch(event.target.value)}
-                        placeholder={t('search')}
-                        className={`profile-bg:rounded-md ${SURFACE}`}
-                    />
-                    <div className={`rounded-md border border-border/60 ${SURFACE}`}>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>{t('map')}</TableHead>
-                                    <TableHead className="hidden w-[30%] sm:table-cell">{t('split')}</TableHead>
-                                    <TableHead className="text-right">{t("hours")}</TableHead>
-                                    <TableHead className="text-right">{t('rank')}</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody key={paged.page} className={SWAP}>
-                                {paged.pageRows.length === 0 ? (
+                // The table view fades in inside its surface, which would lose its blur fading with it.
+                <div className={SURFACE}>
+                    <div className={`space-y-3 ${SWAP}`}>
+                        <SearchField value={search} onChange={event => setSearch(event.target.value)} placeholder={t('search')} />
+                        <div className="rounded-md border border-border/60">
+                            <Table>
+                                <TableHeader>
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                                            {t('noMatch', { search })}
-                                        </TableCell>
+                                        <TableHead>{t('map')}</TableHead>
+                                        <TableHead className="hidden w-[30%] sm:table-cell">{t('split')}</TableHead>
+                                        <TableHead className="text-right">{t("hours")}</TableHead>
+                                        <TableHead className="text-right">{t('rank')}</TableHead>
                                     </TableRow>
-                                ) : paged.pageRows.map(map => (
-                                    <TableRow key={map.map}>
-                                        <TableCell className="max-w-[180px] truncate font-medium">
-                                            <Link href={`/maps/${map.map}`} className="hover:underline" title={map.map}>
-                                                {map.map}
-                                            </Link>
-                                        </TableCell>
-                                        <TableCell className="hidden sm:table-cell">
-                                            <SplitBar
-                                                legend={false}
-                                                size="sm"
-                                                formatValue={withUnit}
-                                                segments={map.communities.map(c => ({
-                                                    key: c.community_id,
-                                                    label: nameOf(c.community_id),
-                                                    value: c.duration,
-                                                    color: colorOf(c.community_id),
-                                                }))}
-                                            />
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">{formatValue(map.total_duration)}</TableCell>
-                                        <TableCell className="text-right tabular-nums text-pink-500">
-                                            {map.rank != null ? `#${formatNumber(map.rank, 0, locale)}` : '—'}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody key={paged.page} className={SWAP}>
+                                    {paged.pageRows.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                                {t('noMatch', { search })}
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : paged.pageRows.map(map => (
+                                        <TableRow key={map.map}>
+                                            <TableCell className="max-w-[180px] truncate font-medium">
+                                                <Link href={`/maps/${map.map}`} className="hover:underline" title={map.map}>
+                                                    {map.map}
+                                                </Link>
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell">
+                                                <SplitBar
+                                                    legend={false}
+                                                    size="sm"
+                                                    formatValue={withUnit}
+                                                    segments={map.communities.map(c => ({
+                                                        key: c.community_id,
+                                                        label: nameOf(c.community_id),
+                                                        value: c.duration,
+                                                        color: colorOf(c.community_id),
+                                                    }))}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums">{formatValue(map.total_duration)}</TableCell>
+                                            <TableCell className="text-right tabular-nums text-pink-500">
+                                                {map.rank != null ? `#${formatNumber(map.rank, 0, locale)}` : '—'}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        <PageFooter paged={paged} compact />
                     </div>
-                    <PageFooter paged={paged} compact />
                 </div>
             )}
         </ProfileCard>
