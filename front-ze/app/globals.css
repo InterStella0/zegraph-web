@@ -45,9 +45,10 @@
         opacity: 0;
     }
 }
-/* The extra blur behind text or a chart in a card. It spreads a little past the element and fades out
-   over the feather, slowly enough that two strengths of blur meet without an edge you can see, so
-   most of the fade falls inside the element. It is drawn beneath the card's content, so it never
+/* The extra blur behind text or a chart in a card. It spreads past the element, so the element sits
+   in the strong middle of it rather than on its fading edge, and fades out over the feather, slowly
+   enough that two strengths of blur meet without an edge you can see. Two elements closer than half
+   the spread overlap their fades into a darker seam. It is drawn beneath the card's content, so it never
    covers another element's own background, and it must not sit in anything that clips it (overflow)
    or fades it (an animation's opacity), or its edge shows or its blur drops out. */
 @utility profile-surface {
@@ -132,13 +133,13 @@ html {
     --foreground: oklch(0.145 0.08 35);
     /* Profile glass over a Steam background (profile-frame and profile-surface): the cards' blur, and
        the panel a hovered card puts behind its text and charts. The panel reaches the spread past
-       them (no further than a card's padding) and fades out over the feather. */
+       them (no further than a card's padding, 28px on a phone) and fades out over the feather. */
     --profile-muted: oklch(0.45 0.08 340);
-    --profile-glass-blur: 12px;
-    --profile-spread: 16px;
-    --profile-feather: 40px;
+    --profile-glass-blur: 10px;
+    --profile-spread: 24px;
+    --profile-feather: 36px;
     --profile-panel: color-mix(in oklab, var(--background) 30%, transparent);
-    --profile-panel-filter: blur(24px) contrast(.85) brightness(1.1);
+    --profile-panel-filter: blur(20px) contrast(.85) brightness(1.1);
 }
 .body-before-footer{
     display: flex;
@@ -384,7 +385,7 @@ body {
     --sidebar-ring: oklch(0.556 0.05 330);
     --profile-muted: oklch(0.85 0 0);
     --profile-panel: color-mix(in oklab, var(--background) 25%, transparent);
-    --profile-panel-filter: blur(24px) brightness(.8);
+    --profile-panel-filter: blur(20px) brightness(.8);
 }
 
 @layer base {
