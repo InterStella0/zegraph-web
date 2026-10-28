@@ -304,14 +304,16 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                         )} />
                     </TipButton>
                 </div>
-                <div className="flex-1 w-full md:w-auto min-w-0 mt-2 md:mt-0">
-                    <div className="relative h-[30px] w-full flex items-center mt-2">
-                        <div className="absolute -top-[18px] left-1/2 -translate-x-1/2 text-xs font-bold text-center whitespace-nowrap">
-                            {isLive
-                                ? `LIVE: ${formatDateDisplay(currentTime)}`
-                                : `${formatDateDisplay(currentTime)} - ${formatDateDisplay(getTimeIncrement(currentTime))}`}
-                        </div>
+                {/* The time labels stay in flow so the panel grows around them instead of letting them spill out,
+                    and the minimum width wraps the slider onto its own line before the range dates get cut off. */}
+                <div className="flex-1 w-full md:w-auto min-w-52">
+                    <div className="text-xs font-bold text-center">
+                        {isLive
+                            ? `LIVE: ${formatDateDisplay(currentTime)}`
+                            : `${formatDateDisplay(currentTime)} - ${formatDateDisplay(getTimeIncrement(currentTime))}`}
+                    </div>
 
+                    <div className="relative h-[30px] w-full flex items-center">
                         <div className="absolute top-0 left-1 right-1 h-full flex justify-between pointer-events-none before:absolute before:top-[14px] before:left-0 before:right-0 before:h-0.5 before:bg-border before:z-0">
                             {[0, 4].map(mark => <div key={mark} className="w-px mt-2.5 relative z-10 h-2.5 bg-foreground" />)}
                         </div>
@@ -326,14 +328,14 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                                 className="w-full"
                             />
                         </div>
+                    </div>
 
-                        <div className="absolute -bottom-[18px] left-0 right-0 flex justify-between px-0.5">
-                            {[startDate, endDate].map((date, i) => (
-                                <span key={i} className="text-[0.65rem] text-muted-foreground truncate">
-                                    {formatDateDisplay(date)}
-                                </span>
-                            ))}
-                        </div>
+                    <div className="flex justify-between gap-2 px-0.5">
+                        {[startDate, endDate].map((date, i) => (
+                            <span key={i} className="text-[0.65rem] text-muted-foreground truncate">
+                                {formatDateDisplay(date)}
+                            </span>
+                        ))}
                     </div>
                 </div>
 
