@@ -1227,6 +1227,20 @@
       "loading": "로딩 중...",
       "playerStats": "{hours}시간 • {sessions}개 세션",
       "noPlayers": "플레이어를 찾을 수 없습니다"
+    },
+    "sheet": {
+      "players": "플레이어",
+      "playback": "재생",
+      "range": "범위",
+      "interval": "간격",
+      "stepBack": "뒤로",
+      "stepForward": "앞으로",
+      "jumpToLive": "실시간으로 이동",
+      "exitLive": "실시간 모드 종료",
+      "now": "현재",
+      "playersOnMap": "지도 위 플레이어",
+      "back": "국가 목록으로",
+      "resize": "패널 크기 조절"
     }
   },
   "metadata": {

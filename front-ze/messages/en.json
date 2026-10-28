@@ -1229,6 +1229,20 @@
       "loading": "Loading...",
       "playerStats": "{hours}h • {sessions} sessions",
       "noPlayers": "No players found"
+    },
+    "sheet": {
+      "players": "Players",
+      "playback": "Playback",
+      "range": "Range",
+      "interval": "Interval",
+      "stepBack": "Step back",
+      "stepForward": "Step forward",
+      "jumpToLive": "Jump to live",
+      "exitLive": "Exit live mode",
+      "now": "now",
+      "playersOnMap": "Players on map",
+      "back": "Back to countries",
+      "resize": "Resize panel"
     }
   },
   "metadata": {

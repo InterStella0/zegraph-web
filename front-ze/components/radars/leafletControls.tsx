@@ -61,12 +61,12 @@ function ControlButton({ title, path, onClick, className }: { title: string, pat
     );
 }
 
-export function ThemedZoomControl() {
+export function ThemedZoomControl({ position = 'topleft' }: { position?: ControlPosition }) {
     const map = useMap();
     useReactControl(<>
         <ControlButton title="Zoom In" path="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" onClick={() => map.zoomIn(1)} className="border-b border-border" />
         <ControlButton title="Zoom Out" path="M19 13H5v-2h14v2z" onClick={() => map.zoomOut(1)} className="border-b border-border" />
-    </>, 'topleft', 'leaflet-bar bg-background');
+    </>, position, 'leaflet-bar bg-background');
     return null;
 }
 
@@ -81,12 +81,12 @@ export function MapResizeHandler() {
     return null;
 }
 
-export function HomeButton() {
+export function HomeButton({ position = 'topleft' }: { position?: ControlPosition }) {
     const t = useTranslations('radar');
     const map = useMap();
     useReactControl(
         <ControlButton title={t('resetView')} path="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" onClick={() => map.setView([0, 0], 2)} />,
-        'topleft', 'leaflet-bar bg-background overflow-hidden',
+        position, 'leaflet-bar bg-background overflow-hidden',
     );
     return null;
 }

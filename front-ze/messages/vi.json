@@ -1227,6 +1227,20 @@
       "loading": "Đang tải...",
       "playerStats": "{hours}h • {sessions} phiên",
       "noPlayers": "Không tìm thấy người chơi nào"
+    },
+    "sheet": {
+      "players": "Người chơi",
+      "playback": "Phát lại",
+      "range": "Khoảng",
+      "interval": "Bước",
+      "stepBack": "Lùi lại",
+      "stepForward": "Tiến tới",
+      "jumpToLive": "Về trực tiếp",
+      "exitLive": "Thoát chế độ trực tiếp",
+      "now": "bây giờ",
+      "playersOnMap": "Người chơi trên bản đồ",
+      "back": "Quay lại danh sách quốc gia",
+      "resize": "Đổi kích thước bảng"
     }
   },
   "metadata": {

@@ -76,7 +76,9 @@ function LabeledSelect({ label, value, onValueChange, options, disabled }: {
     );
 }
 
-export default function TemporalController({ wmsLayerRef, initialStartDate, initialEndDate }) {
+export type Timeline = ReturnType<typeof useTimeline>;
+
+function useTimeline(wmsLayerRef, initialStartDate: Dayjs, initialEndDate: Dayjs) {
     const t = useTranslations('radar.temporal');
     const rangeOptions = Object.keys(RANGE_INTERVALS).map(value => ({ label: t(value === 'all' ? 'rangeAll' : `range${value}`), value }));
 
@@ -229,6 +231,71 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
             setIsPlaying(false);
         }
     };
+
+    const stepBackward = () => {
+        const prevTime = currentTime.subtract(...intervalSpan(selectedInterval));
+        stepTo(prevTime.isBefore(startDate) ? startDate : prevTime);
+    };
+    const stepForward = () => {
+        const nextTime = getTimeIncrement(currentTime);
+        stepTo(nextTime.isAfter(endDate) ? endDate : nextTime);
+    };
+
+    return {
+        currentTime, startDate, endDate, isLive, isPlaying, setIsPlaying, sliderValue, stepSizePercent, getTimeIncrement,
+        selectedRange, selectedInterval, rangeOptions, availableIntervals,
+        canStepBackward: !(currentTime?.isSame(startDate) || isPlaying),
+        canStepForward: !(currentTime?.isSame(endDate) || isPlaying),
+        stepBackward, stepForward, toggleLiveMode,
+        handleSliderChange, handleRangeChange, handleIntervalChange,
+    };
+}
+
+/** The current window as text: the live instant, or the interval the cursor starts. */
+export function timeLabel({ isLive, currentTime, getTimeIncrement }: Timeline) {
+    return isLive
+        ? `LIVE: ${formatDateDisplay(currentTime)}`
+        : `${formatDateDisplay(currentTime)} - ${formatDateDisplay(getTimeIncrement(currentTime))}`;
+}
+
+/** The time slider over the selected range; `mark` renders the start and end labels under it. */
+export function TimelineSlider({ timeline, mark }: { timeline: Timeline, mark: (date: Dayjs, isEnd: boolean) => ReactNode }) {
+    const { startDate, endDate, sliderValue, stepSizePercent, handleSliderChange } = timeline;
+    return <>
+        <div className="relative h-[30px] w-full flex items-center">
+            <div className="absolute top-0 left-1 right-1 h-full flex justify-between pointer-events-none before:absolute before:top-[14px] before:left-0 before:right-0 before:h-0.5 before:bg-border before:z-0">
+                {[0, 4].map(mark => <div key={mark} className="w-px mt-2.5 relative z-10 h-2.5 bg-foreground" />)}
+            </div>
+
+            <div className="w-full z-10">
+                <Slider
+                    value={[sliderValue]}
+                    onValueChange={([value]) => handleSliderChange(value)}
+                    min={0}
+                    max={100}
+                    step={stepSizePercent}
+                    className="w-full"
+                />
+            </div>
+        </div>
+
+        <div className="flex justify-between gap-2 px-0.5">
+            {[startDate, endDate].map((date, i) => (
+                <span key={i} className="text-[0.65rem] text-muted-foreground truncate">
+                    {mark(date, i === 1)}
+                </span>
+            ))}
+        </div>
+    </>;
+}
+
+/** The floating desktop timeline panel. */
+function TimelinePanel({ timeline }: { timeline: Timeline }) {
+    const t = useTranslations('radar.temporal');
+    const {
+        isLive, isPlaying, setIsPlaying, selectedRange, selectedInterval, rangeOptions, availableIntervals,
+        canStepBackward, canStepForward, stepBackward, stepForward, toggleLiveMode, handleRangeChange, handleIntervalChange,
+    } = timeline;
     return (
         <div
             className={cn(
@@ -244,11 +311,8 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                     <div className="flex items-center gap-1">
                         <TipButton
                             tip={t('stepBackward')}
-                            onClick={() => {
-                                const prevTime = currentTime.subtract(...intervalSpan(selectedInterval));
-                                stepTo(prevTime.isBefore(startDate) ? startDate : prevTime);
-                            }}
-                            disabled={currentTime?.isSame(startDate) || isPlaying}
+                            onClick={stepBackward}
+                            disabled={!canStepBackward}
                             className="bg-accent/50 hover:bg-accent disabled:opacity-50"
                         >
                             <ChevronLeft className="h-4 w-4" />
@@ -264,11 +328,8 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
 
                         <TipButton
                             tip={t('stepForward')}
-                            onClick={() => {
-                                const nextTime = getTimeIncrement(currentTime);
-                                stepTo(nextTime.isAfter(endDate) ? endDate : nextTime);
-                            }}
-                            disabled={currentTime?.isSame(endDate) || isPlaying}
+                            onClick={stepForward}
+                            disabled={!canStepForward}
                             className="bg-accent/50 hover:bg-accent disabled:opacity-50"
                         >
                             <ChevronRight className="h-4 w-4" />
@@ -307,39 +368,19 @@ export default function TemporalController({ wmsLayerRef, initialStartDate, init
                 {/* The time labels stay in flow so the panel grows around them instead of letting them spill out,
                     and the minimum width wraps the slider onto its own line before the range dates get cut off. */}
                 <div className="flex-1 w-full md:w-auto min-w-52">
-                    <div className="text-xs font-bold text-center">
-                        {isLive
-                            ? `LIVE: ${formatDateDisplay(currentTime)}`
-                            : `${formatDateDisplay(currentTime)} - ${formatDateDisplay(getTimeIncrement(currentTime))}`}
-                    </div>
-
-                    <div className="relative h-[30px] w-full flex items-center">
-                        <div className="absolute top-0 left-1 right-1 h-full flex justify-between pointer-events-none before:absolute before:top-[14px] before:left-0 before:right-0 before:h-0.5 before:bg-border before:z-0">
-                            {[0, 4].map(mark => <div key={mark} className="w-px mt-2.5 relative z-10 h-2.5 bg-foreground" />)}
-                        </div>
-
-                        <div className="w-full z-10">
-                            <Slider
-                                value={[sliderValue]}
-                                onValueChange={([value]) => handleSliderChange(value)}
-                                min={0}
-                                max={100}
-                                step={stepSizePercent}
-                                className="w-full"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex justify-between gap-2 px-0.5">
-                        {[startDate, endDate].map((date, i) => (
-                            <span key={i} className="text-[0.65rem] text-muted-foreground truncate">
-                                {formatDateDisplay(date)}
-                            </span>
-                        ))}
-                    </div>
+                    <div className="text-xs font-bold text-center">{timeLabel(timeline)}</div>
+                    <TimelineSlider timeline={timeline} mark={formatDateDisplay} />
                 </div>
 
             </div>
         </div>
     );
-};
+}
+
+/** Owns the radar's time cursor. Desktop gets the floating panel; `render` swaps in another view of the same state. */
+export default function TemporalController({ wmsLayerRef, initialStartDate, initialEndDate, render }: {
+    wmsLayerRef, initialStartDate: Dayjs, initialEndDate: Dayjs, render?: (timeline: Timeline) => ReactNode,
+}) {
+    const timeline = useTimeline(wmsLayerRef, initialStartDate, initialEndDate);
+    return render ? render(timeline) : <TimelinePanel timeline={timeline} />;
+}

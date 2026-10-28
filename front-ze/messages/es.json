@@ -1227,6 +1227,20 @@
       "loading": "Cargando...",
       "playerStats": "{hours}h • {sessions} sesiones",
       "noPlayers": "No se encontraron jugadores"
+    },
+    "sheet": {
+      "players": "Jugadores",
+      "playback": "Reproducción",
+      "range": "Rango",
+      "interval": "Intervalo",
+      "stepBack": "Retroceder",
+      "stepForward": "Avanzar",
+      "jumpToLive": "Ir a en vivo",
+      "exitLive": "Salir del modo en vivo",
+      "now": "ahora",
+      "playersOnMap": "Jugadores en el mapa",
+      "back": "Volver a países",
+      "resize": "Cambiar tamaño del panel"
     }
   },
   "metadata": {

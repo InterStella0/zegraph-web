@@ -1227,6 +1227,20 @@
       "loading": "加载中...",
       "playerStats": "{hours}小时 • {sessions} 场场次",
       "noPlayers": "未找到玩家"
+    },
+    "sheet": {
+      "players": "玩家",
+      "playback": "回放",
+      "range": "范围",
+      "interval": "间隔",
+      "stepBack": "后退",
+      "stepForward": "前进",
+      "jumpToLive": "跳到实时",
+      "exitLive": "退出实时模式",
+      "now": "现在",
+      "playersOnMap": "地图上的玩家",
+      "back": "返回国家列表",
+      "resize": "调整面板大小"
     }
   },
   "metadata": {

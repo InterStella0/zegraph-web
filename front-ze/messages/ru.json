@@ -1227,6 +1227,20 @@
       "loading": "Загрузка...",
       "playerStats": "{hours}ч • {sessions} сессий",
       "noPlayers": "Игроки не найдены"
+    },
+    "sheet": {
+      "players": "Игроки",
+      "playback": "Воспроизведение",
+      "range": "Период",
+      "interval": "Интервал",
+      "stepBack": "Назад",
+      "stepForward": "Вперёд",
+      "jumpToLive": "В реальное время",
+      "exitLive": "Выйти из режима реального времени",
+      "now": "сейчас",
+      "playersOnMap": "Игроки на карте",
+      "back": "Назад к странам",
+      "resize": "Изменить размер панели"
     }
   },
   "metadata": {
