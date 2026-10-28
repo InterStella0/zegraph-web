@@ -70,6 +70,17 @@ export function ThemedZoomControl() {
     return null;
 }
 
+/** Leaflet only re-measures on window resize; this also catches the container resizing with its layout. */
+export function MapResizeHandler() {
+    const map = useMap();
+    useEffect(() => {
+        const observer = new ResizeObserver(() => map.invalidateSize());
+        observer.observe(map.getContainer());
+        return () => observer.disconnect();
+    }, [map]);
+    return null;
+}
+
 export function HomeButton() {
     const t = useTranslations('radar');
     const map = useMap();
