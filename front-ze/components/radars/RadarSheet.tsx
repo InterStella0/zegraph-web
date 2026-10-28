@@ -10,7 +10,7 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from "components/ui/tabs";
 import {cn} from "components/lib/utils";
 import {PlayerAvatar} from "components/players/PlayerAvatar.tsx";
 import {PlayerName} from "components/players/PlayerName";
-import {range, secondsToHours} from "utils/generalUtils.ts";
+import {getFlagUrl, range, secondsToHours} from "utils/generalUtils.ts";
 import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider";
 import {Timeline, TimelineSlider} from "./TemporalController.tsx";
 import {useCountryStats, useSettledTemporal} from "./StatComponents.tsx";
@@ -98,10 +98,10 @@ function useSnapSheet(sheetRef: RefObject<HTMLDivElement | null>, peekRef: RefOb
     };
 }
 
-function CodeBadge({ code }: { code: string }) {
+function CountryFlag({ code, name }: { code: string, name: string }) {
     return (
-        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[0.65rem] font-semibold text-muted-foreground">
-            {code}
+        <span className="flex h-[18px] w-6 shrink-0 items-center overflow-hidden rounded shadow-sm">
+            <img src={getFlagUrl(code)} alt={name} className="block h-auto w-full" loading="lazy" />
         </span>
     );
 }
@@ -183,7 +183,7 @@ function CountryList({ countries, loading, inView, total }: {
                 : <ul>
                     {countries.map(country => (
                         <li key={country.code} className="flex items-center gap-3 border-t border-border/60 px-1 py-3">
-                            <CodeBadge code={country.code} />
+                            <CountryFlag code={country.code} name={country.name} />
                             <span className="min-w-0 flex-1 truncate text-sm">{country.name}</span>
                             <span className="text-sm font-bold tabular-nums">{country.count}</span>
                         </li>
@@ -209,7 +209,7 @@ function CountryDetail({ selection }: { selection: CountrySelection }) {
             <Button variant="outline" size="icon" className="shrink-0" onClick={clear} aria-label={t('sheet.back')}>
                 <ChevronLeft />
             </Button>
-            {countryData && <CodeBadge code={countryData.properties.code} />}
+            {countryData && <CountryFlag code={countryData.properties.code} name={countryData.properties.name} />}
             <div className="min-w-0">
                 <p className="truncate font-bold text-primary">{title}</p>
                 <p className="font-mono text-xs text-muted-foreground">{coordinates}</p>
