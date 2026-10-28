@@ -173,7 +173,7 @@ export default function ServerContent({ server, description, mapSessionsPromise 
                 </Card>
             </div>
             <div className="col-span-12 md:col-span-12 xl:col-span-3">
-                <Card className="min-h-[336px] p-0">
+                <Card className="relative h-full min-h-[336px] p-0">
                     <RadarPreview dateDisplay={{ start, end }} />
                 </Card>
             </div>

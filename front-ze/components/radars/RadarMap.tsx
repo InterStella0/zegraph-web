@@ -4,7 +4,7 @@ import { useServerData } from "../../app/servers/[server_slug]/ServerDataProvide
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { LayersControl, MapContainer, TileLayer } from "react-leaflet";
-import { HomeButton, ThemedZoomControl } from "components/radars/leafletControls";
+import { HomeButton, MapResizeHandler, ThemedZoomControl } from "components/radars/leafletControls";
 import NonTiledWMSLayer from "components/radars/NonTiledWMSLayer";
 import { DARK_BASEMAP, LIGHT_BASEMAP, playerWMS, wmsTimeRange } from "components/radars/RadarPreview.tsx";
 import { Button } from "components/ui/button";
@@ -34,6 +34,7 @@ export function RadarMapContainer({ zoom, height, children }: { zoom: number, he
             maxBoundsViscosity={.5}
             wheelPxPerZoomLevel={300}
         >
+            <MapResizeHandler />
             {children}
         </MapContainer>
     );
@@ -83,7 +84,7 @@ export default function RadarMap({ dateDisplay, height, fullscreen = false }) {
     }, [maxLimit, timedLayer, dateDisplay, fullscreen]);
 
     return (
-        <div className="relative">
+        <div className="relative h-full">
             {maxLimit && (
                 <div className="absolute inset-0 z-[1290]">
                     <div className="h-full flex flex-col justify-center items-center gap-4 bg-black/70">

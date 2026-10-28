@@ -1227,6 +1227,20 @@
       "loading": "Memuat...",
       "playerStats": "{hours}j • {sessions} sesi",
       "noPlayers": "Tidak ada pemain yang ditemukan"
+    },
+    "sheet": {
+      "players": "Pemain",
+      "playback": "Pemutaran",
+      "range": "Rentang",
+      "interval": "Interval",
+      "stepBack": "Mundur",
+      "stepForward": "Maju",
+      "jumpToLive": "Ke siaran langsung",
+      "exitLive": "Keluar mode langsung",
+      "now": "sekarang",
+      "playersOnMap": "Pemain di peta",
+      "back": "Kembali ke negara",
+      "resize": "Ubah ukuran panel"
     }
   },
   "metadata": {

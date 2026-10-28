@@ -1227,6 +1227,20 @@
       "loading": "読み込み中...",
       "playerStats": "{hours}時間・{sessions}セッション",
       "noPlayers": "プレイヤーが見つかりません"
+    },
+    "sheet": {
+      "players": "プレイヤー",
+      "playback": "再生",
+      "range": "期間",
+      "interval": "間隔",
+      "stepBack": "戻る",
+      "stepForward": "進む",
+      "jumpToLive": "ライブへ移動",
+      "exitLive": "ライブモードを終了",
+      "now": "現在",
+      "playersOnMap": "マップ上のプレイヤー",
+      "back": "国一覧に戻る",
+      "resize": "パネルのサイズを変更"
     }
   },
   "metadata": {

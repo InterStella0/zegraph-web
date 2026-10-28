@@ -48,7 +48,8 @@ function HistoricalRadarLink({ variant, className }: { variant: 'ghost' | 'outli
 function RadarPreviewDisplay({ dateDisplay }){
     const t = useTranslations('radar');
     return (
-        <div className="relative">
+        // Fills its (positioned) card, so the map follows the card's height instead of the viewport's.
+        <div className="absolute inset-0">
             <div className="absolute top-1 right-1 flex items-center gap-4 z-500">
                 <HistoricalRadarLink variant="ghost" />
                 <Tooltip>
@@ -80,8 +81,8 @@ function RadarPreviewDisplay({ dateDisplay }){
                 </Tooltip>
             </div>
 
-            <div className="rounded-md overflow-hidden">
-                <RadarMap dateDisplay={dateDisplay} height="37vh" />
+            <div className="h-full rounded-md overflow-hidden">
+                <RadarMap dateDisplay={dateDisplay} height="100%" />
             </div>
         </div>
     );

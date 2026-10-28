@@ -1,23 +1,13 @@
 'use client';
 import 'leaflet/dist/leaflet.css';
-import {useEffect} from 'react';
-import {LayersControl, MapContainer, TileLayer, useMap} from 'react-leaflet';
+import {LayersControl, MapContainer, TileLayer} from 'react-leaflet';
 import {useTheme} from 'next-themes';
 import L from 'leaflet';
 import 'leaflet.nontiledlayer';
 import NonTiledWMSLayer from 'components/radars/NonTiledWMSLayer';
 import NightShadingLayer from 'components/radars/NightShadingLayer';
+import {MapResizeHandler} from 'components/radars/leafletControls';
 import {DARK_BASEMAP, LIGHT_BASEMAP, WMS_PLAYER_MAPPED_NOW_URL} from 'components/radars/RadarPreview';
-
-function MapResizeHandler() {
-    const map = useMap();
-    useEffect(() => {
-        const observer = new ResizeObserver(() => map.invalidateSize());
-        observer.observe(map.getContainer());
-        return () => observer.disconnect();
-    }, [map]);
-    return null;
-}
 
 const WORLD_BOUNDS = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
 

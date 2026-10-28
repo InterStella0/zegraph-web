@@ -43,6 +43,16 @@ function NightShadingLegend({ label, isDarkMode }){
     </div>
 }
 
+export function LegendEntries({ isDarkMode }: { isDarkMode: boolean }){
+    const t = useTranslations('radar');
+    return <>
+        <WMSLegendImage name="player_server_timed" />
+        <WMSLegendImage name="player_server_mapped" />
+        <WMSLegendImage name={`countries_${isDarkMode ? "dark" : "light"}`} />
+        <NightShadingLegend label={t('layers.nightShading')} isDarkMode={isDarkMode} />
+    </>
+}
+
 function LegendPanel({ isDarkMode }: { isDarkMode: boolean }){
     const t = useTranslations('radar');
     const [ isExpanded, setExpanded ] = useState(true)
@@ -65,10 +75,7 @@ function LegendPanel({ isDarkMode }: { isDarkMode: boolean }){
 
                 <CollapsibleContent>
                     <div className="p-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-1">
-                        <WMSLegendImage name="player_server_timed" />
-                        <WMSLegendImage name="player_server_mapped" />
-                        <WMSLegendImage name={`countries_${isDarkMode ? "dark" : "light"}`} />
-                        <NightShadingLegend label={t('layers.nightShading')} isDarkMode={isDarkMode} />
+                        <LegendEntries isDarkMode={isDarkMode} />
                     </div>
                 </CollapsibleContent>
             </Collapsible>
@@ -77,6 +84,8 @@ function LegendPanel({ isDarkMode }: { isDarkMode: boolean }){
 }
 
 const SafeLegendPanel = withErrorCatch(LegendPanel, t => t('radar.legendError'));
+
+export const SafeLegendEntries = withErrorCatch(LegendEntries, t => t('radar.legendError'));
 
 export default function LegendControl(){
     // next-themes context does not reach the control's own React root.

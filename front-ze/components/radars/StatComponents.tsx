@@ -14,9 +14,11 @@ import {withErrorCatch} from "components/common/withErrorCatch";
 import {useResource} from "lib/hooks/useResource";
 import {useDebounced} from "lib/hooks/useDebounced";
 import {useMediaQuery} from "lib/hooks/useMediaQuery";
+import type {CountryStatistic} from "types/players";
 
 const PAGE_SIZE = 5;
-const NO_STATS = { in_view_count: 0, total_count: 0, countries: [] };
+type CountriesStatistics = { in_view_count: number, total_count: number, countries: CountryStatistic[] };
+const NO_STATS: CountriesStatistics = { in_view_count: 0, total_count: 0, countries: [] };
 
 function fetchStats(serverId, start, interval, isLive){
     if (isLive)
@@ -25,18 +27,31 @@ function fetchStats(serverId, start, interval, isLive){
     return fetchUrl(`/radars/${serverId}/statistics`, {params: { time: start.toISOString(), interval: intervalToServer(interval) }})
 }
 
+export function useCountryStats(temporal: TemporalData, serverId: string) {
+    const { cursor, interval, isLive } = temporal
+    const { data, loading } = useResource<CountriesStatistics>(
+        () => (cursor && interval) || isLive ? fetchStats(serverId, cursor, interval, isLive) : null,
+        [serverId, cursor, interval, isLive],
+        { keepData: true },
+    );
+    return { stats: data ?? NO_STATS, loading };
+}
+
+/**
+ * The radar's time window, settled. Every cursor move would refetch, so stats wait for the timeline to stop.
+ * TemporalController mutates its state in place, so the debounced value is a copy that later moves can't reach.
+ */
+export function useSettledTemporal(): TemporalData {
+    const { data } = useContext(TemporalContext)
+    return useDebounced(useMemo(() => ({...data}), [data]), 600)
+}
+
 function CountryStatsList({ temporal, serverId }: { temporal: TemporalData, serverId: string }) {
     const t = useTranslations('radar');
     const [page, setPage] = useState(1);
     const [isExpanded, setIsExpanded] = useState(true);
     const isMobile = useMediaQuery('(max-width: 639px)');
-    const { cursor, interval, isLive } = temporal
-    const { data, loading } = useResource(
-        () => (cursor && interval) || isLive ? fetchStats(serverId, cursor, interval, isLive) : null,
-        [serverId, cursor, interval, isLive],
-        { keepData: true },
-    );
-    const stats = data ?? NO_STATS;
+    const { stats, loading } = useCountryStats(temporal, serverId);
     const totalPages = Math.ceil(stats.countries.length / PAGE_SIZE);
     const currentCountries = stats.countries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -150,10 +165,7 @@ const SafeCountryStatsList = withErrorCatch(CountryStatsList, t => t('radar.stat
 
 export default function StatsComponent() {
     const { server } = useServerData()
-    const { data } = useContext(TemporalContext)
-    // Every cursor move would refetch, so the stats wait for the timeline to settle. TemporalController mutates
-    // its state in place, so the debounced value is a copy that later moves can't reach.
-    const temporal = useDebounced(useMemo(() => ({...data}), [data]), 600)
+    const temporal = useSettledTemporal()
     useReactControl(<SafeCountryStatsList temporal={temporal} serverId={server.id} />, 'topright', 'leaflet-bar');
     return null;
 }
