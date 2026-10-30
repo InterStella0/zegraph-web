@@ -248,22 +248,6 @@ pub struct DbMapNotifySubscription {
     pub triggered_at: Option<OffsetDateTime>,
 }
 
-#[derive(DbInto)]
-#[auto_serde_with]
-#[db_into(Map3DModel)]
-#[extra(uploader_name = None)]
-pub struct DbMap3DModel {
-    pub id: i32,
-    pub map_name: String,
-    pub res_type: String,
-    pub credit: Option<String>,
-    pub link_path: String,
-    pub uploaded_by: Option<i64>,
-    pub file_size: i64,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
-}
-
 #[derive(Clone, DbInto)]
 #[auto_serde_with]
 #[db_into(GlobalMapPlayed)]

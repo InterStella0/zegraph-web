@@ -4,7 +4,7 @@ import { serverMetadata } from "../../serverMetadata"
 import { fetchServerUrl, orNotFound } from "utils/generalUtils"
 import { Character3DModel } from "types/maps"
 import { Badge } from "components/ui/badge"
-import { ViewerPage } from "app/(site)/maps/[map_name]/3d/ViewerShell"
+import { ViewerPage } from "./ViewerShell"
 import CharacterViewerRenderer from "./CharacterViewerRenderer"
 
 export async function generateMetadata({ params }: {

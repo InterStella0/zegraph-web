@@ -6,10 +6,8 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use sqlx::{Pool, Postgres};
 use crate::api_models::common::*;
-use crate::api_models::maps::Map3DModel;
 use crate::api_models::misc::*;
 use crate::models::admins::DbCharacter3DModel;
-use crate::models::maps::DbMap3DModel;
 use crate::{response, AppData, FastCache};
 
 pub const CHUNK_SIZE: usize = 10_485_760;
@@ -44,32 +42,6 @@ macro_rules! session_fields {
         fn received(&self) -> &Vec<u32> { &self.chunks_received }
         fn received_mut(&mut self) -> &mut Vec<u32> { &mut self.chunks_received }
     };
-}
-
-impl ChunkedUpload for UploadSession {
-    const KEY_PREFIX: &'static str = "upload_session:";
-    const STORE_ENV: &'static str = "STORE_UPLOAD";
-    const STORE_DEFAULT: &'static str = "./maps";
-    const NO_LOCAL_PATH: &'static str = "Local storage path is not configured";
-    const VERIFY_FAILED: &'static str = "Failed to verify file";
-    const STORE_FAILED: &'static str = "Failed to store assembled file";
-    session_fields!();
-
-    fn local_path(&self, app: &AppData) -> Option<Option<PathBuf>> {
-        app.map_storage.is_local().then(|| app.map_storage.local_path(&self.map_name, &self.res_type))
-    }
-    fn store_file(&self, app: &AppData, path: &Path) -> impl Future<Output = Result<String, String>> + Send {
-        app.map_storage.store_file(&self.map_name, &self.res_type, path)
-    }
-    fn log_initiated(&self) {
-        tracing::info!("Upload session initiated: {}, map: {}, size: {}", self.session_id, self.map_name, self.total_size);
-    }
-    fn log_chunk(&self, chunk_index: u32) {
-        tracing::debug!("Chunk {}/{} received for session {}", chunk_index, self.total_chunks, self.session_id);
-    }
-    fn log_cancelled(&self) {
-        tracing::warn!("Upload cancelled: {}, chunks: {}/{}", self.session_id, self.chunks_received.len(), self.total_chunks);
-    }
 }
 
 impl ChunkedUpload for CharacterUploadSession {
@@ -363,18 +335,6 @@ async fn uploader_name(pool: &Pool<Postgres>, uploaded_by: Option<i64>) -> Optio
     .await
     .ok()
     .flatten()
-}
-
-pub async fn map_model_api(app: &AppData, model: DbMap3DModel) -> Map3DModel {
-    let uploader_name = uploader_name(&app.pool, model.uploaded_by).await;
-    let mut api_model: Map3DModel = model.into();
-    api_model.link_path = app.map_storage.normalize_link_path(
-        &api_model.link_path,
-        &api_model.map_name,
-        &api_model.res_type,
-    );
-    api_model.uploader_name = uploader_name;
-    api_model
 }
 
 pub async fn character_model_api(app: &AppData, model: DbCharacter3DModel) -> Character3DModel {

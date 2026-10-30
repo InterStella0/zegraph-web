@@ -8,7 +8,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
 
 use crate::core::push_service::PushNotificationService;
-use crate::core::storage::{AnnouncementStorage, CharacterStorage, CommunityStorage, MapStorage, StorageBackend};
+use crate::core::storage::{AnnouncementStorage, CharacterStorage, CommunityStorage, StorageBackend};
 use crate::routers::misc::{HealthMonitor, LiveEventHub};
 use crate::{AppData, FastCache};
 use super::map::{MapBasicQuery, MapPeriodQuery, MapWorker};
@@ -63,7 +63,6 @@ pub fn fake_app_data() -> AppData {
         player_worker: Arc::new(PlayerWorker::new(cache.clone(), pool.clone())),
         map_worker: Arc::new(MapWorker::new(cache, pool.clone())),
         push_service: Arc::new(PushNotificationService::stub(pool)),
-        map_storage: Arc::new(MapStorage::new(storage.clone())),
         character_storage: Arc::new(CharacterStorage::new(storage.clone())),
         community_storage: Arc::new(CommunityStorage::new(storage.clone())),
         announcement_storage: Arc::new(AnnouncementStorage::new(storage)),

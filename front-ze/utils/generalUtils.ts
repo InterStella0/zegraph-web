@@ -63,6 +63,10 @@ export function withImageDomain(image: MapImage): MapImage {
     return image
 }
 
+export function map3dViewerUrl(mapName: string): string {
+    return `https://maps.cybo.dev/?map=${encodeURIComponent(mapName)}`
+}
+
 export async function getMapImage(server_id: string, mapName: string): Promise<GetMapImageReturn> {
     try {
         return withImageDomain(await fetchServerUrl(server_id, `/maps/${mapName}/images`, { next: { revalidate: 86400 } }))

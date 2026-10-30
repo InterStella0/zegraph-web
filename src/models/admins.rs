@@ -439,10 +439,6 @@ impl DbGlobalMapRankEntry {
     }
 }
 
-pub struct DbMapName {
-    pub map_name: String,
-}
-
 pub struct DbServerNameMaxPlayers {
     pub server_name: Option<String>,
     pub max_players: Option<i16>,

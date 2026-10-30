@@ -41,7 +41,7 @@ use crate::core::utils::*;
 use crate::workers::*;
 use crate::workers::consumer;
 use crate::core::push_service::*;
-use crate::core::storage::{MapStorage, CharacterStorage, CommunityStorage, AnnouncementStorage, StorageBackend};
+use crate::core::storage::{CharacterStorage, CommunityStorage, AnnouncementStorage, StorageBackend};
 use crate::routers::accounts::AccountsApi;
 use crate::routers::characters::CharacterApi;
 use crate::routers::servers::ServerApi;
@@ -61,7 +61,6 @@ struct AppData{
     player_worker: Arc<PlayerWorker>,
     map_worker: Arc<MapWorker>,
     push_service: Arc<PushNotificationService>,
-    map_storage: Arc<MapStorage>,
     character_storage: Arc<CharacterStorage>,
     community_storage: Arc<CommunityStorage>,
     announcement_storage: Arc<AnnouncementStorage>,
@@ -239,8 +238,6 @@ async fn run_main() {
         .await
         .expect("Failed to initialize storage backend");
 
-    let map_storage = Arc::new(MapStorage::new(storage_backend.clone()));
-
     let character_storage = Arc::new(CharacterStorage::new(storage_backend.clone()));
 
     let community_storage = Arc::new(CommunityStorage::new(storage_backend.clone()));
@@ -269,7 +266,6 @@ async fn run_main() {
         player_worker,
         map_worker,
         push_service,
-        map_storage,
         character_storage,
         community_storage,
         announcement_storage,
@@ -627,8 +623,6 @@ mod route_tests {
         for (path, expected) in [
             ("/servers/1/maps/autocomplete", "/servers/{server_id}/maps/autocomplete"),
             ("/servers/1/maps/ze_test_map_v1/info", "/servers/{server_id}/maps/{map_name}/info"),
-            ("/maps/all/3d", "/maps/all/3d"),
-            ("/maps/ze_test_map_v1/3d", "/maps/{map_name}/3d"),
             ("/maps/autocomplete", "/maps/autocomplete"),
             ("/maps/ze_test_map_v1/info", "/maps/{map_name}/info"),
             ("/maps/ze_test_map_v1/top_players", "/maps/{map_name}/top_players"),

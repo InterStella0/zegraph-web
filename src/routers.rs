@@ -25,10 +25,8 @@ pub enum ApiTags {
     Players,
     /// Time-series graph data for the frontend's charts.
     Graphs,
-    /// Map listings, sessions, analysis and 3D model metadata.
+    /// Map listings, sessions and analysis.
     Maps,
-    /// 3D model uploads and downloads for maps.
-    Models3D,
     /// Live and historical geographic player distribution.
     Radars,
     /// Health checks, sitemaps, thumbnails and misc utility endpoints.

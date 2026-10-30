@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
-use poem_openapi::{Enum, Object};
-use serde::{Deserialize, Serialize};
+use poem_openapi::Object;
 use crate::core::utils::MapImage;
 
 /// A player's rank on a single map, by playtime.
@@ -139,56 +138,6 @@ pub struct MapPlayed{
     pub no_noms: bool,
     pub min_players: Option<i16>,
     pub max_players: Option<i16>,
-}
-
-/// 3D model resolution tier.
-#[derive(Enum, Serialize, Deserialize, Clone, Copy)]
-pub enum ResType {
-    #[oai(rename = "low")]
-    Low,
-    #[oai(rename = "high")]
-    High,
-}
-
-impl ResType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ResType::Low => "low",
-            ResType::High => "high",
-        }
-    }
-
-    pub fn parse(s: &str) -> Option<ResType> {
-        match s {
-            "low" => Some(ResType::Low),
-            "high" => Some(ResType::High),
-            _ => None,
-        }
-    }
-}
-
-/// An uploaded 3D model for a map, at one resolution tier.
-#[derive(Object, Serialize)]
-pub struct Map3DModel {
-    pub id: i32,
-    pub map_name: String,
-    pub res_type: String,
-    pub credit: Option<String>,
-    /// URL to fetch the model file from.
-    pub link_path: String,
-    pub uploaded_by: Option<i64>,
-    pub uploader_name: Option<String>,
-    pub file_size: i64,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-/// A map's uploaded 3D models, by resolution tier.
-#[derive(Object, Serialize)]
-pub struct MapWithModels {
-    pub map_name: String,
-    pub low_res_model: Option<Map3DModel>,
-    pub high_res_model: Option<Map3DModel>,
 }
 
 /// A page of a server's map listing.
