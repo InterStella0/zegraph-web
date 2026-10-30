@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, type ComponentProps } from 'react'
+import { useState, type ComponentProps } from 'react'
 import { Button } from 'components/ui/button'
 import { Label } from 'components/ui/label'
 import { Badge } from 'components/ui/badge'
@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from 'components/ui/tabs'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger,
 } from 'components/ui/dropdown-menu'
-import { Settings, Box, Database, ImageOff, Upload, Trash2 } from 'lucide-react'
+import { Settings, Database, ImageOff, Trash2 } from 'lucide-react'
 import { fetchApiUrl, getMapImage, orNull, range } from 'utils/generalUtils'
 import { sendJson } from 'lib/sendJson'
 import { useResource } from 'lib/hooks/useResource'
@@ -24,10 +24,6 @@ import {
   ActionItem, AdminPagination, Field, InputField, logFailure, OptionSelect, runAction, useAdminData, useResetForm,
   useSearchPaging,
 } from '../components/AdminUI'
-import { uploadFileChunked } from 'utils/uploadUtils'
-import { CurrentModelInfo, GlbUploadDialog, useGlbUpload } from '../components/GlbUpload'
-import { formatFileSize } from 'utils/format'
-import type { MapWithModels } from 'types/maps'
 import type {
   AdminMapEntry,
   AdminMapMetadataResponse,
@@ -36,7 +32,6 @@ import type {
 } from 'types/admin'
 
 type TriState = 'true' | 'false' | 'null'
-type ResType = 'low' | 'high'
 
 const boolToTri = (value: boolean | null | undefined) => String(value ?? null) as TriState
 const TRI_VALUES: Record<TriState, boolean | null> = { true: true, false: false, null: null }
@@ -44,14 +39,6 @@ const TRI_LABELS: Record<TriState, string> = { true: 'Yes', false: 'No', null: '
 
 const toInput = (value: number | null | undefined) => value?.toString() ?? ''
 const toNumber = (value: string) => (value ? Number(value) : null)
-
-const RES_TYPES: { type: ResType; label: string; short: string }[] = [
-  { type: 'low', label: 'Low-Res', short: 'Lo' },
-  { type: 'high', label: 'High-Res', short: 'Hi' },
-]
-
-const modelOf = (map: MapWithModels | null, resType: ResType) =>
-  resType === 'low' ? map?.low_res_model : map?.high_res_model
 
 const GRID = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
 
@@ -113,84 +100,6 @@ function SwitchRow({ label, hint, checked, onChange }: {
       </div>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
-  )
-}
-
-function ManageModelsDialog({
-  open,
-  onOpenChange,
-  map,
-  onSuccess,
-  onDelete,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  map: MapWithModels
-  onSuccess: () => void
-  onDelete: (mapName: string, resType: ResType) => void
-}) {
-  const [resType, setResType] = useState<ResType>('low')
-  const upload = useGlbUpload()
-
-  const currentModel = modelOf(map, resType)
-
-  useEffect(() => {
-    if (open) upload.reset(currentModel?.credit || '')
-  }, [open, resType, currentModel])
-
-  const handleSubmit = () => upload.submit({
-    chunked: (options) => uploadFileChunked({ ...options, mapName: map.map_name, resType }),
-    endpoint: `/maps/${map.map_name}/3d/upload`,
-    fields: { res_type: resType },
-    successMessage: `${resType}-res model uploaded successfully`,
-    onSuccess,
-  })
-
-  const handleDeleteModel = () => {
-    onOpenChange(false)
-    onDelete(map.map_name, resType)
-  }
-
-  return (
-    <GlbUploadDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={<>3D Models — {map.map_name}</>}
-      titleClassName="font-mono text-sm"
-      upload={upload}
-      fileLabel="Upload New .glb File"
-      replacing={!!currentModel}
-      onSubmit={handleSubmit}
-    >
-      <div>
-        <label className="text-sm font-medium">Resolution Type</label>
-        <Tabs value={resType} onValueChange={(v) => setResType(v as ResType)} className="mt-2">
-          <TabsList className="grid w-full grid-cols-2">
-            {RES_TYPES.map(({ type, label }) => {
-              const model = modelOf(map, type)
-              return (
-                <TabsTrigger key={type} value={type}>
-                  {label}
-                  {model && <Badge variant="secondary" className="ml-2">{formatFileSize(model.file_size)}</Badge>}
-                </TabsTrigger>
-              )
-            })}
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {currentModel && (
-        <CurrentModelInfo
-          title="Current Model"
-          model={currentModel}
-          action={
-            <Button size="sm" variant="destructive" onClick={handleDeleteModel}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          }
-        />
-      )}
-    </GlbUploadDialog>
   )
 }
 
@@ -383,15 +292,11 @@ function EditMapDialog({
 
 function MapManagementCard({
   entry,
-  models,
   onEditMetadata,
-  onEditModels,
   onDelete,
 }: {
   entry: AdminMapEntry
-  models: MapWithModels | null
   onEditMetadata: (entry: AdminMapEntry) => void
-  onEditModels: (entry: AdminMapEntry, models: MapWithModels) => void
   onDelete: (mapName: string) => void
 }) {
   const serverId = entry.servers[0]?.server_id
@@ -400,10 +305,6 @@ function MapManagementCard({
     [entry.map_name, serverId],
   )
   const imageUrl = image?.medium
-
-  const handleEditModels = () => {
-    onEditModels(entry, models ?? { map_name: entry.map_name, low_res_model: null, high_res_model: null })
-  }
 
   return (
     <div className="rounded-xl border overflow-hidden bg-card relative group">
@@ -435,7 +336,6 @@ function MapManagementCard({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <ActionItem icon={Database} onClick={() => onEditMetadata(entry)}>Edit Metadata</ActionItem>
-            <ActionItem icon={Upload} onClick={handleEditModels}>Edit 3D Models</ActionItem>
             <DropdownMenuSeparator />
             <ActionItem icon={Trash2} destructive onClick={() => onDelete(entry.map_name)}>Delete Map</ActionItem>
           </DropdownMenuContent>
@@ -462,19 +362,6 @@ function MapManagementCard({
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          {RES_TYPES.map(({ type, short }) => {
-            const hasModel = !!modelOf(models, type)
-            return (
-              <Badge
-                key={type}
-                variant={hasModel ? 'secondary' : 'outline'}
-                className={`text-xs px-1.5 py-0 gap-1 ${hasModel ? '' : 'text-muted-foreground'}`}
-              >
-                <Box className="h-3 w-3" />
-                {short}
-              </Badge>
-            )
-          })}
           {entry.servers.length > 0 && (
             <span className="text-xs text-muted-foreground ml-auto">
               {entry.servers.length} server{entry.servers.length !== 1 ? 's' : ''}
@@ -488,7 +375,6 @@ function MapManagementCard({
 
 type ActiveDialog =
   | { type: 'metadata'; entry: AdminMapEntry }
-  | { type: 'models'; entry: AdminMapEntry; models: MapWithModels }
   | { type: 'delete'; mapName: string }
   | null
 
@@ -512,13 +398,6 @@ export default function MapManagementPage() {
     params,
   )
 
-  const { data: modelsMap, reload: fetchModels } = useAdminData(
-    '/maps/all/3d',
-    (data) => new Map((data as MapWithModels[]).map((m) => [m.map_name, m])),
-    new Map<string, MapWithModels>(),
-    '3D models',
-  )
-
   const refreshCurrentMap = async () => {
     if (activeDialog?.type !== 'metadata') return
     const mapName = activeDialog.entry.map_name
@@ -530,11 +409,6 @@ export default function MapManagementPage() {
     fetchMetadata()
   }
 
-  const handleModelsSaved = async () => {
-    await fetchModels()
-    closeDialog()
-  }
-
   const confirmDeleteMap = () => {
     if (activeDialog?.type !== 'delete') return
     const { mapName } = activeDialog
@@ -544,18 +418,12 @@ export default function MapManagementPage() {
     }, { success: `Map "${mapName}" deleted`, failure: 'Failed to delete map' })
   }
 
-  const handleDeleteModel = (mapName: string, resType: ResType) => runAction(
-    () => fetchApiUrl(`/maps/${mapName}/3d/${resType}`, { method: 'DELETE' }),
-    fetchModels,
-    { confirm: `Delete ${resType}-res model for ${mapName}?`, success: `${resType}-res model deleted`, failure: 'Failed to delete model' },
-  )
-
   return (
     <div className="p-6 space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Map Management</h1>
         <p className="text-sm text-muted-foreground">
-          Manage map metadata, workshop IDs, and 3D models in one place.
+          Manage map metadata and workshop IDs in one place.
         </p>
       </div>
 
@@ -581,9 +449,7 @@ export default function MapManagementPage() {
             <MapManagementCard
               key={entry.map_name}
               entry={entry}
-              models={modelsMap.get(entry.map_name) ?? null}
               onEditMetadata={(e) => setActiveDialog({ type: 'metadata', entry: e })}
-              onEditModels={(e, m) => setActiveDialog({ type: 'models', entry: e, models: m })}
               onDelete={(mapName) => setActiveDialog({ type: 'delete', mapName })}
             />
           ))}
@@ -597,17 +463,6 @@ export default function MapManagementPage() {
         open={activeDialog?.type === 'metadata'}
         onClose={closeDialog}
         onSaved={refreshCurrentMap}
-      />
-      <ManageModelsDialog
-        open={activeDialog?.type === 'models'}
-        onOpenChange={(o) => { if (!o) closeDialog() }}
-        map={
-          activeDialog?.type === 'models'
-            ? activeDialog.models
-            : { map_name: '', low_res_model: null, high_res_model: null }
-        }
-        onSuccess={handleModelsSaved}
-        onDelete={handleDeleteModel}
       />
       <Dialog
         open={activeDialog?.type === 'delete'}

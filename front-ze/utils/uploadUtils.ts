@@ -1,5 +1,5 @@
 import { fetchApiUrl } from './generalUtils';
-import { Map3DModel, Character3DModel } from '../types/maps';
+import { Character3DModel } from '../types/maps';
 
 const CHUNK_SIZE = 10 * 1024 * 1024;
 const MAX_RETRIES = 3;
@@ -20,11 +20,6 @@ interface UploadOptions {
   onProgress?: (progress: UploadProgress) => void;
   onError?: (error: Error, chunkIndex?: number) => void;
   signal?: AbortSignal;
-}
-
-export interface ChunkedUploadOptions extends UploadOptions {
-  mapName: string;
-  resType: 'low' | 'high';
 }
 
 export interface CharacterChunkedUploadOptions extends UploadOptions {
@@ -131,11 +126,6 @@ async function uploadChunked<T>(
     if (!isAbort(error)) onError?.(error);
     throw error;
   }
-}
-
-export function uploadFileChunked(options: ChunkedUploadOptions): Promise<Map3DModel> {
-  const { mapName, resType, credit } = options;
-  return uploadChunked(`/maps/${mapName}/3d/upload`, { res_type: resType, credit: credit || undefined }, options, false);
 }
 
 export function uploadCharacterFileChunked(options: CharacterChunkedUploadOptions): Promise<Character3DModel> {

@@ -57,22 +57,6 @@ pub struct UserAnonymization {
     pub hide_location: bool,
 }
 
-/// Server-side state of an in-progress chunked map 3D model upload, cached in redis.
-#[derive(Object, Serialize, Deserialize, Clone)]
-pub struct UploadSession {
-    pub session_id: String,
-    pub map_name: String,
-    pub res_type: String,
-    pub credit: Option<String>,
-    pub total_chunks: u32,
-    pub chunk_size: usize,
-    pub total_size: u64,
-    pub uploaded_by: i64,
-    pub created_at: String,
-    /// Indices of chunks received so far.
-    pub chunks_received: Vec<u32>,
-}
-
 /// Response to starting a chunked upload: how to split and where to send the file.
 #[derive(Object, Serialize, Deserialize)]
 pub struct InitiateUploadResponse {

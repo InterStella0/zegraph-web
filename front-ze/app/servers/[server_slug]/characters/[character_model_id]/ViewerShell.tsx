@@ -5,7 +5,7 @@ import { Button } from 'components/ui/button'
 import { Card } from 'components/ui/card'
 import { formatFileSize } from 'utils/format'
 
-/** Page frame shared by the map and character 3D viewers. */
+/** Page frame for the character 3D viewer. */
 export function ViewerPage({ backHref, backLabel, viewer, children }: {
   backHref: string,
   backLabel: string,

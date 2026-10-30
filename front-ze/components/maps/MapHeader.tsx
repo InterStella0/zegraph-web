@@ -1,7 +1,7 @@
 'use client'
 import {useTranslations, useLocale} from 'next-intl';
 import {ReactNode} from "react";
-import {fetchApiUrl, getMapImage} from "utils/generalUtils.ts";
+import {getMapImage, map3dViewerUrl} from "utils/generalUtils.ts";
 import {Clock, Users, RotateCcw, User, AlarmClock, AlertTriangle, Ban, BoxesIcon, CalendarClock, Globe, LucideIcon} from "lucide-react";
 import {Skeleton} from "components/ui/skeleton";
 import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
@@ -11,8 +11,7 @@ import {useServerData} from "../../app/servers/[server_slug]/ServerDataProvider"
 import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import {useResource} from "lib/hooks/useResource";
 import Image from "next/image";
-import {useRouter} from "next/navigation";
-import {MapAnalyze, MapWithModels} from "types/maps.ts";
+import {MapAnalyze} from "types/maps.ts";
 import {PeriodChip, usePeriod} from "components/period/Period";
 import {withErrorCatch} from "components/common/withErrorCatch";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
@@ -20,10 +19,6 @@ import {cn} from "components/lib/utils";
 import {isOnCooldown, mapBlockers} from "utils/mapCooldown";
 import {useMapCooldownText} from "lib/hooks/useMapCooldownText";
 import ViewCount from "components/ui/ViewCount";
-
-const checkModelExists = (mapName: string): Promise<boolean> => fetchApiUrl(`/maps/${mapName}/3d`)
-    .then((data: MapWithModels) => !(data.high_res_model === null && data.low_res_model === null))
-    .catch(() => false)
 
 export function OverlayBadge({ color, icon: Icon, spaced, tooltip, suppressHydrationWarning, children }: {
     color: string, icon?: LucideIcon, spaced?: boolean, tooltip?: ReactNode, suppressHydrationWarning?: boolean, children: ReactNode,
@@ -48,38 +43,16 @@ export function OverlayBadge({ color, icon: Icon, spaced, tooltip, suppressHydra
     );
 }
 
-export function Map3DButton({ name, href }: { name: string, href: string }) {
+/** Links out to maps.cybo.dev, which hosts the 3D views of maps. */
+export function Map3DButton({ name }: { name: string }) {
     const t = useTranslations('maps.header');
-    const router = useRouter()
-    const { data: modelAvailable } = useResource(() => name ? checkModelExists(name) : null, [name])
-    const label = <>
-        <BoxesIcon className="h-4 w-4" />
-        <span className="ml-2 hidden sm:inline">{t('viewIn3d')}</span>
-    </>
-
-    if (modelAvailable === null) return <Skeleton className="h-9 w-9 sm:w-32 rounded bg-white/20" />
-    if (modelAvailable) return (
-        <Button
-            size="sm"
-            onClick={() => router.push(href)}
-            className="bg-primary/90 hover:bg-primary text-primary-foreground backdrop-blur-sm"
-        >
-            {label}
-        </Button>
-    )
     return (
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <div>
-                    <Button size="sm" disabled className="backdrop-blur-sm">
-                        {label}
-                    </Button>
-                </div>
-            </TooltipTrigger>
-            <TooltipContent>
-                {t('no3dModel')}
-            </TooltipContent>
-        </Tooltip>
+        <Button size="sm" asChild className="bg-primary/90 hover:bg-primary text-primary-foreground backdrop-blur-sm">
+            <a href={map3dViewerUrl(name)} target="_blank" rel="noopener noreferrer">
+                <BoxesIcon className="h-4 w-4" />
+                <span className="ml-2 hidden sm:inline">{t('viewIn3d')}</span>
+            </a>
+        </Button>
     )
 }
 
@@ -241,7 +214,7 @@ function MapHeaderDisplay({ viewsPromise }: { viewsPromise?: Promise<number | nu
                         {t('allServers')}
                     </OverlayBadge>
                 </HoverPrefetchLink>
-                <Map3DButton name={name} href={`/maps/${name}/3d?server_slug=${server.gotoLink}`} />
+                <Map3DButton name={name} />
             </div>
 
             <MapHeaderStats name={name} analyze={analyze} viewsPromise={viewsPromise} />

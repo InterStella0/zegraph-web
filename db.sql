@@ -935,7 +935,7 @@ CREATE TABLE day_night (
 CREATE OR REPLACE FUNCTION get_server_player_counts(server_id TEXT)
 RETURNS TABLE (
     server_id TEXT,
-    bucket_time TIMESTAMP,
+    bucket_time TIMESTAMP WITH TIME ZONE,
     player_count INTEGER
 ) AS $$
 WITH vars AS (

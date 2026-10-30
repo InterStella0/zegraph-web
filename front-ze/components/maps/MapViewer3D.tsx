@@ -12,14 +12,14 @@ import { Maximize, Minimize } from 'lucide-react'
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "components/ui/accordion.tsx"
 import { traverseSceneChunked } from 'utils/sceneProcessing'
 import { getCachedModelData, cacheModelData } from 'utils/modelCache'
-import { Map3DModel } from 'types/maps'
+import { Character3DModel } from 'types/maps'
 import { useTranslations } from 'next-intl'
 import { formatFileSize } from 'utils/format'
 
 const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('firefox')
 
-/** The model fields the viewer reads, so character models can be shown as well as map models. */
-export type ViewerModel = Pick<Map3DModel, 'link_path' | 'res_type' | 'file_size' | 'credit' | 'uploader_name'>
+/** The model fields the viewer reads. */
+export type ViewerModel = Pick<Character3DModel, 'link_path' | 'file_size' | 'credit' | 'uploader_name'>
 
 type Phase = 'downloading' | 'parsing' | 'validating' | 'optimizing' | 'ready'
 
@@ -253,10 +253,7 @@ function LoadingFallback({ processingState, modelMetadata }: { processingState: 
           <div className="mt-4 pt-4 border-t border-border/50 w-full">
             <div className="text-xs text-muted-foreground space-y-1">
               {modelMetadata.credit && <div>{t('modelBy', {credit: modelMetadata.credit})}</div>}
-              <div className="flex gap-4">
-                <span>{t('resolution')} {modelMetadata.res_type}</span>
-                <span>{t('size')} {formatFileSize(modelMetadata.file_size)}</span>
-              </div>
+              <div>{t('size')} {formatFileSize(modelMetadata.file_size)}</div>
             </div>
           </div>
         )}
@@ -843,7 +840,6 @@ export default function MapViewer3D({ modelMetadata }: { modelMetadata: ViewerMo
               <AccordionTrigger className="text-sm">{t('modelInfo')}</AccordionTrigger>
               <AccordionContent className="px-4 pb-3">
                 <div className="space-y-2 text-xs">
-                  <InfoRow label={t('resolution')} className="capitalize">{modelMetadata.res_type}</InfoRow>
                   <InfoRow label={t('fileSize')}>{formatFileSize(modelMetadata.file_size)}</InfoRow>
                   <InfoRow label={t('credit')} className="text-right">{modelMetadata.credit}</InfoRow>
                   <InfoRow label={t('uploadedBy')}>{modelMetadata.uploader_name}</InfoRow>

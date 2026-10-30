@@ -2,11 +2,8 @@
 import { ReactNode, Suspense, use } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { useServerData } from "../ServerDataProvider"
-import { loadMapImage } from "lib/batchLoader"
-import { useResource } from "lib/hooks/useResource"
 import { range } from "utils/generalUtils"
-import { MapWithModels, Character3DModel } from "types/maps"
+import { Character3DModel } from "types/maps"
 import { Card, CardContent } from "components/ui/card"
 import { Badge } from "components/ui/badge"
 import { Button } from "components/ui/button"
@@ -60,33 +57,6 @@ function CharacterModelCard({ model, serverSlug }: { model: Character3DModel, se
     )
 }
 
-function MapModelCard({ mapModel, serverId, serverLink }: { mapModel: MapWithModels, serverId: string, serverLink: string }) {
-    const { map_name, low_res_model, high_res_model } = mapModel
-    const { data: mapImage, loading } = useResource(
-        () => loadMapImage(map_name, serverId).then(e => e ? e.small : null), [serverId, map_name],
-    )
-
-    return (
-        <ModelCard
-            image={loading
-                ? <Skeleton className="h-full w-full rounded-none" />
-                : mapImage ? <img src={mapImage} alt={map_name} className="w-full h-full object-cover" /> : null}
-            title={map_name}
-            badges={
-                <div className="flex gap-1 shrink-0">
-                    {low_res_model && <Badge variant="outline">Low</Badge>}
-                    {high_res_model && <Badge>High</Badge>}
-                </div>
-            }
-            details={<>
-                {low_res_model && <div>Low res — {formatBytes(low_res_model.file_size)}</div>}
-                {high_res_model && <div>High res — {formatBytes(high_res_model.file_size)}</div>}
-            </>}
-            href={`/maps/${map_name}/3d?server_slug=${serverLink}`}
-        />
-    )
-}
-
 function ModelCardSkeleton({ lines }: { lines: number }) {
     return (
         <Card className="overflow-hidden flex flex-col">
@@ -124,12 +94,10 @@ function ModelSection<T>({ title, lines, ...grid }: {
     )
 }
 
-export default function ModelsPageContent({ charactersPromise, mapModelsPromise }: {
+export default function ModelsPageContent({ charactersPromise }: {
     charactersPromise: Promise<Character3DModel[]>,
-    mapModelsPromise: Promise<MapWithModels[]>,
 }) {
     const serverSlug = useParams().server_slug as string
-    const { server } = useServerData()
 
     return (
         <div className="container max-w-screen-xl py-6 mx-auto px-2 space-y-10">
@@ -140,15 +108,6 @@ export default function ModelsPageContent({ charactersPromise, mapModelsPromise 
                 promise={charactersPromise}
                 empty="No character models available."
                 render={model => <CharacterModelCard key={model.id} model={model} serverSlug={serverSlug} />}
-            />
-            <ModelSection
-                title="Map Models"
-                lines={2}
-                promise={mapModelsPromise}
-                empty="No map models available for this server."
-                render={mapModel => (
-                    <MapModelCard key={mapModel.map_name} mapModel={mapModel} serverId={server.id} serverLink={server.gotoLink} />
-                )}
             />
         </div>
     )

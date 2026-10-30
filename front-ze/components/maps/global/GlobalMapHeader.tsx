@@ -68,7 +68,7 @@ function GlobalMapHeaderDisplay({ loggedIn, viewsPromise }: { loggedIn: boolean,
                         className="bg-black/50 backdrop-blur-sm text-white hover:bg-black/60 hover:text-white"
                     />
                 )}
-                <Map3DButton name={name} href={`/maps/${name}/3d`} />
+                <Map3DButton name={name} />
             </div>
 
             <MapHeaderStats name={name} analyze={analyze} viewsPromise={viewsPromise}>

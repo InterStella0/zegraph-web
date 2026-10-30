@@ -343,47 +343,6 @@ impl StorageNamespace {
 }
 
 #[derive(Clone)]
-pub struct MapStorage {
-    ns: StorageNamespace,
-}
-
-impl MapStorage {
-    pub fn new(backend: Arc<StorageBackend>) -> Self {
-        Self {
-            ns: StorageNamespace { backend, object_prefix: "maps" },
-        }
-    }
-
-    fn resource_path(map_name: &str, res_type: &str) -> String {
-        format!("{map_name}/{map_name}_d_c_{res_type}.glb")
-    }
-
-    pub fn is_local(&self) -> bool {
-        self.ns.is_local()
-    }
-
-    pub fn normalize_link_path(&self, existing: &str, map_name: &str, res_type: &str) -> String {
-        self.ns.normalize_link_path(existing, &Self::resource_path(map_name, res_type))
-    }
-
-    pub fn local_path(&self, map_name: &str, res_type: &str) -> Option<PathBuf> {
-        self.ns.local_path(&Self::resource_path(map_name, res_type))
-    }
-
-    pub async fn store_bytes(&self, map_name: &str, res_type: &str, bytes: &[u8]) -> Result<String, String> {
-        self.ns.store_bytes(&Self::resource_path(map_name, res_type), bytes, "model/gltf-binary").await
-    }
-
-    pub async fn store_file(&self, map_name: &str, res_type: &str, file_path: &Path) -> Result<String, String> {
-        self.ns.store_file(&Self::resource_path(map_name, res_type), file_path, "model/gltf-binary").await
-    }
-
-    pub async fn delete(&self, map_name: &str, res_type: &str) -> Result<(), String> {
-        self.ns.delete(&Self::resource_path(map_name, res_type)).await
-    }
-}
-
-#[derive(Clone)]
 pub struct CharacterStorage {
     ns: StorageNamespace,
 }

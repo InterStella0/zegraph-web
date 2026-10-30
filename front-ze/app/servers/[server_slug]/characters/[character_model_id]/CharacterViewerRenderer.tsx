@@ -4,12 +4,12 @@ import { useState } from 'react'
 import { Character3DModel } from 'types/maps'
 import MapViewer3DWrapper from 'components/maps/MapViewer3DWrapper'
 import { AlertTriangle, Box } from 'lucide-react'
-import { LoadModelButton, ViewerCard } from 'app/(site)/maps/[map_name]/3d/ViewerShell'
+import { LoadModelButton, ViewerCard } from './ViewerShell'
 
 export default function CharacterViewerRenderer({ model }: { model: Character3DModel }) {
     const [loaded, setLoaded] = useState(false)
 
-    if (loaded) return <MapViewer3DWrapper modelMetadata={{ ...model, res_type: 'high' }} />
+    if (loaded) return <MapViewer3DWrapper modelMetadata={model} />
 
     return (
         <ViewerCard icon={Box} title={model.name ?? model.model_id}>

@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import { getServerSlugOrNotFound } from "../util.ts"
 import { serverMetadata } from "../serverMetadata"
 import { fetchServerUrl } from "utils/generalUtils.ts"
-import { Character3DModel, MapWithModels } from "types/maps"
+import { Character3DModel } from "types/maps"
 import ModelsPageContent from "./ModelsPageContent"
 
 export async function generateMetadata({ params }: {
@@ -23,8 +23,5 @@ export default async function Page({ params }: {
     const charactersPromise: Promise<Character3DModel[]> = fetchServerUrl(server.id, '/characters')
         .then(models => models ?? [])
         .catch(() => [])
-    const mapModelsPromise: Promise<MapWithModels[]> = fetchServerUrl(server.id, '/maps/3d')
-        .then((maps: MapWithModels[] | null) => (maps ?? []).filter(m => m.low_res_model || m.high_res_model))
-        .catch(() => [])
-    return <ModelsPageContent charactersPromise={charactersPromise} mapModelsPromise={mapModelsPromise} />
+    return <ModelsPageContent charactersPromise={charactersPromise} />
 }
