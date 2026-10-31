@@ -7,25 +7,32 @@ import {Tooltip, TooltipContent, TooltipTrigger} from "components/ui/tooltip";
 import {cn} from "components/lib/utils";
 
 /** A map card heading followed by the active period chip. */
-export function PeriodHeading({ title, className, titleClassName = "text-lg" }: {
-    title: ReactNode, className?: string, titleClassName?: string,
+export function PeriodHeading({ title, className, titleClassName = "text-lg", chip = true }: {
+    title: ReactNode, className?: string, titleClassName?: string, chip?: boolean,
 }) {
     return (
         <div className={cn("flex items-center gap-2", className)}>
             <h2 className={cn("font-bold text-primary", titleClassName)}>{title}</h2>
-            <PeriodChip />
+            {chip && <PeriodChip />}
         </div>
     );
 }
 
-/** PeriodHeading on the left, an info tooltip on the right. */
-export default function MapCardTitle({ title, tooltip, icon, className = "items-center mb-4", titleClassName }: {
-    title: ReactNode, tooltip: ReactNode, icon?: ReactNode, className?: string, titleClassName?: string,
+/**
+ * PeriodHeading on the left, an info tooltip on the right, with optional `actions` before the tooltip.
+ * `chip={false}` hides the period chip, for cards that scope themselves with their own control.
+ */
+export default function MapCardTitle({ title, tooltip, icon, actions, chip, className = "items-center mb-4", titleClassName }: {
+    title: ReactNode, tooltip: ReactNode, icon?: ReactNode, actions?: ReactNode, chip?: boolean,
+    className?: string, titleClassName?: string,
 }) {
     return (
-        <div className={cn("flex justify-between", className)}>
-            <PeriodHeading title={title} titleClassName={titleClassName} />
-            <InfoTooltip text={tooltip} icon={icon} />
+        <div className={cn("flex justify-between gap-2", className)}>
+            <PeriodHeading title={title} titleClassName={titleClassName} chip={chip} />
+            <div className="flex items-center gap-2">
+                {actions}
+                <InfoTooltip text={tooltip} icon={icon} />
+            </div>
         </div>
     );
 }

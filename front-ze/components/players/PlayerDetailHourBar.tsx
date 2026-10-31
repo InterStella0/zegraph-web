@@ -11,8 +11,9 @@ import {splitPeriod, splitRange, usePeriod} from "components/period/Period";
 import { PlayerStatSuspense } from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
 import { PeriodTitle } from "./common";
 
-export function LabeledSelect({ label, value, onValueChange, options }: {
+export function LabeledSelect({ label, value, onValueChange, options, triggerClassName = "w-[100px]" }: {
     label: string, value: string, onValueChange: (value: string) => void, options: [string, ReactNode][],
+    triggerClassName?: string,
 }) {
     return (
         <div className="flex gap-0 rounded-md border overflow-hidden">
@@ -20,7 +21,7 @@ export function LabeledSelect({ label, value, onValueChange, options }: {
                 {label}
             </div>
             <Select value={value} onValueChange={onValueChange}>
-                <SelectTrigger className="w-[100px] border-0 rounded-none h-9 text-sm font-medium">
+                <SelectTrigger className={`${triggerClassName} border-0 rounded-none h-9 text-sm font-medium`}>
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

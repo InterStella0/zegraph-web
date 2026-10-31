@@ -487,8 +487,6 @@
         "totalPlaytime": "Total Playtime",
         "hrs": "hrs",
         "communitiesServers": "{communities, plural, one {# community} other {# communities}} · {servers, plural, one {# server} other {# servers}}",
-        "globalChip": "Global #{rank}",
-        "globalRankTooltip": "#{rank} of {total} players across every community",
         "bestMapTooltip": "#{rank} of {total} players on {map}, with time summed across servers",
         "communityRankTooltip": "#{rank} of {total} players in {community}",
         "playtimeByCommunity": "Playtime by community",
@@ -778,6 +776,7 @@
       "loadError": "Could not load map player type!"
     },
     "heatRegion": {
+      "pastYear": "Past year",
       "noData": "No regional heatmap data available.",
       "summary": "Heatmap shows map play patterns over {days} days. Most active day: {day} with {dayHours}. Most active region: {region} with {regionHours}.",
       "title": "Region Distribution",

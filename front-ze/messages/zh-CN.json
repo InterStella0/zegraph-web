@@ -485,8 +485,6 @@
         "totalPlaytime": "总游戏时长",
         "hrs": "小时",
         "communitiesServers": "{communities, plural, other {# 个社区}} · {servers, plural, other {# 个服务器}}",
-        "globalChip": "全球 #{rank}",
-        "globalRankTooltip": "所有社区 {total} 名玩家中第 {rank} 名",
         "bestMapTooltip": "{map} 的 {total} 名玩家中第 {rank} 名（合计所有服务器时长）",
         "communityRankTooltip": "{community} 的 {total} 名玩家中第 {rank} 名",
         "playtimeByCommunity": "各社区游戏时长",
@@ -776,6 +774,7 @@
       "loadError": "无法加载地图玩家类型！"
     },
     "heatRegion": {
+      "pastYear": "过去一年",
       "noData": "暂无地区热力图数据。",
       "summary": "热力图显示了 {days} 天内的地图游玩模式。最活跃的一天：{day}，{dayHours}。最活跃地区：{region}，{regionHours}。",
       "title": "地区分布",

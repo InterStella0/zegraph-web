@@ -485,8 +485,6 @@
         "totalPlaytime": "Total Waktu Bermain",
         "hrs": "jam",
         "communitiesServers": "{communities, plural, one {# komunitas} other {# komunitas}} · {servers, plural, one {# server} other {# server}}",
-        "globalChip": "Global #{rank}",
-        "globalRankTooltip": "#{rank} dari {total} pemain di semua komunitas",
         "bestMapTooltip": "#{rank} dari {total} pemain di {map}, dengan waktu dijumlahkan dari semua server",
         "communityRankTooltip": "#{rank} dari {total} pemain di {community}",
         "playtimeByCommunity": "Waktu bermain per komunitas",
@@ -776,6 +774,7 @@
       "loadError": "Tipe pemain peta tidak dapat dimuat!"
     },
     "heatRegion": {
+      "pastYear": "Setahun terakhir",
       "noData": "Tidak ada data peta panas regional.",
       "summary": "Peta panas menunjukkan pola permainan peta selama {days} hari. Hari paling aktif: {day} dengan {dayHours}. Wilayah paling aktif: {region} dengan {regionHours}.",
       "title": "Distribusi Regional",

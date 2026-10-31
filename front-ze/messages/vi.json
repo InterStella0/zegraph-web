@@ -485,8 +485,6 @@
         "totalPlaytime": "Tổng thời gian chơi",
         "hrs": "giờ",
         "communitiesServers": "{communities, plural, other {# cộng đồng}} · {servers, plural, other {# máy chủ}}",
-        "globalChip": "Toàn cầu #{rank}",
-        "globalRankTooltip": "#{rank} trên {total} người chơi ở mọi cộng đồng",
         "bestMapTooltip": "#{rank} trên {total} người chơi trên {map}, cộng dồn thời gian từ mọi máy chủ",
         "communityRankTooltip": "#{rank} trên {total} người chơi trong {community}",
         "playtimeByCommunity": "Thời gian chơi theo cộng đồng",
@@ -776,6 +774,7 @@
       "loadError": "Không thể tải loại người chơi bản đồ!"
     },
     "heatRegion": {
+      "pastYear": "Năm qua",
       "noData": "Không có dữ liệu bản đồ nhiệt khu vực.",
       "summary": "Bản đồ nhiệt cho thấy các mẫu chơi bản đồ trong {days} ngày. Ngày hoạt động nhất: {day} với {dayHours}. Khu vực hoạt động nhất: {region} với {regionHours}.",
       "title": "Phân bố theo khu vực",
