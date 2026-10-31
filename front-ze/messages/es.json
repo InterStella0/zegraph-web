@@ -485,8 +485,6 @@
         "totalPlaytime": "Tiempo total de juego",
         "hrs": "hrs",
         "communitiesServers": "{communities, plural, one {# comunidad} other {# comunidades}} · {servers, plural, one {# servidor} other {# servidores}}",
-        "globalChip": "Global #{rank}",
-        "globalRankTooltip": "#{rank} de {total} jugadores en todas las comunidades",
         "bestMapTooltip": "#{rank} de {total} jugadores en {map}, sumando el tiempo de todos los servidores",
         "communityRankTooltip": "#{rank} de {total} jugadores en {community}",
         "playtimeByCommunity": "Tiempo de juego por comunidad",
@@ -776,6 +774,7 @@
       "loadError": "¡No se pudo cargar el tipo de jugador del mapa!"
     },
     "heatRegion": {
+      "pastYear": "Último año",
       "noData": "No hay datos regionales de mapa de calor disponibles.",
       "summary": "El mapa de calor muestra patrones de juego durante {days} días. Día más activo: {day} con {dayHours}. Región más activa: {region} con {regionHours}.",
       "title": "Distribución por región",

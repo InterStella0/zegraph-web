@@ -485,8 +485,6 @@
         "totalPlaytime": "Jumlah Masa Bermain",
         "hrs": "jam",
         "communitiesServers": "{communities, plural, one {# komuniti} other {# komuniti}} · {servers, plural, one {# pelayan} other {# pelayan}}",
-        "globalChip": "Global #{rank}",
-        "globalRankTooltip": "#{rank} daripada {total} pemain merentasi semua komuniti",
         "bestMapTooltip": "#{rank} daripada {total} pemain di {map}, dengan masa dijumlahkan merentasi pelayan",
         "communityRankTooltip": "#{rank} daripada {total} pemain di {community}",
         "playtimeByCommunity": "Masa bermain mengikut komuniti",
@@ -776,6 +774,7 @@
       "loadError": "Jenis pemain map tidak dapat dimuatkan!"
     },
     "heatRegion": {
+      "pastYear": "Setahun lepas",
       "noData": "Tiada data map haba wilayah tersedia.",
       "summary": "Map haba menunjukkan corak permainan map selama {days} hari. Hari paling aktif: {day} dengan {dayHours}. Wilayah paling aktif: {region} dengan {regionHours}.",
       "title": "Taburan Wilayah",

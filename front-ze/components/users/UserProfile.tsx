@@ -275,17 +275,9 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                         </div>
 
                         <div className="flex flex-wrap justify-center lg:justify-start gap-2">
-                            {rank != null && (
-                                <RankChip index={0} tooltip={t('globalRankTooltip', {
-                                    rank: formatInt(rank),
-                                    total: formatInt(total_ranked_players),
-                                })}>
-                                    {t('globalChip', { rank: formatInt(rank) })}
-                                </RankChip>
-                            )}
                             {bestMap && (
                                 <RankChip
-                                    index={1}
+                                    index={0}
                                     href={`/maps/${bestMap.map}`}
                                     tooltip={t('bestMapTooltip', {
                                         map: bestMap.map,
@@ -299,7 +291,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                             {ranked.map((community, i) => (
                                 <RankChip
                                     key={community.id}
-                                    index={2 + i}
+                                    index={1 + i}
                                     tooltip={t('communityRankTooltip', {
                                         community: community.name,
                                         rank: formatInt(community.detail.rank.rank),

@@ -485,8 +485,6 @@
         "totalPlaytime": "총 플레이 시간",
         "hrs": "시간",
         "communitiesServers": "{communities, plural, other {커뮤니티 #개}} · {servers, plural, other {서버 #개}}",
-        "globalChip": "글로벌 #{rank}",
-        "globalRankTooltip": "모든 커뮤니티 플레이어 {total}명 중 #{rank}",
         "bestMapTooltip": "{map} 플레이어 {total}명 중 #{rank} (모든 서버 합산)",
         "communityRankTooltip": "{community} 플레이어 {total}명 중 #{rank}",
         "playtimeByCommunity": "커뮤니티별 플레이 시간",
@@ -776,6 +774,7 @@
       "loadError": "맵 플레이어 유형을 로드할 수 없습니다!"
     },
     "heatRegion": {
+      "pastYear": "지난 1년",
       "noData": "지역별 히트맵 데이터가 없습니다.",
       "summary": "히트맵은 {days}일 동안의 맵 플레이 패턴을 보여줍니다. 가장 활동적인 날: {day} ({dayHours}). 가장 활동적인 지역: {region} ({regionHours}).",
       "title": "지역 분포",

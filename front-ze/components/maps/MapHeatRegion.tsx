@@ -1,5 +1,5 @@
 'use client'
-import {useMemo} from "react";
+import {ReactNode, useMemo, useState} from "react";
 import dayjs from "lib/dayjs";
 import { AlertTriangle } from "lucide-react";
 import {formatHours, formatNumber, REGION_COLORS} from "utils/generalUtils.ts";
@@ -12,6 +12,8 @@ import {weekdayKey} from "lib/calendarHeatmap";
 import MapCardTitle from "components/maps/MapCardTitle";
 import {withMapSuspense} from "components/maps/withMapSuspense";
 import MapDailyHeatmap, {HeatDay} from "components/maps/MapDailyHeatmap";
+import {LabeledSelect} from "components/players/PlayerDetailHourBar";
+import {usePeriod} from "components/period/Period";
 
 const REGION_ORDER = Object.keys(REGION_COLORS)
 const regionColor = (region: string | undefined) => (REGION_COLORS as Record<string, string>)[region] ?? 'grey'
@@ -19,6 +21,8 @@ const regionAlpha = (hours: number, hasData: boolean): [number, number] =>
     [hasData ? Math.min(1, Math.max(0.15, (.01 + hours) / 3)) : .01 / 3, (1 + hours) / 4]
 const formatMinutes = (seconds: number) => `${(seconds / 60).toFixed(2)}mins`
 const largest = (totals: Map<string, number>) => [...totals.entries()].sort((a, b) => b[1] - a[1])[0]
+// The select's value for the rolling past-year view the endpoint serves when no period is given.
+const PAST_YEAR = 'past'
 
 type MapHeatRegionProps = { initialDataPromise?: Promise<DailyMapRegion[] | null> }
 
@@ -26,16 +30,31 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
     const t = useTranslations('maps.heatRegion');
     const tRegion = useTranslations('maps.regionDistribution');
     const locale = useLocale();
+    const tBar = useTranslations('players.hourBar');
     const dayNames = useWeekdayLabels();
-    const { data, loading, error, notReady } = useMapResource<DailyMapRegion[]>('/heat-regions', initialDataPromise)
+    const { period, periods } = usePeriod()
+    // A page-wide period overrides the card's own year, as on the player heatmap.
+    const [selectedYear, setSelectedYear] = useState<string>(PAST_YEAR)
+    const year = !period && selectedYear !== PAST_YEAR ? selectedYear : null
+    const { data, loading, error, notReady } = useMapResource<DailyMapRegion[]>('/heat-regions', initialDataPromise, {
+        params: year ? { period: year } : undefined,
+        deps: [year],
+    })
+    const yearOptions = useMemo<[string, ReactNode][]>(() => [
+        [PAST_YEAR, t('pastYear')],
+        ...(periods ?? []).map(p => p.year).sort((a, b) => b - a).map(y => [String(y), y] as [string, ReactNode]),
+    ], [periods, t])
 
     const days = useMemo<HeatDay[]>(() => (data ?? []).map(day => ({
         date: day.date,
         series: day.regions.map(e => ({key: e.region_name, label: e.region_name, seconds: e.total_play_duration})),
     })), [data])
+    // A period query returns every day of the period, so a year the map never ran is a full
+    // calendar of days with no regions rather than an empty list.
+    const hasPlay = days.some(day => day.series.length > 0)
 
     const summary = useMemo(() => {
-        if (!data || data.length === 0) {
+        if (!hasPlay) {
             return t('noData');
         }
 
@@ -58,7 +77,7 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
             region: mostActiveRegion[0],
             regionHours: formatHours(mostActiveRegion[1], locale)
         });
-    }, [data, dayNames]);
+    }, [data, hasPlay, dayNames, locale, t]);
 
     return (
         <div className="p-4">
@@ -68,9 +87,14 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
                 title={t('title')}
                 tooltip={error ? (notReady ? t('dataNotReady') : t('somethingWrong')) : t('tooltip')}
                 icon={error ? <AlertTriangle className="h-4 w-4" /> : undefined}
+                chip={!!period}
+                actions={!period && (
+                    <LabeledSelect label={tBar('year')} value={selectedYear} onValueChange={setSelectedYear}
+                        options={yearOptions} triggerClassName="w-auto min-w-[100px]" />
+                )}
             />
 
-            {!loading && days.length > 0 && (
+            {!loading && hasPlay && (
                 <ScreenReaderOnly id="heat-region-summary">
                     {summary}
                 </ScreenReaderOnly>
@@ -82,7 +106,9 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
                 aria-label={t('ariaLabel')}
                 aria-describedby="heat-region-summary"
             >
-                <MapDailyHeatmap
+                {!loading && !error && !hasPlay ? (
+                    <p className="h-[150px] flex items-center text-muted-foreground">{t('noData')}</p>
+                ) : <MapDailyHeatmap
                     days={days}
                     loading={loading}
                     colorOf={regionColor}
@@ -90,7 +116,7 @@ function MapHeatRegionDisplay({ initialDataPromise }: MapHeatRegionProps){
                     cellAlpha={regionAlpha}
                     yTitle={tRegion('hours')}
                     formatValue={formatMinutes}
-                />
+                />}
             </div>
         </div>
     )

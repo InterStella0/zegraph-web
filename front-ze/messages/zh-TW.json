@@ -485,8 +485,6 @@
         "totalPlaytime": "總遊玩時間",
         "hrs": "小時",
         "communitiesServers": "{communities, plural, other {# 個社群}} · {servers, plural, other {# 個伺服器}}",
-        "globalChip": "全域 #{rank}",
-        "globalRankTooltip": "所有社群 {total} 名玩家中第 {rank} 名",
         "bestMapTooltip": "{map} 的 {total} 名玩家中第 {rank} 名（合計所有伺服器時間）",
         "communityRankTooltip": "{community} 的 {total} 名玩家中第 {rank} 名",
         "playtimeByCommunity": "各社群遊玩時間",
@@ -776,6 +774,7 @@
       "loadError": "無法載入地圖玩家類型！"
     },
     "heatRegion": {
+      "pastYear": "過去一年",
       "noData": "暫無地區熱力圖資料。",
       "summary": "熱力圖顯示了 {days} 天內的地圖遊玩模式。最活躍的一天：{day}，{dayHours}。最活躍地區：{region}，{regionHours}。",
       "title": "地區分佈",

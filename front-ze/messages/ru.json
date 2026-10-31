@@ -485,8 +485,6 @@
         "totalPlaytime": "Общее время игры",
         "hrs": "ч",
         "communitiesServers": "{communities, plural, one {# сообщество} few {# сообщества} many {# сообществ} other {# сообщества}} · {servers, plural, one {# сервер} few {# сервера} many {# серверов} other {# сервера}}",
-        "globalChip": "Глобально #{rank}",
-        "globalRankTooltip": "#{rank} из {total} игроков во всех сообществах",
         "bestMapTooltip": "#{rank} из {total} игроков на {map}, время суммировано по всем серверам",
         "communityRankTooltip": "#{rank} из {total} игроков в {community}",
         "playtimeByCommunity": "Время игры по сообществам",
@@ -776,6 +774,7 @@
       "loadError": "Не удалось загрузить тип игрока на карте!"
     },
     "heatRegion": {
+      "pastYear": "Последний год",
       "noData": "Нет данных о региональной тепловой карте.",
       "summary": "Тепловая карта показывает закономерности игры на карте за {days} дней. Самый активный день: {day} с {dayHours}. Самый активный регион: {region} с {regionHours}.",
       "title": "Распределение по регионам",

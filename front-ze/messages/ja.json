@@ -485,8 +485,6 @@
         "totalPlaytime": "総プレイ時間",
         "hrs": "時間",
         "communitiesServers": "{communities, plural, other {#コミュニティ}} · {servers, plural, other {#サーバー}}",
-        "globalChip": "グローバル #{rank}",
-        "globalRankTooltip": "全コミュニティの{total}人中 #{rank}",
         "bestMapTooltip": "{map}の{total}人中 #{rank}（全サーバーの合計時間）",
         "communityRankTooltip": "{community}の{total}人中 #{rank}",
         "playtimeByCommunity": "コミュニティ別プレイ時間",
@@ -776,6 +774,7 @@
       "loadError": "マッププレイヤータイプを読み込めません!"
     },
     "heatRegion": {
+      "pastYear": "過去1年",
       "noData": "地域別ヒートマップデータが利用できません。",
       "summary": "ヒートマップは{days}日間のマッププレイパターンを表示します。最も活動的な日：{day} ({dayHours})。最も活動的な地域：{region} ({regionHours})。",
       "title": "地域分布",
