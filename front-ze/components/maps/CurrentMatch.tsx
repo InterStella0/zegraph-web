@@ -374,7 +374,7 @@ function MatchServerLine({ server }: { server: Server }) {
                 href={`/servers/${server.gotoLink}`}
                 className="font-medium truncate hover:text-primary transition-colors"
             >
-                {server.community_name}
+                {server.community_shorten_name || server.community_name}
             </HoverPrefetchLink>
             <span className="text-muted-foreground truncate">· {server.name}</span>
             {gameMeta && (
