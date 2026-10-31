@@ -6,13 +6,16 @@ import {useChartTheme} from "lib/chartTheme";
 import {LazyLineChart} from 'components/graphs/LazyCharts';
 import {Button} from 'components/ui/button';
 import {Card, CardContent} from 'components/ui/card';
+import {Tabs, TabsList, TabsTrigger} from 'components/ui/tabs';
 import {useServerMap} from 'components/ui/ServerProvider';
 import {PopulationTimeType} from 'types/home';
 import CommunityMultiSelect from './CommunityMultiSelect';
 import {
     fetchCommunityPopulation,
+    ALL_COMMUNITY_ID,
+    initialSelection,
     INITIAL_POPULATION_TIME_TYPE,
-    INITIAL_SELECTED_COMMUNITIES,
+    PopulationMetric,
     PopulationPoint,
     PopulationSeed,
 } from './homeData';
@@ -20,12 +23,15 @@ import {useCommunityColors} from 'lib/hooks/useCommunityColors';
 import {useTranslations} from 'next-intl';
 
 const MAX_SELECTED_COMMUNITIES = 8;
-const ALL_COMMUNITY_ID = 'all';
 
 const INTERVALS: Record<PopulationTimeType, {labelKey: string, minutes: number}> = {
     TenMinutes: {labelKey: 'interval10Min', minutes: 10},
     OneHour: {labelKey: 'interval1Hour', minutes: 60},
     OneDay: {labelKey: 'interval1Day', minutes: 60 * 24},
+};
+const METRICS: Record<PopulationMetric, string> = {
+    unique: 'uniquePlayers',
+    concurrent: 'concurrentPlayers',
 };
 const BUCKET_COUNT = 32;
 const intervalMs = (timeType: PopulationTimeType) => INTERVALS[timeType].minutes * 60_000;
@@ -52,7 +58,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
     useEffect(() => {
         if (didInitSelection.current || communities.length === 0) return;
         didInitSelection.current = true;
-        setSelectedIds(communities.slice(0, INITIAL_SELECTED_COMMUNITIES).map(c => c.id));
+        setSelectedIds(initialSelection(communities));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [communities]);
 
@@ -73,11 +79,13 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
         icon_url: c.icon_url,
     })));
 
+    // The server-rendered seed is the unique series, so the chart opens on that tab.
+    const [metric, setMetric] = useState<PopulationMetric>('unique');
     const [timeType, setTimeType] = useState<PopulationTimeType>(INITIAL_POPULATION_TIME_TYPE);
     const [cursor, setCursor] = useState(() => seed ? dayjs(seed.time) : dayjs());
     const [lines, setLines] = useState<Line[]>(() => seed?.lines.map(l => ({
         ...l,
-        name: communities.find(c => c.id === l.id)?.name ?? l.id,
+        name: l.id === ALL_COMMUNITY_ID ? t('allCommunities') : communities.find(c => c.id === l.id)?.name ?? l.id,
     })) ?? []);
     const [loading, setLoading] = useState(seed === null);
     const panTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,7 +112,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
             setLines(results.filter(Boolean));
         };
         selectedCommunities.forEach((c, i) => {
-            fetchCommunityPopulation(c.id, timeType, time, controller.signal).then(points => {
+            fetchCommunityPopulation(c.id, timeType, time, controller.signal, metric).then(points => {
                 if (controller.signal.aborted) return;
                 results[i] = {id: c.id, name: c.name, points};
                 if (flushTimer) clearTimeout(flushTimer);
@@ -120,7 +128,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
             controller.abort();
             if (flushTimer) clearTimeout(flushTimer);
         };
-    }, [selectedCommunities, timeType, cursor]);
+    }, [selectedCommunities, timeType, cursor, metric]);
 
     const handlePanComplete = useCallback(({chart}: {chart: {scales: {x: {max: number}}}}) => {
         const edge = chart.scales.x.max;
@@ -218,8 +226,16 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
             <CardContent className="p-4 sm:p-6 flex flex-col h-full">
                 <div className="flex flex-row items-start justify-between gap-2 mb-3">
                     <div>
-                        <h2 className="text-base sm:text-lg font-semibold">{t('uniquePlayersByCommunity')}</h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <Tabs value={metric} onValueChange={value => setMetric(value as PopulationMetric)}>
+                            <TabsList>
+                                {Object.entries(METRICS).map(([value, labelKey]) => (
+                                    <TabsTrigger key={value} value={value} className="px-2.5">
+                                        {t(labelKey)}
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
+                        </Tabs>
+                        <p className="text-xs text-muted-foreground mt-1.5">
                             {t('selectedCombined', {count: selectedCommunities.length})}
                         </p>
                     </div>

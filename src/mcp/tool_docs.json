@@ -1,6 +1,15 @@
 {
   "_comment": "Synchronized from OpenAPI by `SQLX_OFFLINE=true cargo run -- generate-mcp-docs`. Existing MCP wording is preserved; use `--force` to regenerate everything.",
   "tools": {
+    "get_community_concurrent_player_graph": {
+      "arguments": {
+        "community_id": "Community ID (the `id` of a community in list_servers), or \"all\" for every community combined.",
+        "time": "RFC 3339 timestamp for the newest bucket to return.",
+        "time_type": "Bucket size: `TenMinutes`, `OneHour`, or `OneDay`."
+      },
+      "description": "Return up to 32 time-series buckets of peak concurrent players (the most players online at once) for one community or all communities combined. Unlike get_community_player_count_graph, which counts distinct players seen in each bucket, this reports the busiest minute. Buckets after the latest recorded minute are omitted.",
+      "title": "Community Concurrent Players"
+    },
     "get_community_player_count_graph": {
       "arguments": {
         "community_id": "Community ID (the `id` of a community in list_servers), or \"all\" for every community combined.",
