@@ -644,6 +644,80 @@ impl ServerApi {
         };
         response!(ok response.result.iter_into())
     }
+    /// Peak concurrent player count over time for a community, or globally.
+    ///
+    /// Reads the per-minute player counts recorded for each server, sums them across the
+    /// community's servers, and reports each bucket's highest minute. Use `community_id = "all"`
+    /// for every community combined. `time_type` picks the bucket width (`TenMinutes`, `OneHour`,
+    /// `OneDay`) and `time` anchors the most recent bucket; up to 31 buckets before it are returned.
+    /// Buckets after the latest recorded minute are left out rather than reported as zero.
+    #[oai(path = "/communities/:community_id/concurrent_players", method="get", operation_id = "get_community_concurrent_player_graph", tag = "ApiTags::Mcp")]
+    async fn get_communities_concurrent_graph(
+        &self, Data(data): Data<&AppData>,
+        CommunityWithAllExtractor(community): CommunityWithAllExtractor,
+        Query(time_type): Query<CommunityGraphTime>,
+        Query(time): Query<DateTime<Utc>>
+    ) -> Response<Vec<ServerCountData>> {
+        let pool = &*data.pool.clone();
+
+        let (interval_str, width_seconds, cache_ttl): (&str, i64, u64) = match time_type {
+            CommunityGraphTime::TenMinutes => ("10 minutes", 600, 3 * 60),
+            CommunityGraphTime::OneHour => ("1 hour", HOUR as i64, 30 * 60),
+            CommunityGraphTime::OneDay => ("1 day", DAY as i64, 2 * HOUR),
+        };
+        let rounded_secs = time.timestamp() / width_seconds * width_seconds;
+        let truncated_time = DateTime::from_timestamp(rounded_secs, 0).unwrap_or(time);
+        let community_id = community.map(|c| c.community_id);
+        let key = format!(
+            "community_concurrent_graph:{}:{}:{}",
+            community_id.as_deref().unwrap_or("all"), time_type, rounded_secs
+        );
+
+        let bound_time = truncated_time.to_db_time();
+        let func = || sqlx::query_as!(
+            DbServerCountData,
+            "WITH buckets AS (
+                SELECT gs AS bucket_time
+                FROM generate_series(
+                    $2::timestamptz - ($3::TEXT::interval * 31),
+                    $2::timestamptz,
+                    $3::TEXT::interval
+                ) AS gs
+            ),
+            per_minute AS (
+                SELECT spc.bucket_time, SUM(spc.player_count)::bigint AS player_count
+                FROM server_player_counts spc
+                WHERE spc.server_id IN (
+                    SELECT s.server_id FROM server s
+                    WHERE $1::TEXT IS NULL OR s.community_id = $1::TEXT::uuid
+                )
+                  AND spc.bucket_time >= $2::timestamptz - ($3::TEXT::interval * 31)
+                  AND spc.bucket_time < $2::timestamptz + $3::TEXT::interval
+                GROUP BY spc.bucket_time
+            ),
+            peaks AS (
+                SELECT
+                    date_bin($3::TEXT::interval, bucket_time, 'epoch'::timestamptz) AS bucket_time,
+                    MAX(player_count) AS player_count
+                FROM per_minute
+                GROUP BY 1
+            )
+            SELECT
+                NULL::VARCHAR(100) AS server_id,
+                b.bucket_time,
+                COALESCE(p.player_count, 0)::bigint AS player_count
+            FROM buckets b
+            LEFT JOIN peaks p ON p.bucket_time = b.bucket_time
+            WHERE b.bucket_time <= (SELECT MAX(bucket_time) FROM per_minute)
+            ORDER BY b.bucket_time DESC",
+            community_id,
+            bound_time,
+            interval_str
+        ).fetch_all(pool);
+
+        let response = or_ise!(cached_response(&key, &data.cache, cache_ttl, func).await);
+        response!(ok response.result.iter_into())
+    }
     /// Raw scraper fetch attempts from the last 24 hours.
     ///
     /// Requires the `superuser` role. Lists each individual fetch (per server, per data source)

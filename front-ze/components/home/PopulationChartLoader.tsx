@@ -14,8 +14,11 @@ function PopulationChartLoading() {
             <CardContent className="p-4 sm:p-6 flex flex-col h-full">
                 <div className="flex flex-row items-start justify-between gap-2 mb-3">
                     <div>
-                        <h2 className="text-base sm:text-lg font-semibold">{t('uniquePlayersByCommunity')}</h2>
-                        <div className="text-xs mt-0.5">
+                        <div className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center rounded-lg p-[3px] text-sm font-medium">
+                            <span className="rounded-md bg-background px-2.5 py-1 text-foreground shadow-sm dark:bg-input/30">{t('uniquePlayers')}</span>
+                            <span className="px-2.5 py-1">{t('concurrentPlayers')}</span>
+                        </div>
+                        <div className="text-xs mt-1.5">
                             <SkeletonText className="h-3 w-28" />
                         </div>
                     </div>
@@ -26,7 +29,7 @@ function PopulationChartLoading() {
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 min-h-4">
-                    {range(5).map(i => <Skeleton key={i} className="h-4 w-[5.5rem]" />)}
+                    {range(6).map(i => <Skeleton key={i} className="h-4 w-[5.5rem]" />)}
                 </div>
                 <Skeleton className="flex-1 min-h-[240px] w-full rounded-md" />
             </CardContent>
