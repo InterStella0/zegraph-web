@@ -166,7 +166,7 @@
       "armedButton": "Gabung di {target} · {count}/{max}",
       "holding": "Target tercapai · {count}/{max}",
       "holdingHint": "Jumlahnya sudah di target, jadi mungkin kamu sedang masuk lewat slot itu. Gabung otomatis akan berjalan saat jumlahnya naik melewati target lalu turun lagi.",
-      "keepOpen": "Biarkan tab ini terbuka. Jendela ini boleh ditutup; tetap dipantau.",
+      "keepOpen": "Tetap aktif selama tab ini terbuka, meski jendela ini ditutup atau halaman dimuat ulang.",
       "cancel": "Batalkan gabung otomatis",
       "testLaunch": "Uji buka Steam",
       "testLaunchHint": "Mencoba gabung sekarang untuk memastikan browser ini bisa membuka Steam.",

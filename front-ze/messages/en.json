@@ -168,7 +168,7 @@
       "armedButton": "Join at {target} · {count}/{max}",
       "holding": "Target met · {count}/{max}",
       "holdingHint": "The count is already at your target, so you may be joining through that slot now. Auto join fires the next time it rises above the target and drops back.",
-      "keepOpen": "Keep this tab open. You can close this window; it keeps watching.",
+      "keepOpen": "Stays armed while this tab is open, even if you close this window or reload the page.",
       "cancel": "Cancel auto join",
       "testLaunch": "Test Steam launch",
       "testLaunchHint": "Tries to join now, to check that this browser opens Steam.",

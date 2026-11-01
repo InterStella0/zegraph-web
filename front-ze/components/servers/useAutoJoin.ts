@@ -77,6 +77,39 @@ function writeConfirmed(confirmed: boolean) {
     }
 }
 
+/** An armed watch survives a reload of its tab (sessionStorage), but no more: a tab reopened long
+ *  after should not launch Steam on its own. Counted from when it was armed. */
+const ARMED_MAX_AGE_MS = 6 * 60 * 60 * 1000
+const armedKey = (serverId: string) => `autoJoin.armed.${serverId}`
+type SavedArm = { target: number | null, at: number }
+
+function readArmed(serverId: string): SavedArm | null {
+    try {
+        const saved = JSON.parse(sessionStorage.getItem(armedKey(serverId)) ?? 'null')
+        if (typeof saved?.at !== 'number' || Date.now() - saved.at > ARMED_MAX_AGE_MS) {
+            sessionStorage.removeItem(armedKey(serverId))
+            return null
+        }
+        return {target: typeof saved.target === 'number' ? saved.target : null, at: saved.at}
+    } catch {
+        return null
+    }
+}
+
+/** Saves the armed target, keeping the original arming time; `undefined` forgets it. */
+function writeArmed(serverId: string, target: number | null | undefined) {
+    try {
+        if (target === undefined) {
+            sessionStorage.removeItem(armedKey(serverId))
+            return
+        }
+        const at = readArmed(serverId)?.at ?? Date.now()
+        sessionStorage.setItem(armedKey(serverId), JSON.stringify({target, at}))
+    } catch {
+        // No storage: arming just does not survive a reload.
+    }
+}
+
 /** Two short rising tones. The context is created inside a click so the browser lets it play
  *  later from a stream event. */
 function playChime(ctx: AudioContext | null) {
@@ -152,7 +185,8 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
         statusRef.current = next
         setStatus(next)
         if (next !== 'armed') setHolding(false)
-    }, [])
+        writeArmed(server.id, next === 'armed' ? targetRef.current : undefined)
+    }, [server.id])
 
     const stopDetecting = useCallback(() => {
         detectCleanupRef.current?.()
@@ -298,8 +332,23 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
     const setTarget = useCallback((next: number | null) => {
         targetRef.current = next
         setTargetState(next)
+        if (statusRef.current === 'armed') writeArmed(server.id, next)
         check()
-    }, [check])
+    }, [check, server.id])
+
+    // Re-arm after a reload. It fires on the first snapshot if the target is already met, like any
+    // arm. Sound needs a click to unlock, so the first click on the page restores the chime.
+    useEffect(() => {
+        const saved = readArmed(server.id)
+        if (!saved) return
+        targetRef.current = saved.target
+        setTargetState(saved.target)
+        holdRef.current = false
+        changeStatus('armed')
+        const unlock = () => prepareAlerts()
+        window.addEventListener('pointerdown', unlock, {once: true})
+        return () => window.removeEventListener('pointerdown', unlock)
+    }, [server.id, changeStatus, prepareAlerts])
 
     /** The user clicked "Didn't launch? Join": the automatic launch was blocked, so run the Steam
      *  check again next time. The click itself goes to the Steam link. */
@@ -307,17 +356,19 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
         writeConfirmed(false)
     }, [])
 
-    // A signed-in user's ticket, fetched once the modal opens, so arming lists them by name without
-    // waiting on a request. Without one (signed out, or the request failed) they wait anonymously.
+    // A signed-in user's ticket, fetched once the modal opens (or when a reload restores an arm), so
+    // arming lists them by name without waiting on a request. Without one (signed out, or the
+    // request failed) they wait anonymously.
     const signedIn = selfName !== null
+    const wantsTicket = watching || status === 'armed'
     useEffect(() => {
-        if (!watching || !signedIn || ticket) return
+        if (!wantsTicket || !signedIn || ticket) return
         let cancelled = false
         sendJson<{ ticket: string }>(`/servers/${server.id}/auto-join-ticket`, 'POST', null)
             .then(result => { if (!cancelled) setTicket(result.ticket) })
             .catch(error => console.warn('No auto join ticket, waiting anonymously:', error))
         return () => { cancelled = true }
-    }, [watching, signedIn, ticket, server.id])
+    }, [wantsTicket, signedIn, ticket, server.id])
 
     const active = watching || status === 'armed'
     const armed = status === 'armed'

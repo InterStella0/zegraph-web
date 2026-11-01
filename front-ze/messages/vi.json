@@ -166,7 +166,7 @@
       "armedButton": "Vào ở {target} · {count}/{max}",
       "holding": "Đã đạt mục tiêu · {count}/{max}",
       "holdingHint": "Số người đã ở mức mục tiêu, nên có thể bạn đang vào qua chỗ đó. Tự động vào sẽ chạy khi số người vượt mục tiêu rồi giảm lại.",
-      "keepOpen": "Hãy giữ tab này mở. Có thể đóng cửa sổ này; nó vẫn tiếp tục theo dõi.",
+      "keepOpen": "Vẫn bật khi tab này còn mở, kể cả khi bạn đóng cửa sổ này hoặc tải lại trang.",
       "cancel": "Hủy tự động vào",
       "testLaunch": "Thử mở Steam",
       "testLaunchHint": "Thử vào ngay để kiểm tra trình duyệt này có mở được Steam không.",

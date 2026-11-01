@@ -166,7 +166,7 @@
       "armedButton": "{target}명에서 접속 · {count}/{max}",
       "holding": "목표 도달 · {count}/{max}",
       "holdingHint": "이미 목표 인원이므로 그 자리로 접속 중일 수 있습니다. 인원이 목표를 넘었다가 다시 줄어들 때 자동 접속합니다.",
-      "keepOpen": "이 탭을 열어 두세요. 이 창은 닫아도 계속 지켜봅니다.",
+      "keepOpen": "이 탭이 열려 있는 동안 계속 켜져 있습니다. 이 창을 닫거나 페이지를 새로고침해도 유지됩니다.",
       "cancel": "자동 접속 취소",
       "testLaunch": "Steam 실행 테스트",
       "testLaunchHint": "지금 접속을 시도해 이 브라우저에서 Steam이 열리는지 확인합니다.",
