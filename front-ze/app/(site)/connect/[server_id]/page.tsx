@@ -1,6 +1,7 @@
 import {getServerSlug} from "app/servers/[server_slug]/util.ts";
 import {notFound} from "next/navigation";
-import Link from "next/link";
+import SteamRedirect from "./SteamRedirect";
+import {steamConnectUrl} from "utils/generalUtils";
 
 export default async function ConnectPage({ params }:  { params: Promise<{ server_id: string }>}){
     const { server_id } = await params
@@ -8,7 +9,7 @@ export default async function ConnectPage({ params }:  { params: Promise<{ serve
     if (!server)
         notFound()
 
-    const connect = `steam://connect/${server.fullIp}`
+    const connect = steamConnectUrl(server.fullIp)
 
     return (
         <div className="flex items-center justify-center h-[calc(100vh-(160px+64px))]">
@@ -16,15 +17,13 @@ export default async function ConnectPage({ params }:  { params: Promise<{ serve
                 <h1 className="text-2xl font-bold">Connecting to {server.name}</h1>
                 <p className="text-muted-foreground">{server.fullIp}</p>
                 <p className="text-sm text-muted-foreground">Launching Steam...</p>
-                <Link
+                <a
                     href={connect}
                     className="inline-block mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                 >
                     Click here if not redirected
-                </Link>
-                <script dangerouslySetInnerHTML={{
-                    __html: `window.location.href = "${connect}";`
-                }} />
+                </a>
+                <SteamRedirect href={connect} />
             </div>
         </div>
     )

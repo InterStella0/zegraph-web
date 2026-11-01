@@ -8,6 +8,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
 
 use crate::core::push_service::PushNotificationService;
+use crate::core::slot_watch::SlotWatchHub;
 use crate::core::storage::{AnnouncementStorage, CharacterStorage, CommunityStorage, StorageBackend};
 use crate::routers::misc::{HealthMonitor, LiveEventHub};
 use crate::{AppData, FastCache};
@@ -74,6 +75,7 @@ pub fn fake_app_data() -> AppData {
         ),
         live_events: Arc::new(LiveEventHub::new()),
         health_monitor: HealthMonitor::unavailable(),
+        slot_watch: Arc::new(SlotWatchHub::new()),
     }
 }
 
