@@ -15,6 +15,11 @@ env:
   # it. The runtime env lives in Dokploy. Set as the ENV_LOCATION repository variable
   # (Settings -> Secrets and variables -> Actions -> Variables).
   ENV_SOURCE: ${{ vars.ENV_LOCATION }}
+  # The self-hosted runner shares this user's docker config, so a `docker buildx use` made for
+  # anything else on the machine would carry over. A docker-container builder cannot resolve
+  # `host-gateway` (which the builds need to reach the database on the host) and does not leave
+  # images in the local daemon, so always build with the daemon's own builder.
+  BUILDX_BUILDER: default
 
 jobs:
   # Skips the deploy only when the merged PR carries the `not deploy` label, which deploy-label.yml

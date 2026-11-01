@@ -22,6 +22,11 @@ env:
   # from production's ENV_LOCATION and must stay that way.
   ENV_SOURCE: ${{ vars.STAGING_ENV_LOCATION }}
   RESET_DB: ${{ inputs.reset_db && '1' || '0' }}
+  # The self-hosted runner shares this user's docker config, so a `docker buildx use` made for
+  # anything else on the machine would carry over. A docker-container builder cannot resolve
+  # `host-gateway` (which the builds need to reach the database on the host) and does not leave
+  # images in the local daemon, so always build with the daemon's own builder.
+  BUILDX_BUILDER: default
 
 jobs:
   # The gate. Also the thing that brings the staging database up to this branch's db.sql, because
