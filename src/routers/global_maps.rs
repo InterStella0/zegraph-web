@@ -5,7 +5,7 @@ use poem::web::Data;
 use poem_openapi::OpenApi;
 use poem_openapi::param::Query;
 use sqlx::{Pool, Postgres};
-use crate::{or_ise, response, AppData, FastCache};
+use crate::{or_ise, require, response, AppData, FastCache};
 use crate::api_models::common::*;
 use crate::api_models::maps::*;
 use crate::api_models::players::*;
@@ -298,7 +298,8 @@ impl GlobalMapApi {
     /// filters to matching players; pages are 10 players each. Bots are left out. A player who
     /// anonymized themselves in any community is shown as anonymous, and left out of a name
     /// search, unless the request carries their own or a superuser's bearer token. Unfiltered
-    /// pages are cached for 10 minutes.
+    /// pages are cached for 10 minutes. Without login only the first page (the top 10) can be read,
+    /// and `player_name` is refused.
     #[oai(path = "/maps/:map_name/top_players", method = "get", operation_id = "get_global_map_top_players", tag = "ApiTags::Mcp")]
     async fn get_global_map_players(
         &self, Data(app): Data<&AppData>, extract: GlobalMapExtractor,
@@ -312,6 +313,10 @@ impl GlobalMapApi {
         let player_name = player_name
             .map(|n| n.trim().to_string())
             .filter(|n| n.len() >= 2);
+        require!(
+            user_token.is_some() || (offset < ANONYMOUS_TOP_PLAYERS && player_name.is_none()),
+            "Log in to see players beyond the top 10 or search by name.", ErrorCode::Forbidden
+        );
         let name_pattern = player_name.as_ref()
             .map(|n| format!("%{}%", n.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")));
 

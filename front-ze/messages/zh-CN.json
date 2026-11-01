@@ -438,7 +438,8 @@
       "filterByDate": "按日期筛选",
       "clear": "清除",
       "noSessions": "未找到符合条件的场次。",
-      "unknownServer": "未知服务器"
+      "unknownServer": "未知服务器",
+      "moreLocked": "登录以查看更早的会话"
     },
     "byCountries": {
       "title": "按国家划分的玩家",
@@ -759,7 +760,8 @@
       "loadError": "玩家无法加载。",
       "searchPlaceholder": "搜索玩家...（按 Enter 搜索）",
       "noResultsFor": "未找到 \"{query}\" 的结果。",
-      "noSuggestions": "没有匹配的玩家"
+      "noSuggestions": "没有匹配的玩家",
+      "moreLocked": "登录以查看前 10 名之外的玩家"
     },
     "sessionDistribution": {
       "somethingWrong": "出错了",

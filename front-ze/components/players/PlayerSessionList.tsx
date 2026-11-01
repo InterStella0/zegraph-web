@@ -1,5 +1,8 @@
 'use client'
 import {useTranslations} from 'next-intl';
+import {useSignedIn} from "components/auth/SignedIn";
+import LoginLocked, {isLoginRequired} from "components/ui/LoginLocked";
+import {ANONYMOUS_SESSION_PAGES} from "lib/loginLimits";
 import {ReactElement, ReactNode, useState} from "react";
 import {fetchApiServerUrl, range} from "utils/generalUtils";
 import { Card, CardContent } from "components/ui/card";
@@ -97,15 +100,18 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: Serv
     const firstDay = bounds ? dayjs(dayjs.utc(bounds.start).format('YYYY-MM-DD')).toDate() : undefined;
     const lastDay = bounds ? dayjs(dayjs.utc(bounds.end).subtract(1, 'day').format('YYYY-MM-DD')).toDate() : undefined;
 
-    const { data, loading } = useResource<PlayerSessionPage>(signal => {
-        if (!playerId || idle) return null;
+    // Logged-out visitors get the newest 90 sessions; later pages ask them to log in.
+    const pageLocked = !useSignedIn() && page >= ANONYMOUS_SESSION_PAGES;
+    const { data, loading, error } = useResource<PlayerSessionPage>(signal => {
+        if (!playerId || idle || pageLocked) return null;
         const params = {
             page,
             ...(selectedDate && { datetime: dayjs(selectedDate).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') }),
             ...(period && { period }),
         };
         return fetchApiServerUrl(server.id, `/players/${playerId}/sessions`, { params, signal });
-    }, [server.id, playerId, page, selectedDate, period], { initial: seed ?? undefined, keepData: true, errorLog: 'Failed to fetch sessions:' });
+    }, [server.id, playerId, page, selectedDate, period, pageLocked], { initial: seed ?? undefined, keepData: true, errorLog: 'Failed to fetch sessions:' });
+    const locked = pageLocked || isLoginRequired(error);
     const sessionList = data?.rows ?? [];
     const totalPages = data?.total_pages ?? 1;
 
@@ -124,14 +130,14 @@ export default function PlayerSessionList({ serverPlayerPromise, heading }: Serv
             </div>
 
             <div className="h-[525px] overflow-y-auto mb-3 pr-2">
-                <div className="space-y-2">
+                {locked ? <LoginLocked bare title={t('moreLocked')} className="h-full" /> : <div className="space-y-2">
                     {loading
                         ? range(10).map(index => <SessionSkeleton key={index} index={index} />)
                         : sessionList.map(session => (
                             <SessionRow key={session.id} session={session} playerId={playerId} server={server} />
                         ))}
-                </div>
-                {sessionList.length === 0 && !loading && (
+                </div>}
+                {!locked && sessionList.length === 0 && !loading && (
                     <div className="text-center py-8">
                         <p className="text-muted-foreground">
                             {t('noSessions')}

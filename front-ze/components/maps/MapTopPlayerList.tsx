@@ -1,5 +1,8 @@
 'use client'
 import {ReactElement, useDeferredValue, useEffect, useRef, useState} from "react";
+import {useSignedIn} from "components/auth/SignedIn";
+import LoginLocked, {isLoginRequired} from "components/ui/LoginLocked";
+import {ANONYMOUS_TOP_PLAYER_PAGES} from "lib/loginLimits";
 import { AlertTriangle } from "lucide-react";
 import { Card } from "../ui/card";
 import {SuggestSearch, useSuggestSearch} from "components/ui/SuggestSearch";
@@ -43,13 +46,19 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
         onCommit: () => setPage(0),
     })
     const searchTerm = search.term
+    // Logged-out visitors see the top 10 only; later pages and name searches ask them to log in.
+    const signedIn = useSignedIn()
+    const requestLocked = !signedIn && (pageDef >= ANONYMOUS_TOP_PLAYER_PAGES || !!searchTerm)
     const { data: playersInfoResult, setData, loading, error: fetchError } = useMapResource<BriefPlayers>('/top_players', initialDataPromise, {
         params: { page: pageDef, ...(searchTerm && { player_name: searchTerm }) },
         deps: [pageDef, searchTerm],
         keepData: true,
         keepError: true,
+        authed: signedIn,
+        skip: requestLocked,
     })
-    const error = fetchError && (fetchError.message || t('somethingWrongFace'))
+    const locked = requestLocked || isLoginRequired(fetchError)
+    const error = !locked && fetchError && (fetchError.message || t('somethingWrongFace'))
 
     const mounted = useRef(false)
     useEffect(() => {
@@ -64,7 +73,7 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
 
     const playersInfo = (playersInfoResult?.players ?? []) as ExtendedPlayerBrief[]
     const totalPages = Math.ceil((playersInfoResult?.total_players ?? 0) / PAGE_SIZE)
-    const absoluteLoad = pageDef === currentPage && !loading && playersInfoResult != null
+    const absoluteLoad = pageDef === currentPage && !loading && playersInfoResult != null && !locked
     return (
         <Card className="w-full">
             <MapCardTitle className="px-4 pt-4 pb-1" title={t('title')} tooltip={t('tooltip')} />
@@ -88,7 +97,7 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
                         />}
                     />
                 </div>
-                <Table>
+                {locked ? <LoginLocked bare title={t('moreLocked')} className="min-h-[560px]" /> : <Table>
                     <TableBody>
                         {!absoluteLoad && range(PAGE_SIZE).map(index => <PlayerTableRowLoading key={index} showRank/>)}
                         {absoluteLoad && playersInfo.length === 0 && <TableRow>
@@ -99,7 +108,7 @@ function MapTopPlayerListDisplay({ initialDataPromise }: MapTopPlayerListProps):
                         }
                         {absoluteLoad && playersInfo.map(player => <PlayerTableRow player={player} key={player.id} showRank href={playerHref(player.id)}/>)}
                     </TableBody>
-                </Table>
+                </Table>}
                 <div className="flex items-center justify-center pt-4">
                     <PaginationPage totalPages={totalPages} page={currentPage} setPage={setPage} compact />
                 </div>

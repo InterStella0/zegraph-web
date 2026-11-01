@@ -438,7 +438,8 @@
       "filterByDate": "Filtrar por fecha",
       "clear": "Limpiar",
       "noSessions": "No se encontraron sesiones con los criterios seleccionados.",
-      "unknownServer": "Servidor desconocido"
+      "unknownServer": "Servidor desconocido",
+      "moreLocked": "Inicia sesión para ver sesiones anteriores"
     },
     "byCountries": {
       "title": "Jugadores por países",
@@ -759,7 +760,8 @@
       "loadError": "No se pudieron cargar los jugadores.",
       "searchPlaceholder": "Buscar jugadores... (Pulsa Enter para buscar)",
       "noResultsFor": "No se encontraron resultados para \"{query}\".",
-      "noSuggestions": "No hay jugadores coincidentes"
+      "noSuggestions": "No hay jugadores coincidentes",
+      "moreLocked": "Inicia sesión para ver más allá del top 10"
     },
     "sessionDistribution": {
       "somethingWrong": "Algo salió mal",

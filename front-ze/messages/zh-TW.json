@@ -438,7 +438,8 @@
       "filterByDate": "依日期篩選",
       "clear": "清除",
       "noSessions": "找不到符合條件的場次。",
-      "unknownServer": "未知伺服器"
+      "unknownServer": "未知伺服器",
+      "moreLocked": "登入以查看更早的工作階段"
     },
     "byCountries": {
       "title": "依國家劃分的玩家",
@@ -759,7 +760,8 @@
       "loadError": "玩家無法載入。",
       "searchPlaceholder": "搜尋玩家...（按 Enter 搜尋）",
       "noResultsFor": "找不到「{query}」的結果。",
-      "noSuggestions": "沒有相符的玩家"
+      "noSuggestions": "沒有相符的玩家",
+      "moreLocked": "登入以查看前 10 名之外的玩家"
     },
     "sessionDistribution": {
       "somethingWrong": "發生錯誤",

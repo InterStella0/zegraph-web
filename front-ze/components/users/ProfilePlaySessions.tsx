@@ -1,5 +1,8 @@
 'use client'
 import { useLocale, useTranslations } from 'next-intl';
+import {useSignedIn} from "components/auth/SignedIn";
+import LoginLocked, {isLoginRequired} from "components/ui/LoginLocked";
+import {ANONYMOUS_SESSION_PAGES} from "lib/loginLimits";
 import { useState } from "react";
 import Link from "next/link";
 import dayjs from "lib/dayjs";
@@ -98,10 +101,13 @@ export default function ProfilePlaySessions({ userId, initialDataPromise }: {
     const [page, setPage] = useState(0);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
-    const { data, loading } = useResource<GlobalPlayerSessionPage>(signal => fetchApiUrl(`/players/${userId}/sessions`, {
+    // Logged-out visitors get the newest 90 sessions; later pages ask them to log in.
+    const pageLocked = !useSignedIn() && page >= ANONYMOUS_SESSION_PAGES;
+    const { data, loading, error } = useResource<GlobalPlayerSessionPage>(signal => pageLocked ? null : fetchApiUrl(`/players/${userId}/sessions`, {
         params: { page, ...(selectedDate && { datetime: dayjs(selectedDate).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') }) },
         signal,
-    }), [userId, page, selectedDate], { seed: initialDataPromise, keepData: true, errorLog: 'Failed to fetch global sessions:' });
+    }), [userId, page, selectedDate, pageLocked], { seed: initialDataPromise, keepData: true, errorLog: 'Failed to fetch global sessions:' });
+    const locked = pageLocked || isLoginRequired(error);
     const sessionList = data?.rows ?? [];
     const totalPages = data?.total_pages ?? 1;
 
@@ -122,7 +128,9 @@ export default function ProfilePlaySessions({ userId, initialDataPromise }: {
             {/* One surface for the whole list, outside it: the list clips what spreads past it. */}
             <div className={`flex flex-1 flex-col ${SURFACE}`}>
                 <div className={LIST}>
-                    {loading ? (
+                    {locked ? (
+                        <LoginLocked bare title={t('moreLocked')} className="h-full" />
+                    ) : loading ? (
                         <SessionSkeletons />
                     ) : sessionList.length > 0 ? (
                         sessionList.map((session, index) => (

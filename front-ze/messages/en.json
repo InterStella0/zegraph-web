@@ -440,7 +440,8 @@
       "filterByDate": "Filter by date",
       "clear": "Clear",
       "noSessions": "No sessions found for the selected criteria.",
-      "unknownServer": "Unknown server"
+      "unknownServer": "Unknown server",
+      "moreLocked": "Log in to see older sessions"
     },
     "byCountries": {
       "title": "Players by countries",
@@ -761,7 +762,8 @@
       "loadError": "Couldn't load players.",
       "searchPlaceholder": "Search players... (Press Enter to search)",
       "noResultsFor": "No results found for \"{query}\".",
-      "noSuggestions": "No matching players"
+      "noSuggestions": "No matching players",
+      "moreLocked": "Log in to see more than the top 10"
     },
     "sessionDistribution": {
       "somethingWrong": "Something went wrong",

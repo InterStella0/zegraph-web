@@ -39,6 +39,10 @@ export function useMapScope(): MapScope {
 type MapResourceOptions<T> = Omit<NonNullable<Parameters<typeof useResource<T>>[2]>, 'seed'> & {
     params?: Record<string, unknown>,
     deps?: DependencyList,
+    /** Send the viewer's login (through the /api proxy) for endpoints that answer more when logged in. */
+    authed?: boolean,
+    /** Don't fetch, e.g. while the request would be refused without a login. */
+    skip?: boolean,
 }
 
 /**
@@ -46,11 +50,11 @@ type MapResourceOptions<T> = Omit<NonNullable<Parameters<typeof useResource<T>>[
  * `seed` is the server-streamed first page; StillCalculate responses are retried.
  */
 export function useMapResource<T>(endpoint: string, seed?: Promise<T | null> | null, options: MapResourceOptions<T> = {}) {
-    const { params, deps = [], ...resourceOptions } = options
+    const { params, deps = [], authed = false, skip = false, ...resourceOptions } = options
     const { name } = useMapContext<unknown>()
     const { period } = usePeriod()
     const { server, fetchMap } = useMapScope()
-    return useResource<T>(signal => name
-        ? fetchMap(endpoint, { params: period ? { ...params, period } : params, signal })
-        : null, [server?.id, name, period, ...deps], { seed, retryNotReady: true, ...resourceOptions })
+    return useResource<T>(signal => name && !skip
+        ? fetchMap(endpoint, { params: period ? { ...params, period } : params, signal, ...(authed && { backend: true }) })
+        : null, [server?.id, name, period, skip, ...deps], { seed, retryNotReady: true, ...resourceOptions })
 }

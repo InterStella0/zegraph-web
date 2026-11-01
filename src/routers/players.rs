@@ -744,16 +744,20 @@ impl PlayerApi{
     /// `datetime` selects which day to list. Without it, `period` (`YYYY`, `YYYY-MM` or an
     /// inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) lists the sessions that started in that year,
     /// month or range; with neither, everything from 2024-02-01 to now. `page` paginates in pages
-    /// of 10.
+    /// of 10. Without login only the first 90 rows (pages 0-8) of any listing can be read.
     #[oai(path = "/servers/:server_id/players/:player_id/sessions", method = "get", operation_id = "get_player_sessions", tag = "ApiTags::Mcp")]
     async fn get_list_sessions(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
         extract: PlayerExtractor, Query(page): Query<usize>,
         Query(datetime): Query<Option<DateTime<Utc>>>,
-        OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
+        OptionalAnonymousTokenBearer(user_token): OptionalAnonymousTokenBearer,
     ) -> Response<PlayerSessionPage>{
         let pagination = 10;
         let offset = pagination * page as i64;
+        require!(
+            user_token.is_some() || offset < ANONYMOUS_SESSION_ROWS,
+            "Log in to see sessions beyond the newest 90.", ErrorCode::Forbidden
+        );
         let (start, end) = match (datetime, flatten_period(period)){
             (Some(date), _) => {
                 let end_date = date.clone();
