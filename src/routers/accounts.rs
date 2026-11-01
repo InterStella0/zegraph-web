@@ -1379,8 +1379,9 @@ impl AccountsApi {
     ///
     /// `player_id` may be `"me"` (requires auth) or a numeric Steam ID. `datetime` narrows the list
     /// to the single UTC day it falls in; omitted, every session is listed. `page` is zero-based and
-    /// pages are 10 rows. Communities where the target anonymized themselves are omitted for
-    /// viewers without permission, matching `/players/{player_id}/profile`.
+    /// pages are 10 rows; without login only the first 90 rows (pages 0-8) can be read. Communities
+    /// where the target anonymized themselves are omitted for viewers without permission, matching
+    /// `/players/{player_id}/profile`.
     #[oai(path="/players/:player_id/sessions", method="get", tag = "ApiTags::Players")]
     async fn get_user_global_sessions(
         &self,
@@ -1391,6 +1392,10 @@ impl AccountsApi {
         Query(datetime): Query<Option<DateTime<Utc>>>,
     ) -> Response<GlobalPlayerSessionPage> {
         const PAGE_SIZE: i64 = 10;
+        require!(
+            requester.is_some() || PAGE_SIZE * (page.unwrap_or(0) as i64) < ANONYMOUS_SESSION_ROWS,
+            "Log in to see sessions beyond the newest 90.", ErrorCode::Forbidden
+        );
 
         let pool = &*app.pool;
         let scope = match resolve_profile_scope(app, &player_id, &requester).await {

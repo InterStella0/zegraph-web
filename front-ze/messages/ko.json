@@ -438,7 +438,8 @@
       "filterByDate": "날짜별 필터",
       "clear": "지우기",
       "noSessions": "선택한 기준에 일치하는 세션이 없습니다.",
-      "unknownServer": "알 수 없는 서버"
+      "unknownServer": "알 수 없는 서버",
+      "moreLocked": "로그인하면 이전 세션을 볼 수 있습니다"
     },
     "byCountries": {
       "title": "국가별 플레이어",
@@ -759,7 +760,8 @@
       "loadError": "플레이어를 로드할 수 없습니다.",
       "searchPlaceholder": "플레이어 검색... (Enter를 눌러 검색)",
       "noResultsFor": "\"{query}\"에 대한 결과를 찾을 수 없습니다.",
-      "noSuggestions": "일치하는 플레이어가 없습니다"
+      "noSuggestions": "일치하는 플레이어가 없습니다",
+      "moreLocked": "로그인하면 상위 10명 이후도 볼 수 있습니다"
     },
     "sessionDistribution": {
       "somethingWrong": "문제가 발생했습니다",

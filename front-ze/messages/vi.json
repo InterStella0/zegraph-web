@@ -438,7 +438,8 @@
       "filterByDate": "Lọc theo ngày",
       "clear": "Xóa",
       "noSessions": "Không tìm thấy phiên nào cho các tiêu chí đã chọn.",
-      "unknownServer": "Máy chủ không xác định"
+      "unknownServer": "Máy chủ không xác định",
+      "moreLocked": "Đăng nhập để xem các phiên cũ hơn"
     },
     "byCountries": {
       "title": "Người chơi theo quốc gia",
@@ -759,7 +760,8 @@
       "loadError": "Không thể tải người chơi.",
       "searchPlaceholder": "Tìm kiếm người chơi... (Nhấn Enter để tìm kiếm)",
       "noResultsFor": "Không tìm thấy kết quả cho \"{query}\".",
-      "noSuggestions": "Không có người chơi trùng khớp"
+      "noSuggestions": "Không có người chơi trùng khớp",
+      "moreLocked": "Đăng nhập để xem ngoài top 10"
     },
     "sessionDistribution": {
       "somethingWrong": "Có gì đó không đúng",

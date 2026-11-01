@@ -65,8 +65,8 @@
     "get_global_map_top_players": {
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use list_maps_global (with search_map) to resolve partial names.",
-        "page": "Zero-based page number; each page contains up to 10 players.",
-        "player_name": "Optional case-insensitive player-name search containing at least 2 characters."
+        "page": "Zero-based page number; each page contains up to 10 players. Without a login only page 0 (the top 10) can be read.",
+        "player_name": "Optional case-insensitive player-name search containing at least 2 characters. Requires a login."
       },
       "description": "List players ranked by their total playtime on a map summed across every server, with alt accounts merged into the main account. Optionally search by player name; results contain up to 10 players per page. Player names respect each player's privacy setting.",
       "title": "Top Players for a Map Across All Servers"
@@ -162,9 +162,9 @@
     "get_map_top_players": {
       "arguments": {
         "map_name": "Exact map name, e.g. ze_example_v1. Use search_maps to resolve partial names.",
-        "page": "Zero-based page number; each page contains up to 10 players.",
+        "page": "Zero-based page number; each page contains up to 10 players. Without a login only page 0 (the top 10) can be read.",
         "period": "Optional UTC period: `YYYY` for a whole year, `YYYY-MM` for one month or `YYYY-MM-DD..YYYY-MM-DD` for an inclusive range of days, e.g. 2025, 2025-06 or 2025-06-01..2025-06-15. Omit it (or pass `all`) for all-time. Only map sessions that started in the period count. A period is calculated on request, so the first call may report that it is still calculating; retry shortly. Use get_map_periods for the periods that have data.",
-        "player_name": "Optional case-insensitive player-name search containing at least 2 characters. With a period, it only filters the period's list once it has been calculated and never triggers a calculation.",
+        "player_name": "Optional case-insensitive player-name search containing at least 2 characters. With a period, it only filters the period's list once it has been calculated and never triggers a calculation. Requires a login.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."
       },
       "description": "List players ranked by their total playtime on a map. Optionally search by player name; results contain up to 10 players per page. With a period, it is instead the top 100 by time in the map sessions that started in that year, month or range, calculated on request.",
@@ -242,7 +242,7 @@
     "get_player_sessions": {
       "arguments": {
         "datetime": "Optional RFC 3339 timestamp marking the start of the 24-hour window to list; omit it to search all records since 2024-02-01.",
-        "page": "Zero-based page number; each page contains up to 10 sessions.",
+        "page": "Zero-based page number; each page contains up to 10 sessions. Without a login only pages 0-8 (the newest 90 sessions of the listing) can be read.",
         "period": "Optional UTC period, `YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, listing the sessions that started in it. Ignored when `datetime` is given; omit both (or pass `all`) to search all records since 2024-02-01.",
         "player_id": "Player ID (usually a Steam64 ID), as returned by the player search tools.",
         "server_id": "Server ID or the server's readable_link, as returned by list_servers."

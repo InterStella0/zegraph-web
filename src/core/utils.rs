@@ -381,6 +381,13 @@ impl<'a> FromRequest<'a> for OptionalAnonymousTokenBearer {
     }
 }
 
+/// How many of a player's sessions (newest first) a logged-out visitor can page through; anything
+/// past it needs a login. Deters scraping full session histories.
+pub const ANONYMOUS_SESSION_ROWS: i64 = 90;
+/// How many of a map's top players a logged-out visitor can see; later pages and name searches need
+/// a login. Deters scraping full rankings.
+pub const ANONYMOUS_TOP_PLAYERS: i64 = 10;
+
 /// [`OptionalAnonymousTokenBearer`] for login-only player routes. A missing header is 401 and a
 /// token that does not parse is 403, both decided before any database lookup; only then does the
 /// usual anonymization rule (owner or admin) apply.

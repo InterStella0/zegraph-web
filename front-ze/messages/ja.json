@@ -438,7 +438,8 @@
       "filterByDate": "日付でフィルター",
       "clear": "クリア",
       "noSessions": "選択した条件に一致するセッションがありません。",
-      "unknownServer": "不明なサーバー"
+      "unknownServer": "不明なサーバー",
+      "moreLocked": "ログインすると過去のセッションを表示できます"
     },
     "byCountries": {
       "title": "国別プレイヤー",
@@ -759,7 +760,8 @@
       "loadError": "プレイヤーを読み込めません。",
       "searchPlaceholder": "プレイヤーを検索...(Enterキーで検索)",
       "noResultsFor": "\"{query}\"の結果が見つかりません。",
-      "noSuggestions": "一致するプレイヤーがいません"
+      "noSuggestions": "一致するプレイヤーがいません",
+      "moreLocked": "ログインすると上位10人以外も表示できます"
     },
     "sessionDistribution": {
       "somethingWrong": "何か問題が発生しました",

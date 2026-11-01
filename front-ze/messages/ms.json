@@ -438,7 +438,8 @@
       "filterByDate": "Tapis mengikut tarikh",
       "clear": "Kosongkan",
       "noSessions": "Tiada sesi dijumpai untuk kriteria yang dipilih.",
-      "unknownServer": "Pelayan tidak diketahui"
+      "unknownServer": "Pelayan tidak diketahui",
+      "moreLocked": "Log masuk untuk melihat sesi lebih lama"
     },
     "byCountries": {
       "title": "Pemain mengikut negara",
@@ -759,7 +760,8 @@
       "loadError": "Pemain tidak dapat dimuatkan.",
       "searchPlaceholder": "Cari pemain... (Tekan Enter untuk cari)",
       "noResultsFor": "Tiada hasil untuk \"{query}\".",
-      "noSuggestions": "Tiada pemain yang sepadan"
+      "noSuggestions": "Tiada pemain yang sepadan",
+      "moreLocked": "Log masuk untuk melihat lebih daripada 10 teratas"
     },
     "sessionDistribution": {
       "somethingWrong": "Sesuatu telah berlaku",

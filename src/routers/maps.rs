@@ -1334,6 +1334,8 @@ impl MapApi{
     /// range, calculated on request and only cached, so its first request may report that it is
     /// still calculating. In a period, `player_name` only filters whatever is already cached and
     /// never starts the calculation.
+    ///
+    /// Without login only the first page (the top 10) can be read, and `player_name` is refused.
     #[oai(path = "/servers/:server_id/maps/:map_name/top_players", method = "get", operation_id = "get_map_top_players", tag = "ApiTags::Mcp")]
     async fn get_map_players(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: MapExtractor,
@@ -1349,6 +1351,10 @@ impl MapApi{
         let player_name = player_name
             .map(|n| n.trim().to_string())
             .filter(|n| n.len() >= 2);
+        require!(
+            user_token.is_some() || (offset < ANONYMOUS_TOP_PLAYERS && player_name.is_none()),
+            "Log in to see players beyond the top 10 or search by name.", ErrorCode::Forbidden
+        );
 
         if let Some(period) = flatten_period(period) {
             let context = MapContext::from(extract);

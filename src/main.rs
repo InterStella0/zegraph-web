@@ -704,6 +704,22 @@ mod route_tests {
         ("GET", "/players/76561198000000001/online-activity"),
     ];
 
+    /// Logged-out visitors can page through a player's newest 90 sessions only. The global listing
+    /// decides this before its database lookup, so the dead pool shows where the cut-off falls.
+    #[tokio::test]
+    async fn anonymous_session_history_stops_at_90_rows() {
+        let cli = client();
+        let body = |page: usize| {
+            let cli = &cli;
+            async move {
+                let resp = cli.get(format!("/players/76561198000000001/sessions?page={page}")).send().await;
+                resp.0.into_body().into_string().await.unwrap()
+            }
+        };
+        assert!(body(9).await.contains("\"code\":403"), "page 9 (rows 90-99) needs a login");
+        assert!(!body(8).await.contains("\"code\":403"), "page 8 (rows 80-89) is public");
+    }
+
     #[tokio::test]
     async fn valid_token_passes_the_auth_layer() {
         let cli = client();

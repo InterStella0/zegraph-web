@@ -438,7 +438,8 @@
       "filterByDate": "Фильтр по дате",
       "clear": "Очистить",
       "noSessions": "Не найдены сессии по выбранным критериям.",
-      "unknownServer": "Неизвестный сервер"
+      "unknownServer": "Неизвестный сервер",
+      "moreLocked": "Войдите, чтобы увидеть более старые сессии"
     },
     "byCountries": {
       "title": "Игроки по странам",
@@ -759,7 +760,8 @@
       "loadError": "Не удалось загрузить игроков.",
       "searchPlaceholder": "Поиск игроков... (Нажмите Enter для поиска)",
       "noResultsFor": "Результатов не найдено для \"{query}\".",
-      "noSuggestions": "Совпадающих игроков нет"
+      "noSuggestions": "Совпадающих игроков нет",
+      "moreLocked": "Войдите, чтобы увидеть больше топ-10"
     },
     "sessionDistribution": {
       "somethingWrong": "Что-то пошло не так",
