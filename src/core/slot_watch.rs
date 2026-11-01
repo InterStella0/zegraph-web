@@ -15,7 +15,7 @@ use poem_openapi::{Enum, Object};
 use rand::{rng, RngExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
-use tokio::sync::Semaphore;
+use tokio::sync::{Notify, Semaphore};
 use crate::core::a2s::{self, A2sError, A2sInfo, A2sPlayer};
 
 const EVENT_BUFFER: usize = 64;
@@ -199,8 +199,8 @@ struct WaiterEntry {
     streams: usize,
 }
 
-/// A tab id from the client: short and plain, so it can only ever key its own entry.
-fn valid_tab(tab: &str) -> bool {
+/// A tab or connection id from the client: short and plain, so it can only ever key its own entry.
+pub(crate) fn valid_client_id(tab: &str) -> bool {
     (8..=64).contains(&tab.len()) && tab.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
@@ -361,7 +361,7 @@ impl ServerWatch {
     /// share one entry, so a tab reconnecting is never counted twice or dropped in between.
     pub(crate) fn add_waiter(self: &Arc<Self>, tab: Option<&str>, waiter: Waiter) -> WaiterGuard {
         let mut state = self.state.lock().expect("slot watch state poisoned");
-        let key = match tab.filter(|tab| valid_tab(tab)) {
+        let key = match tab.filter(|tab| valid_client_id(tab)) {
             Some(tab) => format!("tab:{tab}"),
             None => {
                 state.next_waiter += 1;
@@ -478,6 +478,25 @@ pub(crate) struct SlotWatchHub {
     watches: Mutex<HashMap<String, Arc<ServerWatch>>>,
     pub(crate) clients: Arc<Semaphore>,
     prober: Arc<dyn Prober>,
+    /// Open streams that named a connection id, so the page can end one by asking (see `close`).
+    open_streams: Mutex<HashMap<String, Arc<Notify>>>,
+}
+
+/// Unlists a stream from `SlotWatchHub::open_streams` when it ends.
+pub(crate) struct OpenStream {
+    hub: Arc<SlotWatchHub>,
+    key: String,
+    pub(crate) closed: Arc<Notify>,
+}
+
+impl Drop for OpenStream {
+    fn drop(&mut self) {
+        let Ok(mut streams) = self.hub.open_streams.lock() else { return };
+        // A later stream may have reused the id; only remove our own entry.
+        if streams.get(&self.key).is_some_and(|notify| Arc::ptr_eq(notify, &self.closed)) {
+            streams.remove(&self.key);
+        }
+    }
 }
 
 impl SlotWatchHub {
@@ -490,6 +509,33 @@ impl SlotWatchHub {
             watches: Mutex::new(HashMap::new()),
             clients: Arc::new(Semaphore::new(MAX_SLOT_CLIENTS)),
             prober,
+            open_streams: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Lists a stream under the client's connection id until the returned handle drops. Its
+    /// `closed` fires when the page asks to end it.
+    pub(crate) fn open_stream(self: &Arc<Self>, server_id: &str, conn: &str) -> OpenStream {
+        let key = format!("{server_id}:{conn}");
+        let closed = Arc::new(Notify::new());
+        self.open_streams.lock().expect("open stream map poisoned").insert(key.clone(), closed.clone());
+        OpenStream { hub: self.clone(), key, closed }
+    }
+
+    /// Ends the stream the page opened under `conn`, if it is still open.
+    ///
+    /// Proxies in front (Cloudflare) do not pass on a browser closing its stream, but they do pass
+    /// on a request, so the page sends this when it leaves. Rotation remains the backstop for pages
+    /// that never get to send it (crashes, lost connections).
+    pub(crate) fn close(&self, server_id: &str, conn: &str) -> bool {
+        let streams = self.open_streams.lock().expect("open stream map poisoned");
+        match streams.get(&format!("{server_id}:{conn}")) {
+            Some(closed) => {
+                // `notify_one` keeps a permit if the stream is mid-write, so the request is never lost.
+                closed.notify_one();
+                true
+            }
+            None => false,
         }
     }
 
@@ -982,5 +1028,29 @@ mod tests {
         }
         let (_, now) = watch.subscribe();
         assert_eq!(now.unwrap().waiting, Some(SlotWaiting { names: vec![], anonymous: 1 }), "still one waiter, not two or none");
+    }
+
+    #[tokio::test]
+    async fn closing_a_stream_by_its_connection_id() {
+        let hub = Arc::new(SlotWatchHub::with_prober(Scripted::new(vec![Some(&[("Ann", 0)])])));
+        let stream = hub.open_stream("1", "conn-aaaaaaaa");
+        assert!(!hub.close("2", "conn-aaaaaaaa"), "ids are per server");
+        assert!(!hub.close("1", "conn-bbbbbbbb"), "an unknown id closes nothing");
+        assert!(hub.close("1", "conn-aaaaaaaa"));
+        tokio::time::timeout(Duration::from_secs(1), stream.closed.notified()).await
+            .expect("a close sent before the stream waits is kept, not lost");
+
+        drop(stream);
+        assert!(!hub.close("1", "conn-aaaaaaaa"), "an ended stream is unlisted");
+    }
+
+    #[tokio::test]
+    async fn an_old_stream_ending_does_not_unlist_a_newer_one_with_its_id() {
+        let hub = Arc::new(SlotWatchHub::with_prober(Scripted::new(vec![Some(&[("Ann", 0)])])));
+        let old = hub.open_stream("1", "conn-aaaaaaaa");
+        let new = hub.open_stream("1", "conn-aaaaaaaa");
+        drop(old);
+        assert!(hub.close("1", "conn-aaaaaaaa"));
+        tokio::time::timeout(Duration::from_secs(1), new.closed.notified()).await.expect("the newer stream is told");
     }
 }

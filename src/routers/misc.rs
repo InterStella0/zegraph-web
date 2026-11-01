@@ -29,7 +29,7 @@ use crate::models::admins::AnnouncementTypeState;
 use crate::models::sitemaps::*;
 use crate::workers::job::{QUEUE_HEAVY, QUEUE_LIGHT};
 use crate::routers::ApiTags;
-use crate::core::slot_watch::{issue_ticket, read_ticket, SlotEvent, MAX_SLOT_CLIENTS, SLOT_STREAM_JITTER_MS, SLOT_STREAM_LIFETIME};
+use crate::core::slot_watch::{issue_ticket, read_ticket, valid_client_id, SlotEvent, MAX_SLOT_CLIENTS, SLOT_STREAM_JITTER_MS, SLOT_STREAM_LIFETIME};
 use rand::{rng, RngExt};
 
 extern crate rust_fuzzy_search;
@@ -287,6 +287,12 @@ pub enum LiveEventResponse {
     ),
     #[oai(status = 503)]
     TooManyClients,
+}
+
+#[derive(ApiResponse)]
+enum SlotCloseResponse {
+    #[oai(status = 204)]
+    Closed,
 }
 
 #[derive(Object)]
@@ -968,11 +974,13 @@ impl MiscApi {
     /// `waiting`) until shortly after it closes: by name with a `ticket` from the ticket route,
     /// else anonymously. Streams from one browser tab share a `tab` id so it is listed once.
     ///
-    /// Each stream ends after about two minutes with a `rotate` event, and clients reconnect.
+    /// Each stream ends after about two minutes with a `rotate` event, and clients reconnect. A
+    /// stream opened with a `conn` id can be ended early through the close route.
     #[oai(path = "/events/servers/:server_id/players", method = "get")]
     async fn server_players_stream(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor,
         Query(armed): Query<Option<bool>>, Query(ticket): Query<Option<String>>, Query(tab): Query<Option<String>>,
+        Query(conn): Query<Option<String>>,
     ) -> SlotEventResponse {
         let (Some(host), Some(port)) = (
             server.server_ip.clone().filter(|ip| !ip.is_empty()),
@@ -991,6 +999,9 @@ impl MiscApi {
                 .unwrap_or_default()
         });
         let waiting = waiter.map(|waiter| watch.add_waiter(tab.as_deref(), waiter));
+        let open = conn.as_deref()
+            .filter(|conn| valid_client_id(conn))
+            .map(|conn| app.slot_watch.open_stream(&server.server_id, conn));
         // A proxy in front (Cloudflare) can keep this stream open long after its browser left: it
         // keeps reading, so neither nginx nor this loop ever sees the client go. Ending every stream
         // after a while bounds how long such a ghost holds a client slot, the A2S poller, and a
@@ -1000,6 +1011,8 @@ impl MiscApi {
         let stream = async_stream::stream! {
             let _permit: OwnedSemaphorePermit = permit;
             let _waiting = waiting;
+            let closed = open.as_ref().map(|open| open.closed.clone());
+            let _open = open;
             let ends = tokio::time::sleep(lifetime);
             tokio::pin!(ends);
             let mut heartbeat_interval = interval(Duration::from_secs(10));
@@ -1031,6 +1044,8 @@ impl MiscApi {
                         yield SlotEvent::rotate(watch.seq());
                         break;
                     },
+                    // The page said it left; nothing on the wire would have told us.
+                    _ = async { match &closed { Some(closed) => closed.notified().await, None => std::future::pending().await } } => break,
                 }
             }
         };
@@ -1040,6 +1055,18 @@ impl MiscApi {
             "no-cache, no-transform".to_string(),
             "no".to_string(),
         )
+    }
+    /// Ends the player stream this page opened with `conn`. The page sends it (as a beacon) when it
+    /// closes a stream or unloads, because a proxy in front may never pass the disconnect on.
+    /// Always 204, whether or not such a stream was open.
+    #[oai(path = "/events/servers/:server_id/players/close", method = "post")]
+    async fn server_players_close(
+        &self, Data(app): Data<&AppData>, Path(server_id): Path<String>, Query(conn): Query<String>,
+    ) -> SlotCloseResponse {
+        if valid_client_id(&conn) {
+            app.slot_watch.close(&server_id, &conn);
+        }
+        SlotCloseResponse::Closed
     }
     /// A ticket that names the signed-in user in this server's auto join waiting list. Pass it to
     /// the player stream as `ticket`; `EventSource` cannot send an `Authorization` header. Users who
