@@ -42,7 +42,6 @@ pub const ISSUER: &str = "ze-graph";
 
 pub struct UserToken{
     pub id: i64,
-    #[allow(dead_code)]
     pub global_name: String,
 }
 
@@ -132,6 +131,14 @@ async fn server_community_id(app: &AppData, server_id: &str) -> Result<Option<Uu
     .fetch_optional(&*app.pool)
     .await
     .map(Option::flatten)
+}
+
+/// Whether anyone may see `player_id` on `server_id`'s community: false once they anonymized.
+pub async fn player_public_on_server(app: &AppData, player_id: &str, server_id: &str) -> Result<bool, sqlx::Error> {
+    match server_community_id(app, server_id).await? {
+        Some(community_id) => can_view_player_in_community(app, player_id, community_id, None).await,
+        None => Ok(true),
+    }
 }
 
 pub async fn can_view_player_in_community(

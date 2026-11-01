@@ -3,23 +3,33 @@ import {useCallback, useEffect, useRef, useState} from "react";
 import {useTranslations} from "next-intl";
 import {Server} from "types/community";
 import {steamConnectUrl, URI} from "utils/generalUtils";
+import {sendJson} from "lib/sendJson";
 
 /** Mirrors the backend's `SlotEvent` (`src/core/slot_watch.rs`). */
 type SlotMeta = { max_players: number, players: number, online: boolean, map?: string | null }
+type SlotPlayer = { name: string, connected_ms: number }
+/** Who has auto join armed: named signed-in users, plus a count of everyone else. */
+export type SlotWaiting = { names: string[], anonymous: number }
 type SlotEvent =
-    | { kind: 'snapshot', seq: number, meta: SlotMeta, names: string[], polled_ms_ago?: number }
-    | { kind: 'join', seq: number, name: string }
-    | { kind: 'leave', seq: number, name: string }
+    | { kind: 'snapshot', seq: number, meta: SlotMeta, players: SlotPlayer[], polled_ms_ago?: number, waiting?: SlotWaiting }
+    | { kind: 'join', seq: number, player: SlotPlayer }
+    | { kind: 'leave', seq: number, player: SlotPlayer }
     | { kind: 'meta', seq: number, meta: SlotMeta }
     | { kind: 'poll', seq: number }
+    | { kind: 'waiting', seq: number, waiting: SlotWaiting }
     | { kind: 'heartbeat', seq: number }
+    | { kind: 'rotate', seq: number }
 
 export type AutoJoinStatus = 'idle' | 'confirming' | 'armed' | 'fired' | 'already-in'
 
+/** A player on the server. `since` is the local time (ms) they connected, per the server, so the
+ *  time on the server is `Date.now() - since`. A `""` name is a player still connecting. */
+export type LivePlayer = { name: string, since: number }
+
 /** What the open stream currently says. `null` until the first snapshot. */
 export type SlotView = {
-    /** Every player, sorted, duplicates kept. `""` is a player still connecting. */
-    players: string[]
+    /** Every player, duplicates kept, in no particular order. */
+    players: LivePlayer[]
     /** Player count, from the names, or from the server's own total when it hides them. */
     count: number
     maxPlayers: number
@@ -30,6 +40,7 @@ export type SlotView = {
     selfIn: boolean
     /** Local time (ms) the server last answered a poll, or `null` if it never has. */
     polledAt: number | null
+    waiting: SlotWaiting
 }
 
 const CONFIRMED_KEY = 'autoJoin.protocolConfirmed'
@@ -38,6 +49,10 @@ const RETRY_BASE_MS = 2000
 const RETRY_MAX_MS = 30000
 
 const normalise = (name: string) => name.trim().toLowerCase()
+
+/** Identifies this tab to the waiting list, so its reconnects count as one waiter. */
+const newTabId = () =>
+    globalThis.crypto?.randomUUID?.() ?? `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
 
 /** The player count to join at: what the user picked, else the first free slot. */
 export function effectiveTarget(target: number | null, maxPlayers: number): number {
@@ -92,11 +107,16 @@ function ringChime(ctx: AudioContext | null) {
     ctx.resume().then(() => playChime(ctx)).catch(() => {})
 }
 
-type Live = { names: Map<string, number>, count: number, meta: SlotMeta | null, polledAt: number | null }
-const emptyLive = (): Live => ({names: new Map(), count: 0, meta: null, polledAt: null})
+const NOBODY_WAITING: SlotWaiting = {names: [], anonymous: 0}
+
+type Live = { players: LivePlayer[], meta: SlotMeta | null, polledAt: number | null, waiting: SlotWaiting }
+const emptyLive = (): Live => ({players: [], meta: null, polledAt: null, waiting: NOBODY_WAITING})
 
 const playersOf = (live: Live, meta: SlotMeta) =>
-    live.count === 0 && meta.players > 0 ? meta.players : live.count
+    live.players.length === 0 && meta.players > 0 ? meta.players : live.players.length
+
+const toLive = (player: SlotPlayer, receivedAt: number): LivePlayer =>
+    ({name: player.name, since: receivedAt - player.connected_ms})
 
 /**
  * Live player list of `server`, plus an auto join that launches Steam once, when the player count
@@ -114,6 +134,8 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
     const [target, setTargetState] = useState<number | null>(null)
     const [holding, setHolding] = useState(false)
     const [steamDetected, setSteamDetected] = useState(false)
+    const [ticket, setTicket] = useState<string | null>(null)
+    const [tabId] = useState(newTabId)
 
     const statusRef = useRef<AutoJoinStatus>('idle')
     const targetRef = useRef<number | null>(null)
@@ -207,7 +229,7 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
         const live = liveRef.current
         const meta = live.meta
         if (statusRef.current !== 'armed' || !meta) return
-        if (selfKey && [...live.names.keys()].some(name => normalise(name) === selfKey)) {
+        if (selfKey && live.players.some(player => normalise(player.name) === selfKey)) {
             changeStatus('already-in')
             return
         }
@@ -285,7 +307,22 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
         writeConfirmed(false)
     }, [])
 
+    // A signed-in user's ticket, fetched once the modal opens, so arming lists them by name without
+    // waiting on a request. Without one (signed out, or the request failed) they wait anonymously.
+    const signedIn = selfName !== null
+    useEffect(() => {
+        if (!watching || !signedIn || ticket) return
+        let cancelled = false
+        sendJson<{ ticket: string }>(`/servers/${server.id}/auto-join-ticket`, 'POST', null)
+            .then(result => { if (!cancelled) setTicket(result.ticket) })
+            .catch(error => console.warn('No auto join ticket, waiting anonymously:', error))
+        return () => { cancelled = true }
+    }, [watching, signedIn, ticket, server.id])
+
     const active = watching || status === 'armed'
+    const armed = status === 'armed'
+    // Arming reconnects with these, which lists this tab in the waiting list until it disconnects.
+    const streamQuery = armed ? `?${new URLSearchParams({armed: 'true', tab: tabId, ...(ticket ? {ticket} : {})})}` : ''
     useEffect(() => {
         if (!active) return
         let source: EventSource | null = null
@@ -299,26 +336,30 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
         const publish = () => {
             const meta = live.meta
             if (!meta) return
-            const players = [...live.names].flatMap(([name, n]) => Array<string>(n).fill(name))
-            players.sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}))
             setView({
-                players,
+                players: [...live.players],
                 count: playersOf(live, meta),
                 maxPlayers: meta.max_players,
                 online: meta.online,
                 map: meta.map ?? null,
-                hidden: live.count === 0 && meta.players > 0,
-                selfIn: !!selfKey && players.some(name => normalise(name) === selfKey),
+                hidden: live.players.length === 0 && meta.players > 0,
+                selfIn: !!selfKey && live.players.some(player => normalise(player.name) === selfKey),
                 polledAt: live.polledAt,
+                waiting: live.waiting,
             })
             checkRef.current()
         }
 
-        const add = (name: string, delta: number) => {
-            const next = (live.names.get(name) ?? 0) + delta
-            if (next > 0) live.names.set(name, next)
-            else live.names.delete(name)
-            live.count = Math.max(0, live.count + delta)
+        /** Removes the player who left: by name, and among players sharing it, the one whose
+         *  connect time is nearest, which is how the server told them apart. */
+        const remove = (gone: LivePlayer) => {
+            let at = -1
+            for (let i = 0; i < live.players.length; i++) {
+                const player = live.players[i]
+                if (player.name !== gone.name) continue
+                if (at < 0 || Math.abs(player.since - gone.since) < Math.abs(live.players[at].since - gone.since)) at = i
+            }
+            if (at >= 0) live.players.splice(at, 1)
         }
 
         const close = () => {
@@ -338,19 +379,32 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
 
         const connect = () => {
             if (done) return
-            const current = new EventSource(URI(`/events/servers/${server.id}/players`))
+            const current = new EventSource(URI(`/events/servers/${server.id}/players${streamQuery}`))
             source = current
 
             current.onmessage = (message) => {
                 if (source !== current) return
                 const event: SlotEvent = JSON.parse(message.data)
                 if (event.kind === 'heartbeat') return
+                if (event.kind === 'rotate') {
+                    // The server ends streams on purpose every couple of minutes; come straight
+                    // back rather than through the error backoff. The snapshot resyncs everything.
+                    close()
+                    connect()
+                    return
+                }
+                if (event.kind === 'waiting') {
+                    // A whole list, so order against other events does not matter.
+                    live.waiting = event.waiting
+                    publish()
+                    return
+                }
+                const receivedAt = Date.now()
                 if (event.kind === 'snapshot') {
-                    live.names = new Map()
-                    live.count = 0
-                    for (const name of event.names) add(name, 1)
+                    live.players = event.players.map(player => toLive(player, receivedAt))
                     live.meta = event.meta
-                    live.polledAt = event.polled_ms_ago === undefined ? null : Date.now() - event.polled_ms_ago
+                    live.waiting = event.waiting ?? NOBODY_WAITING
+                    live.polledAt = event.polled_ms_ago === undefined ? null : receivedAt - event.polled_ms_ago
                     seq = event.seq
                     publish()
                     return
@@ -364,10 +418,10 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
                 }
                 seq = event.seq
                 attempt = 0
-                if (event.kind === 'join') add(event.name, 1)
-                else if (event.kind === 'leave') add(event.name, -1)
+                if (event.kind === 'join') live.players.push(toLive(event.player, receivedAt))
+                else if (event.kind === 'leave') remove(toLive(event.player, receivedAt))
                 else if (event.kind === 'meta') live.meta = event.meta
-                else live.polledAt = Date.now()
+                else live.polledAt = receivedAt
                 publish()
             }
 
@@ -382,15 +436,16 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
             done = true
             if (retryTimer) clearTimeout(retryTimer)
             close()
+            // The view stays: arming reconnects, and the list should not blank for it. A view from
+            // a closed stream is hidden below instead, and a reopened one shows its own poll age.
             liveRef.current = emptyLive()
-            setView(null)
         }
-    }, [active, server.id, selfKey])
+    }, [active, server.id, selfKey, streamQuery])
 
     useEffect(() => stopDetecting, [stopDetecting])
 
     return {
-        status, view, target, setTarget, holding, steamDetected, connectUrl,
+        status, view: active ? view : null, target, setTarget, holding, steamDetected, connectUrl,
         arm, launch, confirmArm, cancel, testLaunch, reportNotLaunched,
     }
 }

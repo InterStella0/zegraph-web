@@ -9,7 +9,7 @@ use futures::{StreamExt, TryFutureExt};
 use image::imageops::{FilterType};
 use poem::web::{Data};
 use poem_openapi::{ApiResponse, Object, OpenApi};
-use poem_openapi::param::Path;
+use poem_openapi::param::{Path, Query};
 use poem_openapi::payload::{Binary, EventStream, Json};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,8 @@ use crate::models::admins::AnnouncementTypeState;
 use crate::models::sitemaps::*;
 use crate::workers::job::{QUEUE_HEAVY, QUEUE_LIGHT};
 use crate::routers::ApiTags;
-use crate::core::slot_watch::{SlotEvent, MAX_SLOT_CLIENTS};
+use crate::core::slot_watch::{issue_ticket, read_ticket, SlotEvent, MAX_SLOT_CLIENTS, SLOT_STREAM_JITTER_MS, SLOT_STREAM_LIFETIME};
+use rand::{rng, RngExt};
 
 extern crate rust_fuzzy_search;
 
@@ -286,6 +287,11 @@ pub enum LiveEventResponse {
     ),
     #[oai(status = 503)]
     TooManyClients,
+}
+
+#[derive(Object)]
+pub struct SlotTicket {
+    pub ticket: String,
 }
 
 #[derive(ApiResponse)]
@@ -957,9 +963,16 @@ impl MiscApi {
     /// `join`/`leave` per name, `meta` when max players, map or online state changes, and `poll`
     /// each time the server answers. Clients count free slots themselves. One A2S poller runs per
     /// server, only while someone listens.
+    ///
+    /// `armed=true` lists this stream in the server's auto join waiting list (sent to everyone as
+    /// `waiting`) until shortly after it closes: by name with a `ticket` from the ticket route,
+    /// else anonymously. Streams from one browser tab share a `tab` id so it is listed once.
+    ///
+    /// Each stream ends after about two minutes with a `rotate` event, and clients reconnect.
     #[oai(path = "/events/servers/:server_id/players", method = "get")]
     async fn server_players_stream(
-        &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor
+        &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor,
+        Query(armed): Query<Option<bool>>, Query(ticket): Query<Option<String>>, Query(tab): Query<Option<String>>,
     ) -> SlotEventResponse {
         let (Some(host), Some(port)) = (
             server.server_ip.clone().filter(|ip| !ip.is_empty()),
@@ -972,9 +985,23 @@ impl MiscApi {
             return SlotEventResponse::TooManyClients;
         };
         let (watch, mut receiver, snapshot) = app.slot_watch.subscribe(&server.server_id, host, port);
+        let waiter = armed.unwrap_or(false).then(|| {
+            ticket.as_deref()
+                .and_then(|ticket| read_ticket(get_env("NEXTAUTH_SECRET").as_bytes(), ticket, &server.server_id))
+                .unwrap_or_default()
+        });
+        let waiting = waiter.map(|waiter| watch.add_waiter(tab.as_deref(), waiter));
+        // A proxy in front (Cloudflare) can keep this stream open long after its browser left: it
+        // keeps reading, so neither nginx nor this loop ever sees the client go. Ending every stream
+        // after a while bounds how long such a ghost holds a client slot, the A2S poller, and a
+        // place in the waiting list. Jittered so many tabs do not reconnect in step.
+        let lifetime = SLOT_STREAM_LIFETIME + Duration::from_millis(rng().random_range(0..=SLOT_STREAM_JITTER_MS));
 
         let stream = async_stream::stream! {
             let _permit: OwnedSemaphorePermit = permit;
+            let _waiting = waiting;
+            let ends = tokio::time::sleep(lifetime);
+            tokio::pin!(ends);
             let mut heartbeat_interval = interval(Duration::from_secs(10));
             heartbeat_interval.reset();
             if let Some(snapshot) = snapshot {
@@ -1000,6 +1027,10 @@ impl MiscApi {
                     _ = heartbeat_interval.tick() => {
                         yield SlotEvent::heartbeat(watch.seq());
                     },
+                    _ = &mut ends => {
+                        yield SlotEvent::rotate(watch.seq());
+                        break;
+                    },
                 }
             }
         };
@@ -1009,6 +1040,23 @@ impl MiscApi {
             "no-cache, no-transform".to_string(),
             "no".to_string(),
         )
+    }
+    /// A ticket that names the signed-in user in this server's auto join waiting list. Pass it to
+    /// the player stream as `ticket`; `EventSource` cannot send an `Authorization` header. Users who
+    /// anonymized themselves in the server's community get a nameless one and are counted only.
+    #[oai(path = "/events/servers/:server_id/players/ticket", method = "post")]
+    async fn server_players_ticket(
+        // The token first, so a caller without one is turned away before any database lookup.
+        &self, TokenBearer(user): TokenBearer, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor,
+    ) -> Response<SlotTicket> {
+        let public = player_public_on_server(app, &user.id.to_string(), &server.server_id).await
+            .unwrap_or_else(|e| {
+                tracing::warn!("Anonymization check failed, listing the waiter anonymously: {e}");
+                false
+            });
+        let name = Some(user.global_name.trim().to_string()).filter(|name| public && !name.is_empty());
+        let ticket = issue_ticket(get_env("NEXTAUTH_SECRET").as_bytes(), user.id, name, &server.server_id);
+        response!(ok SlotTicket { ticket })
     }
     /// The newest live events, newest first, so `/live` starts with history before the stream.
     #[oai(path = "/events/history", method = "get")]
