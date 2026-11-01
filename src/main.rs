@@ -664,6 +664,19 @@ mod route_tests {
         }
     }
 
+    /// The page's leave beacon must work with no login and no database, and say nothing about
+    /// whether the stream existed.
+    #[tokio::test]
+    async fn slot_stream_close_beacon_always_answers_204() {
+        let cli = client();
+        for path in [
+            "/events/servers/1/players/close?conn=0f6c2a1e-1111-2222",
+            "/events/servers/1/players/close?conn=bad",
+        ] {
+            assert_eq!(send(&cli, "POST", path, None).await, poem::http::StatusCode::NO_CONTENT, "{path}");
+        }
+    }
+
     const MISSING_TOKEN: poem::http::StatusCode = poem::http::StatusCode::UNAUTHORIZED;
     const INVALID_TOKEN: poem::http::StatusCode = poem::http::StatusCode::FORBIDDEN;
 

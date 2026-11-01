@@ -50,9 +50,37 @@ const RETRY_MAX_MS = 30000
 
 const normalise = (name: string) => name.trim().toLowerCase()
 
-/** Identifies this tab to the waiting list, so its reconnects count as one waiter. */
-const newTabId = () =>
+const newClientId = () =>
     globalThis.crypto?.randomUUID?.() ?? `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+
+const TAB_KEY = 'autoJoin.tab'
+
+/** Identifies this tab to the waiting list, so its reconnects, and its reloads, count as one
+ *  waiter. Kept in sessionStorage, which belongs to the tab and outlives a reload. */
+function tabIdOfThisTab(): string {
+    try {
+        const saved = sessionStorage.getItem(TAB_KEY)
+        if (saved) return saved
+        const id = newClientId()
+        sessionStorage.setItem(TAB_KEY, id)
+        return id
+    } catch {
+        return newClientId()
+    }
+}
+
+/** Tells the backend this page is done with the stream it opened as `conn`. Proxies in front do
+ *  not pass a closed stream on, so without this it would stay open (and listed as waiting) until
+ *  the server rotates it. A beacon, because it must also go out while the page unloads. */
+function sendStreamClose(serverId: string, conn: string) {
+    const url = URI(`/events/servers/${serverId}/players/close?conn=${encodeURIComponent(conn)}`)
+    try {
+        if (navigator.sendBeacon?.(url)) return
+    } catch {
+        // Fall through to fetch.
+    }
+    fetch(url, {method: 'POST', keepalive: true}).catch(() => {})
+}
 
 /** The player count to join at: what the user picked, else the first free slot. */
 export function effectiveTarget(target: number | null, maxPlayers: number): number {
@@ -168,7 +196,7 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
     const [holding, setHolding] = useState(false)
     const [steamDetected, setSteamDetected] = useState(false)
     const [ticket, setTicket] = useState<string | null>(null)
-    const [tabId] = useState(newTabId)
+    const [tabId] = useState(tabIdOfThisTab)
 
     const statusRef = useRef<AutoJoinStatus>('idle')
     const targetRef = useRef<number | null>(null)
@@ -413,10 +441,19 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
             if (at >= 0) live.players.splice(at, 1)
         }
 
+        let conn: string | null = null
         const close = () => {
             source?.close()
             source = null
+            if (conn) sendStreamClose(server.id, conn)
+            conn = null
         }
+        // A reload or closed tab never runs the cleanup below; this does. A page restored from the
+        // back/forward cache comes back without its stream, so reopen it then.
+        const onPageHide = () => close()
+        const onPageShow = (event: PageTransitionEvent) => { if (event.persisted && !done && !source) connect() }
+        window.addEventListener('pagehide', onPageHide)
+        window.addEventListener('pageshow', onPageShow)
 
         /** Retries with backoff. `attempt` resets only after an in-order event, not on open or on
          *  a snapshot, so a stream that keeps going wrong right after connecting still backs off. */
@@ -430,7 +467,10 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
 
         const connect = () => {
             if (done) return
-            const current = new EventSource(URI(`/events/servers/${server.id}/players${streamQuery}`))
+            const params = new URLSearchParams(streamQuery.slice(1))
+            conn = newClientId()
+            params.set('conn', conn)
+            const current = new EventSource(URI(`/events/servers/${server.id}/players?${params}`))
             source = current
 
             current.onmessage = (message) => {
@@ -486,6 +526,8 @@ export function useAutoJoin(server: Server, selfName: string | null, watching: b
         return () => {
             done = true
             if (retryTimer) clearTimeout(retryTimer)
+            window.removeEventListener('pagehide', onPageHide)
+            window.removeEventListener('pageshow', onPageShow)
             close()
             // The view stays: arming reconnects, and the list should not blank for it. A view from
             // a closed stream is hidden below instead, and a reopened one shows its own poll age.
