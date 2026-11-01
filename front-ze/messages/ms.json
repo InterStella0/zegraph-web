@@ -166,7 +166,7 @@
       "armedButton": "Sertai pada {target} · {count}/{max}",
       "holding": "Sasaran dicapai · {count}/{max}",
       "holdingHint": "Kiraan sudah pada sasaran anda, jadi anda mungkin sedang masuk melalui slot itu. Sertai automatik akan berjalan apabila kiraan naik melebihi sasaran dan turun semula.",
-      "keepOpen": "Biarkan tab ini terbuka. Tetingkap ini boleh ditutup; ia terus memantau.",
+      "keepOpen": "Kekal aktif selagi tab ini dibuka, walaupun tetingkap ini ditutup atau halaman dimuat semula.",
       "cancel": "Batalkan sertai automatik",
       "testLaunch": "Uji pelancaran Steam",
       "testLaunchHint": "Cuba sertai sekarang untuk memastikan pelayar ini boleh membuka Steam.",

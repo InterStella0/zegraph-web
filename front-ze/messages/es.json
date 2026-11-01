@@ -166,7 +166,7 @@
       "armedButton": "Unirse en {target} · {count}/{max}",
       "holding": "Objetivo alcanzado · {count}/{max}",
       "holdingHint": "El recuento ya está en tu objetivo, así que puede que ya estés entrando por ese hueco. La unión automática se activará la próxima vez que suba por encima del objetivo y vuelva a bajar.",
-      "keepOpen": "Mantén esta pestaña abierta. Puedes cerrar esta ventana; seguirá vigilando.",
+      "keepOpen": "Sigue activado mientras esta pestaña esté abierta, aunque cierres esta ventana o recargues la página.",
       "cancel": "Cancelar unión automática",
       "testLaunch": "Probar apertura de Steam",
       "testLaunchHint": "Intenta unirse ahora para comprobar que este navegador abre Steam.",

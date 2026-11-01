@@ -166,7 +166,7 @@
       "armedButton": "{target} 人时加入 · {count}/{max}",
       "holding": "已达目标 · {count}/{max}",
       "holdingHint": "人数已在目标以内，你可能正通过那个空位进入。人数超过目标后再降下来时，才会自动加入。",
-      "keepOpen": "请保持此标签页打开。可以关闭此窗口，仍会继续监视。",
+      "keepOpen": "只要此标签页开着就保持开启，关闭此窗口或刷新页面也不影响。",
       "cancel": "取消自动加入",
       "testLaunch": "测试启动 Steam",
       "testLaunchHint": "现在尝试加入，检查此浏览器能否打开 Steam。",
