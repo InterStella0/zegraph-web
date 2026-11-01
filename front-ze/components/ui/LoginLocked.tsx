@@ -46,5 +46,5 @@ export default function LoginLocked({ title, className, bare = false, compact = 
         {loginDialog}
     </div>;
 
-    return bare ? body : <Card className={cn("h-full", className)}>{body}</Card>;
+    return bare ? body : <Card className={className}>{body}</Card>;
 }

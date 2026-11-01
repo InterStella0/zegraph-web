@@ -5,7 +5,7 @@ import {ServerPopChart} from "components/sessions/ServerPopChart.tsx";
 import MatchScoreChart from "components/sessions/MatchScoreChart.tsx";
 import MapsList from "components/sessions/MapsList.tsx";
 import MutualSessionsDisplay from "components/sessions/MutualSessionsDisplay.tsx";
-import {SessionLayout, useLiveSession} from "components/sessions/SessionLayout";
+import {LockedSessionChartCard, SessionLayout, useLiveSession} from "components/sessions/SessionLayout";
 import {use} from "react";
 import {getSessionData, SessionData} from "./utils.ts";
 import {sessionScoresLocked} from "../../../../util.ts";
@@ -31,7 +31,7 @@ export default function SessionPlayerWrapper({ sessionPromise }: { sessionPromis
             />
             <ServerPopChart sessionInfo={sessionInfo} maps={maps} serverGraph={serverGraph} />
             {scoresLocked
-                ? <LoginLocked title={t('matchScoreProgression')} />
+                ? <LockedSessionChartCard title={t('matchScoreProgression')} description={t('roundByRound')} />
                 : <MatchScoreChart sessionInfo={sessionInfo} maps={maps} />}
             <MapsList server={server} maps={maps} mapImages={mapImages} scoresLocked={scoresLocked} />
         </>}

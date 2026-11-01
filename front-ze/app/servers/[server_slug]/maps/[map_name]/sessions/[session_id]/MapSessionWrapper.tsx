@@ -6,11 +6,10 @@ import MapMatchScoreChart from "components/sessions/MapMatchScoreChart.tsx";
 import SessionContinents from "components/sessions/SessionContinents.tsx";
 import MutualSessionsDisplay from "components/sessions/MutualSessionsDisplay.tsx";
 import {SessionStatGrid} from "components/sessions/SessionStats.tsx";
-import {SessionChartCard, SessionLayout, useLiveSession} from "components/sessions/SessionLayout";
+import {LockedSessionChartCard, SessionChartCard, SessionLayout, useLiveSession} from "components/sessions/SessionLayout";
 import getSessionData, { SessionData } from "./utils.ts";
 import {Skeleton, SkeletonBadge, SkeletonText} from "components/ui/skeleton";
 import {useTranslations} from "next-intl";
-import LoginLocked from "components/ui/LoginLocked";
 
 const statSkeleton = (width: string) => <SkeletonText className={`h-7 md:h-8 ${width}`} />;
 
@@ -73,7 +72,7 @@ export default function MapSessionWrapper({ initialData }: { initialData: Sessio
             <ServerPopChart sessionInfo={sessionInfo} serverGraph={serverGraph} maps={null} />
             {graphData
                 ? <MapMatchScoreChart sessionInfo={sessionInfo} graphMatch={graphData} />
-                : <LoginLocked title={t('matchScoreProgression')} />}
+                : <LockedSessionChartCard title={t('matchScoreProgression')} description={t('roundByRoundFor', {map: sessionInfo.map})} />}
             {sessionInfo && continents && <SessionContinents sessionInfo={sessionInfo} continents={continents} />}
         </>}
         side={<MutualSessionsDisplay server={server} mutualSessions={mutualSessions} type="map" />}

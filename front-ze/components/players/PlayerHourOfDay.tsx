@@ -244,7 +244,7 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: ServerPlayerProps){
 export default function PlayerHourOfDay({ serverPlayerPromise }: ServerPlayerProps){
     const t = useTranslations('players.hourOfDay');
     if (!useSignedIn())
-        return <LoginLocked title={t('onlineTitle')} className="min-h-[455px]" />
+        return <LoginLocked title={t('onlineTitle')} className="h-full min-h-[455px]" />
     return <ErrorCatch message={t('loadError')}>
         <Card>
             <PlayerHourOfDayDisplay serverPlayerPromise={serverPlayerPromise} />
