@@ -954,8 +954,9 @@ impl MiscApi {
     }
     /// Server-sent event stream of who is on a game server right now, read live over A2S, for
     /// auto join. Starts with a `snapshot` of every player name and the slot counts, then sends one
-    /// `join`/`leave` per name and `meta` when max players, map or online state changes. Clients
-    /// count free slots themselves. One A2S poller runs per server, only while someone listens.
+    /// `join`/`leave` per name, `meta` when max players, map or online state changes, and `poll`
+    /// each time the server answers. Clients count free slots themselves. One A2S poller runs per
+    /// server, only while someone listens.
     #[oai(path = "/events/servers/:server_id/players", method = "get")]
     async fn server_players_stream(
         &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor
