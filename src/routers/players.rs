@@ -810,8 +810,9 @@ impl PlayerApi{
     }
     /// Maps played (and any match outcomes) during a single player session.
     ///
-    /// The match outcomes (`match_data`) are login-only: without a token every map comes back with
-    /// an empty `match_data`.
+    /// The match outcomes (`match_data`) are login-only: without a valid token (missing, expired or
+    /// otherwise invalid) every map comes back with an empty `match_data` and `match_data_hidden`
+    /// set, so clients can tell "log in to see this" apart from "no rounds were recorded".
     #[oai(path="/servers/:server_id/players/:player_id/sessions/:session_id/maps", method="get")]
     async fn get_session_server_graph(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Path(session_id): Path<String>,
@@ -852,7 +853,8 @@ impl PlayerApi{
         for map_data in map_played.into_iter(){
             let map_time_id = map_data.time_id.clone();
             if !mapped.contains_key(&map_time_id){
-                let played: PlayerSessionMapPlayed = map_data.clone().into();
+                let mut played: PlayerSessionMapPlayed = map_data.clone().into();
+                played.match_data_hidden = user_token.is_none();
                 mapped.insert(map_time_id, played);
             }
             if user_token.is_none() || map_data.is_match_empty(){

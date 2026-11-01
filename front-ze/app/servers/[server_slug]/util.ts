@@ -73,8 +73,14 @@ export type PlayerSessionMapPlayed = {
     player_count: number,
     started_at: string,
     ended_at: string | null,
-    match_data: MatchData[]
+    match_data: MatchData[],
+    /** The backend withheld `match_data` because the request had no valid login (e.g. an expired one). */
+    match_data_hidden: boolean,
 }
+
+/** Match scores are login-only; locked when logged out or when the backend withheld them anyway. */
+export const sessionScoresLocked = (signedIn: boolean, maps: PlayerSessionMapPlayed[]) =>
+    !signedIn || maps.some(map => map.match_data_hidden)
 export async function getMapsDataSession(server_id: string, player_id: string, session_id: string): Promise<PlayerSessionMapPlayed[]> {
     return fetchApiServerUrl(server_id, `/players/${player_id}/sessions/${session_id}/maps`);
 }
