@@ -41,6 +41,7 @@ use crate::core::utils::*;
 use crate::workers::*;
 use crate::workers::consumer;
 use crate::core::push_service::*;
+use crate::core::slot_watch::SlotWatchHub;
 use crate::core::storage::{CharacterStorage, CommunityStorage, AnnouncementStorage, StorageBackend};
 use crate::routers::accounts::AccountsApi;
 use crate::routers::characters::CharacterApi;
@@ -67,6 +68,7 @@ struct AppData{
     count_chunk_cache: Arc<CountChunkCache>,
     live_events: Arc<LiveEventHub>,
     health_monitor: Arc<HealthMonitor>,
+    slot_watch: Arc<SlotWatchHub>,
 }
 #[derive(Clone)]
 struct FastCache{
@@ -272,6 +274,7 @@ async fn run_main() {
         count_chunk_cache,
         live_events: live_events.clone(),
         health_monitor: health_monitor.clone(),
+        slot_watch: Arc::new(SlotWatchHub::new()),
     };
 
     let listener_data = data.clone();
@@ -487,6 +490,7 @@ mod route_tests {
             "/servers/1/maps/autocomplete",
             "/servers/1/maps/ze_test_map_v1/info",
             "/graph/1/get_regions",
+            "/events/servers/1/players",
         ] {
             let status = send(&cli, "GET", path, None).await;
             assert_ne!(

@@ -5,9 +5,9 @@ import PlayerList from "components/players/PlayerList.tsx";
 import MapGraphList, {MapGraphListLoading} from "components/maps/MapGraphList.tsx";
 import dynamic from "next/dynamic";
 import {Play} from "lucide-react";
-import Link from "next/link";
 import dayjs from "lib/dayjs";
 import { cn } from "components/lib/utils";
+import {steamConnectUrl} from "utils/generalUtils";
 
 import {DateSources, useDateState} from "components/graphs/DateStateManager";
 import {Server} from "types/community";
@@ -101,10 +101,10 @@ export default function ServerContent({ server, description, mapSessionsPromise 
                                         asChild
                                         className="my-2"
                                     >
-                                        <Link href={`/connect/${server.id}`}>
+                                        <a href={steamConnectUrl(server.fullIp)}>
                                             <Play className="mr-2 h-4 w-4" />
                                             {t('join')}
-                                        </Link>
+                                        </a>
                                     </Button>
                                 }
                             </div>

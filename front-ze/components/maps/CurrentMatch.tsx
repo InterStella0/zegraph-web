@@ -2,8 +2,7 @@
 import {ReactNode, use, useEffect, useState} from 'react'
 import dayjs from "lib/dayjs";
 import {Info, Activity, Bell, BellOff, Play, LucideIcon} from 'lucide-react';
-import {getMapImage, fetchApiUrl, range} from "utils/generalUtils";
-import Link from "next/link";
+import {getMapImage, fetchApiUrl, range, steamConnectUrl} from "utils/generalUtils";
 import {getContinentStatsNow, getMatchNow} from "../../app/servers/[server_slug]/maps/util";
 import { ServerSlugPromise} from "../../app/servers/[server_slug]/util.ts";
 import Image from "next/image";
@@ -26,6 +25,7 @@ import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
 import {useLoginDialog} from "components/ui/LoginDialog";
 import {toastRequest} from "components/maps/toastRequest";
 import {useTranslations} from "next-intl";
+import AutoJoinButton from "components/maps/AutoJoinButton";
 
 const REFRESH_MS = 65000;
 
@@ -337,11 +337,12 @@ export function CurrentMatchDisplay({ server, mapImage, currentMatch, continentD
                         </Button>
                     ))}
                     <Button variant="default" size="sm" asChild>
-                        <Link href={`/connect/${server.id}`}>
+                        <a href={steamConnectUrl(server.fullIp)}>
                             <Play className="mr-2 h-4 w-4" />
                             {t('join')}
-                        </Link>
+                        </a>
                     </Button>
+                    <AutoJoinButton server={server} user={user} />
                     {isSupported && (
                         <Button
                             variant="outline"

@@ -29,6 +29,7 @@ use crate::models::admins::AnnouncementTypeState;
 use crate::models::sitemaps::*;
 use crate::workers::job::{QUEUE_HEAVY, QUEUE_LIGHT};
 use crate::routers::ApiTags;
+use crate::core::slot_watch::{SlotEvent, MAX_SLOT_CLIENTS};
 
 extern crate rust_fuzzy_search;
 
@@ -283,6 +284,21 @@ pub enum LiveEventResponse {
         #[oai(header = "Cache-Control")] String,
         #[oai(header = "X-Accel-Buffering")] String,
     ),
+    #[oai(status = 503)]
+    TooManyClients,
+}
+
+#[derive(ApiResponse)]
+pub enum SlotEventResponse {
+    #[oai(status = 200)]
+    Stream(
+        EventStream<BoxStream<'static, SlotEvent>>,
+        #[oai(header = "Cache-Control")] String,
+        #[oai(header = "X-Accel-Buffering")] String,
+    ),
+    /// The server has no address on record, so it cannot be queried.
+    #[oai(status = 404)]
+    NoAddress,
     #[oai(status = 503)]
     TooManyClients,
 }
@@ -931,6 +947,63 @@ impl MiscApi {
         };
 
         LiveEventResponse::Stream(
+            EventStream::new(stream.boxed()),
+            "no-cache, no-transform".to_string(),
+            "no".to_string(),
+        )
+    }
+    /// Server-sent event stream of who is on a game server right now, read live over A2S, for
+    /// auto join. Starts with a `snapshot` of every player name and the slot counts, then sends one
+    /// `join`/`leave` per name and `meta` when max players, map or online state changes. Clients
+    /// count free slots themselves. One A2S poller runs per server, only while someone listens.
+    #[oai(path = "/events/servers/:server_id/players", method = "get")]
+    async fn server_players_stream(
+        &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor
+    ) -> SlotEventResponse {
+        let (Some(host), Some(port)) = (
+            server.server_ip.clone().filter(|ip| !ip.is_empty()),
+            server.server_port.and_then(|port| u16::try_from(port).ok()),
+        ) else {
+            return SlotEventResponse::NoAddress;
+        };
+        let Ok(permit) = app.slot_watch.clients.clone().try_acquire_owned() else {
+            tracing::warn!("Refusing slot stream: {MAX_SLOT_CLIENTS} streams already open");
+            return SlotEventResponse::TooManyClients;
+        };
+        let (watch, mut receiver, snapshot) = app.slot_watch.subscribe(&server.server_id, host, port);
+
+        let stream = async_stream::stream! {
+            let _permit: OwnedSemaphorePermit = permit;
+            let mut heartbeat_interval = interval(Duration::from_secs(10));
+            heartbeat_interval.reset();
+            if let Some(snapshot) = snapshot {
+                yield snapshot;
+            }
+
+            loop {
+                tokio::select! {
+                    result = receiver.recv() => {
+                        match result {
+                            Ok(event) => yield event,
+                            Err(RecvError::Lagged(missed)) => {
+                                tracing::warn!("Slot stream lagged {missed} events, resending a snapshot");
+                                let (fresh, snapshot) = watch.subscribe();
+                                receiver = fresh;
+                                if let Some(snapshot) = snapshot {
+                                    yield snapshot;
+                                }
+                            },
+                            Err(RecvError::Closed) => break,
+                        }
+                    },
+                    _ = heartbeat_interval.tick() => {
+                        yield SlotEvent::heartbeat(watch.seq());
+                    },
+                }
+            }
+        };
+
+        SlotEventResponse::Stream(
             EventStream::new(stream.boxed()),
             "no-cache, no-transform".to_string(),
             "no".to_string(),

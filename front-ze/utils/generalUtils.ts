@@ -21,6 +21,10 @@ export const REGION_COLORS = {
 
 const isServer = () => typeof window === 'undefined'
 
+/** Steam's connect link. Open it straight from a click: browsers block external-protocol
+ *  launches that have no user gesture behind them. */
+export const steamConnectUrl = (fullIp: string) => `steam://connect/${fullIp}`
+
 // Anonymous reads go straight to the backend; `backend` routes through the Next API so the session is attached.
 export function URI(endpoint: string, backend: boolean = false): string {
     if (backend) return (isServer() ? FRONTEND_URL : '') + NEXTAPI_ROOT + endpoint

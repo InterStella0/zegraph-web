@@ -6,3 +6,5 @@ pub mod storage;
 pub mod period;
 pub mod player_merge;
 pub mod chunked_upload;
+pub mod a2s;
+pub mod slot_watch;
