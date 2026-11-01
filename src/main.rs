@@ -450,6 +450,16 @@ mod route_tests {
         ("GET", "/admin/audit-logs"),
         ("POST", "/admin/announcements/media"),
         ("PUT", "/admin/announcements/00000000-0000-0000-0000-000000000000"),
+        // Login-only to deter scraping: auth is checked before the server/player lookup.
+        ("GET", "/servers/1/players/76561198000000001/hours_of_day"),
+        ("GET", "/servers/1/players/76561198000000001/online_heatmap"),
+        ("GET", "/servers/1/players/76561198000000001/might_friends"),
+        ("POST", "/servers/1/players/76561198000000001/might_friends/calculate"),
+        ("GET", "/servers/1/players/76561198000000001/sessions/00000000-0000-0000-0000-000000000000/might_friends"),
+        ("GET", "/servers/1/players/76561198000000001/map_pull"),
+        ("GET", "/servers/1/sessions/1/all-match"),
+        ("GET", "/servers/1/sessions/1/match"),
+        ("GET", "/players/76561198000000001/online-activity"),
     ];
 
     async fn send(cli: &TestClient<impl poem::Endpoint>, method: &str, path: &str, token: Option<&str>) -> poem::http::StatusCode {
@@ -498,8 +508,7 @@ mod route_tests {
     async fn player_routes_validate_period_before_the_database() {
         let cli = client();
         for route in [
-            "detail", "most_played_maps", "graph/sessions", "hours_of_day", "online_heatmap",
-            "regions", "might_friends",
+            "detail", "most_played_maps", "graph/sessions", "regions",
         ] {
             let base = format!("/servers/1/players/76561198000000001/{route}");
             for bad in [
@@ -686,6 +695,13 @@ mod route_tests {
         ("GET", "/accounts/me/push/subscriptions"),
         ("GET", "/admin/communities"),
         ("GET", "/admin/audit-logs"),
+        ("GET", "/servers/1/players/76561198000000001/hours_of_day"),
+        ("GET", "/servers/1/players/76561198000000001/online_heatmap"),
+        ("GET", "/servers/1/players/76561198000000001/might_friends"),
+        ("GET", "/servers/1/players/76561198000000001/map_pull"),
+        ("GET", "/servers/1/sessions/1/all-match"),
+        ("GET", "/servers/1/sessions/1/match"),
+        ("GET", "/players/76561198000000001/online-activity"),
     ];
 
     #[tokio::test]
@@ -837,7 +853,7 @@ mod route_tests {
         let cli = client();
         let (_, body) = mcp(&cli, rpc(1, "tools/list", serde_json::Value::Null)).await;
         let tools = body["result"]["tools"].as_array().expect("a tools array");
-        assert_eq!(tools.len(), 49);
+        assert_eq!(tools.len(), 46);
         for tool in tools {
             assert_eq!(tool["inputSchema"]["type"], "object", "{tool:#}");
             assert!(tool["description"].as_str().is_some_and(|d| !d.is_empty()), "{tool:#}");

@@ -8,11 +8,16 @@ import MutualSessionsDisplay from "components/sessions/MutualSessionsDisplay.tsx
 import {SessionLayout, useLiveSession} from "components/sessions/SessionLayout";
 import {use} from "react";
 import {getSessionData, SessionData} from "./utils.ts";
+import {useSignedIn} from "components/auth/SignedIn";
+import LoginLocked from "components/ui/LoginLocked";
+import {useTranslations} from "next-intl";
 
 const reload = (data: SessionData) => getSessionData(data.server, data.player.id, data.sessionInfo.id);
 
 export default function SessionPlayerWrapper({ sessionPromise }: { sessionPromise: Promise<SessionData> }) {
     const { server, player, sessionInfo, mutualSessions, serverGraph, maps, mapImages } = useLiveSession(use(sessionPromise), reload)
+    const signedIn = useSignedIn()
+    const t = useTranslations('sessions')
 
     return <SessionLayout
         header={<SessionHeader server={server} player={player} sessionInfo={sessionInfo} />}
@@ -24,9 +29,13 @@ export default function SessionPlayerWrapper({ sessionPromise }: { sessionPromis
                 serverGraph={serverGraph}
             />
             <ServerPopChart sessionInfo={sessionInfo} maps={maps} serverGraph={serverGraph} />
-            <MatchScoreChart sessionInfo={sessionInfo} maps={maps} />
+            {signedIn
+                ? <MatchScoreChart sessionInfo={sessionInfo} maps={maps} />
+                : <LoginLocked title={t('matchScoreProgression')} />}
             <MapsList server={server} maps={maps} mapImages={mapImages} />
         </>}
-        side={<MutualSessionsDisplay server={server} mutualSessions={mutualSessions} type="player" />}
+        side={mutualSessions
+            ? <MutualSessionsDisplay server={server} mutualSessions={mutualSessions} type="player" />
+            : <LoginLocked title={t('mutualSessions')} />}
     />
 }

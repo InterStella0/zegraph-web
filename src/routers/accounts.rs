@@ -1577,15 +1577,18 @@ impl AccountsApi {
     /// hours and weekdays are reported in, UTC when omitted. Each session's time is spread over the
     /// hours it covers; a session still running counts up to when it was last seen. Communities
     /// where the target anonymized themselves are left out for viewers without permission.
+    ///
+    /// Requires login.
     #[oai(path="/players/:player_id/online-activity", method="get", tag = "ApiTags::Players")]
     async fn get_user_online_activity(
         &self,
         Data(app): Data<&AppData>,
-        OptionalTokenBearer(requester): OptionalTokenBearer,
+        TokenBearer(requester): TokenBearer,
         Path(player_id): Path<String>,
         Query(tz): Query<Option<String>>,
     ) -> Response<PlayerOnlineActivity> {
         let pool = &*app.pool;
+        let requester = Some(requester);
         let scope = match resolve_profile_scope(app, &player_id, &requester).await {
             Ok(scope) => scope,
             Err(e) => return e,

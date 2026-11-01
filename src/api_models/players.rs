@@ -373,6 +373,24 @@ impl Display for EventType{
     }
 }
 
+/// A map that brings a player online: one they join within its first five minutes noticeably more
+/// often than they do for an average map.
+#[derive(Object)]
+pub struct PlayerMapPull {
+    pub map: String,
+    /// Joins that landed within five minutes of this map starting. Reconnects (a join less than
+    /// 15 minutes after the player's previous session ended) are not counted.
+    pub early_joins: i64,
+    /// Times this map started while the player was offline, i.e. times they could have joined for it.
+    pub chances: i64,
+    /// `early_joins / chances`.
+    pub join_rate: f64,
+    /// The same rate across every map, the player's usual.
+    pub baseline_rate: f64,
+    /// `join_rate / baseline_rate`.
+    pub lift: f64,
+}
+
 /// Count of join/leave events in one hour of the day, summed across all days.
 #[derive(Object)]
 pub struct PlayerHourDay{

@@ -621,6 +621,15 @@
       "periodCalculating": "Sedang mengira siapa yang bermain bersamanya dalam tempoh ini...",
       "periodEmpty": "Tidak bermain dengan sesiapa dalam tempoh ini.",
       "periodNoMatches": "Tiada sesiapa yang sepadan dengan \"{query}\" dalam senarai tempoh ini."
+    },
+    "mapPull": {
+      "title": "Peta yang membawa anda online",
+      "description": "Peta yang pemain ini sertai dalam 5 minit pertama ia bermula, lebih kerap berbanding peta biasa.",
+      "lift": "{lift}× biasa",
+      "joined": "Sertai awal {joins} daripada {chances} kali",
+      "usual": "Biasa: sertai {rate}% permulaan peta",
+      "empty": "Belum ada peta yang menonjol. Tiada peta yang membawa pemain ini online jauh lebih kerap daripada biasa.",
+      "loadError": "Ralat mendapatkan peta yang membawa pemain ini online!"
     }
   },
   "period": {
@@ -676,7 +685,9 @@
     "serverPopTitle": "Populasi Pelayan Semasa Sesi",
     "serverPopSubtitle": "Perubahan populasi sepanjang sesi",
     "continentDistribution": "Taburan Benua",
-    "continentSubtitle": "Lokasi pemain yang bermain sesi ini."
+    "continentSubtitle": "Lokasi pemain yang bermain sesi ini.",
+    "locked": "Log masuk untuk melihat",
+    "scoreLocked": "Log masuk untuk melihat skor"
   },
   "nav": {
     "discordCta": "Sertai Discord kami untuk sokongan atau maklum balas",
@@ -1303,8 +1314,6 @@
     "globalMapTitle": "{map} merentas semua pelayan",
     "globalMapCumulative": "Ia mempunyai jumlah terkumpul {hours} merentas {servers, plural, other {# pelayan}} dalam {communities, plural, other {# komuniti}}. Dimainkan oleh {players} pemain.",
     "globalMapTopServer": "Paling banyak dimainkan di {server} dengan {hours}.",
-    "roundsFinalScore": "Bermain sebanyak {rounds} pusingan dengan markah akhir {human}-{zombie}.",
-    "roundsScore": "Bermain sebanyak {rounds} pusingan dengan markah {human}-{zombie}.",
     "playingSince": "Kini sedang memainkannya sejak {time}.",
     "playedItAt": "Mereka memainkannya pada {time}.",
     "characterTitle": "{id} - Paparan Watak 3D",
@@ -1485,5 +1494,10 @@
     "next": "Seterusnya",
     "dismiss": "Faham",
     "counter": "{current} daripada {total}"
+  },
+  "locked": {
+    "description": "Log masuk dengan Steam untuk melihat ini. Ia disembunyikan daripada pelawat yang belum log masuk untuk menghalang scraper.",
+    "login": "Log masuk untuk melihat",
+    "compact": "Log masuk untuk melihat skor"
   }
 }

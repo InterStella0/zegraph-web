@@ -621,6 +621,15 @@
       "periodCalculating": "Calculando con quién jugó en este periodo...",
       "periodEmpty": "No jugó con nadie en este periodo.",
       "periodNoMatches": "Nadie coincide con \"{query}\" en la lista de este periodo."
+    },
+    "mapPull": {
+      "title": "Mapas que te hacen conectarte",
+      "description": "Mapas en los que este jugador entra durante sus primeros 5 minutos, más a menudo que en un mapa promedio.",
+      "lift": "{lift}× lo habitual",
+      "joined": "Entró pronto {joins} de {chances} veces",
+      "usual": "Habitual: entra en el {rate}% de los inicios de mapa",
+      "empty": "Ningún mapa destaca todavía: ninguno hace que este jugador se conecte notablemente más de lo habitual.",
+      "loadError": "¡Error al obtener los mapas que hacen conectarse a este jugador!"
     }
   },
   "period": {
@@ -676,7 +685,9 @@
     "serverPopTitle": "Población del servidor durante la sesión",
     "serverPopSubtitle": "Cambios de población durante la sesión",
     "continentDistribution": "Distribución por continente",
-    "continentSubtitle": "Ubicación de los jugadores que jugaron esta sesión."
+    "continentSubtitle": "Ubicación de los jugadores que jugaron esta sesión.",
+    "locked": "Inicia sesión para ver",
+    "scoreLocked": "Inicia sesión para ver el marcador"
   },
   "nav": {
     "discordCta": "Únete a nuestro Discord para soporte o comentarios",
@@ -1303,8 +1314,6 @@
     "globalMapTitle": "{map} en todos los servidores",
     "globalMapCumulative": "Tiene un acumulado de {hours} en {servers, plural, one {# servidor} other {# servidores}} de {communities, plural, one {# comunidad} other {# comunidades}}. Jugado por {players} jugadores.",
     "globalMapTopServer": "Más jugado en {server} con {hours}.",
-    "roundsFinalScore": "Se jugaron {rounds} rondas con una puntuación final de {human}-{zombie}.",
-    "roundsScore": "Se jugaron {rounds} rondas con una puntuación de {human}-{zombie}.",
     "playingSince": "Jugándolo actualmente desde {time}.",
     "playedItAt": "Lo jugaron el {time}.",
     "characterTitle": "{id} - Vista 3D del personaje",
@@ -1485,5 +1494,10 @@
     "next": "Siguiente",
     "dismiss": "Entendido",
     "counter": "{current} de {total}"
+  },
+  "locked": {
+    "description": "Inicia sesión con Steam para verlo. Está oculto a los visitantes sin sesión para frenar a los scrapers.",
+    "login": "Inicia sesión para ver",
+    "compact": "Inicia sesión para ver el marcador"
   }
 }

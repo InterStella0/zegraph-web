@@ -16,6 +16,7 @@ import {
     formatHours,
     formatOrdinal,
     formatTitle,
+    hasSession,
     orNull,
     socialMeta
 } from "utils/generalUtils.ts";
@@ -112,7 +113,10 @@ export default async function Page({ params }: { params: Promise<{ player_id: st
     const sessionsPromise = seed<GlobalPlayerSessionPage>('/sessions', { page: 0 });
     const sessionStatsPromise = seed<PlayerSessionStats>('/session-stats');
     const mapsPromise = seed<GlobalPlayerMap[]>('/maps');
-    const activityPromise = seed<PlayerOnlineActivity>('/online-activity', { tz: 'UTC' });
+    // Activity by hour is login-only; logged-out visitors see a locked card, so skip the request.
+    const activityPromise = await hasSession()
+        ? seed<PlayerOnlineActivity>('/online-activity', { tz: 'UTC' })
+        : Promise.resolve(null);
     const infractionsPromise = seed<GlobalPlayerInfraction[]>('/infractions');
 
     const sections = [

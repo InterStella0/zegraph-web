@@ -813,6 +813,91 @@ worker_query! {
     }
 }
 
+/// Maps that bring a player online, between `start` and `end`. A join is "early" when it lands
+/// within five minutes of the map that was running starting; a "chance" is a start of that map
+/// while the player was offline. Each map's early-join rate is compared with the player's rate
+/// across every map, and only maps they join for clearly more often than usual are kept.
+async fn query_map_pull(
+    pool: &Pool<Postgres>, server_id: &str, player_id: &str, start: OffsetDateTime, end: OffsetDateTime,
+) -> Result<Vec<DbPlayerMapPull>, sqlx::Error> {
+    sqlx::query_as!(DbPlayerMapPull, "
+        WITH sessions AS (
+            SELECT started_at, ended_at,
+                   LAG(ended_at) OVER (ORDER BY started_at) AS prev_ended
+            FROM player_server_session
+            WHERE server_id = $1 AND player_id = $2 AND ended_at IS NOT NULL
+        ), span AS (
+            SELECT GREATEST(MIN(started_at), $3) AS first_seen, LEAST(MAX(ended_at), $4) AS last_seen
+            FROM sessions
+            WHERE started_at < $4 AND ended_at > $3
+        ), joins AS (
+            SELECT started_at FROM sessions
+            WHERE started_at >= $3 AND started_at < $4
+              AND (prev_ended IS NULL OR started_at - prev_ended > INTERVAL '15 minutes')
+        ), early AS (
+            SELECT running.map, COUNT(*) AS early_joins
+            FROM joins j
+            CROSS JOIN LATERAL (
+                SELECT smp.map, smp.started_at
+                FROM server_map_played smp
+                WHERE smp.server_id = $1 AND smp.started_at <= j.started_at
+                ORDER BY smp.started_at DESC
+                LIMIT 1
+            ) running
+            WHERE j.started_at - running.started_at <= INTERVAL '5 minutes'
+            GROUP BY running.map
+        ), chances AS (
+            SELECT smp.map, COUNT(*) AS chances
+            FROM server_map_played smp
+            CROSS JOIN span
+            WHERE smp.server_id = $1
+              AND smp.started_at >= span.first_seen AND smp.started_at < span.last_seen
+              AND NOT EXISTS (
+                  SELECT 1 FROM (
+                      SELECT p.ended_at FROM player_server_session p
+                      WHERE p.server_id = $1 AND p.player_id = $2 AND p.started_at < smp.started_at
+                      ORDER BY p.started_at DESC
+                      LIMIT 1
+                  ) last_session
+                  WHERE COALESCE(last_session.ended_at, 'infinity') > smp.started_at
+              )
+            GROUP BY smp.map
+        ), baseline AS (
+            SELECT (SELECT SUM(early_joins) FROM early)::float8
+                / NULLIF((SELECT SUM(chances) FROM chances), 0)::float8 AS rate
+        ), rated AS (
+            SELECT e.map, e.early_joins, c.chances,
+                   e.early_joins::float8 / c.chances AS join_rate,
+                   b.rate AS baseline_rate
+            FROM early e
+            JOIN chances c ON c.map = e.map
+            CROSS JOIN baseline b
+            WHERE b.rate > 0
+        )
+        SELECT map, early_joins, chances, join_rate, baseline_rate,
+               join_rate / baseline_rate AS lift
+        FROM rated
+        WHERE early_joins >= 3 AND join_rate / baseline_rate >= 1.5
+        ORDER BY lift DESC, early_joins DESC
+        LIMIT 12
+    ", server_id, player_id, start, end).fetch_all(pool).await
+}
+
+worker_query! {
+    PlayerBasicQuery<Vec<DbPlayerMapPull>> => PlayerMapPull, 60 * DAY, Heavy,
+    |self, ctx| format!("player-map-pull:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
+        let end = OffsetDateTime::now_utc() + ::time::Duration::days(1);
+        query_map_pull(&ctx.pool, &ctx.data.server_id, &ctx.data.player_id, OffsetDateTime::UNIX_EPOCH, end).await
+    }
+}
+
+worker_query! {
+    PlayerPeriodQuery<Vec<DbPlayerMapPull>> => PlayerPeriodMapPull, period "map-pull", Heavy, |self, ctx| {
+        let (start, end) = self.bounds();
+        query_map_pull(&ctx.pool, &ctx.data.server_id, &ctx.data.player_id, start, end).await
+    }
+}
+
 worker_query! {
     PlayerBasicQuery<Vec<DbPlayerOnlineHeatmap>> => PlayerOnlineHeatmap, 60 * DAY, Light,
     |self, ctx| format!("player-online-heatmap:{}:{}:{{session}}", ctx.data.server_id, ctx.data.player_id), {
@@ -1852,6 +1937,11 @@ impl PlayerWorker {
         Ok(result.into_iter().map(Into::into).collect())
     }
 
+    pub async fn get_map_pull(&self, context: &PlayerContext, period: Option<TimePeriod>) -> WorkResult<Vec<PlayerMapPull>> {
+        let result: Vec<DbPlayerMapPull> = self.query_player_or_period(context, period).await?;
+        Ok(result.into_iter().map(Into::into).collect())
+    }
+
     pub async fn get_hour_of_day(&self, context: &PlayerContext, period: Option<TimePeriod>) -> WorkResult<Vec<PlayerHourDay>> {
         let result: Vec<DbPlayerHourCount> = self.query_player_or_period(context, period).await?;
 
@@ -2057,6 +2147,10 @@ mod tests {
             player_query::<Vec<DbPlayerSeen>>(),
             "player-might-friends", QueryPriority::Heavy, JobKind::PlayerMightFriends(_)
         );
+        assert_session_scoped!(
+            player_query::<Vec<DbPlayerMapPull>>(),
+            "player-map-pull", QueryPriority::Heavy, JobKind::PlayerMapPull(_)
+        );
         let (pattern, ttl, priority, kind) = metadata(
             &player_query::<Option<DbNidePlayerStats>>(),
         );
@@ -2103,6 +2197,7 @@ mod tests {
     type OnlineHeatmap = Vec<DbPlayerOnlineHeatmap>;
     type RegionTime = Vec<DbPlayerRegionTime>;
     type PlayedWith = Vec<DbPlayerSeen>;
+    type MapPull = Vec<DbPlayerMapPull>;
 
     #[tokio::test]
     async fn period_query_metadata_matches_its_type() {
@@ -2113,6 +2208,7 @@ mod tests {
         assert_period_scoped!(OnlineHeatmap, "player-period-online-heatmap", QueryPriority::Light, JobKind::PlayerPeriodOnlineHeatmap(_));
         assert_period_scoped!(RegionTime, "player-period-region", QueryPriority::Light, JobKind::PlayerPeriodRegionTime(_));
         assert_period_scoped!(PlayedWith, "player-period-played-with-v2", QueryPriority::Heavy, JobKind::PlayerPeriodPlayedWith(_));
+        assert_period_scoped!(MapPull, "player-period-map-pull", QueryPriority::Heavy, JobKind::PlayerPeriodMapPull(_));
     }
 
     macro_rules! assert_range_scoped {

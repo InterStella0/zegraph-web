@@ -623,6 +623,15 @@
       "periodCalculating": "Working out who they played with in this period...",
       "periodEmpty": "Didn't play with anyone in this period.",
       "periodNoMatches": "No one matching \"{query}\" in this period's list."
+    },
+    "mapPull": {
+      "title": "Maps that bring you online",
+      "description": "Maps this player joins within the first 5 minutes of them starting, more often than they do for an average map.",
+      "lift": "{lift}× usual",
+      "joined": "Joined early {joins} of {chances} times",
+      "usual": "Usual: joins {rate}% of map starts",
+      "empty": "No map stands out yet. Nothing gets this player online noticeably more than usual.",
+      "loadError": "Error fetching maps that bring this player online!"
     }
   },
   "period": {
@@ -678,7 +687,9 @@
     "serverPopTitle": "Server Population During Session",
     "serverPopSubtitle": "Population changes throughout the session",
     "continentDistribution": "Continent Distribution",
-    "continentSubtitle": "Players location that was playing this session."
+    "continentSubtitle": "Players location that was playing this session.",
+    "locked": "Log in to view",
+    "scoreLocked": "Log in to see the score"
   },
   "nav": {
     "discordCta": "Join our Discord for support or feedback",
@@ -1305,8 +1316,6 @@
     "globalMapTitle": "{map} across all servers",
     "globalMapCumulative": "It has a cumulative of {hours} across {servers, plural, one {# server} other {# servers}} in {communities, plural, one {# community} other {# communities}}. Played by {players} players.",
     "globalMapTopServer": "Played most on {server} with {hours}.",
-    "roundsFinalScore": "Played through {rounds} rounds with a final score of {human}-{zombie}.",
-    "roundsScore": "Played through {rounds} rounds with a score of {human}-{zombie}.",
     "playingSince": "Currently playing it since {time}.",
     "playedItAt": "They played it at {time}.",
     "characterTitle": "{id} - 3D Character View",
@@ -1487,5 +1496,10 @@
     "next": "Next",
     "dismiss": "Got it",
     "counter": "{current} of {total}"
+  },
+  "locked": {
+    "description": "Log in with Steam to view this. It's hidden from logged-out visitors to keep scrapers out.",
+    "login": "Log in to view",
+    "compact": "Log in to see the score"
   }
 }

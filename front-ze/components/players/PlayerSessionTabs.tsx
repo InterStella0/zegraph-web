@@ -6,6 +6,8 @@ import PlayerSessionList from "./PlayerSessionList.tsx";
 import PlayerPlayedWith from "./PlayerPlayedWith.tsx";
 import {ServerPlayerDetailed} from "../../app/servers/[server_slug]/players/[player_id]/page.tsx";
 import {PeriodChip} from "components/period/Period";
+import {useSignedIn} from "components/auth/SignedIn";
+import LoginLocked from "components/ui/LoginLocked";
 
 type SessionTab = 'sessions' | 'playedWith';
 
@@ -13,6 +15,7 @@ export default function PlayerSessionTabs({ serverPlayerPromise }: { serverPlaye
     const t = useTranslations('players');
     const [tab, setTab] = useState<SessionTab>('sessions');
     const [playedWithOpened, setPlayedWithOpened] = useState(false);
+    const signedIn = useSignedIn();
 
     const changeTab = (value: string) => {
         setTab(value as SessionTab);
@@ -33,7 +36,12 @@ export default function PlayerSessionTabs({ serverPlayerPromise }: { serverPlaye
                 <PlayerSessionList serverPlayerPromise={serverPlayerPromise} heading={heading} />
             </TabsContent>
             <TabsContent value="playedWith" forceMount className="data-[state=inactive]:hidden">
-                {playedWithOpened && <PlayerPlayedWith serverPlayerPromise={serverPlayerPromise} heading={heading} />}
+                {playedWithOpened && (signedIn
+                    ? <PlayerPlayedWith serverPlayerPromise={serverPlayerPromise} heading={heading} />
+                    : <div className="w-full min-h-[460px] flex flex-col">
+                        <div className="mb-3">{heading}</div>
+                        <LoginLocked title={t('playedWith.title')} className="flex-1" />
+                    </div>)}
             </TabsContent>
         </Tabs>
     );

@@ -1,5 +1,6 @@
 'use client'
 import {ReactNode, useCallback, useEffect, useRef, useState} from "react";
+import LoginLocked, {isLoginRequired} from "components/ui/LoginLocked";
 import {useLocale, useTranslations} from "next-intl";
 import dayjs from "lib/dayjs";
 import {Loader2, RefreshCw, Search, Users} from "lucide-react";
@@ -87,6 +88,7 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: ServerPlayerP
     const [hasStoredRows, setHasStoredRows] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    const [loginRequired, setLoginRequired] = useState(false);
     const [polling, setPolling] = useState(false);
     const [requesting, setRequesting] = useState(false);
     const { period } = usePeriod();
@@ -119,7 +121,11 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: ServerPlayerP
         let cancelled = false;
         setLoading(true);
         load()
-            .catch(() => { if (!cancelled) setError(true); })
+            .catch(err => {
+                if (cancelled) return;
+                setError(true);
+                setLoginRequired(isLoginRequired(err));
+            })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
     }, [load]);
@@ -183,6 +189,13 @@ function PlayerPlayedWithDisplay({ serverPlayerPromise, heading }: ServerPlayerP
         if (!data?.live_search && debouncedQuery.length < LIVE_SEARCH_MIN_CHARS) return t('noMatchesShort', {query: debouncedQuery});
         return t('noLiveMatches', {query: debouncedQuery});
     };
+
+    if (loginRequired) return (
+        <div className="w-full min-h-[460px] flex flex-col">
+            <div className="mb-3">{heading ?? <h2 className="text-lg sm:text-xl font-semibold">{t('title')}</h2>}</div>
+            <LoginLocked title={t('title')} className="flex-1" />
+        </div>
+    );
 
     return (
         <div className="w-full min-h-[460px] flex flex-col">

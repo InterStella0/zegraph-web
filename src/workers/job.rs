@@ -150,6 +150,7 @@ job_registry! {
     PlayerHourCount(PlayerData) => Vec<DbPlayerHourCount>,
     PlayerOnlineHeatmap(PlayerData) => Vec<DbPlayerOnlineHeatmap>,
     PlayerMightFriends(PlayerData) => Vec<DbPlayerSeen>,
+    PlayerMapPull(PlayerData) => Vec<DbPlayerMapPull>,
 
     PlayerPeriodMapPlayed(PlayerPeriodData) => Vec<DbPlayerMapPlayed>,
     PlayerPeriodDetail(PlayerPeriodData) => DbPlayerDetail,
@@ -158,6 +159,7 @@ job_registry! {
     PlayerPeriodOnlineHeatmap(PlayerPeriodData) => Vec<DbPlayerOnlineHeatmap>,
     PlayerPeriodRegionTime(PlayerPeriodData) => Vec<DbPlayerRegionTime>,
     PlayerPeriodPlayedWith(PlayerPeriodData) => Vec<DbPlayerSeen>,
+    PlayerPeriodMapPull(PlayerPeriodData) => Vec<DbPlayerMapPull>,
 
     PlayerSeen(PlayerSessionData) => Vec<DbPlayerSeen>,
 
@@ -273,6 +275,6 @@ mod tests {
             assert!(tags.insert(tag.clone()), "two JobKind variants share the tag {tag}");
         }
 
-        assert_eq!(tags.len(), 39, "all variants must be covered by all_job_kinds()");
+        assert_eq!(tags.len(), 41, "all variants must be covered by all_job_kinds()");
     }
 }

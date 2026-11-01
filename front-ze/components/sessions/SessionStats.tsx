@@ -1,4 +1,5 @@
 import {ReactNode} from "react";
+import {Lock} from "lucide-react";
 import {useTranslations} from 'next-intl';
 import { Card, CardContent } from 'components/ui/card';
 import { formatDuration, getServerPopRange } from 'utils/sessionUtils.js';
@@ -30,13 +31,13 @@ export function SessionStatGrid({ stats }: { stats: [ReactNode, ReactNode][] }) 
 }
 
 export function SessionStats({ sessionInfo, maps, mutualSessions, serverGraph }
-    :{ sessionInfo: PlayerSession, maps: PlayerSessionMapPlayed[], serverGraph: ServerGraphType<"player">, mutualSessions: MutualSessionReturn<"player">,  }
+    :{ sessionInfo: PlayerSession, maps: PlayerSessionMapPlayed[], serverGraph: ServerGraphType<"player">, mutualSessions: MutualSessionReturn<"player"> | null,  }
 ) {
     const t = useTranslations('sessions');
     return <SessionStatGrid stats={[
         [formatDuration(sessionInfo.started_at, sessionInfo.ended_at || dayjs()), <>{sessionInfo.ended_at ? 'Total' : 'Current'} Duration</>],
         [maps.length, t('mapsPlayed')],
-        [mutualSessions.length, t('mutualSessions')],
+        [mutualSessions ? mutualSessions.length : <Lock className="h-5 w-5 text-muted-foreground" aria-label={t('locked')} />, t('mutualSessions')],
         [getServerPopRange(serverGraph), t('serverPopRange')],
     ]} />;
 };

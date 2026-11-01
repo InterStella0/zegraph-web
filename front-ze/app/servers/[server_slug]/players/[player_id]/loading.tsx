@@ -9,6 +9,7 @@ const BLOCKS = [
     ["col-span-12 md:col-span-6 xl:col-span-4", "h-[500px]"],
     ["col-span-12 md:col-span-6 xl:col-span-4", "h-[477px]"],
     ["col-span-12 xl:col-span-8", "h-[532px] sm:h-[479px] md:h-[538px] lg:h-[496px]"],
+    ["col-span-12", "h-[260px]"],
 ];
 
 export default function Loading() {

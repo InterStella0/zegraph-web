@@ -10,6 +10,7 @@ import {SessionChartCard, SessionLayout, useLiveSession} from "components/sessio
 import getSessionData, { SessionData } from "./utils.ts";
 import {Skeleton, SkeletonBadge, SkeletonText} from "components/ui/skeleton";
 import {useTranslations} from "next-intl";
+import LoginLocked from "components/ui/LoginLocked";
 
 const statSkeleton = (width: string) => <SkeletonText className={`h-7 md:h-8 ${width}`} />;
 
@@ -58,6 +59,7 @@ const reload = (data: SessionData) => getSessionData(data.server, data.mapName, 
 
 export default function MapSessionWrapper({ initialData }: { initialData: SessionData }) {
     const { sessionInfo, mutualSessions, graphData, serverGraph, mapImage, continents, server } = useLiveSession(initialData, reload);
+    const t = useTranslations('sessions');
 
     return <SessionLayout
         header={<MapSessionHeader sessionInfo={sessionInfo} server={server} mapImage={mapImage?.small || null} />}
@@ -69,7 +71,9 @@ export default function MapSessionWrapper({ initialData }: { initialData: Sessio
                 graphMatch={graphData}
             />
             <ServerPopChart sessionInfo={sessionInfo} serverGraph={serverGraph} maps={null} />
-            <MapMatchScoreChart sessionInfo={sessionInfo} graphMatch={graphData} />
+            {graphData
+                ? <MapMatchScoreChart sessionInfo={sessionInfo} graphMatch={graphData} />
+                : <LoginLocked title={t('matchScoreProgression')} />}
             {sessionInfo && continents && <SessionContinents sessionInfo={sessionInfo} continents={continents} />}
         </>}
         side={<MutualSessionsDisplay server={server} mutualSessions={mutualSessions} type="map" />}

@@ -8,10 +8,13 @@ import { fetchApiServerUrl, NO_CACHE, StillCalculate } from "utils/generalUtils"
 import { DetailedPlayer } from "types/players.ts";
 import { STALE_PATHS, usePlayerStatsPatch } from "./PlayerStatsPatch.tsx";
 import {usePeriod} from "components/period/Period";
+import {useSignedIn} from "components/auth/SignedIn";
+import {LOGIN_STAT_PATHS} from "./loginStats.ts";
 
 const POLL_INTERVAL_MS = 30000;
 
 const DEPENDENT_PATHS = STALE_PATHS.filter(path => path !== "detail");
+const PUBLIC_DEPENDENT_PATHS = DEPENDENT_PATHS.filter(path => !LOGIN_STAT_PATHS.has(path));
 
 type StalePlayerStatsProps = { serverId: string, playerId: string, calculatedAt: string | null };
 
@@ -28,6 +31,7 @@ function StalePlayerStatsBanner({ serverId, playerId, calculatedAt }: StalePlaye
     const [done, setDone] = useState(false);
     const [cycle, setCycle] = useState(0);
     const applyPatches = usePlayerStatsPatch()?.applyPatches;
+    const dependentPaths = useSignedIn() ? DEPENDENT_PATHS : PUBLIC_DEPENDENT_PATHS;
 
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
@@ -43,14 +47,14 @@ function StalePlayerStatsBanner({ serverId, playerId, calculatedAt }: StalePlaye
                 return;
             }
 
-            const results = await Promise.allSettled(DEPENDENT_PATHS.map(path =>
+            const results = await Promise.allSettled(dependentPaths.map(path =>
                 fetchApiServerUrl(serverId, `/players/${playerId}/${path}`, NO_CACHE, false)
             ));
 
             const entries: [string, unknown][] = [["detail", detail]];
             results.forEach((result, index) => {
                 if (result.status === "fulfilled" && result.value != null && !(result.value instanceof StillCalculate))
-                    entries.push([DEPENDENT_PATHS[index], result.value]);
+                    entries.push([dependentPaths[index], result.value]);
             });
 
             applyPatches?.(entries);
@@ -61,7 +65,7 @@ function StalePlayerStatsBanner({ serverId, playerId, calculatedAt }: StalePlaye
             setIsRefreshing(false);
             setCycle(c => c + 1);
         }
-    }, [serverId, playerId, applyPatches]);
+    }, [serverId, playerId, applyPatches, dependentPaths]);
 
     useEffect(() => {
         if (done) return;
