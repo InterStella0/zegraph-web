@@ -3,6 +3,7 @@ import {ReactNode, useEffect, useState} from "react";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "components/ui/card";
 import {AdSpot} from "components/ui/AdSpot";
 import {ScreenReaderOnly} from "components/ui/ScreenReaderOnly";
+import LoginLocked from "components/ui/LoginLocked";
 
 export function SessionLayout({ header, main, side }: { header: ReactNode, main: ReactNode, side: ReactNode }) {
     return (
@@ -22,6 +23,13 @@ export function SessionLayout({ header, main, side }: { header: ReactNode, main:
             </div>
         </div>
     );
+}
+
+/** The locked state of a login-only session chart, sized like the chart it replaces. */
+export function LockedSessionChartCard({ title, description }: { title: string, description: ReactNode }) {
+    return <SessionChartCard title={title} description={description}>
+        <LoginLocked bare className="h-full" />
+    </SessionChartCard>;
 }
 
 /** A 300px session chart; with a `summary`, the chart is exposed to screen readers as an image described by it. */

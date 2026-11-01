@@ -43,7 +43,7 @@ type ProfileOnlineActivityProps = {
 /** Activity by hour is login-only, so logged-out visitors get the locked card instead. */
 export default function ProfileOnlineActivity(props: ProfileOnlineActivityProps) {
     const t = useTranslations('players.profile.activity');
-    if (!useSignedIn()) return <LoginLocked title={t('title')} />;
+    if (!useSignedIn()) return <LoginLocked title={t('title')} className="h-full" />;
     return <ProfileOnlineActivityDisplay {...props} />;
 }
 
