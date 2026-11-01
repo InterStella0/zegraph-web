@@ -813,10 +813,12 @@ worker_query! {
     }
 }
 
-/// Maps that bring a player online, between `start` and `end`. A join is "early" when it lands
-/// within five minutes of the map that was running starting; a "chance" is a start of that map
-/// while the player was offline. Each map's early-join rate is compared with the player's rate
-/// across every map, and only maps they join for clearly more often than usual are kept.
+/// Maps that bring a player online, between `start` and `end`. A "chance" is a start of a map
+/// while the player had been offline for over 15 minutes (so a short disconnect is not one); an
+/// "early join" is a join within five minutes of a chance. Both sides share that 15-minute rule, so
+/// a reconnect can neither count as a join nor leave behind a chance it could never fill. Each
+/// map's early-join rate is compared with the player's rate across every map, and only maps they
+/// join for clearly more often than usual are kept.
 async fn query_map_pull(
     pool: &Pool<Postgres>, server_id: &str, player_id: &str, start: OffsetDateTime, end: OffsetDateTime,
 ) -> Result<Vec<DbPlayerMapPull>, sqlx::Error> {
@@ -831,7 +833,7 @@ async fn query_map_pull(
             FROM sessions
             WHERE started_at < $4 AND ended_at > $3
         ), joins AS (
-            SELECT started_at FROM sessions
+            SELECT started_at, prev_ended FROM sessions
             WHERE started_at >= $3 AND started_at < $4
               AND (prev_ended IS NULL OR started_at - prev_ended > INTERVAL '15 minutes')
         ), early AS (
@@ -845,6 +847,7 @@ async fn query_map_pull(
                 LIMIT 1
             ) running
             WHERE j.started_at - running.started_at <= INTERVAL '5 minutes'
+              AND (j.prev_ended IS NULL OR running.started_at - j.prev_ended > INTERVAL '15 minutes')
             GROUP BY running.map
         ), chances AS (
             SELECT smp.map, COUNT(*) AS chances
@@ -859,7 +862,7 @@ async fn query_map_pull(
                       ORDER BY p.started_at DESC
                       LIMIT 1
                   ) last_session
-                  WHERE COALESCE(last_session.ended_at, 'infinity') > smp.started_at
+                  WHERE COALESCE(last_session.ended_at, 'infinity') > smp.started_at - INTERVAL '15 minutes'
               )
             GROUP BY smp.map
         ), baseline AS (

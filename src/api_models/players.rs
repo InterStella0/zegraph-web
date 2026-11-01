@@ -145,7 +145,10 @@ pub struct PlayerSessionMapPlayed{
     pub player_count: i32,
     pub started_at: DateTime<Utc>,
     pub ended_at: Option<DateTime<Utc>>,
-    pub match_data: Vec<MatchData>
+    pub match_data: Vec<MatchData>,
+    /// True when `match_data` was withheld because the request had no valid login, as opposed to
+    /// the map simply having no recorded rounds.
+    pub match_data_hidden: bool,
 }
 
 #[derive(Object)]

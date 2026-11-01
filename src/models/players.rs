@@ -487,6 +487,7 @@ impl Into<PlayerSessionMapPlayed> for DbPlayerSessionMapPlayed{
             started_at: self.started_at.to_utc_time(),
             ended_at: self.ended_at.to_utc_optional(),
             match_data: vec![],
+            match_data_hidden: false,
         }
     }
 }
