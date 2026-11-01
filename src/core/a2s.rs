@@ -33,6 +33,7 @@ pub enum A2sError {
     Malformed(&'static str),
     UnexpectedType(u8),
     Compressed,
+    Unresolved,
 }
 
 impl Display for A2sError {
@@ -43,6 +44,7 @@ impl Display for A2sError {
             A2sError::Malformed(what) => write!(f, "malformed reply: {what}"),
             A2sError::UnexpectedType(t) => write!(f, "unexpected reply type 0x{t:02X}"),
             A2sError::Compressed => write!(f, "compressed split replies are not supported"),
+            A2sError::Unresolved => write!(f, "server address did not resolve"),
         }
     }
 }

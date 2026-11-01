@@ -35,6 +35,9 @@ pub enum SlotEventKind {
     Join,
     Leave,
     Meta,
+    /// A poll got an answer. Carries the current `seq` without bumping it, so it doubles as a gap
+    /// check, and tells clients how fresh the list is.
+    Poll,
     Heartbeat,
 }
 
@@ -48,9 +51,10 @@ pub struct SlotMeta {
     pub map: Option<String>,
 }
 
-/// One server-sent event. `seq` increases by exactly one per broadcast event; a client that sees a
-/// gap should reconnect for a fresh snapshot. A snapshot carries the `seq` of the last event it
-/// already includes.
+/// One server-sent event. `seq` increases by exactly one per `join`, `leave`, `meta` and broadcast
+/// `snapshot`; a client that sees a gap should reconnect for a fresh snapshot. A snapshot carries
+/// the `seq` of the last event it already includes, and a `poll` the `seq` of the last event before
+/// it. A `heartbeat` carries the latest `seq` but can overtake queued events, so it is no gap check.
 #[derive(Object, Clone, Debug, PartialEq, Serialize)]
 pub struct SlotEvent {
     pub kind: SlotEventKind,
@@ -64,11 +68,15 @@ pub struct SlotEvent {
     /// The player who joined or left, `join`/`leave` only.
     #[oai(skip_serializing_if_is_none)]
     pub name: Option<String>,
+    /// How long before this `snapshot` was sent the server last answered a poll. Absent if it never
+    /// has. Later answers arrive as `poll` events, timed by when the client receives them.
+    #[oai(skip_serializing_if_is_none)]
+    pub polled_ms_ago: Option<u64>,
 }
 
 impl SlotEvent {
     fn bare(kind: SlotEventKind, seq: u64) -> Self {
-        Self { kind, seq, meta: None, names: None, name: None }
+        Self { kind, seq, meta: None, names: None, name: None, polled_ms_ago: None }
     }
 
     pub(crate) fn heartbeat(seq: u64) -> Self {
@@ -132,6 +140,8 @@ struct WatchState {
     /// False until the first poll finishes. Until then nobody gets a snapshot: an empty list would
     /// read as a server with every slot free.
     ready: bool,
+    /// When the server last answered a poll.
+    polled_at: Option<Instant>,
 }
 
 pub(crate) struct ServerWatch {
@@ -166,6 +176,7 @@ impl ServerWatch {
 
     fn apply(&self, meta: SlotMeta, names: Vec<String>) {
         let mut state = self.state.lock().expect("slot watch state poisoned");
+        state.polled_at = Some(Instant::now());
         if !state.ready || !state.meta.online {
             state.names = names;
             state.meta = meta;
@@ -188,6 +199,7 @@ impl ServerWatch {
             state.meta = meta.clone();
             self.broadcast(&mut state, |seq| SlotEvent { meta: Some(meta), ..SlotEvent::bare(SlotEventKind::Meta, seq) });
         }
+        let _ = self.events.send(SlotEvent::bare(SlotEventKind::Poll, state.seq));
     }
 
     fn mark_offline(&self) {
@@ -208,6 +220,7 @@ fn snapshot_of(state: &WatchState) -> SlotEvent {
     SlotEvent {
         meta: Some(state.meta.clone()),
         names: Some(state.names.clone()),
+        polled_ms_ago: state.polled_at.map(|at| at.elapsed().as_millis() as u64),
         ..SlotEvent::bare(SlotEventKind::Snapshot, state.seq)
     }
 }
@@ -305,7 +318,7 @@ async fn poll_loop(hub: Arc<SlotWatchHub>, server_id: String, watch: Arc<ServerW
         }
         let result = match addr {
             Some(addr) => probe(hub.prober.as_ref(), addr, last_info.as_ref()).await,
-            None => Err(A2sError::Malformed("could not resolve server address")),
+            None => Err(A2sError::Unresolved),
         };
 
         match result {
@@ -430,11 +443,17 @@ mod tests {
         names: Vec<String>,
         meta: Option<SlotMeta>,
         seq: Option<u64>,
+        polls: usize,
     }
 
     impl Client {
         fn apply(&mut self, event: SlotEvent) {
             if event.kind == SlotEventKind::Heartbeat {
+                return;
+            }
+            if event.kind == SlotEventKind::Poll {
+                assert_eq!(Some(event.seq), self.seq, "poll seq should match the last event");
+                self.polls += 1;
                 return;
             }
             if event.kind != SlotEventKind::Snapshot {
@@ -453,7 +472,7 @@ mod tests {
                     self.names.remove(at);
                 }
                 SlotEventKind::Meta => self.meta = event.meta,
-                SlotEventKind::Heartbeat => unreachable!(),
+                SlotEventKind::Poll | SlotEventKind::Heartbeat => unreachable!(),
             }
         }
 
@@ -507,6 +526,7 @@ mod tests {
         while client.sorted() != names(&["Bob", "Cid"]) {
             client.apply(next(&mut receiver).await);
         }
+        assert!(client.polls >= 3, "every answered poll after the first sends a poll event");
 
         // A late watcher's snapshot lines up with what the first one built from diffs. Nothing
         // awaits between draining and subscribing, so the poller cannot slip an event in.
@@ -518,8 +538,10 @@ mod tests {
             }
         }
         let (_, _late, late_snapshot) = hub.subscribe("1", "127.0.0.1".into(), 27015);
+        let late_snapshot = late_snapshot.expect("ready by now");
+        assert!(late_snapshot.polled_ms_ago.is_some_and(|age| age <= POLL_MAX_MS), "snapshot says how fresh it is");
         let mut late = Client::default();
-        late.apply(late_snapshot.expect("ready by now"));
+        late.apply(late_snapshot);
         assert_eq!(late.sorted(), client.sorted());
         assert_eq!(late.seq, client.seq);
         assert_eq!(late.meta, client.meta);
@@ -533,6 +555,7 @@ mod tests {
         assert_eq!(event.kind, SlotEventKind::Snapshot);
         assert_eq!(event.names, Some(vec![]));
         assert!(!event.meta.unwrap().online);
+        assert_eq!(event.polled_ms_ago, None, "a server that never answered has no poll age");
     }
 
     #[tokio::test(start_paused = true)]
