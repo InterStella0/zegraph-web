@@ -1,7 +1,7 @@
 'use client'
 import {useEffect, useMemo, useState} from "react";
 import {useTranslations} from "next-intl";
-import {Check, CircleCheck, Loader2, Minus, MonitorPlay, Play, Plus, RotateCcw, Search, Timer, Users, X} from "lucide-react";
+import {ArrowDown, Check, CircleCheck, Hourglass, Loader2, Minus, MonitorPlay, Play, Plus, RotateCcw, Search, Timer, Users, X} from "lucide-react";
 import {Button} from "components/ui/button";
 import {Input} from "components/ui/input";
 import {ScrollArea} from "components/ui/scroll-area";
@@ -10,21 +10,79 @@ import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, Di
 import {cn} from "components/lib/utils";
 import {Server} from "types/community";
 import {SteamProfile} from "types/steam";
+import {PlayerDetailSession} from "types/players";
+import {PlayerAvatar} from "components/players/PlayerAvatar";
+import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink";
+import {fetchServerUrl} from "utils/generalUtils";
 import {effectiveTarget, SlotView, useAutoJoin} from "components/servers/useAutoJoin";
 
 /** A poll older than this reads as stale: polls are at most 3s apart while the server answers. */
 const FRESH_MS = 6000
 const SEARCH_FROM = 10
+/** Short enough that the whole dialog fits a laptop screen with the auto join controls above. */
+const LIST_HEIGHT = 'h-[clamp(9rem,30vh,16rem)]'
 
-/** Seconds since the last answered poll, re-rendered every second while shown. */
-function usePollAge(polledAt: number | null, enabled: boolean): number | null {
+/** The site's own online list is scraped, not live, and cached 20s by the API; this only adds
+ *  avatars and profile links to the live names, so it refreshes slowly. */
+const ROSTER_REFRESH_MS = 30_000
+const ROW_AVATAR_PX = 24
+
+const rosterKey = (name: string) => name.trim().toLowerCase()
+
+/** Online players by name, for decorating the live A2S names. A name two players share maps to
+ *  `null`: there is no telling which one it is, so it stays plain text. Anonymized players come
+ *  back from the API without their name and so never match. */
+type Roster = Map<string, PlayerDetailSession | null>
+
+function indexRoster(players: PlayerDetailSession[]): Roster {
+    const roster: Roster = new Map()
+    for (const player of players) {
+        if (player.is_anonymous || player.hidden_from_others || !player.name) continue
+        const key = rosterKey(player.name)
+        const known = roster.get(key)
+        roster.set(key, known === undefined || known?.id === player.id ? player : null)
+    }
+    return roster
+}
+
+/** The server's online players from the API, refetched every `ROSTER_REFRESH_MS` while
+ *  `enabled`. A name the live list has but this does not yet stays plain until a refetch has it. */
+function useOnlineRoster(serverId: string, enabled: boolean): Roster {
+    const [roster, setRoster] = useState<Roster>(() => new Map())
+    useEffect(() => {
+        if (!enabled) return
+        let cancelled = false
+        const load = () => fetchServerUrl(serverId, '/players/playing')
+            .then((players: PlayerDetailSession[] | null) => { if (!cancelled) setRoster(indexRoster(players ?? [])) })
+            .catch(error => console.warn('Online player list unavailable, showing plain names:', error))
+        load()
+        const timer = setInterval(load, ROSTER_REFRESH_MS)
+        return () => {
+            cancelled = true
+            clearInterval(timer)
+        }
+    }, [serverId, enabled])
+    return roster
+}
+
+/** The current time, re-rendered every second while `enabled`, for poll ages and play times. */
+function useNow(enabled: boolean): number {
     const [now, setNow] = useState(() => Date.now())
     useEffect(() => {
         if (!enabled) return
         const timer = setInterval(() => setNow(Date.now()), 1000)
         return () => clearInterval(timer)
     }, [enabled])
-    return polledAt === null ? null : Math.max(0, now - polledAt)
+    return now
+}
+
+/** `1:04:09` or `4:09`. */
+function formatPlayed(ms: number): string {
+    const total = Math.max(0, Math.floor(ms / 1000))
+    const hours = Math.floor(total / 3600)
+    const minutes = Math.floor(total / 60) % 60
+    const seconds = String(total % 60).padStart(2, '0')
+    return hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`
 }
 
 function PollIndicator({ view, age }: { view: SlotView | null, age: number | null }) {
@@ -49,16 +107,26 @@ function PollIndicator({ view, age }: { view: SlotView | null, age: number | nul
     )
 }
 
-function PlayerList({ view, selfName }: { view: SlotView | null, selfName: string | null }) {
+type SortKey = 'time' | 'name'
+
+function PlayerList({ view, selfName, now, roster, server }: {
+    view: SlotView | null, selfName: string | null, now: number, roster: Roster, server: Server,
+}) {
     const t = useTranslations('servers.autoJoin')
     const [query, setQuery] = useState('')
+    const [sort, setSort] = useState<SortKey>('time')
     const selfKey = selfName?.trim().toLowerCase() || null
-    const players = view?.players ?? []
+    const players = view?.players
     const needle = query.trim().toLowerCase()
-    const shown = useMemo(
-        () => needle ? players.filter(name => name.toLowerCase().includes(needle)) : players,
-        [players, needle],
-    )
+    const shown = useMemo(() => {
+        const list = (players ?? []).filter(player => !needle || player.name.toLowerCase().includes(needle))
+        return list.sort((a, b) => {
+            if (sort === 'name' && (a.name === '') !== (b.name === '')) return a.name === '' ? 1 : -1
+            const byName = a.name.localeCompare(b.name, undefined, {sensitivity: 'base'})
+            return sort === 'name' ? byName || a.since - b.since : a.since - b.since || byName
+        })
+    }, [players, needle, sort])
+    const total = players?.length ?? 0
 
     const placeholder = !view
         ? <Loader2 className="h-5 w-5 animate-spin" />
@@ -66,13 +134,24 @@ function PlayerList({ view, selfName }: { view: SlotView | null, selfName: strin
             ? t('notAnswering')
             : view.hidden
                 ? t('hiddenList')
-                : players.length === 0
+                : total === 0
                     ? t('empty')
                     : shown.length === 0 ? t('noMatch') : null
 
+    const header = (key: SortKey, label: string, className: string) => (
+        <button
+            type="button"
+            onClick={() => setSort(key)}
+            className={cn("inline-flex items-center gap-1 hover:text-foreground", sort === key && "text-foreground", className)}
+        >
+            {label}
+            <ArrowDown className={cn("h-3 w-3", sort !== key && "invisible")} />
+        </button>
+    )
+
     return (
         <div className="space-y-2">
-            {players.length >= SEARCH_FROM && (
+            {total >= SEARCH_FROM && (
                 <div className="relative">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -83,34 +162,143 @@ function PlayerList({ view, selfName }: { view: SlotView | null, selfName: strin
                     />
                 </div>
             )}
-            <ScrollArea className="h-56 rounded-md border">
-                {placeholder !== null ? (
-                    <div className="flex h-56 items-center justify-center px-6 text-center text-sm text-muted-foreground">
-                        {placeholder}
-                    </div>
-                ) : (
-                    <ul className="grid grid-cols-1 gap-x-2 p-1.5 text-sm sm:grid-cols-2">
-                        {shown.map((name, index) => {
-                            const self = selfKey !== null && name.trim().toLowerCase() === selfKey
-                            return (
-                                <li key={`${name}\u0000${index}`} className={cn("flex min-w-0 items-center gap-2 rounded px-2 py-1", self && "bg-primary/10")}>
-                                    {name === ''
-                                        ? <span className="italic text-muted-foreground">{t('connectingPlayer')}</span>
-                                        : <span className="truncate" title={name}>{name}</span>}
-                                    {self && <span className="ml-auto shrink-0 rounded bg-primary px-1.5 text-[10px] font-semibold uppercase text-primary-foreground">{t('you')}</span>}
-                                </li>
-                            )
-                        })}
-                    </ul>
-                )}
-            </ScrollArea>
+            <div className="overflow-hidden rounded-md border">
+                <div className="flex items-center gap-3 border-b bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                    <span className="w-6 text-right">#</span>
+                    {header('name', t('sortName'), 'flex-1')}
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            {header('time', t('sortTime'), 'justify-end')}
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">{t('timeNote')}</TooltipContent>
+                    </Tooltip>
+                </div>
+                <ScrollArea className={LIST_HEIGHT}>
+                    {placeholder !== null ? (
+                        <div className={cn("flex items-center justify-center px-6 text-center text-sm text-muted-foreground", LIST_HEIGHT)}>
+                            {placeholder}
+                        </div>
+                    ) : (
+                        <ol className="text-sm">
+                            {shown.map((player, index) => {
+                                const self = selfKey !== null && player.name.trim().toLowerCase() === selfKey
+                                return (
+                                    <li
+                                        key={`${player.name}\u0000${player.since}\u0000${index}`}
+                                        className={cn(
+                                            "flex items-center gap-3 px-3 py-1.5 odd:bg-muted/20",
+                                            self && "bg-primary/10 odd:bg-primary/10",
+                                        )}
+                                    >
+                                        <span className="w-6 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{index + 1}</span>
+                                        <span className="flex min-w-0 flex-1 items-center gap-2">
+                                            <PlayerCell name={player.name} known={roster.get(rosterKey(player.name))} server={server} />
+                                            {self && (
+                                                <span className="shrink-0 rounded bg-primary px-1.5 text-[10px] font-semibold uppercase text-primary-foreground">
+                                                    {t('you')}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                                            {formatPlayed(now - player.since)}
+                                        </span>
+                                    </li>
+                                )
+                            })}
+                        </ol>
+                    )}
+                </ScrollArea>
+            </div>
         </div>
+    )
+}
+
+/** Everyone with auto join armed on this server, this tab included once it is armed. */
+function WaitingList({ view, selfName }: { view: SlotView | null, selfName: string | null }) {
+    const t = useTranslations('servers.autoJoin')
+    if (!view) return null
+    const {names, anonymous} = view.waiting
+    const selfKey = selfName?.trim().toLowerCase() || null
+    const total = names.length + anonymous
+    return (
+        <div className="space-y-1.5">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Hourglass className="h-3.5 w-3.5" />
+                {t('waitingTitle')}
+                {total > 0 && <span className="tabular-nums">· {total}</span>}
+            </p>
+            {total === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('waitingNobody')}</p>
+            ) : (
+                <div className="flex flex-wrap gap-1.5">
+                    {names.map(name => {
+                        const self = selfKey !== null && name.trim().toLowerCase() === selfKey
+                        return (
+                            <span
+                                key={name}
+                                title={name}
+                                className={cn(
+                                    "max-w-[12rem] truncate rounded-full border px-2.5 py-0.5 text-xs",
+                                    self && "border-primary bg-primary/10 font-medium",
+                                )}
+                            >
+                                {self ? `${name} (${t('you')})` : name}
+                            </span>
+                        )
+                    })}
+                    {anonymous > 0 && (
+                        <span className="rounded-full border border-dashed px-2.5 py-0.5 text-xs text-muted-foreground">
+                            {t('waitingAnonymous', {count: anonymous})}
+                        </span>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
+/** One live name: with avatar and profile link once the API's online list knows it, plain text
+ *  until then. The spacer keeps plain names lined up with the decorated ones. */
+function PlayerCell({ name, known, server }: { name: string, known: PlayerDetailSession | null | undefined, server: Server }) {
+    const t = useTranslations('servers.autoJoin')
+    if (name === '') {
+        return (
+            <>
+                <span className="shrink-0" style={{width: ROW_AVATAR_PX}} />
+                <span className="italic text-muted-foreground">{t('connectingPlayer')}</span>
+            </>
+        )
+    }
+    if (!known) {
+        return (
+            <>
+                <span className="shrink-0" style={{width: ROW_AVATAR_PX}} />
+                <span className="truncate" title={name}>{name}</span>
+            </>
+        )
+    }
+    return (
+        <>
+            <PlayerAvatar uuid={known.id} name={name} width={ROW_AVATAR_PX} height={ROW_AVATAR_PX} serverId={server.id} className="shrink-0" />
+            <HoverPrefetchLink href={`/servers/${server.gotoLink}/players/${known.id}`} className="min-w-0 truncate hover:underline">
+                <span title={name}>{name}</span>
+            </HoverPrefetchLink>
+        </>
     )
 }
 
 function TargetPicker({ goal, max, onChange }: { goal: number, max: number, onChange: (target: number) => void }) {
     const t = useTranslations('servers.autoJoin')
     const highest = Math.max(0, max - 1)
+    // Typing goes to a draft and applies on Enter or blur. Applying each keystroke would leave the
+    // field impossible to clear and pass through targets like the "6" of "62", which an armed watch
+    // could fire on.
+    const [draft, setDraft] = useState<string | null>(null)
+    const commit = () => {
+        const typed = Number.parseInt(draft ?? '', 10)
+        if (!Number.isNaN(typed)) onChange(typed)
+        setDraft(null)
+    }
     const presets = [highest, highest - 1, highest - 2].filter(n => n >= 0)
     return (
         <div className="space-y-2">
@@ -126,8 +314,10 @@ function TargetPicker({ goal, max, onChange }: { goal: number, max: number, onCh
                         inputMode="numeric"
                         min={0}
                         max={highest}
-                        value={goal}
-                        onChange={e => { if (!Number.isNaN(e.target.valueAsNumber)) onChange(e.target.valueAsNumber) }}
+                        value={draft ?? goal}
+                        onChange={e => setDraft(e.target.value)}
+                        onBlur={commit}
+                        onKeyDown={e => { if (e.key === 'Enter') commit() }}
                         className="h-8 w-16 rounded-none border-x-0 text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         aria-label={t('targetLabel')}
                     />
@@ -161,7 +351,9 @@ export default function AutoJoinButton({ server, user }: { server: Server, user:
         status, view, target, setTarget, holding, steamDetected, connectUrl,
         arm, launch, confirmArm, cancel, testLaunch, reportNotLaunched,
     } = useAutoJoin(server, user?.personaname ?? null, open)
-    const age = usePollAge(view?.polledAt ?? null, open)
+    const now = useNow(open)
+    const roster = useOnlineRoster(server.id, open)
+    const age = view?.polledAt == null ? null : Math.max(0, now - view.polledAt)
 
     if (!server.status) return null
 
@@ -344,7 +536,7 @@ export default function AutoJoinButton({ server, user }: { server: Server, user:
         <>
             {trigger}
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 pr-6">
                             <Users className="h-5 w-5 shrink-0" />
@@ -368,9 +560,11 @@ export default function AutoJoinButton({ server, user }: { server: Server, user:
                         <PollIndicator view={view} age={age} />
                     </div>
 
-                    <PlayerList view={view} selfName={user?.personaname ?? null} />
+                    <div className="rounded-md border bg-muted/20 p-3">{panel}</div>
 
-                    <div className="rounded-md border p-3">{panel}</div>
+                    <WaitingList view={view} selfName={user?.personaname ?? null} />
+
+                    <PlayerList view={view} selfName={user?.personaname ?? null} now={now} roster={roster} server={server} />
 
                     <DialogFooter className="sm:justify-start">
                         <p className="text-xs text-muted-foreground">{t('footnote')}</p>

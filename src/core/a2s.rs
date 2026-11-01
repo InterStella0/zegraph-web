@@ -1,5 +1,5 @@
-//! Minimal Source-engine A2S client: `A2S_INFO` for slot counts and `A2S_PLAYER` for the names of
-//! everyone on the server. Only what auto join needs; see
+//! Minimal Source-engine A2S client: `A2S_INFO` for slot counts and `A2S_PLAYER` for who is on the
+//! server and for how long. Only what auto join needs; see
 //! <https://developer.valvesoftware.com/wiki/Server_queries>.
 
 use std::fmt::{Display, Formatter};
@@ -63,6 +63,13 @@ pub struct A2sInfo {
     pub bots: u8,
 }
 
+/// One `A2S_PLAYER` entry. `duration` is how long the server says they have been connected.
+#[derive(Debug, Clone, PartialEq)]
+pub struct A2sPlayer {
+    pub name: String,
+    pub duration: Duration,
+}
+
 pub async fn query_info(addr: SocketAddr) -> Result<A2sInfo, A2sError> {
     let reply = query(addr, |challenge| {
         let mut request = INFO_REQUEST.to_vec();
@@ -74,9 +81,9 @@ pub async fn query_info(addr: SocketAddr) -> Result<A2sInfo, A2sError> {
     parse_info(&reply)
 }
 
-/// Names of everyone on the server, in server order. Players still connecting have an empty name
-/// but are kept: they hold a slot.
-pub async fn query_players(addr: SocketAddr) -> Result<Vec<String>, A2sError> {
+/// Everyone on the server, in server order. Players still connecting have an empty name but are
+/// kept: they hold a slot.
+pub async fn query_players(addr: SocketAddr) -> Result<Vec<A2sPlayer>, A2sError> {
     let reply = query(addr, |challenge| {
         let mut request = PLAYER_REQUEST.to_vec();
         request.extend_from_slice(&challenge.unwrap_or(NO_CHALLENGE));
@@ -250,26 +257,29 @@ pub fn parse_info(reply: &[u8]) -> Result<A2sInfo, A2sError> {
     Ok(A2sInfo { map, players, max_players, bots })
 }
 
-/// Parses an `A2S_PLAYER` reply that starts with the `0x44` type byte, keeping only names.
-pub fn parse_players(reply: &[u8]) -> Result<Vec<String>, A2sError> {
+/// Parses an `A2S_PLAYER` reply that starts with the `0x44` type byte, keeping names and durations.
+pub fn parse_players(reply: &[u8]) -> Result<Vec<A2sPlayer>, A2sError> {
     let mut r = Reader { data: reply };
     let kind = r.u8()?;
     if kind != TYPE_PLAYER {
         return Err(A2sError::UnexpectedType(kind));
     }
     let count = r.u8()?;
-    let mut names = Vec::with_capacity(count as usize);
+    let mut players = Vec::with_capacity(count as usize);
     for _ in 0..count {
         if r.data.is_empty() {
             // Some servers overstate the count; what they sent is still the list.
             break;
         }
         r.u8()?; // index
-        names.push(r.cstring()?);
+        let name = r.cstring()?;
         r.take(4)?; // score
-        r.take(4)?; // duration
+        let seconds = f32::from_le_bytes(r.take(4)?.try_into().expect("took 4 bytes"));
+        // Some servers send NaN or a negative time for a player who is still connecting.
+        let duration = Duration::try_from_secs_f32(seconds).unwrap_or_default();
+        players.push(A2sPlayer { name, duration });
     }
-    Ok(names)
+    Ok(players)
 }
 
 #[cfg(test)]
@@ -289,15 +299,24 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn player_reply(names: &[&str]) -> Vec<u8> {
-        let mut reply = vec![TYPE_PLAYER, names.len() as u8];
-        for (index, name) in names.iter().enumerate() {
+        let timed: Vec<(&str, f32)> = names.iter().map(|name| (*name, 123.5)).collect();
+        timed_player_reply(&timed)
+    }
+
+    fn timed_player_reply(players: &[(&str, f32)]) -> Vec<u8> {
+        let mut reply = vec![TYPE_PLAYER, players.len() as u8];
+        for (index, (name, seconds)) in players.iter().enumerate() {
             reply.push(index as u8);
             reply.extend_from_slice(name.as_bytes());
             reply.push(0);
             reply.extend_from_slice(&42i32.to_le_bytes());
-            reply.extend_from_slice(&123.5f32.to_le_bytes());
+            reply.extend_from_slice(&seconds.to_le_bytes());
         }
         reply
+    }
+
+    fn names(players: Vec<A2sPlayer>) -> Vec<String> {
+        players.into_iter().map(|player| player.name).collect()
     }
 
     fn split(reply: &[u8], id: i32, chunk: usize, with_size: bool) -> Vec<Vec<u8>> {
@@ -325,15 +344,22 @@ pub(crate) mod tests {
 
     #[test]
     fn parses_players_keeping_empty_and_duplicate_names() {
-        let names = parse_players(&player_reply(&["Bob", "", "Bob", "ゾンビ"])).unwrap();
-        assert_eq!(names, vec!["Bob", "", "Bob", "ゾンビ"]);
+        let players = parse_players(&player_reply(&["Bob", "", "Bob", "ゾンビ"])).unwrap();
+        assert_eq!(names(players), vec!["Bob", "", "Bob", "ゾンビ"]);
+    }
+
+    #[test]
+    fn parses_durations_and_clamps_nonsense_to_zero() {
+        let players = parse_players(&timed_player_reply(&[("Ann", 3725.5), ("", -1.0), ("Bob", f32::NAN)])).unwrap();
+        let durations: Vec<Duration> = players.iter().map(|player| player.duration).collect();
+        assert_eq!(durations, vec![Duration::from_secs_f32(3725.5), Duration::ZERO, Duration::ZERO]);
     }
 
     #[test]
     fn player_count_overstated_is_tolerated() {
         let mut reply = player_reply(&["Alice"]);
         reply[1] = 5;
-        assert_eq!(parse_players(&reply).unwrap(), vec!["Alice"]);
+        assert_eq!(names(parse_players(&reply).unwrap()), vec!["Alice"]);
     }
 
     #[test]
@@ -364,7 +390,7 @@ pub(crate) mod tests {
             assert_eq!(reassemble(&packets).unwrap(), None, "incomplete while a packet is missing");
             packets.push(last);
             let joined = reassemble(&packets).unwrap().expect("all packets present");
-            assert_eq!(parse_players(&joined).unwrap(), names);
+            assert_eq!(super::tests::names(parse_players(&joined).unwrap()), names);
         }
     }
 
@@ -376,7 +402,7 @@ pub(crate) mod tests {
         stray.remove(0);
         packets.splice(1..1, stray);
         let joined = reassemble(&packets).unwrap().unwrap();
-        assert_eq!(parse_players(&joined).unwrap(), vec!["Alice", "Bob"]);
+        assert_eq!(names(parse_players(&joined).unwrap()), vec!["Alice", "Bob"]);
     }
 
     #[test]
@@ -393,8 +419,11 @@ pub(crate) mod tests {
     async fn live_server() {
         let addr: SocketAddr = std::env::var("A2S_ADDR").expect("set A2S_ADDR").parse().unwrap();
         let info = query_info(addr).await.expect("A2S_INFO");
-        let names = query_players(addr).await.expect("A2S_PLAYER");
-        println!("{info:?}\n{} names: {names:?}", names.len());
+        let players = query_players(addr).await.expect("A2S_PLAYER");
+        println!("{info:?}\n{} players:", players.len());
+        for player in players {
+            println!("  {:>8.0}s  {:?}", player.duration.as_secs_f32(), player.name);
+        }
     }
 
     /// Plays a real server's side of the challenge handshake on localhost.
@@ -413,7 +442,7 @@ pub(crate) mod tests {
                 server.send_to(&packet, peer).await.unwrap();
             }
         });
-        assert_eq!(query_players(addr).await.unwrap(), vec!["Alice", "Bob"]);
+        assert_eq!(names(query_players(addr).await.unwrap()), vec!["Alice", "Bob"]);
         fake.await.unwrap();
     }
 }

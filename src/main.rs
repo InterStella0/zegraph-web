@@ -444,6 +444,8 @@ mod route_tests {
     }
 
     const PROTECTED: &[(&str, &str)] = &[
+        // Names the caller in an auto join waiting list, so it must never mint for a stranger.
+        ("POST", "/events/servers/1/players/ticket"),
         ("GET", "/accounts/me"),
         ("GET", "/accounts/me/communities"),
         ("POST", "/accounts/create"),
