@@ -621,6 +621,15 @@
       "periodCalculating": "正在計算此時間範圍內一起玩過的玩家...",
       "periodEmpty": "此時間範圍內沒有和任何人一起玩過。",
       "periodNoMatches": "此時間範圍的列表中沒有符合「{query}」的玩家。"
+    },
+    "mapPull": {
+      "title": "讓你上線的地圖",
+      "description": "該玩家在這些地圖開始後 5 分鐘內加入的頻率高於平均地圖。",
+      "lift": "平時的 {lift} 倍",
+      "joined": "{chances} 次中有 {joins} 次提早加入",
+      "usual": "平時：在 {rate}% 的地圖開局時加入",
+      "empty": "暫時沒有突出的地圖，沒有哪張地圖明顯比平時更能讓該玩家上線。",
+      "loadError": "取得讓該玩家上線的地圖時出錯！"
     }
   },
   "period": {
@@ -676,7 +685,9 @@
     "serverPopTitle": "場次期間的伺服器人數",
     "serverPopSubtitle": "整場場次中的人數變化",
     "continentDistribution": "洲別分佈",
-    "continentSubtitle": "遊玩此場次的玩家所在位置。"
+    "continentSubtitle": "遊玩此場次的玩家所在位置。",
+    "locked": "登入查看",
+    "scoreLocked": "登入查看比分"
   },
   "nav": {
     "discordCta": "加入我們的 Discord 取得支援或回饋",
@@ -1303,8 +1314,6 @@
     "globalMapTitle": "{map} 全伺服器資料",
     "globalMapCumulative": "在 {communities} 個社群的 {servers} 個伺服器上累計 {hours}，共有 {players} 名玩家遊玩過。",
     "globalMapTopServer": "在 {server} 上遊玩最多，共 {hours}。",
-    "roundsFinalScore": "進行了 {rounds} 輪，最終比分為 {human}-{zombie}。",
-    "roundsScore": "進行了 {rounds} 輪，比分為 {human}-{zombie}。",
     "playingSince": "目前自 {time} 起一直在遊玩。",
     "playedItAt": "他們於 {time} 遊玩了它。",
     "characterTitle": "{id} - 3D 角色檢視",
@@ -1485,5 +1494,10 @@
     "next": "下一則",
     "dismiss": "知道了",
     "counter": "{current} / {total}"
+  },
+  "locked": {
+    "description": "使用 Steam 登入後即可查看。為防止爬蟲，此內容對未登入訪客隱藏。",
+    "login": "登入查看",
+    "compact": "登入查看比分"
   }
 }

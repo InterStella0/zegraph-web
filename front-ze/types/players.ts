@@ -29,6 +29,14 @@ export type PlayerHourDay = {
     count: number,
 }
 
+export type PlayerMapPull = {
+    map: string
+    early_joins: number
+    chances: number
+    join_rate: number
+    baseline_rate: number
+    lift: number
+}
 export type PlayerOnlineHeatmap = {
     hour_of_day: number,
     hours_online: number,

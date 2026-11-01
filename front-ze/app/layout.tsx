@@ -19,6 +19,7 @@ import NextTopLoader from "nextjs-toploader";
 import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getTranslations} from "next-intl/server";
 import {DayjsLocaleProvider} from "components/providers/DayjsLocaleProvider";
+import {SignedInProvider} from "components/auth/SignedIn";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
@@ -63,6 +64,7 @@ export default async function RootLayout({children}: {children: ReactNode}) {
             </head>
             <body>
                 <NextIntlClientProvider>
+                <SignedInProvider signedIn={signedIn}>
                 <DayjsLocaleProvider>
                 <NextTopLoader color="#f48fb1" showSpinner={false} />
                 <ThemeProvider
@@ -92,6 +94,7 @@ export default async function RootLayout({children}: {children: ReactNode}) {
                     </CommunityServerProvider>
                 </ThemeProvider>
                 </DayjsLocaleProvider>
+                </SignedInProvider>
                 </NextIntlClientProvider>
             </body>
         </html>

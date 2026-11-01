@@ -1143,10 +1143,11 @@ impl MapApi{
         response!(ok rows.result.into())
     }
     /// Every match (round) that occurred during a single map-play session, in order. Cached for
-    /// 2 minutes.
+    /// 2 minutes. Requires login.
     #[oai(path="/servers/:server_id/sessions/:session_id/all-match", method="get")]
     async fn get_map_session_all_match(
-        &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>
+        &self, Data(app): Data<&AppData>, TokenBearer(_user): TokenBearer,
+        ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>
     ) -> Response<Vec<MapSessionMatch>>{
         let pool = &*app.pool.clone();
         let time_id =  session_id as i32;
@@ -1170,10 +1171,11 @@ impl MapApi{
         response!(ok rows.result.iter_into())
     }
     /// The most recent match (round) result during a single map-play session, if any. Cached
-    /// for 12 minutes.
+    /// for 12 minutes. Requires login.
     #[oai(path="/servers/:server_id/sessions/:session_id/match", method="get")]
     async fn get_map_session_match(
-        &self, Data(app): Data<&AppData>, ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>
+        &self, Data(app): Data<&AppData>, TokenBearer(_user): TokenBearer,
+        ServerExtractor(server): ServerExtractor, Path(session_id): Path<i64>
     ) -> Response<Option<MapSessionMatch>>{
         let pool = &*app.pool.clone();
         let time_id =  session_id as i32;

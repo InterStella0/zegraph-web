@@ -380,6 +380,32 @@ impl<'a> FromRequest<'a> for OptionalAnonymousTokenBearer {
         Ok(Self(Some(UserTokenAuthorized { user_token, authorized })))
     }
 }
+
+/// [`OptionalAnonymousTokenBearer`] for login-only player routes. A missing header is 401 and a
+/// token that does not parse is 403, both decided before any database lookup; only then does the
+/// usual anonymization rule (owner or admin) apply.
+pub struct RequiredAnonymousTokenBearer(#[allow(dead_code)] pub UserTokenAuthorized);
+
+impl<'a> FromRequest<'a> for RequiredAnonymousTokenBearer {
+    async fn from_request(req: &'a Request, _body: &mut poem::RequestBody) -> poem::Result<Self> {
+        let bearer = Bearer::from_request(req)?;
+        let user_token = parse_user_from_token(&bearer.token)
+            .ok_or_else(|| poem::Error::from_string("Invalid token", StatusCode::FORBIDDEN))?;
+
+        let player_id = req.raw_path_param("player_id")
+            .ok_or_else(|| poem::Error::from_string("Missing player_id", StatusCode::BAD_REQUEST))?;
+        let server_id = req.raw_path_param("server_id")
+            .ok_or_else(|| poem::Error::from_string("Missing server_id", StatusCode::BAD_REQUEST))?;
+        let data: &AppData = req.data()
+            .ok_or_else(|| poem::Error::from_string("Missing AppData", StatusCode::INTERNAL_SERVER_ERROR))?;
+
+        let authorized = check_player_anonymization_internal(data, player_id, server_id, &user_token)
+            .await
+            .map_err(|status| poem::Error::from_string("Access forbidden", status))?;
+
+        Ok(Self(UserTokenAuthorized { user_token, authorized }))
+    }
+}
 pub fn get_env_default(name: &str) -> Option<String>{
     env::var(name).ok()
 }

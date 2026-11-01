@@ -1,7 +1,9 @@
 'use client'
 import {ReactNode, useEffect, useMemo, useState} from "react";
 import dayjs from "lib/dayjs";
-import {fetchServerUrl, range} from "utils/generalUtils.ts";
+import {fetchApiServerUrl, range} from "utils/generalUtils.ts";
+import {useSignedIn} from "components/auth/SignedIn";
+import LoginLocked from "components/ui/LoginLocked";
 import SessionPlayedGraph from "../graphs/SessionPlayedGraph.tsx";
 import PaginationPage from "../ui/PaginationPage.tsx";
 import {Users, Trophy, AlertTriangle} from "lucide-react";
@@ -126,9 +128,11 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
     const server_id = session.server_id
     const { name } = useMapContext()
     const toDayjs = useLocalDayjs()
-    const { data: matchData } = useResource(() => session.time_id
-        ? fetchServerUrl(server_id, `/sessions/${session.time_id}/match`)
-        : null, [server_id, session.time_id])
+    // Match history is login-only; logged-out visitors get a lock instead of the score.
+    const signedIn = useSignedIn()
+    const { data: matchData } = useResource(() => signedIn && session.time_id
+        ? fetchApiServerUrl(server_id, `/sessions/${session.time_id}/match`)
+        : null, [signedIn, server_id, session.time_id])
     const startedAt = toDayjs(session.started_at)
     const endedAt = session.ended_at? toDayjs(session.ended_at): toDayjs()
 
@@ -166,6 +170,7 @@ function SessionGraph({ session }: { session: ServerMapPlayed }){
                     </Link>
                 </Button>
 
+                {!signedIn && <LoginLocked compact />}
                 {matchData && (
                     <Tooltip>
                         <TooltipTrigger>

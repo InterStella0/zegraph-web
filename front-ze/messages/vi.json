@@ -621,6 +621,15 @@
       "periodCalculating": "Đang tính những người đã chơi cùng trong khoảng thời gian này...",
       "periodEmpty": "Không chơi cùng ai trong khoảng thời gian này.",
       "periodNoMatches": "Không có ai khớp với \"{query}\" trong danh sách của khoảng thời gian này."
+    },
+    "mapPull": {
+      "title": "Map khiến bạn online",
+      "description": "Những map người chơi này vào trong 5 phút đầu khi map bắt đầu, thường xuyên hơn so với một map trung bình.",
+      "lift": "{lift}× bình thường",
+      "joined": "Vào sớm {joins}/{chances} lần",
+      "usual": "Bình thường: vào ở {rate}% lần map bắt đầu",
+      "empty": "Chưa có map nào nổi bật. Không map nào khiến người chơi này online nhiều hơn hẳn bình thường.",
+      "loadError": "Lỗi khi tải các map khiến người chơi này online!"
     }
   },
   "period": {
@@ -676,7 +685,9 @@
     "serverPopTitle": "Dân số máy chủ trong suốt phiên",
     "serverPopSubtitle": "Thay đổi dân số trong suốt phiên",
     "continentDistribution": "Phân bố lục địa",
-    "continentSubtitle": "Vị trí của những người chơi đang chơi phiên này."
+    "continentSubtitle": "Vị trí của những người chơi đang chơi phiên này.",
+    "locked": "Đăng nhập để xem",
+    "scoreLocked": "Đăng nhập để xem tỉ số"
   },
   "nav": {
     "discordCta": "Tham gia Discord để được hỗ trợ hoặc góp ý",
@@ -1303,8 +1314,6 @@
     "globalMapTitle": "{map} trên tất cả máy chủ",
     "globalMapCumulative": "Nó có tổng cộng {hours} trên {servers, plural, other {# máy chủ}} thuộc {communities, plural, other {# cộng đồng}}. Được chơi bởi {players} người chơi.",
     "globalMapTopServer": "Được chơi nhiều nhất trên {server} với {hours}.",
-    "roundsFinalScore": "Đã chơi {rounds} raund với điểm cuối cùng {human}-{zombie}.",
-    "roundsScore": "Đã chơi {rounds} raund với điểm {human}-{zombie}.",
     "playingSince": "Hiện đang chơi nó từ {time}.",
     "playedItAt": "Họ đã chơi nó lúc {time}.",
     "characterTitle": "{id} - Xem 3D nhân vật",
@@ -1485,5 +1494,10 @@
     "next": "Tiếp",
     "dismiss": "Đã hiểu",
     "counter": "{current} / {total}"
+  },
+  "locked": {
+    "description": "Đăng nhập bằng Steam để xem mục này. Mục này bị ẩn với khách chưa đăng nhập để chặn scraper.",
+    "login": "Đăng nhập để xem",
+    "compact": "Đăng nhập để xem tỉ số"
   }
 }

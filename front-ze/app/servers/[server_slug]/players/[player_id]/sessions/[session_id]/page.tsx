@@ -1,6 +1,5 @@
 import {
     getMapsDataSession,
-    getMutualSessions,
     getServerSlugOrNotFound, getSessionInfo, SessionInfo
 } from "../../../../util";
 import {metadataFallback, serverMetadata, sessionSummary} from "../../../../serverMetadata";
@@ -24,10 +23,9 @@ export async function generateMetadata({ params}: {
         }catch(error){
             return metadataFallback(error, "player", formatTitle(player_id), server, t)
         }
-        const [summary, maps, players, pfp] = await Promise.all([
+        const [summary, maps, pfp] = await Promise.all([
             sessionSummary(t, info, ['werePlaying', 'arePlaying'], server.id, session_id, player.id, "player"),
             orNull(getMapsDataSession(server.id, player.id, session_id)),
-            orNull(getMutualSessions(server.id, session_id, "player", player_id)),
             orNull<PlayerProfilePicture>(fetchUrl(`/players/${player.id}/pfp`)),
         ])
         let description = summary
@@ -41,8 +39,6 @@ export async function generateMetadata({ params}: {
         }else{
             description += ' ' + t('lastOnline', {time: dayjs(player.last_played_ended).fromNow()});
         }
-        if (players)
-            description += ` They have seen ${players.length} players in this session.`
 
         return {
             title: `${player.name}'s Session on ${server.community_name}`,

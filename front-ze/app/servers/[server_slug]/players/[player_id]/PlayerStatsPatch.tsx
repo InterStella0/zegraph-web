@@ -5,7 +5,7 @@ import {ServerPlayerDetailed} from "./page.tsx";
 import {PlayerInfo} from "./util.ts";
 import {usePeriod} from "components/period/Period";
 
-export const STALE_PATHS = ["detail", "most_played_maps", "regions", "hours_of_day", "online_heatmap", "graph/sessions"] as const;
+export const STALE_PATHS = ["detail", "most_played_maps", "regions", "hours_of_day", "online_heatmap", "map_pull", "graph/sessions"] as const;
 
 type PatchMap = Record<string, unknown>;
 

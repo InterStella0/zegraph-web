@@ -4,14 +4,17 @@ import dayjs from "lib/dayjs";
 import { MapSessionMatch, ServerMapPlayed } from "types/maps";
 import { MutualSessionReturn, ServerGraphType } from "../../app/servers/[server_slug]/util";
 import {SessionStatGrid} from "./SessionStats";
+import {Lock} from "lucide-react";
 
 export default function MapSessionStats(
     { sessionInfo, serverGraph, graphMatch, mutualSessions }:
-    { sessionInfo: ServerMapPlayed, serverGraph: ServerGraphType<"map">, graphMatch: MapSessionMatch[], mutualSessions: MutualSessionReturn<"map"> }
+    { sessionInfo: ServerMapPlayed, serverGraph: ServerGraphType<"map">, graphMatch: MapSessionMatch[] | null, mutualSessions: MutualSessionReturn<"map"> }
 ) {
     const t = useTranslations('sessions');
-    const final = graphMatch[graphMatch.length - 1] || null
-    const finalScore = final ? `${final.human_score}-${final.zombie_score}` : '?-?'
+    const final = graphMatch?.[graphMatch.length - 1] || null
+    const finalScore = !graphMatch
+        ? <Lock className="h-5 w-5 text-muted-foreground" aria-label={t('locked')} />
+        : final ? `${final.human_score}-${final.zombie_score}` : '?-?'
 
     return <SessionStatGrid stats={[
         [formatDuration(sessionInfo.started_at, sessionInfo.ended_at || dayjs()), sessionInfo.ended_at ? t('totalDuration') : t('currentDuration')],

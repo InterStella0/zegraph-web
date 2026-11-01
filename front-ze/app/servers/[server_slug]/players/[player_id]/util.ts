@@ -2,6 +2,7 @@ import { DetailedPlayerInfo } from "types/players";
 import {fetchApiServerUrl, StillCalculate} from "utils/generalUtils";
 import dayjs from "lib/dayjs";
 import { threeMinutes} from "../../util.ts";
+import {LOGIN_STAT_PATHS} from "./loginStats.ts";
 
 export type PlayerInfo = DetailedPlayerInfo
 
@@ -11,9 +12,9 @@ const EXTERNAL_STATS_SERVER_IDS = new Set([
     '674b592b744afc3c108d345a',
     '85568392931886775',
 ])
-const PERIOD_STAT_PATHS = ['graph/sessions', 'most_played_maps', 'regions', 'hours_of_day', 'online_heatmap']
+const PERIOD_STAT_PATHS = ['graph/sessions', 'most_played_maps', 'regions', 'hours_of_day', 'online_heatmap', 'map_pull']
 
-export function getPlayerStatSeeds(serverId: string, playerId: string, withPeriod: boolean): Record<string, Promise<unknown>> {
+export function getPlayerStatSeeds(serverId: string, playerId: string, withPeriod: boolean, signedIn: boolean): Record<string, Promise<unknown>> {
     const seed = (path: string, options = {}) =>
         fetchApiServerUrl(serverId, `/players/${playerId}/${path}`, options).catch(() => null)
     const seeds: Record<string, Promise<unknown>> = { infractions: seed('infractions') }
@@ -21,7 +22,8 @@ export function getPlayerStatSeeds(serverId: string, playerId: string, withPerio
         seeds.external_stats = seed('external_stats')
     if (!withPeriod) {
         for (const path of PERIOD_STAT_PATHS)
-            seeds[path] = seed(path)
+            if (signedIn || !LOGIN_STAT_PATHS.has(path))
+                seeds[path] = seed(path)
         seeds.sessions = seed('sessions', { params: { page: 0 } })
     }
     return seeds

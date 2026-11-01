@@ -19,6 +19,8 @@ import { FocusChip, useFocusFilter, useProfileCommunities } from "./ProfileConte
 import { ENTER, SWAP } from "./profileMotion";
 import { ChartFigure, Empty, ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE, TAG } from "./ProfileCard";
 import { categoryAxis, communitySeries, valueAxis } from "./profileChart";
+import { useSignedIn } from "components/auth/SignedIn";
+import LoginLocked from "components/ui/LoginLocked";
 
 type Metric = "hour" | "weekday";
 type Mode = "user" | "UTC";
@@ -33,10 +35,19 @@ export function ProfileOnlineActivityLoading() {
     );
 }
 
-export default function ProfileOnlineActivity({ userId, initialDataPromise }: {
+type ProfileOnlineActivityProps = {
     userId: string,
     initialDataPromise: Promise<PlayerOnlineActivity | null>,
-}) {
+};
+
+/** Activity by hour is login-only, so logged-out visitors get the locked card instead. */
+export default function ProfileOnlineActivity(props: ProfileOnlineActivityProps) {
+    const t = useTranslations('players.profile.activity');
+    if (!useSignedIn()) return <LoginLocked title={t('title')} />;
+    return <ProfileOnlineActivityDisplay {...props} />;
+}
+
+function ProfileOnlineActivityDisplay({ userId, initialDataPromise }: ProfileOnlineActivityProps) {
     const t = useTranslations('players.profile.activity');
     const locale = useLocale();
     const theme = useChartTheme();

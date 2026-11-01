@@ -14,6 +14,8 @@ import {PlayerHourDay, PlayerOnlineHeatmap} from "types/players.ts";
 import {ChartTheme, useChartTheme} from "lib/chartTheme";
 import { ScreenReaderOnly } from "components/ui/ScreenReaderOnly";
 import {PeriodTitle, ServerPlayerProps, useServerPlayerStat} from "./common";
+import {useSignedIn} from "components/auth/SignedIn";
+import LoginLocked, {isLoginRequired} from "components/ui/LoginLocked";
 
 type Metric = 'hour' | 'joins'
 type Mode = 'user' | 'UTC'
@@ -193,6 +195,8 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: ServerPlayerProps){
     const activeError = metric === 'hour' ? heatError : error
     const timezoneLabel = mode === 'UTC' ? 'UTC' : 'local timezone'
 
+    if (isLoginRequired(activeError))
+        return <LoginLocked bare title={title} className="h-[455px]" />
     if (activeError){
         return (
             <div>
@@ -239,6 +243,8 @@ function PlayerHourOfDayDisplay({ serverPlayerPromise }: ServerPlayerProps){
 }
 export default function PlayerHourOfDay({ serverPlayerPromise }: ServerPlayerProps){
     const t = useTranslations('players.hourOfDay');
+    if (!useSignedIn())
+        return <LoginLocked title={t('onlineTitle')} className="min-h-[455px]" />
     return <ErrorCatch message={t('loadError')}>
         <Card>
             <PlayerHourOfDayDisplay serverPlayerPromise={serverPlayerPromise} />

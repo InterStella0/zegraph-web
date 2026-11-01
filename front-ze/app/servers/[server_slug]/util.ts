@@ -40,8 +40,10 @@ const sessionPath = (type: SessionType, sessionId: string, objectId: string) =>
     type === "player" ? `/players/${objectId}/sessions/${sessionId}` : `/sessions/${sessionId}`
 
 export async function getMutualSessions<T extends SessionType>(server_id: string, session_id: string, type: T, object_id: string = ""): Promise<MutualSessionReturn<T>> {
-    const suffix = type === "player" ? "might_friends" : "players"
-    return fetchServerUrl(server_id, `${sessionPath(type, session_id, object_id)}/${suffix}`)
+    // A player's "played with" is login-only, so it goes through the authenticated /api proxy.
+    if (type === "player")
+        return fetchApiServerUrl(server_id, `${sessionPath(type, session_id, object_id)}/might_friends`)
+    return fetchServerUrl(server_id, `${sessionPath(type, session_id, object_id)}/players`)
 }
 export async function getSessionInfo<T extends SessionType>(server_id: string, session_id: string, type: T, object_id: string = ""): Promise<SessionInfo<T>> {
     return fetchServerUrl(server_id, `${sessionPath(type, session_id, object_id)}/info`)

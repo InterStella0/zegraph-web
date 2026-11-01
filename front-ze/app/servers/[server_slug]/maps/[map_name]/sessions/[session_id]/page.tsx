@@ -5,8 +5,7 @@ import {
     SessionInfo
 } from "../../../../util";
 import {metadataFallback, serverMetadata, sessionSummary} from "../../../../serverMetadata";
-import {fetchServerUrl, formatTitle, getMapImage, orNull} from "utils/generalUtils";
-import { MapSessionMatch} from "types/maps";
+import {formatTitle, getMapImage, orNull} from "utils/generalUtils";
 import {Metadata} from "next";
 import dayjs from "lib/dayjs";
 import {Suspense} from "react";
@@ -24,18 +23,12 @@ export async function generateMetadata({ params }: {
         }catch(error){
             return metadataFallback(error, "map", formatTitle(map_name), server, t, [404, 400])
         }
-        const [summary, sessionMatches, players, image] = await Promise.all([
+        const [summary, players, image] = await Promise.all([
             sessionSummary(t, info, ['werePlayingIt', 'arePlayingIt'], server.id, session_id, map_name, "map"),
-            orNull<MapSessionMatch[]>(fetchServerUrl(server.id, `/sessions/${session_id}/all-match`)),
             orNull(getMutualSessions(server.id, session_id, "map", map_name)),
             getMapImage(server.id, map_name),
         ])
         let description = summary
-        const match = sessionMatches?.sort((a, b) => dayjs(b.occurred_at).diff(a.occurred_at, 'seconds', true))[0]
-        if (match) {
-            const score = {rounds: match.zombie_score + match.human_score, human: match.human_score, zombie: match.zombie_score}
-            description += ' ' + t(info.ended_at ? 'roundsFinalScore' : 'roundsScore', score)
-        }
         if (!info.ended_at){
             description += ' ' + t('playingSince', {time: dayjs(info.started_at).fromNow()});
         }else{

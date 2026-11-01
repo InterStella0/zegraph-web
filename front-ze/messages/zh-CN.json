@@ -621,6 +621,15 @@
       "periodCalculating": "正在计算该时间段内一起玩过的玩家...",
       "periodEmpty": "该时间段内没有和任何人一起玩过。",
       "periodNoMatches": "该时间段的列表中没有匹配“{query}”的玩家。"
+    },
+    "mapPull": {
+      "title": "让你上线的地图",
+      "description": "该玩家在这些地图开始后 5 分钟内加入的频率高于平均地图。",
+      "lift": "平时的 {lift} 倍",
+      "joined": "{chances} 次中有 {joins} 次提早加入",
+      "usual": "平时：在 {rate}% 的地图开局时加入",
+      "empty": "暂时没有突出的地图，没有哪张地图明显比平时更能让该玩家上线。",
+      "loadError": "获取让该玩家上线的地图时出错！"
     }
   },
   "period": {
@@ -676,7 +685,9 @@
     "serverPopTitle": "场次期间的服务器人数",
     "serverPopSubtitle": "整场场次中的人数变化",
     "continentDistribution": "大洲分布",
-    "continentSubtitle": "游玩此场次的玩家所在位置。"
+    "continentSubtitle": "游玩此场次的玩家所在位置。",
+    "locked": "登录查看",
+    "scoreLocked": "登录查看比分"
   },
   "nav": {
     "discordCta": "加入我们的 Discord 获取支持或反馈",
@@ -1303,8 +1314,6 @@
     "globalMapTitle": "{map} 全服务器数据",
     "globalMapCumulative": "在 {communities} 个社区的 {servers} 个服务器上累计 {hours}，共有 {players} 名玩家游玩过。",
     "globalMapTopServer": "在 {server} 上游玩最多，共 {hours}。",
-    "roundsFinalScore": "进行了 {rounds} 轮，最终比分为 {human}-{zombie}。",
-    "roundsScore": "进行了 {rounds} 轮，比分为 {human}-{zombie}。",
     "playingSince": "目前自 {time} 起一直在游玩。",
     "playedItAt": "他们于 {time} 游玩了它。",
     "characterTitle": "{id} - 3D 角色视图",
@@ -1485,5 +1494,10 @@
     "next": "下一条",
     "dismiss": "知道了",
     "counter": "{current} / {total}"
+  },
+  "locked": {
+    "description": "使用 Steam 登录后即可查看。为防止爬虫，此内容对未登录访客隐藏。",
+    "login": "登录查看",
+    "compact": "登录查看比分"
   }
 }

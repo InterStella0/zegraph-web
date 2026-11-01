@@ -621,6 +621,15 @@
       "periodCalculating": "この期間に一緒に遊んだプレイヤーを計算中...",
       "periodEmpty": "この期間は誰とも一緒に遊んでいません。",
       "periodNoMatches": "この期間のリストに「{query}」に一致するプレイヤーはいません。"
+    },
+    "mapPull": {
+      "title": "ログインのきっかけになるマップ",
+      "description": "このプレイヤーが開始から5分以内に参加することが、平均的なマップより多いマップです。",
+      "lift": "普段の{lift}倍",
+      "joined": "{chances}回中{joins}回、早めに参加",
+      "usual": "普段: マップ開始の{rate}%で参加",
+      "empty": "目立つマップはまだありません。普段より明らかに多くこのプレイヤーを呼び込むマップはありません。",
+      "loadError": "このプレイヤーを呼び込むマップの取得に失敗しました！"
     }
   },
   "period": {
@@ -676,7 +685,9 @@
     "serverPopTitle": "セッション中のサーバー人口",
     "serverPopSubtitle": "セッション中の人口変化",
     "continentDistribution": "大陸分布",
-    "continentSubtitle": "このセッションをプレイしていたプレイヤーの位置情報。"
+    "continentSubtitle": "このセッションをプレイしていたプレイヤーの位置情報。",
+    "locked": "ログインして表示",
+    "scoreLocked": "ログインしてスコアを表示"
   },
   "nav": {
     "discordCta": "サポートやフィードバックはDiscordへ",
@@ -1303,8 +1314,6 @@
     "globalMapTitle": "全サーバーの{map}",
     "globalMapCumulative": "{communities, plural, other {#個のコミュニティ}}の{servers, plural, other {#個のサーバー}}で{hours}の累計があります。{players}人のプレイヤーがプレイしました。",
     "globalMapTopServer": "最も多くプレイされたのは{server}で{hours}です。",
-    "roundsFinalScore": "{rounds}ラウンドをプレイして最終スコア{human}-{zombie}を記録しました。",
-    "roundsScore": "{rounds}ラウンドをプレイしてスコア{human}-{zombie}を記録しました。",
     "playingSince": "現在{time}以降プレイしています。",
     "playedItAt": "{time}にプレイしました。",
     "characterTitle": "{id} - 3Dキャラクタービュー",
@@ -1485,5 +1494,10 @@
     "next": "次へ",
     "dismiss": "了解",
     "counter": "{current} / {total}"
+  },
+  "locked": {
+    "description": "Steamでログインすると表示されます。スクレイピング対策のため、ログインしていない訪問者には非表示です。",
+    "login": "ログインして表示",
+    "compact": "ログインしてスコアを表示"
   }
 }

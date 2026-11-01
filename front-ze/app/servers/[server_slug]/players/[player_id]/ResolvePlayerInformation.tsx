@@ -8,6 +8,7 @@ import PlayerTopMap from "components/players/PlayerTopMap.tsx";
 import PlayerRegionPlayTime from "components/players/PlayerRegionPlayTime.tsx";
 import PlayerInfractionRecord from "components/players/PlayerInfractionRecord.tsx";
 import PlayerHourOfDay from "components/players/PlayerHourOfDay.tsx";
+import PlayerMapPull from "components/players/PlayerMapPull.tsx";
 import StillCalculatingPlayer from "./StillCalculatingPlayer.tsx";
 import StalePlayerStats from "./StalePlayerStats.tsx";
 import {PlayerStatSeedsProvider, PlayerStatsPatchProvider, PlayerStatSuspense} from "./PlayerStatsPatch.tsx";
@@ -22,6 +23,7 @@ const STAT_CARDS = [
     ["col-span-12 md:col-span-6 xl:col-span-4", PlayerRegionPlayTime],
     ["col-span-12 md:col-span-6 xl:col-span-4", PlayerInfractionRecord],
     ["col-span-12 xl:col-span-8", PlayerHourOfDay],
+    ["col-span-12", PlayerMapPull],
 ] as const;
 
 export default function ResolvePlayerInformation({ serverPlayerPromise, userPromise, viewsPromise, statSeeds }: {

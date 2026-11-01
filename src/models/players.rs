@@ -395,6 +395,26 @@ pub struct DbPlayerMapPlayed {
     pub played: Option<PgInterval>,
 }
 
+/// A map the player tends to join for: how often they joined within its first five minutes,
+/// against how often they do that for any map. See `PlayerMapPull`.
+#[derive(Clone, DbInto)]
+#[db_into(PlayerMapPull)]
+#[auto_serde_with]
+pub struct DbPlayerMapPull {
+    #[unwrap_default]
+    pub map: Option<String>,
+    #[unwrap_default]
+    pub early_joins: Option<i64>,
+    #[unwrap_default]
+    pub chances: Option<i64>,
+    #[unwrap_default]
+    pub join_rate: Option<f64>,
+    #[unwrap_default]
+    pub baseline_rate: Option<f64>,
+    #[unwrap_default]
+    pub lift: Option<f64>,
+}
+
 #[derive(DbInto)]
 #[db_into(PlayerInfraction)]
 pub struct DbPlayerInfraction{

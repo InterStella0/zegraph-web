@@ -701,10 +701,29 @@ impl PlayerApi{
     /// With a `period` (`YYYY`, `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC),
     /// joins are counted for sessions starting in it and leaves for sessions ending in it. Periods
     /// are calculated on request and only cached.
-    #[oai(path="/servers/:server_id/players/:player_id/hours_of_day", method="get", operation_id = "get_player_hours_of_day", tag = "ApiTags::Mcp")]
-    async fn get_hours_of_day_player(&self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerHourDay>>{
+    ///
+    /// Requires login.
+    #[oai(path="/servers/:server_id/players/:player_id/hours_of_day", method="get")]
+    async fn get_hours_of_day_player(&self, Data(app): Data<&AppData>, _auth: RequiredAnonymousTokenBearer, Query(period): Query<Option<PeriodParam>>, extract: PlayerExtractor) -> Response<Vec<PlayerHourDay>>{
         let context = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_hour_of_day(&context, flatten_period(period)).await)
+    }
+
+    /// Maps that bring a player online: maps they join within the first five minutes of more often
+    /// than they do for an average map. Backed by `PlayerWorker`'s cache.
+    ///
+    /// A join counts when it lands within five minutes of the running map starting; reconnects
+    /// (less than 15 minutes after the previous session ended) are ignored. A map's `chances` are
+    /// its starts while the player was offline. Only maps with at least 3 early joins and a rate
+    /// at least 1.5x the player's usual are returned, top 12 by `lift`. With a `period` (`YYYY`,
+    /// `YYYY-MM` or an inclusive `YYYY-MM-DD..YYYY-MM-DD` range, UTC) only joins and map starts in
+    /// it count; periods are calculated on request and only cached.
+    ///
+    /// Requires login.
+    #[oai(path="/servers/:server_id/players/:player_id/map_pull", method="get")]
+    async fn get_map_pull_player(&self, Data(app): Data<&AppData>, _auth: RequiredAnonymousTokenBearer, Query(period): Query<Option<PeriodParam>>, extract: PlayerExtractor) -> Response<Vec<PlayerMapPull>>{
+        let context = PlayerContext::from(extract);
+        handle_worker_player_result(app.player_worker.get_map_pull(&context, flatten_period(period)).await)
     }
 
     /// A player's online activity heatmap (by day/hour). Backed by `PlayerWorker`'s cache.
@@ -713,8 +732,10 @@ impl PlayerApi{
     /// inclusive range of days (`YYYY-MM-DD..YYYY-MM-DD`); `all` or no value is all-time. A period
     /// is calculated on request and only cached, so its first request may report that it is still
     /// calculating.
-    #[oai(path="/servers/:server_id/players/:player_id/online_heatmap", method="get", operation_id = "get_player_online_heatmap", tag = "ApiTags::Mcp")]
-    async fn get_online_heatmap_player(&self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<Vec<PlayerOnlineHeatmap>>{
+    ///
+    /// Requires login.
+    #[oai(path="/servers/:server_id/players/:player_id/online_heatmap", method="get")]
+    async fn get_online_heatmap_player(&self, Data(app): Data<&AppData>, _auth: RequiredAnonymousTokenBearer, Query(period): Query<Option<PeriodParam>>, extract: PlayerExtractor) -> Response<Vec<PlayerOnlineHeatmap>>{
         let context = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_online_heatmap(&context, flatten_period(period)).await)
     }
@@ -788,10 +809,13 @@ impl PlayerApi{
         response!(ok result.into())
     }
     /// Maps played (and any match outcomes) during a single player session.
+    ///
+    /// The match outcomes (`match_data`) are login-only: without a token every map comes back with
+    /// an empty `match_data`.
     #[oai(path="/servers/:server_id/players/:player_id/sessions/:session_id/maps", method="get")]
     async fn get_session_server_graph(
         &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Path(session_id): Path<String>,
-        OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
+        OptionalAnonymousTokenBearer(user_token): OptionalAnonymousTokenBearer,
     ) -> Response<Vec<PlayerSessionMapPlayed>>{
         require!(is_session_id(&session_id), "This session does not exist.", ErrorCode::NotFound);
         let map_played = match sqlx::query_as!(DbPlayerSessionMapPlayed,
@@ -831,7 +855,7 @@ impl PlayerApi{
                 let played: PlayerSessionMapPlayed = map_data.clone().into();
                 mapped.insert(map_time_id, played);
             }
-            if map_data.is_match_empty(){
+            if user_token.is_none() || map_data.is_match_empty(){
                 continue;
             }
             let match_data: MatchData = map_data.into();
@@ -1092,11 +1116,11 @@ impl PlayerApi{
     /// Players who were likely playing alongside this player during a given session.
     ///
     /// A heuristic ("might" — not a confirmed friends list) based on overlapping session time.
-    /// Backed by `PlayerWorker`'s cache.
+    /// Backed by `PlayerWorker`'s cache. Requires login.
     #[oai(path="/servers/:server_id/players/:player_id/sessions/:session_id/might_friends", method="get")]
     async fn get_player_approximate_friend(
-        &self, Data(app): Data<&AppData>, extract: PlayerExtractor, Path(session_id): Path<String>,
-        OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
+        &self, Data(app): Data<&AppData>, _auth: RequiredAnonymousTokenBearer,
+        extract: PlayerExtractor, Path(session_id): Path<String>,
     ) -> Response<Vec<PlayerSeen>>{
         let ctx = PlayerContext::from(extract);
         handle_worker_player_result(app.player_worker.get_player_approximate_friend(&ctx, &session_id).await)
@@ -1125,12 +1149,15 @@ impl PlayerApi{
     /// list is instead the top 100 for that year, month or range, calculated on request and only
     /// cached; `is_calculating` is set while it runs. In a period, `q` only filters whatever is
     /// already cached: it never starts the calculation and never falls back to the live search.
-    #[oai(path="/servers/:server_id/players/:player_id/might_friends", method="get", operation_id = "get_player_might_friends", tag = "ApiTags::Mcp")]
+    ///
+    /// Requires login.
+    #[oai(path="/servers/:server_id/players/:player_id/might_friends", method="get")]
     async fn get_player_might_friends(
-        &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
+        &self, Data(app): Data<&AppData>,
+        RequiredAnonymousTokenBearer(user_token): RequiredAnonymousTokenBearer,
+        Query(period): Query<Option<PeriodParam>>,
         extract: PlayerExtractor,
         Query(q): Query<Option<String>>, Query(page): Query<Option<i64>>,
-        OptionalAnonymousTokenBearer(user_token): OptionalAnonymousTokenBearer,
     ) -> Response<PlayerMightFriendsPage>{
         let server_id = extract.server.server_id.clone();
         let ctx = PlayerContext::from(extract);
@@ -1138,7 +1165,7 @@ impl PlayerApi{
             Ok(result) => result,
             Err(e) => return handle_worker_player_result(Err(e)),
         };
-        let anonymizer = BriefAnonymizer::new(app, &server_id, user_token.as_ref().map(|t| t.user_id())).await;
+        let anonymizer = BriefAnonymizer::new(app, &server_id, Some(user_token.user_id())).await;
         anonymizer.apply(&mut result.rows);
         response!(ok result)
     }
@@ -1146,11 +1173,10 @@ impl PlayerApi{
     ///
     /// Only queues work when the player has a completed session newer than the stored list
     /// (`queued`); otherwise reports `up_to_date`, `calculating` or `no_sessions`. Poll
-    /// `GET .../might_friends` until `calculated_at` changes.
+    /// `GET .../might_friends` until `calculated_at` changes. Requires login.
     #[oai(path="/servers/:server_id/players/:player_id/might_friends/calculate", method="post")]
     async fn calculate_player_might_friends(
-        &self, Data(app): Data<&AppData>, extract: PlayerExtractor,
-        OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
+        &self, Data(app): Data<&AppData>, _auth: RequiredAnonymousTokenBearer, extract: PlayerExtractor,
     ) -> Response<MightFriendsCalculation>{
         let ctx = PlayerContext::from(extract);
         handle_worker_player_result(

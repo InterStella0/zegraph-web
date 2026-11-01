@@ -6,6 +6,7 @@ import {
     fetchServerUrl,
     fetchUrl,
     formatHours,
+    hasSession,
     formatTitle,
     orNull,
     StillCalculate
@@ -82,7 +83,7 @@ export default async function Page({ params, searchParams }: {
     const { period } = await searchParams;
 
     const server = await getServerSlugOrNotFound(server_slug);
-    const statSeeds = getPlayerStatSeeds(server.id, player_id, !!period);
+    const statSeeds = getPlayerStatSeeds(server.id, player_id, !!period, await hasSession());
 
     const serverPlayerPromise: Promise<ServerPlayerDetailedWithError> = getPlayerDetailed(server.id, player_id, "return")
         .then(player => ({player, server}))

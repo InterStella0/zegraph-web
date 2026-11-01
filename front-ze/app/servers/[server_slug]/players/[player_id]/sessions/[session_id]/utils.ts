@@ -7,12 +7,13 @@ import {
     ServerGraphType,
     SessionInfo
 } from "../../../../util.ts";
-import {getMapImage} from "utils/generalUtils.ts";
+import {AuthenticationError, getMapImage, hasSession} from "utils/generalUtils.ts";
 import {Server} from "types/community.ts";
 
 export type SessionData = {
     sessionInfo: SessionInfo<"player">,
-    mutualSessions: MutualSessionReturn<"player">,
+    /** `null` for logged-out visitors: "played with" is login-only. */
+    mutualSessions: MutualSessionReturn<"player"> | null,
     serverGraph: ServerGraphType<"player">,
     mapImages: Record<string, string>,
     server: Server,
@@ -25,6 +26,14 @@ async function getMapImages(serverId: string, maps: PlayerSessionMapPlayed[]): P
     return Object.fromEntries(images);
 }
 
+async function getLoginMutualSessions(serverId: string, sessionId: string, playerId: string) {
+    if (!(await hasSession())) return null;
+    return getMutualSessions(serverId, sessionId, "player", playerId).catch(error => {
+        if (error instanceof AuthenticationError) return null;
+        throw error;
+    });
+}
+
 export async function getSessionData(server: Server, playerId: string, sessionId: string): Promise<SessionData> {
     const serverId = server.id;
     const mapsPromise = getMapsDataSession(serverId, playerId, sessionId);
@@ -33,7 +42,7 @@ export async function getSessionData(server: Server, playerId: string, sessionId
         getSessionInfo(serverId, sessionId, "player", playerId),
         mapsPromise,
         getServerGraph(serverId, sessionId, playerId, "player"),
-        getMutualSessions(serverId, sessionId, "player", playerId),
+        getLoginMutualSessions(serverId, sessionId, playerId),
         mapsPromise.then(maps => getMapImages(serverId, maps)),
     ]);
     return { sessionInfo, maps, serverGraph, mutualSessions, mapImages, player, server };

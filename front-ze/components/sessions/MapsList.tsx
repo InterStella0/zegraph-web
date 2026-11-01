@@ -6,6 +6,8 @@ import dayjs from "lib/dayjs";
 import Link from "components/ui/Link.tsx";
 import Image from "next/image";
 import {useSessionClock} from "./SessionHeader";
+import {useSignedIn} from "components/auth/SignedIn";
+import LoginLocked from "components/ui/LoginLocked";
 
 export default function MapsList(
     { maps, mapImages, server }
@@ -13,6 +15,7 @@ export default function MapsList(
 ){
     const t = useTranslations('sessions');
     const { formatTime } = useSessionClock();
+    const signedIn = useSignedIn();
     return (
         <Card>
             <CardHeader>
@@ -56,10 +59,15 @@ export default function MapsList(
                                                     {score.human_score} - {score.zombie_score}
                                                 </span>
                                             </div>
-                                        ) : (
+                                        ) : signedIn ? (
                                             <p className="text-sm text-muted-foreground">
                                                 {t('noScoreData')}
                                             </p>
+                                        ) : (
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <LoginLocked compact />
+                                                {t('scoreLocked')}
+                                            </div>
                                         )}
                                     </div>
 

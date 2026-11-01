@@ -621,6 +621,15 @@
       "periodCalculating": "Sedang menghitung siapa saja yang bermain bersamanya di periode ini...",
       "periodEmpty": "Tidak bermain dengan siapa pun di periode ini.",
       "periodNoMatches": "Tidak ada yang cocok dengan \"{query}\" di daftar periode ini."
+    },
+    "mapPull": {
+      "title": "Map yang membuatmu online",
+      "description": "Map yang dimasuki pemain ini dalam 5 menit pertama sejak dimulai, lebih sering daripada map rata-rata.",
+      "lift": "{lift}× biasanya",
+      "joined": "Masuk awal {joins} dari {chances} kali",
+      "usual": "Biasanya: masuk di {rate}% awal map",
+      "empty": "Belum ada map yang menonjol. Tidak ada yang membuat pemain ini online jauh lebih sering dari biasanya.",
+      "loadError": "Gagal mengambil map yang membuat pemain ini online!"
     }
   },
   "period": {
@@ -676,7 +685,9 @@
     "serverPopTitle": "Populasi Server Selama Sesi",
     "serverPopSubtitle": "Perubahan populasi sepanjang sesi",
     "continentDistribution": "Distribusi Benua",
-    "continentSubtitle": "Lokasi pemain yang memainkan sesi ini."
+    "continentSubtitle": "Lokasi pemain yang memainkan sesi ini.",
+    "locked": "Masuk untuk melihat",
+    "scoreLocked": "Masuk untuk melihat skor"
   },
   "nav": {
     "discordCta": "Gabung Discord kami untuk bantuan atau masukan",
@@ -1303,8 +1314,6 @@
     "globalMapTitle": "{map} di semua server",
     "globalMapCumulative": "Memiliki kumulatif {hours} di {servers, plural, one {# server} other {# server}} dalam {communities, plural, one {# komunitas} other {# komunitas}}. Dimainkan oleh {players} pemain.",
     "globalMapTopServer": "Paling banyak dimainkan di {server} dengan {hours}.",
-    "roundsFinalScore": "Dimainkan melalui {rounds} putaran dengan skor akhir {human}-{zombie}.",
-    "roundsScore": "Dimainkan melalui {rounds} putaran dengan skor {human}-{zombie}.",
     "playingSince": "Saat ini bermain sejak {time}.",
     "playedItAt": "Mereka memainkannya di {time}.",
     "characterTitle": "{id} - Tampilan 3D Karakter",
@@ -1485,5 +1494,10 @@
     "next": "Berikutnya",
     "dismiss": "Mengerti",
     "counter": "{current} dari {total}"
+  },
+  "locked": {
+    "description": "Masuk dengan Steam untuk melihat ini. Disembunyikan dari pengunjung yang belum masuk untuk mencegah scraper.",
+    "login": "Masuk untuk melihat",
+    "compact": "Masuk untuk melihat skor"
   }
 }
