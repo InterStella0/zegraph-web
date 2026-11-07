@@ -828,7 +828,7 @@ CREATE TABLE website.server_requests (
     community_name TEXT NOT NULL,
     icon_url TEXT,
     servers JSONB NOT NULL,
-    game_type TEXT NOT NULL CHECK (game_type IN ('cs2', 'csgo')),
+    game_type TEXT NOT NULL CHECK (game_type IN ('cs2', 'csgo', 'tf2')),
     elaboration TEXT,
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     reviewed_by BIGINT REFERENCES website.steam_user(user_id) ON DELETE SET NULL,

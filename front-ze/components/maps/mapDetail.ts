@@ -19,7 +19,7 @@ export const mapJsonLd = (name: string, analyze: MapAnalyze, where: string, path
     "name": name,
     "genre": "Zombie Escape",
     "description": `Zombie Escape map with ${formatHours(analyze.cum_player_hours || 0)} of cumulative playtime ${where}`,
-    "isPartOf": {"@type": "VideoGame", "name": "Counter-Strike", "gamePlatform": "PC"},
+    "isPartOf": {"@type": "VideoGame", "name": "Zombie Escape", "gamePlatform": "PC"},
     "interactionStatistic": {
         "@type": "InteractionCounter",
         "interactionType": "https://schema.org/PlayAction",

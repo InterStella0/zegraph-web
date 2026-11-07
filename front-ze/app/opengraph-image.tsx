@@ -39,9 +39,6 @@ export default async function Image() {
                 <div style={{display: 'flex', marginTop: 16, fontSize: 44, fontWeight: 600, textAlign: 'center', maxWidth: 900}}>
                     Zombie Escape Server &amp; Player Stats
                 </div>
-                <div style={{display: 'flex', marginTop: 28, fontSize: 30, color: '#B9B4B8', letterSpacing: 4}}>
-                    CS2 · CS:GO · CS:S
-                </div>
             </div>
         ),
         size,

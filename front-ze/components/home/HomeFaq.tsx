@@ -7,7 +7,7 @@ import {Community} from "types/community";
 import {JsonLd} from "components/common/JsonLd";
 import {DISCORD_URL} from "components/ui/siteLinks";
 
-const GAME_ORDER = ["730_cs2", "730_csgo", "240"];
+const GAME_ORDER = ["730_cs2", "730_csgo", "240", "440"];
 
 function gameLabels(communities: Community[]): string[] {
     const present = new Set(

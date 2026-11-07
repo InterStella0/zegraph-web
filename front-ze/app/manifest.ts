@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
     return {
         name: 'ZE Graph',
         short_name: 'ZEGraph',
-        description: 'Counter Strike 2 Zombie Escape players',
+        description: 'Zombie escape statistics',
         start_url: '/',
         display: 'standalone',
         background_color: '#0A0A0AFF',

@@ -158,6 +158,7 @@ export default function RequestServerDialog({ user, open, onClose }: RequestServ
                                 <SelectContent>
                                     <SelectItem value="cs2">CS2</SelectItem>
                                     <SelectItem value="csgo">CS:GO</SelectItem>
+                                    <SelectItem value="tf2">TF2</SelectItem>
                                 </SelectContent>
                             </Select>
                         </Field>

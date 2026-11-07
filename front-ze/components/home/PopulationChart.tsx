@@ -226,12 +226,12 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
             <CardContent className="p-4 sm:p-6 flex flex-col h-full">
                 {/* Phones stack the tabs above the controls: side by side they need ~400px. */}
                 <div className="flex flex-col gap-2 mb-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
+                    <div className="sm:shrink-0">
                         <Tabs value={metric} onValueChange={value => setMetric(value as PopulationMetric)}>
                             <TabsList className="w-full sm:w-fit">
                                 {Object.entries(METRICS).map(([value, labelKey]) => (
-                                    <TabsTrigger key={value} value={value} className="min-w-0 px-2.5">
-                                        <span className="truncate">{t(labelKey)}</span>
+                                    <TabsTrigger key={value} value={value} className="px-2.5 max-sm:min-w-0">
+                                        <span className="max-sm:truncate">{t(labelKey)}</span>
                                     </TabsTrigger>
                                 ))}
                             </TabsList>

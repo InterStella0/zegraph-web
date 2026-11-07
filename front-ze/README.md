@@ -1,6 +1,6 @@
 # ZE Graph Frontend
 
-Next.js web application for tracking CS2 Zombie Escape server statistics, player playtime, and community guides.
+Next.js web application for tracking Zombie Escape server statistics, player playtime, and community guides.
 
 ## Tech Stack
 

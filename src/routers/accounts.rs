@@ -2896,7 +2896,7 @@ impl AccountsApi {
     /// Submit a community request to have a new server tracked.
     ///
     /// Requires at least one server entry (each with a non-empty `ip` and a 1-20 character
-    /// `readable_link`), and `game_type` of `cs2` or `csgo`. Goes into a review queue rather
+    /// `readable_link`), and `game_type` of `cs2`, `csgo` or `tf2`. Goes into a review queue rather
     /// than being tracked immediately.
     #[oai(path="/accounts/server-requests", method="post", tag = "ApiTags::ServerRequests")]
     async fn submit_server_request(
@@ -2916,8 +2916,8 @@ impl AccountsApi {
                 return response!(err "Readable link must be 1-20 characters", ErrorCode::BadRequest);
             }
         }
-        if dto.game_type != "cs2" && dto.game_type != "csgo" {
-            return response!(err "game_type must be 'cs2' or 'csgo'", ErrorCode::BadRequest);
+        if !matches!(dto.game_type.as_str(), "cs2" | "csgo" | "tf2") {
+            return response!(err "game_type must be 'cs2', 'csgo' or 'tf2'", ErrorCode::BadRequest);
         }
 
         let servers_json = or_ise!(serde_json::to_value(&dto.servers));

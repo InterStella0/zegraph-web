@@ -17,7 +17,7 @@ export interface ServerRequestAdmin {
   community_name: string;
   icon_url: string | null;
   servers: ServerEntryRequest[];
-  game_type: 'cs2' | 'csgo';
+  game_type: 'cs2' | 'csgo' | 'tf2';
   elaboration: string | null;
   status: ServerRequestStatus;
   reviewed_by: string | null;

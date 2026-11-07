@@ -7,6 +7,7 @@ export const GAME_META: Record<string, { label: string; className: string }> = {
     "240":      { label: "CS:S",  className: "border-blue-500/40 text-blue-500" },
     "730_csgo": { label: "CS:GO", className: "border-amber-500/40 text-amber-500" },
     "730_cs2":  { label: "CS2",   className: "border-green-500/40 text-green-500" },
+    "440":      { label: "TF2",   className: "border-red-500/40 text-red-500" },
 };
 
 const BADGE = "h-6 px-2 transition-transform duration-200 hover:scale-105";

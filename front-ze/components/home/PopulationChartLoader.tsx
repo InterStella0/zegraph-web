@@ -13,10 +13,10 @@ function PopulationChartLoading() {
         <Card className="h-full">
             <CardContent className="p-4 sm:p-6 flex flex-col h-full">
                 <div className="flex flex-col gap-2 mb-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
+                    <div className="sm:shrink-0">
                         <div className="bg-muted text-muted-foreground flex h-9 w-full items-center rounded-lg p-[3px] text-sm font-medium sm:inline-flex sm:w-fit">
-                            <span className="flex-1 truncate text-center rounded-md bg-background px-2.5 py-1 text-foreground shadow-sm dark:bg-input/30">{t('uniquePlayers')}</span>
-                            <span className="flex-1 truncate text-center px-2.5 py-1">{t('concurrentPlayers')}</span>
+                            <span className="max-sm:flex-1 max-sm:truncate text-center rounded-md bg-background px-2.5 py-1 text-foreground shadow-sm dark:bg-input/30">{t('uniquePlayers')}</span>
+                            <span className="max-sm:flex-1 max-sm:truncate text-center px-2.5 py-1">{t('concurrentPlayers')}</span>
                         </div>
                         <div className="text-xs mt-1.5">
                             <SkeletonText className="h-3 w-28" />
