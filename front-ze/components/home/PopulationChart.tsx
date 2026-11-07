@@ -224,13 +224,14 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
     return (
         <Card className="h-full">
             <CardContent className="p-4 sm:p-6 flex flex-col h-full">
-                <div className="flex flex-row items-start justify-between gap-2 mb-3">
-                    <div>
+                {/* Phones stack the tabs above the controls: side by side they need ~400px. */}
+                <div className="flex flex-col gap-2 mb-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                         <Tabs value={metric} onValueChange={value => setMetric(value as PopulationMetric)}>
-                            <TabsList>
+                            <TabsList className="w-full sm:w-fit">
                                 {Object.entries(METRICS).map(([value, labelKey]) => (
-                                    <TabsTrigger key={value} value={value} className="px-2.5">
-                                        {t(labelKey)}
+                                    <TabsTrigger key={value} value={value} className="min-w-0 px-2.5">
+                                        <span className="truncate">{t(labelKey)}</span>
                                     </TabsTrigger>
                                 ))}
                             </TabsList>
@@ -239,7 +240,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
                             {t('selectedCombined', {count: selectedCommunities.length})}
                         </p>
                     </div>
-                    <div className="flex flex-row flex-wrap items-center justify-end gap-2">
+                    <div className="flex flex-row flex-wrap items-center justify-between gap-2 sm:justify-end">
                         <CommunityMultiSelect
                             communities={selectableCommunities}
                             selectedIds={selectedIds}
@@ -252,7 +253,7 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
                                     key={value}
                                     type="button"
                                     onClick={() => selectTimeType(value as PopulationTimeType)}
-                                    className={`px-2.5 py-1 rounded transition-colors ${
+                                    className={`px-2 sm:px-2.5 py-1 rounded transition-colors ${
                                         timeType === value
                                             ? 'bg-primary text-primary-foreground'
                                             : 'text-muted-foreground hover:text-foreground'
@@ -262,9 +263,11 @@ export default function PopulationChart({isExpanded, onToggleExpand, populationP
                                 </button>
                             ))}
                         </div>
+                        {/* Expanding only spans the two-column grid, which exists from lg up. */}
                         <Button
                             size="icon-sm"
                             variant="ghost"
+                            className="hidden lg:inline-flex"
                             onClick={onToggleExpand}
                             title={isExpanded ? t('collapse') : t('expand')}
                         >
