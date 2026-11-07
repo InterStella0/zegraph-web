@@ -333,7 +333,7 @@
     "list_maps_global": {
       "arguments": {
         "filter": "Optional map filter: `Casual`, `TryHard`, `HasLaser`, `Playing` (currently played on at least one server), or `Favorite`. `Favorite` requires the requester's bearer token.",
-        "game": "Optional game type to limit servers to: `730_cs2`, `240` (CS:S), or `730_csgo`.",
+        "game": "Optional game type to limit servers to: `730_cs2`, `240` (CS:S), `730_csgo`, or `440` (TF2).",
         "page": "Zero-based page number; each page contains up to 25 maps.",
         "search_map": "Optional case-insensitive substring to match against map names.",
         "sorted_by": "Ranking order: `LastPlayed`, `HighestHour`, `HighestCumHour`, `FrequentlyPlayed`, or `UniquePlayers`."

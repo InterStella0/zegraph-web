@@ -10,7 +10,7 @@
 > Live at **https://zegraph.xyz** [ⓘ](https://zegraph.xyz "smol vps, be nice :)")
 
 ## Description
-This track all CS Zombie Escape related servers that I’m aware of, allowing you to view player playtime on each server. 
+This track all Zombie Escape related servers (CS2, CS:GO, CS:S and TF2) that I’m aware of, allowing you to view player playtime on each server. 
 It was originally created to monitor only the GFL Zombie Escape server, but has since expanded to include several 
 servers in the western community. Chinese servers are not tracked due to technical limitations on their servers. Only GFL and 
 Mapeadores servers provide Steam IDs, enabling consistent tracking of individual players. Other servers rely solely 

@@ -1,6 +1,7 @@
 import {ImageResponse} from 'next/og'
 import {readFile} from 'node:fs/promises'
 import {join} from 'node:path'
+import {GAME_ORDER, GAMES} from '../utils/games'
 
 export const alt = 'ZE Graph - Zombie Escape Servers & Player Stats'
 export const size = {width: 1200, height: 630}
@@ -40,7 +41,7 @@ export default async function Image() {
                     Zombie Escape Server &amp; Player Stats
                 </div>
                 <div style={{display: 'flex', marginTop: 28, fontSize: 30, color: '#B9B4B8', letterSpacing: 4}}>
-                    CS2 · CS:GO · CS:S
+                    {GAME_ORDER.map(id => GAMES[id].label).join(' · ')}
                 </div>
             </div>
         ),

@@ -5,7 +5,7 @@ import { CONTACT_EMAIL } from "utils/generalUtils";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | ZE Graph",
-  description: "Privacy Policy for ZEGraph - Counter-Strike Zombie Escape statistics across CS2, CS:GO and CS:S.",
+  description: "Privacy Policy for ZEGraph - Zombie escape statistics.",
   alternates: {
     canonical: '/privacy'
   },
@@ -82,7 +82,7 @@ export default async function PrivacyPage() {
 
         <Section title="2. About Us">
           <P>
-            ZEGraph is a statistics and community tracking website for Counter-Strike 2 Zombie Escape servers. We are operated by an individual based in Malaysia.
+            ZEGraph is a statistics and community tracking website for Zombie Escape servers. We are operated by an individual based in Malaysia.
           </P>
           <P className="font-medium">Contact: {CONTACT_EMAIL}</P>
         </Section>

@@ -689,7 +689,7 @@ impl MapApi{
     ///
     /// Maps are grouped by name. `sorted_by` picks the ranking metric; `filter` narrows to
     /// `Casual`/`TryHard`/`HasLaser`/`Playing`/`Favorite`; `game` limits to servers of one game
-    /// (`730_cs2`, `240`, `730_csgo`); `search_map` filters by name substring. Each map lists the
+    /// (`730_cs2`, `240`, `730_csgo`, `440`); `search_map` filters by name substring. Each map lists the
     /// servers that have it. Pages are 25 maps each, `page` at most 1000; the first 100 pages are
     /// cached for 60 seconds unless searching or filtering by favorites.
     #[oai(path = "/maps", method = "get", operation_id = "list_maps_global", tag = "ApiTags::Mcp")]

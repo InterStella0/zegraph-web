@@ -20,6 +20,7 @@ import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getTranslations} from "next-intl/server";
 import {DayjsLocaleProvider} from "components/providers/DayjsLocaleProvider";
 import {SignedInProvider} from "components/auth/SignedIn";
+import {GAME_ORDER, GAMES} from "utils/games";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
@@ -34,11 +35,10 @@ export async function generateMetadata(): Promise<Metadata> {
         publisher: 'ZE Graph',
         authors: [{name: 'InterStella0'}],
         keywords: [
-            'zombie escape', 'ze', 'cs2 zombie escape', 'cs2ze', 'cs zombie escape',
-            'counter-strike zombie escape', 'counter-strike zombie escape graph',
-            'csgo zombie escape', 'css zombie escape',
-            'zombie escape servers', 'zombie escape communities', 'zombie escape stats', 'zombie escape analytics',
-            'ze graph', 'zombie escape graph', 'cs zombie escape graph',
+            'zombie escape', 'ze', 'zegraph', 'ze graph', 'zombie escape graph',
+            'zombie escape servers', 'zombie escape communities', 'zombie escape stats',
+            'zombie escape statistics', 'zombie escape analytics',
+            ...GAME_ORDER.map(id => `${GAMES[id].label.replace(':', '').toLowerCase()} zombie escape`),
         ],
         ...socialMeta({title: 'ZE Graph', description, url: '/'}),
     }

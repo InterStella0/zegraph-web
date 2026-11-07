@@ -1,19 +1,16 @@
 import * as React from "react";
 import {ChevronDown} from "lucide-react";
 import {getTranslations} from "next-intl/server";
-import {GAME_META} from "components/ui/ServerIndicator";
+import {GAME_ORDER, GAMES, knownGames} from "utils/games";
 import {DOMAIN} from "utils/generalUtils";
 import {Community} from "types/community";
 import {JsonLd} from "components/common/JsonLd";
 import {DISCORD_URL} from "components/ui/siteLinks";
 
-const GAME_ORDER = ["730_cs2", "730_csgo", "240"];
-
-function gameLabels(communities: Community[]): string[] {
-    const present = new Set(
-        communities.flatMap(c => c.servers.map(s => s.game).filter(g => !!g))
-    );
-    return GAME_ORDER.filter(g => present.has(g)).map(g => GAME_META[g].label);
+/** Ids of the games that at least one tracked server runs, in display order. */
+function presentGames(communities: Community[]): string[] {
+    const present = new Set(communities.flatMap(c => c.servers.map(s => s.game)));
+    return GAME_ORDER.filter(g => present.has(g));
 }
 
 function richToPlain(node: React.ReactNode): string {
@@ -49,15 +46,18 @@ export default async function HomeFaq(
     const t = await getTranslations('home');
 
     const serverCount = communities.reduce((sum, c) => sum + c.servers.length, 0);
-    const games = gameLabels(communities);
-
-    const canDescribeCommunities = communities.length > 0 && serverCount > 0 && games.length > 0;
+    const listed = presentGames(communities);
     const separator = t('faq.supportedGameSeparator');
+    // The static answers name every supported game when no server is loaded to say which are live.
+    const gameNames = (ids: string[]) => ids.map(id => GAMES[id].name).join(separator);
+    const games = gameNames(knownGames(listed));
+
+    const canDescribeCommunities = communities.length > 0 && serverCount > 0 && listed.length > 0;
     const supportedAnswer = canDescribeCommunities
         ? t('faq.supportedA', {
             communities: t('communityCount', {count: communities.length}),
             servers: t('serverCount', {count: serverCount}),
-            games: games.join(separator),
+            games,
             list: communities
                 .map(c => t('faq.supportedListItem', {
                     name: c.name,
@@ -65,7 +65,7 @@ export default async function HomeFaq(
                 }))
                 .join(separator),
         })
-        : t('faq.supportedFallbackA');
+        : t('faq.supportedFallbackA', {games});
 
     const simple = (a: string): Pick<Faq, "body" | "plain"> => ({
         body: <p className={`mt-3 ${answerClass}`}>{a}</p>,
@@ -106,7 +106,7 @@ export default async function HomeFaq(
     };
 
     const faqs: Faq[] = [
-        {q: t('faq.zombieEscapeQ'), ...simple(t('faq.zombieEscapeA'))},
+        {q: t('faq.zombieEscapeQ'), ...simple(t('faq.zombieEscapeA', {games}))},
         {q: t('faq.zeGraphQ'), ...simple(t('faq.zeGraphA'))},
         {q: t('faq.supportedQ'), ...simple(supportedAnswer)},
         {q: t('faq.trackedQ'), ...tracked},

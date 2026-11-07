@@ -70,7 +70,7 @@ export default async function Page({ params, searchParams }){
     const mapInfo = await orNotFound(getMapInfoDetails(server.id, map_name))
 
     const jsonLd = mapInfo.analyze && mapJsonLd(map_name, mapInfo.analyze, `on ${server.community_name}`,
-        `/servers/${server.gotoLink}/maps/${map_name}`, mapInfo.info?.creators)
+        `/servers/${server.gotoLink}/maps/${map_name}`, mapInfo.info?.creators, [server.game])
 
     return (
         <>

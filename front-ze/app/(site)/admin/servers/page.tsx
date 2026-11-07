@@ -60,6 +60,7 @@ const GAME_OPTIONS: [string, string][] = [
   ['730_cs2', 'CS2 (730)'],
   ['730_csgo', 'CS:GO (730)'],
   ['240', 'CS:S (240)'],
+  ['440', 'TF2 (440)'],
 ];
 
 const NONE = '__none__';

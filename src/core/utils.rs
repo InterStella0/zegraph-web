@@ -963,7 +963,9 @@ pub fn get_map_image<'a>(map_name: &'a str, map_names: &'a Vec<String>) -> Optio
     Some(*map_image)
 }
 
-pub const GAME_TYPES: &[&str] = &["730_cs2", "240", "730_csgo"];
+/// Steam app IDs (`<appid>` or `<appid>_<variant>`) a server can be tagged with. They are also the
+/// keys of Vauff's map image list. `440` is Team Fortress 2.
+pub const GAME_TYPES: &[&str] = &["730_cs2", "240", "730_csgo", "440"];
 pub const BASE_URL: &str = "https://vauff.com/mapimgs";
 pub async fn fetch_map_images() -> reqwest::Result<Vec<MapImage>>{
     let list_maps = format!("{BASE_URL}/list.php");
