@@ -20,6 +20,7 @@ import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getTranslations} from "next-intl/server";
 import {DayjsLocaleProvider} from "components/providers/DayjsLocaleProvider";
 import {SignedInProvider} from "components/auth/SignedIn";
+import {GAME_ORDER, GAMES} from "utils/games";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations('metadata');
@@ -37,6 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
             'zombie escape', 'ze', 'zegraph', 'ze graph', 'zombie escape graph',
             'zombie escape servers', 'zombie escape communities', 'zombie escape stats',
             'zombie escape statistics', 'zombie escape analytics',
+            ...GAME_ORDER.map(id => `${GAMES[id].label.replace(':', '').toLowerCase()} zombie escape`),
         ],
         ...socialMeta({title: 'ZE Graph', description, url: '/'}),
     }

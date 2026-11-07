@@ -89,7 +89,7 @@ export default async function Page({ params }: { params: Promise<{ map_name: str
     const viewsPromise = recordView('maps', map_name)
 
     const { analyze, info } = detail
-    const jsonLd = analyze && mapJsonLd(map_name, analyze, `across ${info?.map.servers.length ?? 0} servers`, `/maps/${map_name}`, info?.creators)
+    const jsonLd = analyze && mapJsonLd(map_name, analyze, `across ${info?.map.servers.length ?? 0} servers`, `/maps/${map_name}`, info?.creators, info?.map.servers.map(s => s.game))
 
     return (
         <>

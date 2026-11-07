@@ -2,13 +2,18 @@ import {Badge} from "components/ui/badge";
 import {Server} from "types/community";
 import {Dispatch} from "react";
 import {Gamepad2} from "lucide-react";
+import {GAMES} from "utils/games";
 
-export const GAME_META: Record<string, { label: string; className: string }> = {
-    "240":      { label: "CS:S",  className: "border-blue-500/40 text-blue-500" },
-    "730_csgo": { label: "CS:GO", className: "border-amber-500/40 text-amber-500" },
-    "730_cs2":  { label: "CS2",   className: "border-green-500/40 text-green-500" },
-    "440":      { label: "TF2",   className: "border-red-500/40 text-red-500" },
+const GAME_COLORS: Record<string, string> = {
+    "240":      "border-blue-500/40 text-blue-500",
+    "730_csgo": "border-amber-500/40 text-amber-500",
+    "730_cs2":  "border-green-500/40 text-green-500",
+    "440":      "border-red-500/40 text-red-500",
 };
+
+export const GAME_META: Record<string, { label: string; className: string }> = Object.fromEntries(
+    Object.entries(GAMES).map(([id, {label}]) => [id, {label, className: GAME_COLORS[id]}])
+);
 
 const BADGE = "h-6 px-2 transition-transform duration-200 hover:scale-105";
 
