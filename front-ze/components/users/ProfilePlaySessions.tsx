@@ -21,6 +21,7 @@ import { CommunityLogo, communityTag, useProfileCommunities } from "./ProfileCon
 import { ENTER, LIFT, SWAP, stagger } from "./profileMotion";
 import { ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE, TAG } from "./ProfileCard";
 import { tint } from "./profileChart";
+import {cleanDisplayName} from "utils/format";
 
 const CARD = "flex h-full flex-col";
 const CONTENT = "flex min-h-0 flex-1 flex-col";
@@ -46,7 +47,7 @@ function SessionRow({ session, index }: { session: GlobalPlayerSession, index: n
     const toDayjs = useLocalDayjs();
     const { communityOf, colorOf } = useProfileCommunities();
     const community = communityOf(session.community_id);
-    const where = community?.name ?? session.community_name ?? session.server_name ?? t('unknownServer');
+    const where = community?.name || cleanDisplayName(session.community_name) || cleanDisplayName(session.server_name) || t('unknownServer');
     const accent = colorOf(session.community_id);
     const start = toDayjs(session.started_at);
     const end = session.ended_at ? toDayjs(session.ended_at) : null;
@@ -69,7 +70,7 @@ function SessionRow({ session, index }: { session: GlobalPlayerSession, index: n
                 <p className="truncate text-sm font-medium" suppressHydrationWarning>
                     {start.format('MMM D, h:mm a')} → {end ? end.format(endFormat) : t('ongoing')}
                 </p>
-                <p className="truncate text-xs text-muted-foreground" title={session.server_name ?? undefined}>{where}</p>
+                <p className="truncate text-xs text-muted-foreground" title={cleanDisplayName(session.server_name) || undefined}>{where}</p>
             </div>
             <Badge
                 variant="secondary"

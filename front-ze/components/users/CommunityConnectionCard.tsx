@@ -22,6 +22,7 @@ import { cn } from "components/lib/utils";
 import ServerSessionStrip from "./ServerSessionStrip";
 import { CommunityLogo, ProfileCommunity, useProfileCommunities } from "./ProfileContext";
 import { COLLAPSE, SWAP, stagger } from "./profileMotion";
+import {cleanDisplayName} from "utils/format";
 
 export type AnonymizeType = "location" | "anonymous";
 
@@ -203,11 +204,11 @@ export default function CommunityConnectionCard({
                                                 href={`/servers/${serverPlayer.server_id}/players/${serverPlayer.player.id}`}
                                                 className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
                                             >
-                                                {serverPlayer.server_name}
+                                                {cleanDisplayName(serverPlayer.server_name)}
                                                 <ArrowUpRight className="size-3.5" />
                                             </Link>
                                         ) : (
-                                            <p className="text-sm font-medium">{serverPlayer.server_name}</p>
+                                            <p className="text-sm font-medium">{cleanDisplayName(serverPlayer.server_name)}</p>
                                         )}
                                         <Badge variant={serverPlayer.by_id ? "secondary" : "outline"} className="text-[10px]">
                                             {serverPlayer.by_id ? t('steamId') : t('nameMatched')}
@@ -232,7 +233,7 @@ export default function CommunityConnectionCard({
                                     {serverPlayer.mergeable_count > 0 && serverPlayer.linked_names.length > 1 && (
                                         <MergeAccountsButton
                                             serverId={serverPlayer.server_id}
-                                            serverName={serverPlayer.server_name}
+                                            serverName={cleanDisplayName(serverPlayer.server_name)}
                                             count={serverPlayer.mergeable_count}
                                         />
                                     )}

@@ -13,6 +13,7 @@ import {HoverCard, HoverCardContent, HoverCardTrigger} from "components/ui/hover
 import {cn, setCookie} from "components/lib/utils";
 import {withErrorCatch} from "components/common/withErrorCatch";
 import {COMMUNITY_COLLAPSE} from "./communityCollapse";
+import {cleanDisplayName, graphemes} from "utils/format";
 
 const MAX_SERVERS_SHOWN = 3;
 
@@ -29,8 +30,9 @@ export function Logo() {
 }
 
 export const getServerAvatarText = (name: string) => {
-    const words = name.split(' ');
-    return words.length >= 2 ? words[0][0] + words[1][0] : name.substring(0, 2);
+    const words = cleanDisplayName(name ?? '').split(' ').filter(Boolean);
+    if (words.length >= 2) return graphemes(words[0])[0] + graphemes(words[1])[0];
+    return graphemes(words[0] ?? '').slice(0, 2).join('');
 }
 
 function CommunityAvatar({ community, className, textClassName }: { community: Community, className: string, textClassName: string }) {
