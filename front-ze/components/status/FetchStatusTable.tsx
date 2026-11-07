@@ -15,6 +15,7 @@ import { range } from "utils/generalUtils.ts";
 import { useTranslations } from 'next-intl';
 import {withErrorCatch} from "components/common/withErrorCatch";
 import { SectionHeading, TILE, usePolling } from "./statusShared";
+import {cleanDisplayName} from "utils/format";
 
 const POLL_INTERVAL = 10_000;
 const BUCKET_COUNT = 90;
@@ -131,7 +132,7 @@ function ServerStatusCard({ group }: { group: FetchStatusServerGroupTruncated })
     return (
         <Card className={TILE}>
             <div className="flex items-center justify-between px-5 py-3">
-                <span className="font-semibold">{group.server_name}</span>
+                <span className="font-semibold">{cleanDisplayName(group.server_name)}</span>
                 <Badge variant={STATUS_BADGE[status]} className="text-xs">{t(status)}</Badge>
             </div>
             <Separator />

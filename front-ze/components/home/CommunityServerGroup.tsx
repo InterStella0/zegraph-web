@@ -12,12 +12,6 @@ import {GAME_META} from 'components/ui/ServerIndicator';
 import {Community, Server} from 'types/community';
 import {useTranslations} from 'next-intl';
 
-const NAME_MAX_CHARS = 20;
-
-function truncate(text: string, max: number) {
-    return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
 function ServerRow({server, rank}: {server: Server, rank: number}) {
     const t = useTranslations('home');
     const ratio = server.max_players > 0 ? (server.players / server.max_players) * 100 : 0;
@@ -33,7 +27,7 @@ function ServerRow({server, rank}: {server: Server, rank: number}) {
             <div className="min-w-0 flex-1">
                 <div className="flex flex-row items-center gap-1.5 min-w-0">
                     <span className="text-sm font-medium truncate" title={server.name}>
-                        {truncate(server.name, NAME_MAX_CHARS)}
+                        {server.name}
                     </span>
                     {gameMeta && (
                         <Badge
@@ -62,7 +56,7 @@ function ServerRow({server, rank}: {server: Server, rank: number}) {
                 type="button"
                 onClick={handleCopy}
                 title={t('clickToCopy', {ip: server.fullIp})}
-                className="group/copy hidden md:flex flex-row items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                className="group/copy hidden md:flex flex-row items-center justify-end gap-1 min-w-44 font-mono text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
             >
                 <span className="select-all">{server.fullIp}</span>
                 <Copy className="h-3 w-3 opacity-60 group-hover/copy:opacity-100" />

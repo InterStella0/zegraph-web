@@ -48,6 +48,8 @@ export default function LiveServerList({ servers, selectedId, onSelect }: {
     servers: Server[], selectedId: string | null, onSelect: (serverId: string) => void,
 }) {
     const t = useTranslations('maps.global');
+    // The ScrollArea override below: Radix wraps content in a display:table div that grows to fit
+    // its widest row, which defeats truncate and pushes the player count out of view.
     const players = servers.reduce((sum, server) => sum + server.players, 0);
 
     return (
@@ -60,7 +62,7 @@ export default function LiveServerList({ servers, selectedId, onSelect }: {
             {servers.length === 0 ? (
                 <p className="px-4 pb-4 text-sm text-muted-foreground">{t('noLiveServers')}</p>
             ) : (
-                <ScrollArea className="flex-1 min-h-0 px-2 pb-2">
+                <ScrollArea className="flex-1 min-h-0 px-2 pb-2 [&_[data-slot=scroll-area-viewport]>div]:!block">
                     <div className="space-y-0.5">
                         {servers.map(server => (
                             <LiveServerRow key={server.id} server={server} active={server.id === selectedId} onSelect={onSelect}/>
