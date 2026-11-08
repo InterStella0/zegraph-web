@@ -39,6 +39,8 @@ CREATE TABLE server_browser(
     port SMALLINT NOT NULL,
     tracking BOOLEAN NOT NULL DEFAULT TRUE,
     cooldown_type VARCHAR(20) NOT NULL DEFAULT 'unknown' CHECK (cooldown_type IN ('unknown', 'datetime', 'map_count')),
+    aggressive BOOLEAN NOT NULL DEFAULT FALSE,
+    failed_counter INTEGER NOT NULL DEFAULT 0,
     UNIQUE(ip, port)
 );
 CREATE TABLE server(
@@ -154,7 +156,7 @@ CREATE TABLE admin_info(
 );
 
 CREATE TABLE server_infractions(
-    infraction_id VARCHAR(100) NOT NULL,
+    infraction_id VARCHAR(100) NOT NULL UNIQUE,  -- nide/skial insert with ON CONFLICT (infraction_id)
     source TEXT NOT NULL,
     payload JSONB NOT NULL,
     created TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -883,7 +885,7 @@ CREATE TABLE map_metadata(
     name VARCHAR(100) PRIMARY KEY,
     workshop_id BIGINT NOT NULL,
     image_url TEXT,
-    creators VARCHAR(100),
+    creators TEXT,
     file_bytes BIGINT,
     is_tryhard BOOLEAN,
     is_casual BOOLEAN,
