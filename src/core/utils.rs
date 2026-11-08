@@ -981,19 +981,53 @@ pub async fn fetch_map_images() -> reqwest::Result<Vec<MapImage>>{
         .filter(|(k, _values)| GAME_TYPES.contains(&k.as_str()))
         .map(|(e, values)|
             values.into_iter()
-                .map(|map_name| MapImage {
-                    map_name: map_name.clone(),
-                    game_type: e.clone(),
-                    small: format!("/thumbnails/{}/{}--{}.jpg", ThumbnailType::Small, e, map_name),
-                    medium: format!("/thumbnails/{}/{}--{}.jpg", ThumbnailType::Medium, e, map_name),
-                    large: format!("/thumbnails/{}/{}--{}.jpg", ThumbnailType::Large, e, map_name),
-                    extra_large: format!("/thumbnails/{}/{}--{}.jpg", ThumbnailType::ExtraLarge, e, map_name),
-                }).collect::<Vec<MapImage>>()
+                .map(|map_name| MapImage::new(map_name, e, e))
+                .collect::<Vec<MapImage>>()
         )
         .flatten()
         .collect::<Vec<_>>();
 
     Ok(data)
+}
+
+/// Thumbnail source prefix for a map's Steam Workshop preview (`map_metadata.image_url`), used when
+/// Vauff has no image for the map. `/thumbnails/<size>/workshop--<map>.jpg` resolves it.
+pub const WORKSHOP_IMAGE_SOURCE: &str = "workshop";
+
+impl MapImage {
+    /// `source` is the thumbnail filename prefix: a Vauff game key, or [`WORKSHOP_IMAGE_SOURCE`].
+    fn new(map_name: &str, game_type: &str, source: &str) -> Self {
+        let url = |size: ThumbnailType| format!("/thumbnails/{size}/{source}--{map_name}.jpg");
+        MapImage {
+            map_name: map_name.to_string(),
+            game_type: game_type.to_string(),
+            small: url(ThumbnailType::Small),
+            medium: url(ThumbnailType::Medium),
+            large: url(ThumbnailType::Large),
+            extra_large: url(ThumbnailType::ExtraLarge),
+        }
+    }
+    /// The Workshop preview of `map_name`, for a server running `game_type`.
+    pub fn workshop(map_name: &str, game_type: &str) -> Self {
+        MapImage::new(map_name, game_type, WORKSHOP_IMAGE_SOURCE)
+    }
+}
+
+/// Workshop preview URLs the scraper stored in `map_metadata.image_url`, keyed by exact map name.
+pub async fn get_workshop_images(pool: &sqlx::Pool<Postgres>, cache: &FastCache) -> HashMap<String, String> {
+    let func = || async {
+        let rows = sqlx::query!(
+            "SELECT name, image_url AS \"image_url!\" FROM map_metadata WHERE image_url IS NOT NULL AND image_url <> ''"
+        ).fetch_all(pool).await?;
+        Ok::<_, sqlx::Error>(rows.into_iter().map(|r| (r.name, r.image_url)).collect::<HashMap<_, _>>())
+    };
+    match cached_response("map_workshop_images", cache, HOUR, func).await {
+        Ok(r) => r.result,
+        Err(e) => {
+            tracing::error!("Fetching workshop map images results in an error {e}");
+            HashMap::new()
+        }
+    }
 }
 
 pub struct CachedResult<T>{
@@ -1160,6 +1194,26 @@ mod cached_result_tests {
         assert_eq!(CachedResult::new_data("payload").result, "payload");
         assert_eq!(CachedResult::backup_data("payload").result, "payload");
         assert_eq!(CachedResult::current_data("payload").result, "payload");
+    }
+}
+
+#[cfg(test)]
+mod map_image_tests {
+    use super::MapImage;
+
+    #[test]
+    fn workshop_images_point_at_the_workshop_thumbnail_source() {
+        let image = MapImage::workshop("ze_example_v1", "440");
+        assert_eq!(image.game_type, "440");
+        assert_eq!(image.small, "/thumbnails/small/workshop--ze_example_v1.jpg");
+        assert_eq!(image.extra_large, "/thumbnails/extra_large/workshop--ze_example_v1.jpg");
+    }
+
+    #[test]
+    fn vauff_images_keep_the_game_prefix() {
+        let image = MapImage::new("ze_example_v1", "730_cs2", "730_cs2");
+        assert_eq!(image.medium, "/thumbnails/medium/730_cs2--ze_example_v1.jpg");
+        assert_eq!(image.large, "/thumbnails/large/730_cs2--ze_example_v1.jpg");
     }
 }
 

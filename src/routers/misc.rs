@@ -833,11 +833,25 @@ impl MiscApi {
     async fn am_i_okie(&self, Data(app): Data<&AppData>) -> Response<IAmOkie>{
         response!(ok app.health_monitor.current().await)
     }
-    async fn generate_thumbnail(&self, thumbnail_type: &ThumbnailType, filename: &str) -> Result<Vec<u8>, ThumbnailError> {
-        let mut filenames = filename.splitn(2, "--");
+    async fn generate_thumbnail(&self, app: &AppData, thumbnail_type: &ThumbnailType, full_filename: &str) -> Result<Vec<u8>, ThumbnailError> {
+        let mut filenames = full_filename.splitn(2, "--");
         let game_type = filenames.next().unwrap_or(GAME_TYPES[0]);
-        let filename = filenames.next().unwrap_or(filename);
-        let image_url = format!("{BASE_URL}/{game_type}/{filename}");
+        let filename = filenames.next().unwrap_or(full_filename);
+        let image_url = if game_type == WORKSHOP_IMAGE_SOURCE {
+            // Only maps the scraper stored a Workshop preview for, so this can't fetch arbitrary URLs.
+            let map_name = filename.strip_suffix(".jpg").unwrap_or(filename);
+            let url = get_workshop_images(&app.pool, &app.cache).await
+                .remove(map_name)
+                .ok_or_else(|| ThumbnailError::FetchUrlError(format!("No workshop image for {map_name}")))?;
+            // Steam's `?imw=..&imh=..` resize params letterbox and can shrink it; the bare URL is the
+            // original upload.
+            match url.split_once('?') {
+                Some((base, _)) => base.to_string(),
+                None => url,
+            }
+        } else {
+            format!("{BASE_URL}/{game_type}/{filename}")
+        };
 
         tracing::debug!("Fetching {image_url}");
         let response = http_client()
@@ -869,7 +883,9 @@ impl MiscApi {
         fs::create_dir_all(&save_path)
             .map_err(|e| ThumbnailError::ImageGeneratorError(format!("Error creating folder: {e}")))
             .await?;
-        let save_path= save_path.join(filename);
+        // The full name, source prefix included, so maps sharing a name across sources don't collide
+        // and both the lookup below and nginx's `try_files` find it.
+        let save_path= save_path.join(full_filename);
         tracing::debug!("Saving {}", save_path.display());
         let mut buffer = Cursor::new(Vec::new());
         thumbnail.write_to(&mut buffer, image::ImageFormat::Jpeg)
@@ -880,7 +896,7 @@ impl MiscApi {
 
         Ok(buffer.into_inner())
     }
-    async fn get_map_thumbnail(&self, thumbnail_type: &ThumbnailType, filename: &str) -> Result<Vec<u8>, ThumbnailError> {
+    async fn get_map_thumbnail(&self, app: &AppData, thumbnail_type: &ThumbnailType, filename: &str) -> Result<Vec<u8>, ThumbnailError> {
         let path = get_env_default("CACHE_THUMBNAIL").unwrap_or_default();
         let file_path = PathBuf::from(path).join(thumbnail_type.to_string()).join(filename);
 
@@ -890,12 +906,13 @@ impl MiscApi {
             return Ok(reading);
         }
 
-        self.generate_thumbnail(thumbnail_type, &filename).await
+        self.generate_thumbnail(app, thumbnail_type, &filename).await
     }
-    /// Fetch (or generate and cache) a resized map thumbnail.
+    /// Fetch (or generate and cache) a resized map thumbnail. `filename` is `<source>--<map>.jpg`,
+    /// where the source is a Vauff game key or `workshop` for the map's Steam Workshop preview.
     #[oai(path = "/thumbnails/:thumbnail_type/:filename", method = "get")]
-    async fn get_thumbnail(&self, thumbnail_type: Path<ThumbnailType>, filename: Path<String>) -> JpegResponse {
-        match self.get_map_thumbnail(&thumbnail_type.0, &filename).await {
+    async fn get_thumbnail(&self, Data(app): Data<&AppData>, thumbnail_type: Path<ThumbnailType>, filename: Path<String>) -> JpegResponse {
+        match self.get_map_thumbnail(app, &thumbnail_type.0, &filename).await {
             Ok(image_data) => JpegResponse::Ok(Binary(image_data)),
             Err(e) => {
                 tracing::warn!("{e}");

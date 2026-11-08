@@ -400,6 +400,7 @@ pub(crate) async fn assemble_global_maps(
     }
 
     let images = get_map_images(&data.cache).await;
+    let workshop_images = get_workshop_images(&data.pool, &data.cache).await;
     let mut names_by_game: HashMap<String, Vec<String>> = HashMap::new();
     for image in &images {
         names_by_game.entry(image.game_type.clone()).or_default().push(image.map_name.clone());
@@ -414,7 +415,10 @@ pub(crate) async fn assemble_global_maps(
                 games.push(server.game.clone());
             }
         }
-        let image = global_map_image(&row.map, &games, &images, &names_by_game);
+        let image = global_map_image(&row.map, &games, &images, &names_by_game)
+            .or_else(|| workshop_images.contains_key(&row.map).then(|| {
+                MapImage::workshop(&row.map, games.first().map_or(GAME_TYPES[0], String::as_str))
+            }));
         let mut map: GlobalMapPlayed = row.into();
         map.is_favorite = favorites.as_ref().map(|favorites| favorites.contains(&map.map));
         map.games = games;
@@ -1200,7 +1204,8 @@ impl MapApi{
 
         response!(ok Some(rows.result.into()))
     }
-    /// The map image best matching this map's name, for the server's game type.
+    /// The map image best matching this map's name, for the server's game type. Falls back to the
+    /// map's Steam Workshop preview when there is no match.
     #[oai(path="/servers/:server_id/maps/:map_name/images", method="get")]
     async fn get_server_map_images(
         &self, Data(app): Data<&AppData>, extract: MapExtractor
@@ -1217,6 +1222,9 @@ impl MapApi{
             .collect();
         let map_name = extract.map.map;
         let Some(map_image) = get_map_image(&map_name, &map_names) else {
+            if get_workshop_images(&app.pool, &app.cache).await.contains_key(&map_name) {
+                return response!(ok MapImage::workshop(&map_name, &game))
+            }
             return response!(err "No map image", ErrorCode::NotFound)
         };
 
@@ -1226,7 +1234,8 @@ impl MapApi{
         response!(ok d)
     }
     /// The best matching map image for each of up to 100 comma-separated map names, keyed by the
-    /// requested name. Names with no match are left out.
+    /// requested name, falling back to the map's Steam Workshop preview. Names with neither are left
+    /// out.
     #[oai(path="/servers/:server_id/maps/images", method="get")]
     async fn get_server_maps_images(
         &self, Data(app): Data<&AppData>, Query(maps): Query<KeyList>, ServerExtractor(server): ServerExtractor
@@ -1241,9 +1250,14 @@ impl MapApi{
             .iter()
             .map(|e| e.map_name.clone())
             .collect();
+        let workshop_images = get_workshop_images(&app.pool, &app.cache).await;
         let mut result = HashMap::new();
         for map_name in maps.0 {
             let Some(map_image) = get_map_image(&map_name, &map_names) else {
+                if workshop_images.contains_key(&map_name) {
+                    let image = MapImage::workshop(&map_name, &game);
+                    result.insert(map_name, image);
+                }
                 continue
             };
             if let Some(image) = images.iter().find(|e| e.map_name == map_image) {
