@@ -358,11 +358,17 @@
       "totalPoints": "Total points",
       "bestServerPoints": "Best server points",
       "footerRunaway": "From Runaway's other game modes, their ZE server keeps no stats · as of {date}",
+      "bothServersPlaytime": "Playtime (NA + EU)",
+      "afkTime": "AFK time",
+      "seasonPlaytime": "This season",
+      "regionSplit": "NA / EU (30 days)",
+      "footerSkial": "Combined across Skial's NA and EU servers · as of {date}",
       "statsHeading": {
         "gfl": "CSGO Stats",
         "nide": "NiDE Stats",
         "mapeadores": "Mapeadores Stats",
-        "runaway": "Runaway Stats"
+        "runaway": "Runaway Stats",
+        "skial": "Skial Stats"
       }
     },
     "card": {

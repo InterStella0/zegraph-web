@@ -39,6 +39,8 @@ CREATE TABLE server_browser(
     port SMALLINT NOT NULL,
     tracking BOOLEAN NOT NULL DEFAULT TRUE,
     cooldown_type VARCHAR(20) NOT NULL DEFAULT 'unknown' CHECK (cooldown_type IN ('unknown', 'datetime', 'map_count')),
+    aggressive BOOLEAN NOT NULL DEFAULT FALSE,
+    failed_counter INTEGER NOT NULL DEFAULT 0,
     UNIQUE(ip, port)
 );
 CREATE TABLE server(
@@ -154,7 +156,7 @@ CREATE TABLE admin_info(
 );
 
 CREATE TABLE server_infractions(
-    infraction_id VARCHAR(100) NOT NULL,
+    infraction_id VARCHAR(100) NOT NULL UNIQUE,  -- nide/skial insert with ON CONFLICT (infraction_id)
     source TEXT NOT NULL,
     payload JSONB NOT NULL,
     created TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -883,7 +885,7 @@ CREATE TABLE map_metadata(
     name VARCHAR(100) PRIMARY KEY,
     workshop_id BIGINT NOT NULL,
     image_url TEXT,
-    creators VARCHAR(100),
+    creators TEXT,
     file_bytes BIGINT,
     is_tryhard BOOLEAN,
     is_casual BOOLEAN,
@@ -1209,6 +1211,28 @@ CREATE TABLE external_data.mapeadores_playtime (
     fetched_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
+-- stats.skial.com zombie escape playtime (seconds, all time across both ze servers). na_share is the NA server's
+-- share of the player's last 30 days, the rest goes to EU.
+CREATE TABLE external_data.skial_ze_playtime (
+    steamid64 VARCHAR(19) PRIMARY KEY,
+    name TEXT NOT NULL,
+    playtime INTEGER NOT NULL,
+    afk_time INTEGER NOT NULL,
+    season_playtime INTEGER NOT NULL,
+    na_share REAL NOT NULL DEFAULT 1,
+    last_seen TIMESTAMP WITH TIME ZONE,
+    fetched_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+-- names skial's stats rankings and bans/comms have shown for a steam64, resolves a2s names on their servers.
+CREATE TABLE external_data.skial_players (
+    steamid64 VARCHAR(19) NOT NULL,
+    name TEXT NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY (steamid64, name)
+);
+CREATE INDEX idx_skial_players_name ON external_data.skial_players(name);
+
 -- runawaytr.com profile header, points from their non-ze modes. points is the best server, total_points all of them.
 CREATE TABLE external_data.runaway_points (
     steamid64 VARCHAR(19) PRIMARY KEY,
@@ -1311,6 +1335,29 @@ AFTER UPDATE OF minutes ON external_data.mapeadores_playtime
 FOR EACH ROW WHEN (OLD.minutes IS DISTINCT FROM NEW.minutes)
 EXECUTE FUNCTION website.apply_mapeadores_external_playtime();
 
+CREATE OR REPLACE FUNCTION website.apply_skial_external_playtime() RETURNS trigger AS $$
+BEGIN
+    PERFORM website.apply_external_playtime(
+        NEW.steamid64, '85568392920040258', 'skial',
+        make_interval(secs => NEW.playtime * NEW.na_share), NEW.fetched_at
+    );
+    PERFORM website.apply_external_playtime(
+        NEW.steamid64, '85568392920040216', 'skial',
+        make_interval(secs => NEW.playtime * (1 - NEW.na_share)), NEW.fetched_at
+    );
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_skial_external_playtime_insert
+AFTER INSERT ON external_data.skial_ze_playtime
+FOR EACH ROW EXECUTE FUNCTION website.apply_skial_external_playtime();
+
+CREATE TRIGGER trigger_skial_external_playtime_update
+AFTER UPDATE OF playtime, na_share ON external_data.skial_ze_playtime
+FOR EACH ROW WHEN (OLD.playtime IS DISTINCT FROM NEW.playtime OR OLD.na_share IS DISTINCT FROM NEW.na_share)
+EXECUTE FUNCTION website.apply_skial_external_playtime();
+
 CREATE OR REPLACE FUNCTION website.reapply_linked_external_playtime() RETURNS trigger AS $$
 BEGIN
     PERFORM website.apply_external_playtime(
@@ -1343,6 +1390,18 @@ BEGIN
         make_interval(mins => m.minutes), m.fetched_at
     )
     FROM external_data.mapeadores_playtime m;
+
+    PERFORM website.apply_external_playtime(
+        k.steamid64, '85568392920040258', 'skial',
+        make_interval(secs => k.playtime * k.na_share), k.fetched_at
+    )
+    FROM external_data.skial_ze_playtime k;
+
+    PERFORM website.apply_external_playtime(
+        k.steamid64, '85568392920040216', 'skial',
+        make_interval(secs => k.playtime * (1 - k.na_share)), k.fetched_at
+    )
+    FROM external_data.skial_ze_playtime k;
 
     SELECT s.tracking_since INTO gfl_tracking_since FROM server s WHERE s.server_id = '85568392935951359';
     IF NOT FOUND THEN

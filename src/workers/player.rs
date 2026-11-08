@@ -348,6 +348,20 @@ worker_query! {
         ", ctx.data.player_id).fetch_optional(&*ctx.pool).await
     }
 }
+worker_query! {
+    PlayerBasicQuery<Option<DbSkialPlayerStats>> => PlayerSkialStats, HOUR, Light,
+    |self, ctx| format!("player-skial-stats:{}:{}:stats", ctx.data.server_id, ctx.data.player_id), {
+        sqlx::query_as!(DbSkialPlayerStats, r#"
+            SELECT name, playtime::BIGINT AS "playtime!", afk_time::BIGINT AS "afk_time!",
+                   season_playtime::BIGINT AS "season_playtime!", na_share::FLOAT8 AS "na_share!",
+                   last_seen, fetched_at
+            FROM external_data.skial_ze_playtime
+            WHERE steamid64 = (
+                SELECT COALESCE(associated_player_id, player_id) FROM player WHERE player_id = $1
+            )
+        "#, ctx.data.player_id).fetch_optional(&*ctx.pool).await
+    }
+}
 struct DbServerMapState{
     #[allow(dead_code)]
     server_id: String,
@@ -1683,6 +1697,10 @@ impl PlayerWorker {
                 let stats: DbRunawayPlayerStats = self.query_external_stats(context, false).await?;
                 Ok(PlayerExternalStats::Runaway(stats.into()))
             }
+            ExternalStatsSource::Skial => {
+                let stats: DbSkialPlayerStats = self.query_external_stats(context, false).await?;
+                Ok(PlayerExternalStats::Skial(stats.into()))
+            }
         }
     }
     async fn query_external_stats<T: Cacheable>(&self, context: &PlayerContext, queued: bool) -> WorkResult<T>
@@ -1788,9 +1806,6 @@ impl PlayerWorker {
     async fn attach_external_playtime(
         &self, context: &PlayerContext, detail: &mut DetailedPlayer,
     ) -> Result<(), sqlx::Error>{
-        if ExternalStatsSource::for_server(&context.server.server_id).is_none() {
-            return Ok(());
-        }
         let external = sqlx::query_as!(DbPlayerExternalPlaytime, "
             SELECT e.source, e.external_total, e.fetched_at, e.playtime_correction,
                    REPLACE(s.external_source_url, '{player_id}', e.player_id) AS source_url
@@ -2175,6 +2190,13 @@ mod tests {
         assert_eq!(ttl, HOUR);
         assert!(matches!(priority, QueryPriority::Light));
         assert!(matches!(kind, JobKind::PlayerRunawayStats(_)));
+        let (pattern, ttl, priority, kind) = metadata(
+            &player_query::<Option<DbSkialPlayerStats>>(),
+        );
+        assert_eq!(pattern, format!("player-skial-stats:{TEST_SERVER}:{TEST_PLAYER}:stats"));
+        assert_eq!(ttl, HOUR);
+        assert!(matches!(priority, QueryPriority::Light));
+        assert!(matches!(kind, JobKind::PlayerSkialStats(_)));
     }
 
     macro_rules! assert_period_scoped {

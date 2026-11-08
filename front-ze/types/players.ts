@@ -309,11 +309,22 @@ export type RunawayPlayerStats = {
     fetched_at: string,
 }
 
+export type SkialPlayerStats = {
+    name: string,
+    playtime: number,
+    afk_time: number,
+    season_playtime: number,
+    na_share: number,
+    last_seen: string | null,
+    fetched_at: string,
+}
+
 export type PlayerExternalStats =
     | ({ source: 'gfl' } & GflPlayerStats)
     | ({ source: 'nide' } & NidePlayerStats)
     | ({ source: 'mapeadores' } & MapeadoresPlayerStats)
     | ({ source: 'runaway' } & RunawayPlayerStats)
+    | ({ source: 'skial' } & SkialPlayerStats)
 
 export type PlayerSeen = {
     id: string,

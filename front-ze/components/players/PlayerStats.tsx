@@ -14,6 +14,7 @@ import {
     NidePlayerStats,
     PlayerExternalStats,
     RunawayPlayerStats,
+    SkialPlayerStats,
 } from "types/players";
 import {Period, usePeriod, usePeriodLabel} from "components/period/Period";
 import {PlayerStatSuspense, usePlayerStatSeed} from "../../app/servers/[server_slug]/players/[player_id]/PlayerStatsPatch";
@@ -23,6 +24,7 @@ const SOURCE_NAMES: Record<string, string> = {
     nide: 'NiDE',
     mapeadores: 'Mapeadores',
     runaway: 'Runaway',
+    skial: 'Skial',
 };
 
 export const SPLIT_SEGMENTS = [
@@ -278,6 +280,7 @@ function ExternalStatsSection({ player }: { player: DetailedPlayer | null }): Re
         {stats.source === 'nide' && <NideStats stats={stats} reported={reported} />}
         {stats.source === 'mapeadores' && <MapeadoresStats stats={stats} reported={reported} />}
         {stats.source === 'runaway' && <RunawayStats stats={stats} />}
+        {stats.source === 'skial' && <SkialStats stats={stats} />}
     </div>
 }
 
@@ -377,5 +380,21 @@ function RunawayStats({ stats }: { stats: RunawayPlayerStats }): ReactElement {
     return <StatRow footer={t('footerRunaway', { date: f.day(stats.fetched_at) })}>
         <StatItem label={t('totalPoints')} value={f.count(stats.total_points)} />
         <StatItem label={t('bestServerPoints')} value={f.count(stats.points)} />
+    </StatRow>
+}
+
+// Skial reports both ZE servers together; the total above is only this server's share of it,
+// so the combined playtime always shows here.
+function SkialStats({ stats }: { stats: SkialPlayerStats }): ReactElement {
+    const t = useTranslations('players.stats');
+    const f = useStatFormat();
+    const na = Math.min(Math.max(stats.na_share, 0), 1) * 100;
+    return <StatRow footer={t('footerSkial', { date: f.day(stats.fetched_at) })}>
+        <StatItem label={t('bothServersPlaytime')} value={f.hours(stats.playtime)} />
+        <StatItem label={t('afkTime')} value={f.hours(stats.afk_time)} />
+        <StatItem label={t('seasonPlaytime')} value={f.hours(stats.season_playtime)} />
+        <StatItem label={t('regionSplit')} value={`${f.count(na)}% / ${f.count(100 - na)}%`} />
+        {stats.last_seen && <StatItem label={t('lastSeen')} value={f.day(stats.last_seen)} />}
+        <StatItem label={t('knownAs')} value={stats.name} />
     </StatRow>
 }

@@ -356,11 +356,17 @@
       "totalPoints": "总积分",
       "bestServerPoints": "最佳服务器积分",
       "footerRunaway": "来自 Runaway 的其他游戏模式，其 ZE 服务器不记录统计 · 截至 {date}",
+      "bothServersPlaytime": "游戏时长 (NA + EU)",
+      "afkTime": "挂机时长",
+      "seasonPlaytime": "本赛季",
+      "regionSplit": "NA / EU (30 天)",
+      "footerSkial": "Skial NA 与 EU 服务器合计 · 截至 {date}",
       "statsHeading": {
         "gfl": "CSGO 数据",
         "nide": "NiDE 数据",
         "mapeadores": "Mapeadores 数据",
-        "runaway": "Runaway 数据"
+        "runaway": "Runaway 数据",
+        "skial": "Skial 数据"
       }
     },
     "card": {
