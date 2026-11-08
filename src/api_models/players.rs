@@ -422,6 +422,8 @@ pub enum PlayerExternalStats {
     Mapeadores(MapeadoresPlayerStats),
     #[oai(mapping = "runaway")]
     Runaway(RunawayPlayerStats),
+    #[oai(mapping = "skial")]
+    Skial(SkialPlayerStats),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -430,6 +432,7 @@ pub enum ExternalStatsSource {
     Nide,
     Mapeadores,
     Runaway,
+    Skial,
 }
 
 impl ExternalStatsSource {
@@ -439,6 +442,7 @@ impl ExternalStatsSource {
             "7ae2ca188ebf8be21d4f42b2827153ac" => Some(Self::Nide),
             "674b592b744afc3c108d345a" => Some(Self::Mapeadores),
             "85568392931886775" => Some(Self::Runaway),
+            "85568392920040258" | "85568392920040216" => Some(Self::Skial),
             _ => None,
         }
     }
@@ -493,6 +497,24 @@ pub struct RunawayPlayerStats {
     pub points: i32,
     /// Points summed across every Runaway server.
     pub total_points: i32,
+    pub fetched_at: DateTime<Utc>,
+}
+
+/// stats.skial.com Zombie Escape stats for a player. Skial runs an NA and an EU ZE server and
+/// reports them together, so every figure here covers both.
+#[derive(Object)]
+pub struct SkialPlayerStats {
+    /// Name on Skial's rankings.
+    pub name: String,
+    /// All-time playtime in seconds across both ZE servers, as reported by Skial.
+    pub playtime: i64,
+    /// All-time AFK seconds across both ZE servers.
+    pub afk_time: i64,
+    /// Playtime in seconds in Skial's current season.
+    pub season_playtime: i64,
+    /// The NA server's share of the player's last 30 days, 0 to 1; the rest is EU.
+    pub na_share: f64,
+    pub last_seen: Option<DateTime<Utc>>,
     pub fetched_at: DateTime<Utc>,
 }
 
@@ -895,6 +917,8 @@ mod tests {
         assert_eq!(ExternalStatsSource::for_server("7ae2ca188ebf8be21d4f42b2827153ac"), Some(ExternalStatsSource::Nide));
         assert_eq!(ExternalStatsSource::for_server("674b592b744afc3c108d345a"), Some(ExternalStatsSource::Mapeadores));
         assert_eq!(ExternalStatsSource::for_server("85568392931886775"), Some(ExternalStatsSource::Runaway));
+        assert_eq!(ExternalStatsSource::for_server("85568392920040258"), Some(ExternalStatsSource::Skial));
+        assert_eq!(ExternalStatsSource::for_server("85568392920040216"), Some(ExternalStatsSource::Skial));
         assert_eq!(ExternalStatsSource::for_server("unknown"), None);
     }
 

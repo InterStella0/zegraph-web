@@ -356,11 +356,17 @@
       "totalPoints": "Всего очков",
       "bestServerPoints": "Очки на лучшем сервере",
       "footerRunaway": "Из других режимов Runaway, их ZE-сервер не ведёт статистику · на {date}",
+      "bothServersPlaytime": "Время игры (NA + EU)",
+      "afkTime": "Время AFK",
+      "seasonPlaytime": "Этот сезон",
+      "regionSplit": "NA / EU (30 дней)",
+      "footerSkial": "Суммарно по серверам Skial NA и EU · на {date}",
       "statsHeading": {
         "gfl": "Статистика CSGO",
         "nide": "Статистика NiDE",
         "mapeadores": "Статистика Mapeadores",
-        "runaway": "Статистика Runaway"
+        "runaway": "Статистика Runaway",
+        "skial": "Статистика Skial"
       }
     },
     "card": {

@@ -70,10 +70,14 @@ const NIDE_SEARCH: Record<string, (playerId: string | null) => string> = {
     "https://ebans.nide.gg/index.php?all": allSearch,
 };
 
-export function openInfraction<T extends { source: string }>(row: T, playerId: string | null, view: (row: T) => void) {
+export function openInfraction<T extends { source: string, id: string }>(row: T, playerId: string | null, view: (row: T) => void) {
     const openTab = (url: string) => window.open(url, "_blank", "noopener,noreferrer");
     if (row.source?.startsWith("https://bans.cola-team.es")) {
         openTab(row.source);
+    } else if (row.source?.startsWith("https://www.skial.com/panel")) {
+        // ids look like skial-b-123 / skial-c-123; the panel's page for one is {source}/123.
+        const skialId = row.id.replace(/^skial-[a-z]-/, "");
+        if (skialId) openTab(`${row.source}/${skialId}`);
     } else if (row.source?.includes("nide.gg")) {
         const search = NIDE_SEARCH[row.source];
         if (search) openTab(`${row.source}${search(playerId)}`);

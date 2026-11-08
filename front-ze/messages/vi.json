@@ -356,11 +356,17 @@
       "totalPoints": "Tổng điểm",
       "bestServerPoints": "Điểm máy chủ cao nhất",
       "footerRunaway": "Từ các chế độ chơi khác của Runaway, máy chủ ZE của họ không lưu thống kê · tính đến {date}",
+      "bothServersPlaytime": "Thời gian chơi (NA + EU)",
+      "afkTime": "Thời gian AFK",
+      "seasonPlaytime": "Mùa này",
+      "regionSplit": "NA / EU (30 ngày)",
+      "footerSkial": "Tổng hợp từ máy chủ NA và EU của Skial · tính đến {date}",
       "statsHeading": {
         "gfl": "Thống kê CSGO",
         "nide": "Thống kê NiDE",
         "mapeadores": "Thống kê Mapeadores",
-        "runaway": "Thống kê Runaway"
+        "runaway": "Thống kê Runaway",
+        "skial": "Thống kê Skial"
       }
     },
     "card": {

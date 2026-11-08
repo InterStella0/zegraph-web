@@ -356,11 +356,17 @@
       "totalPoints": "Total poin",
       "bestServerPoints": "Poin server terbaik",
       "footerRunaway": "Dari mode permainan Runaway lainnya, server ZE mereka tidak menyimpan statistik · per {date}",
+      "bothServersPlaytime": "Waktu bermain (NA + EU)",
+      "afkTime": "Waktu AFK",
+      "seasonPlaytime": "Musim ini",
+      "regionSplit": "NA / EU (30 hari)",
+      "footerSkial": "Gabungan server NA dan EU Skial · per {date}",
       "statsHeading": {
         "gfl": "Statistik CSGO",
         "nide": "Statistik NiDE",
         "mapeadores": "Statistik Mapeadores",
-        "runaway": "Statistik Runaway"
+        "runaway": "Statistik Runaway",
+        "skial": "Statistik Skial"
       }
     },
     "card": {

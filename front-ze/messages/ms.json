@@ -356,11 +356,17 @@
       "totalPoints": "Jumlah mata",
       "bestServerPoints": "Mata pelayan terbaik",
       "footerRunaway": "Daripada mod permainan Runaway yang lain, pelayan ZE mereka tidak menyimpan statistik · setakat {date}",
+      "bothServersPlaytime": "Masa bermain (NA + EU)",
+      "afkTime": "Masa AFK",
+      "seasonPlaytime": "Musim ini",
+      "regionSplit": "NA / EU (30 hari)",
+      "footerSkial": "Gabungan pelayan NA dan EU Skial · setakat {date}",
       "statsHeading": {
         "gfl": "Statistik CSGO",
         "nide": "Statistik NiDE",
         "mapeadores": "Statistik Mapeadores",
-        "runaway": "Statistik Runaway"
+        "runaway": "Statistik Runaway",
+        "skial": "Statistik Skial"
       }
     },
     "card": {

@@ -295,6 +295,18 @@ pub struct DbRunawayPlayerStats {
     pub total_points: i32,
     pub fetched_at: OffsetDateTime,
 }
+#[derive(Clone, DbInto)]
+#[auto_serde_with]
+#[db_into(SkialPlayerStats)]
+pub struct DbSkialPlayerStats {
+    pub name: String,
+    pub playtime: i64,
+    pub afk_time: i64,
+    pub season_playtime: i64,
+    pub na_share: f64,
+    pub last_seen: Option<OffsetDateTime>,
+    pub fetched_at: OffsetDateTime,
+}
 #[derive(DbInto)]
 #[db_into(ExternalPlaytime)]
 #[extra(tracked_playtime = 0.0)]

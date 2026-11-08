@@ -146,6 +146,7 @@ job_registry! {
     PlayerNideStats(PlayerData) => Option<DbNidePlayerStats>,
     PlayerMapeadoresStats(PlayerData) => Option<DbMapeadoresPlayerStats>,
     PlayerRunawayStats(PlayerData) => Option<DbRunawayPlayerStats>,
+    PlayerSkialStats(PlayerData) => Option<DbSkialPlayerStats>,
     PlayerRegionTime(PlayerData) => Vec<DbPlayerRegionTime>,
     PlayerHourCount(PlayerData) => Vec<DbPlayerHourCount>,
     PlayerOnlineHeatmap(PlayerData) => Vec<DbPlayerOnlineHeatmap>,
@@ -275,6 +276,6 @@ mod tests {
             assert!(tags.insert(tag.clone()), "two JobKind variants share the tag {tag}");
         }
 
-        assert_eq!(tags.len(), 41, "all variants must be covered by all_job_kinds()");
+        assert_eq!(tags.len(), 42, "all variants must be covered by all_job_kinds()");
     }
 }

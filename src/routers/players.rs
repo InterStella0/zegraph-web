@@ -28,6 +28,7 @@ pub struct PlayerApi;
 pub const PLAYER_DEFAULT_KEY: &str = "first-time";
 pub const NIDE_SERVER_ID: &str = "7ae2ca188ebf8be21d4f42b2827153ac";
 pub const COLA_BANS_SOURCE: &str = "https://bans.cola-team.es";
+pub const SKIAL_PANEL_SOURCE: &str = "https://www.skial.com/panel";
 #[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct PlayerInfractionUpdateData {
@@ -600,8 +601,9 @@ impl PlayerApi{
     /// Stats the game server itself publishes about a player, tagged by `source`.
     ///
     /// `gfl` is the legacy GFL CS:GO leaderboard (cached for 120 days), `nide` is NiDE's
-    /// leaderboard, `mapeadores` is Mapeadores' VIP playtime leaderboard and `runaway` is the
-    /// runawaytr.com profile points from Runaway's non-ZE modes (all three cached for an hour).
+    /// leaderboard, `mapeadores` is Mapeadores' VIP playtime leaderboard, `runaway` is the
+    /// runawaytr.com profile points from Runaway's non-ZE modes and `skial` is stats.skial.com's
+    /// Zombie Escape stats, combined across Skial's NA and EU servers (all four cached for an hour).
     /// 404s for every other server, and for players the source has no row for.
     #[oai(path="/servers/:server_id/players/:player_id/external_stats", method="get")]
     async fn get_external_stats(&self, Data(app): Data<&AppData>, extract: PlayerExtractor, OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer) -> Response<PlayerExternalStats>{
@@ -919,7 +921,9 @@ impl PlayerApi{
         let mut tasks = vec![];
         for infraction in result {
             let task = task::spawn(async move {
-                let new_infraction = if infraction.source.starts_with(COLA_BANS_SOURCE) {
+                // Neither has the GFLBans info API; the scraper keeps their rows current itself.
+                let new_infraction = if infraction.source.starts_with(COLA_BANS_SOURCE)
+                    || infraction.source.starts_with(SKIAL_PANEL_SOURCE) {
                     None
                 } else {
                     match fetch_infraction(&infraction.infraction_id, &infraction.source).await {

@@ -356,11 +356,17 @@
       "totalPoints": "총 포인트",
       "bestServerPoints": "최고 서버 포인트",
       "footerRunaway": "Runaway의 다른 게임 모드 기록이며, ZE 서버는 통계를 저장하지 않습니다 · {date} 기준",
+      "bothServersPlaytime": "플레이 시간 (NA + EU)",
+      "afkTime": "AFK 시간",
+      "seasonPlaytime": "이번 시즌",
+      "regionSplit": "NA / EU (30일)",
+      "footerSkial": "Skial NA 및 EU 서버 합산 · {date} 기준",
       "statsHeading": {
         "gfl": "CSGO 통계",
         "nide": "NiDE 통계",
         "mapeadores": "Mapeadores 통계",
-        "runaway": "Runaway 통계"
+        "runaway": "Runaway 통계",
+        "skial": "Skial 통계"
       }
     },
     "card": {
