@@ -14,7 +14,7 @@ export default function ResponsiveAppSelector(
     const server = use(serverPromise)
     const { setDisplayCommunity } = useSidebar()
     return (
-        <div className="grow overflow-auto">
+        <div className="grow min-w-0 overflow-x-clip">
             <div className="min-h-screen">
                 <ResponsiveAppBar server={server} userPromise={user} discordMembersPromise={discordMembersPromise} setDisplayCommunity={setDisplayCommunity} />
                 <Suspense fallback={null}>

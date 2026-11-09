@@ -21,13 +21,12 @@ export default function LanguageToggle() {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button
-                    variant="ghost"
+                    variant="subtle"
                     size="icon"
                     disabled={isPending}
-                    className="transition-transform hover:scale-110"
                     aria-label="Change language"
                 >
-                    <Languages className="h-5 w-5" />
+                    <Languages className="h-4 w-4" />
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

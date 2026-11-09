@@ -103,7 +103,13 @@
     "expand": "展開",
     "noPopulationData": "まだ人口データが利用できません。",
     "playersOnlineCount": "{count, plural, one {# プレイヤー} other {# プレイヤー}}がオンライン",
-    "requestServer": "サーバーをリクエスト"
+    "requestServer": "サーバーをリクエスト",
+    "mapHover": {
+      "playing": "プレイ中",
+      "played": "{time} 経過",
+      "usually": "通常 約{minutes}分",
+      "left": "残り約{minutes}分"
+    }
   },
   "servers": {
     "currentMatch": {

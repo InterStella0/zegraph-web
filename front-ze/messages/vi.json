@@ -103,7 +103,13 @@
     "expand": "Mở rộng",
     "noPopulationData": "Dữ liệu dân số chưa có sẵn.",
     "playersOnlineCount": "{count, plural, one {# người chơi} other {# người chơi}} trực tuyến",
-    "requestServer": "Yêu cầu máy chủ"
+    "requestServer": "Yêu cầu máy chủ",
+    "mapHover": {
+      "playing": "Đang chơi",
+      "played": "đã chơi {time}",
+      "usually": "thường ~{minutes} phút",
+      "left": "còn ~{minutes} phút"
+    }
   },
   "servers": {
     "currentMatch": {

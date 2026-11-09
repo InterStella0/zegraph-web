@@ -64,7 +64,7 @@ export default function LoginButton({user, steamLabelClassName = "hidden min-[96
         {user ? (
             <UserMenu user={user} />
         ) : (
-            <Button onClick={openLogin} variant="outline" size="sm">
+            <Button onClick={openLogin} variant="subtle" className="h-9 px-3">
                 {t('login')}<span className={steamLabelClassName}>{t('withSteam')}</span>
             </Button>
         )}

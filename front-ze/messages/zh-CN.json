@@ -103,7 +103,13 @@
     "expand": "展开",
     "noPopulationData": "暂无人数数据。",
     "playersOnlineCount": "{count} 名玩家在线",
-    "requestServer": "申请服务器"
+    "requestServer": "申请服务器",
+    "mapHover": {
+      "playing": "进行中",
+      "played": "已进行 {time}",
+      "usually": "通常约 {minutes} 分钟",
+      "left": "剩余约 {minutes} 分钟"
+    }
   },
   "servers": {
     "currentMatch": {

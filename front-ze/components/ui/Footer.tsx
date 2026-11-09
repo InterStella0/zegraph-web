@@ -58,11 +58,7 @@ export default function Footer() {
                     <div className="relative mt-8 flex w-full flex-col items-center">
                         <div className="relative flex w-full flex-col items-center justify-between gap-4 sm:flex-row">
                             <div className="flex justify-center sm:justify-start">
-                                <div className="w-fit rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 to-secondary/10 px-6 py-2.5 shadow-sm backdrop-blur-sm transition-all hover:shadow-md">
-                                    <p className="text-sm font-medium tracking-wide text-foreground">
-                                        {t('beNice')}
-                                    </p>
-                                </div>
+                                <p className="w-fit bg-gradient-to-r from-pink-500 via-rose-400 to-fuchsia-500 bg-clip-text text-sm font-semibold tracking-wide text-transparent dark:from-pink-300 dark:via-rose-300 dark:to-fuchsia-400">{t('beNice')}</p>
                             </div>
 
                             <div className="flex justify-center sm:justify-end max-sm:flex-col gap-4">

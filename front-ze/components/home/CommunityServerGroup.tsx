@@ -9,6 +9,7 @@ import {CommunityIcon} from 'components/ui/CommunityIcon';
 import {GameLabel} from 'components/ui/ServerIndicator';
 import {Community, Server} from 'types/community';
 import {useTranslations} from 'next-intl';
+import MapHoverCard from './MapHoverCard';
 
 function ServerRow({server}: {server: Server}) {
     const t = useTranslations('home');
@@ -20,14 +21,18 @@ function ServerRow({server}: {server: Server}) {
     return (
         <div className="flex flex-row items-center gap-3 sm:gap-4 py-3 border-t border-border/60">
             <div className="min-w-0 flex-1">
-                <span className="text-sm font-medium truncate block" title={server.name}>
+                <Link
+                    href={`/servers/${server.gotoLink}`}
+                    className="text-sm font-medium truncate block w-fit max-w-full hover:text-primary hover:underline underline-offset-2"
+                    title={server.name}
+                >
                     {server.name}
-                </span>
+                </Link>
                 <div className="flex flex-row items-center gap-2 min-w-0 text-xs">
                     <GameLabel game={server.game} />
-                    {server.map && (
-                        <span className="text-muted-foreground truncate">{server.map}</span>
-                    )}
+                    {server.map && (server.status
+                        ? <MapHoverCard serverId={server.id} serverLink={server.gotoLink} map={server.map} />
+                        : <span className="text-muted-foreground truncate">{server.map}</span>)}
                 </div>
             </div>
             <div className="hidden sm:flex flex-col items-center w-28 flex-shrink-0">
@@ -94,7 +99,7 @@ export default function CommunityServerGroup({community}: {community: Community}
                     </span>
                 </div>
 
-                <div>
+                <div className="pl-3 sm:pl-6">
                     {servers.map((server) => (
                         <ServerRow key={server.id} server={server} />
                     ))}
