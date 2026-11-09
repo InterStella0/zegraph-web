@@ -103,7 +103,13 @@
     "expand": "Kembangkan",
     "noPopulationData": "Belum ada data populasi tersedia.",
     "playersOnlineCount": "{count, plural, other {# pemain}} dalam talian",
-    "requestServer": "Minta Pelayan"
+    "requestServer": "Minta Pelayan",
+    "mapHover": {
+      "playing": "Sedang dimainkan",
+      "played": "{time} dimainkan",
+      "usually": "biasanya ~{minutes}m",
+      "left": "~{minutes}m lagi"
+    }
   },
   "servers": {
     "currentMatch": {

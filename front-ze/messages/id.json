@@ -103,7 +103,13 @@
     "expand": "Buka",
     "noPopulationData": "Data populasi belum tersedia.",
     "playersOnlineCount": "{count, plural, one {# pemain} other {# pemain}} daring",
-    "requestServer": "Minta Server"
+    "requestServer": "Minta Server",
+    "mapHover": {
+      "playing": "Sedang dimainkan",
+      "played": "{time} dimainkan",
+      "usually": "biasanya ~{minutes}m",
+      "left": "~{minutes}m lagi"
+    }
   },
   "servers": {
     "currentMatch": {

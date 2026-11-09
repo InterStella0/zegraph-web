@@ -89,6 +89,14 @@ impl Into<AnnouncementType> for AnnouncementTypeState{
     }
 }
 #[derive(Clone, DbInto)]
+#[db_into(DiscordMembers)]
+#[auto_serde_with]
+pub struct DbDiscordMembers {
+    pub member_count: i32,
+    pub updated_at: OffsetDateTime,
+}
+
+#[derive(Clone, DbInto)]
 #[db_into(Announcement)]
 #[extra(hidden = !self.show)]
 #[auto_serde_with]

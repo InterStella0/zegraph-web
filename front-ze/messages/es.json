@@ -103,7 +103,13 @@
     "expand": "Expandir",
     "noPopulationData": "Aún no hay datos de población disponibles.",
     "playersOnlineCount": "{count, plural, one {# jugador} other {# jugadores}} en línea",
-    "requestServer": "Solicitar un Servidor"
+    "requestServer": "Solicitar un Servidor",
+    "mapHover": {
+      "playing": "Jugando",
+      "played": "{time} jugado",
+      "usually": "normalmente ~{minutes} min",
+      "left": "quedan ~{minutes} min"
+    }
   },
   "servers": {
     "currentMatch": {

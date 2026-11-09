@@ -3,8 +3,7 @@ import {useEffect, useLayoutEffect, useState, useRef} from 'react';
 import {useTranslations} from "next-intl";
 import {Sheet, SheetContent} from "components/ui/sheet";
 import {Button} from "components/ui/button";
-import {Avatar, AvatarFallback, AvatarImage} from "components/ui/avatar";
-import {ChevronLeft, ChevronRight, Users, Map, ChevronDown, ChevronUp, PlusCircle} from 'lucide-react';
+import {ChevronLeft, ChevronRight, Users, ChevronDown, ChevronUp, PlusCircle} from 'lucide-react';
 import {useServerMap} from "./ServerProvider";
 import {Community, Server} from "types/community";
 import {usePathname, useRouter} from "next/navigation";
@@ -13,7 +12,8 @@ import {HoverCard, HoverCardContent, HoverCardTrigger} from "components/ui/hover
 import {cn, setCookie} from "components/lib/utils";
 import {withErrorCatch} from "components/common/withErrorCatch";
 import {COMMUNITY_COLLAPSE} from "./communityCollapse";
-import {cleanDisplayName, graphemes} from "utils/format";
+import {CommunityIcon, getServerAvatarText} from "./CommunityIcon";
+import {GameLabel} from "./ServerIndicator";
 
 const MAX_SERVERS_SHOWN = 3;
 
@@ -29,20 +29,17 @@ export function Logo() {
     );
 }
 
-export const getServerAvatarText = (name: string) => {
-    const words = cleanDisplayName(name ?? '').split(' ').filter(Boolean);
-    if (words.length >= 2) return graphemes(words[0])[0] + graphemes(words[1])[0];
-    return graphemes(words[0] ?? '').slice(0, 2).join('');
-}
+export {getServerAvatarText};
 
-function CommunityAvatar({ community, className, textClassName }: { community: Community, className: string, textClassName: string }) {
+function CommunityAvatar({ community, className, textClassName }: { community: Community, className?: string, textClassName?: string }) {
     return (
-        <Avatar className={className}>
-            <AvatarImage src={community.icon_url} alt={community.name} />
-            <AvatarFallback className={cn("bg-primary/10 text-primary font-semibold", textClassName)}>
-                {getServerAvatarText(community.name).toUpperCase()}
-            </AvatarFallback>
-        </Avatar>
+        <CommunityIcon
+            name={community.name}
+            shortName={community.shorten_name}
+            iconUrl={community.icon_url}
+            className={className}
+            textClassName={textClassName}
+        />
     );
 }
 
@@ -53,24 +50,15 @@ function StatusDot({ status, className }: { status: boolean, className?: string 
 function CommunityHeader({ community }: { community: Community }) {
     const t = useTranslations('home');
     return (
-        <div className="flex items-center gap-3 p-2 rounded-lg bg-accent/20 border border-border/30">
-            <div className="relative flex-shrink-0">
-                <CommunityAvatar community={community} className="w-10 h-10 ring-2 ring-background shadow-sm" textClassName="text-xs" />
-                <StatusDot status={community.status} className="shadow-sm" />
-            </div>
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+            <CommunityAvatar community={community} className="flex-shrink-0" />
             <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-sm text-foreground truncate mb-0.5">
+                <h3 className="font-semibold text-base leading-tight text-foreground truncate">
                     {community.name}
                 </h3>
-                <div className="flex items-center gap-1.5">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded">
-                        <Users className="h-3 w-3" />
-                        <span className="font-medium">{community.players}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                        {t('serverCount', {count: community.servers.length})}
-                    </span>
-                </div>
+                <p className="text-xs text-muted-foreground truncate">
+                    {t('playerCount', {count: community.players})}, {t('serverCount', {count: community.servers.length})}
+                </p>
             </div>
         </div>
     );
@@ -81,69 +69,51 @@ function ServerList({ community, selected, onSelect, expanded, onToggleExpanded 
 }) {
     const t = useTranslations('home');
     return (
-        <div className="space-y-1.5 px-3">
+        <div>
             {(expanded ? community.servers : community.servers.slice(0, MAX_SERVERS_SHOWN)).map((communityServer) => {
                 const isSelected = communityServer.gotoLink === selected?.gotoLink;
-                const playerPercentage = communityServer.max_players > 0
-                    ? (communityServer.players / communityServer.max_players) * 100
-                    : 0;
-
                 return (
                     <button
                         key={communityServer.id}
                         onClick={() => onSelect(communityServer)}
+                        aria-current={isSelected ? 'page' : undefined}
                         className={cn(
-                            "w-full text-left px-3 py-2.5 rounded-md transition-all relative overflow-hidden",
-                            isSelected ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20' : 'hover:bg-accent/60 bg-accent/30'
+                            "w-full text-left px-4 py-2.5 border-t border-border/60 border-l-2 transition-colors",
+                            isSelected ? 'bg-primary/10 border-l-primary' : 'border-l-transparent hover:bg-accent/50'
                         )}
                     >
-                        <div
-                            className={cn("absolute bottom-0 left-0 h-0.5 transition-all", isSelected ? 'bg-primary-foreground/30' : 'bg-primary/30')}
-                            style={{ width: `${playerPercentage}%` }}
-                        />
-
-                        <div className="flex items-start gap-2">
-                            <div className={cn(
-                                "w-2 h-2 rounded-full flex-shrink-0 mt-1",
-                                communityServer.status ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-gray-400'
-                            )} />
-
-                            <div className="flex-1 min-w-0 space-y-1">
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className={cn("text-sm truncate", isSelected ? 'font-semibold' : 'font-medium')}>
-                                        {communityServer.name}
-                                    </span>
-                                    <div className={cn(
-                                        "flex items-center gap-1 text-xs flex-shrink-0 font-semibold tabular-nums",
-                                        isSelected ? 'text-primary-foreground/90' : 'text-foreground/80'
-                                    )}>
-                                        <Users className="h-3 w-3" />
-                                        {communityServer.players}/{communityServer.max_players}
-                                    </div>
-                                </div>
-
-                                <div className={cn("flex items-center gap-1 text-xs", isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-                                    <Map className="h-3 w-3 flex-shrink-0" />
-                                    <span className="truncate">
-                                        {communityServer.map}
-                                    </span>
-                                </div>
-                            </div>
+                        <div className="flex items-baseline justify-between gap-2">
+                            <span className={cn("text-sm font-semibold truncate", isSelected && 'text-primary')}>
+                                {communityServer.name}
+                            </span>
+                            {communityServer.status ? (
+                                <span className="text-sm text-muted-foreground flex-shrink-0 tabular-nums">
+                                    {communityServer.players} / {communityServer.max_players}
+                                </span>
+                            ) : (
+                                <span className="text-sm text-red-500 flex-shrink-0">{t('offline')}</span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs min-w-0">
+                            <GameLabel game={communityServer.game} />
+                            <span className="truncate text-muted-foreground">{communityServer.map}</span>
                         </div>
                     </button>
                 );
             })}
 
             {community.servers.length > MAX_SERVERS_SHOWN && (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onToggleExpanded}
-                    className="w-full text-xs text-muted-foreground hover:text-foreground h-7"
-                >
-                    {expanded ? <ChevronUp className="mr-1 h-3 w-3" /> : <ChevronDown className="mr-1 h-3 w-3" />}
-                    {expanded ? t('showLess') : t('showMore', {count: community.servers.length - MAX_SERVERS_SHOWN})}
-                </Button>
+                <div className="border-t border-border/60 px-3 py-1">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onToggleExpanded}
+                        className="w-full text-xs text-muted-foreground hover:text-foreground h-7"
+                    >
+                        {expanded ? <ChevronUp className="mr-1 h-3 w-3" /> : <ChevronDown className="mr-1 h-3 w-3" />}
+                        {expanded ? t('showLess') : t('showMore', {count: community.servers.length - MAX_SERVERS_SHOWN})}
+                    </Button>
+                </div>
             )}
         </div>
     );
@@ -261,9 +231,9 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                 )}
 
                 <ScrollArea className="max-h-[calc(100vh-80px)]">
-                <div className={isCollapsed ? "py-3" : "py-2"} style={{ width: isCollapsed ? 72 : 320 }}>
+                <div className={isCollapsed ? "py-3" : undefined} style={{ width: isCollapsed ? 72 : 320 }}>
                     {communities.map((community) => (
-                        <div key={community.id} className={isCollapsed ? "px-2 mb-2" : "mb-4 pb-4 border-b border-border/20 last:border-0"}>
+                        <div key={community.id} className={isCollapsed ? "px-2 mb-2" : "border-b border-border/40 last:border-0"}>
                             {isCollapsed ? (
                                 <HoverCard openDelay={100} closeDelay={100}>
                                     <div className="flex flex-col items-center gap-2">
@@ -275,7 +245,7 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                                             >
                                                 <CommunityAvatar
                                                     community={community}
-                                                    className={cn("w-11 h-11 transition-all", server?.community_id === community.id
+                                                    className={cn("size-11 transition-all", server?.community_id === community.id
                                                         ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
                                                         : 'opacity-70 hover:opacity-100')}
                                                     textClassName="text-sm"
@@ -298,19 +268,15 @@ function CommunitySelector({ setDisplayCommunity, displayCommunity, setRequestOp
                                         sideOffset={12}
                                         className="w-80 p-0 overflow-hidden"
                                     >
-                                        <div className="px-3 pt-3 pb-2">
-                                            <CommunityHeader community={community} />
-                                        </div>
-                                        <div className="max-h-[60vh] overflow-y-auto pb-3">
+                                        <CommunityHeader community={community} />
+                                        <div className="max-h-[60vh] overflow-y-auto">
                                             {serverList(community)}
                                         </div>
                                     </HoverCardContent>
                                 </HoverCard>
                             ) : (
                                 <>
-                                    <div className="px-4 mb-3">
-                                        <CommunityHeader community={community} />
-                                    </div>
+                                    <CommunityHeader community={community} />
                                     {serverList(community)}
                                 </>
                             )}

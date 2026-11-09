@@ -123,7 +123,7 @@ export default async function HomeFaq(
         })),
     };
 
-    return <section className="px-1 sm:px-0 max-w-3xl mx-auto flex flex-col gap-3 mt-2">
+    return <section className="px-1 sm:px-0 flex flex-col gap-3 mt-2">
         <JsonLd data={jsonLd} />
         {faqs.map(({q, body}) => (
             <details key={q} className="group rounded-xl border bg-card px-4 py-3 sm:px-5 sm:py-4">

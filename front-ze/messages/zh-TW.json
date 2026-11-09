@@ -103,7 +103,13 @@
     "expand": "展開",
     "noPopulationData": "尚無人數資料。",
     "playersOnlineCount": "{count} 名玩家上線",
-    "requestServer": "申請伺服器"
+    "requestServer": "申請伺服器",
+    "mapHover": {
+      "playing": "進行中",
+      "played": "已進行 {time}",
+      "usually": "通常約 {minutes} 分鐘",
+      "left": "剩餘約 {minutes} 分鐘"
+    }
   },
   "servers": {
     "currentMatch": {

@@ -1,8 +1,9 @@
-import {Badge} from "components/ui/badge";
 import {Server} from "types/community";
 import {Dispatch} from "react";
-import {Gamepad2} from "lucide-react";
+import {ChevronsUpDown} from "lucide-react";
 import {GAMES} from "utils/games";
+import {cn} from "components/lib/utils";
+import {CommunityIcon} from "./CommunityIcon";
 
 const GAME_COLORS: Record<string, string> = {
     "240":      "border-blue-500/40 text-blue-500",
@@ -15,8 +16,14 @@ export const GAME_META: Record<string, { label: string; className: string }> = O
     Object.entries(GAMES).map(([id, {label}]) => [id, {label, className: GAME_COLORS[id]}])
 );
 
-const BADGE = "h-6 px-2 transition-transform duration-200 hover:scale-105";
+/** Coloured game label ("CS2") for the second line of a server row. */
+export function GameLabel({ game, className }: { game?: string | null, className?: string }) {
+    const meta = game ? GAME_META[game] : undefined;
+    if (!meta) return null;
+    return <span className={cn("shrink-0 font-semibold", meta.className, className)}>{meta.label}</span>;
+}
 
+/** The current server as logo + two lines: name on top, game and community underneath. */
 export default function ServerIndicator(
     { server, setDisplayCommunity }
     : { server: Server; setDisplayCommunity: Dispatch<boolean> | null }
@@ -24,33 +31,34 @@ export default function ServerIndicator(
     if (!server) return null;
 
     const isClickable = setDisplayCommunity !== null;
-    const gameMeta = server.game ? GAME_META[server.game] : undefined;
+    const content = <>
+        <CommunityIcon
+            name={server.community_name}
+            shortName={server.community_shorten_name}
+            iconUrl={server.community_icon}
+            className="size-8"
+            textClassName="text-[10px]"
+        />
+        <span className="flex min-w-0 flex-col text-left leading-tight">
+            <span className="truncate text-sm font-semibold" title={server.name}>{server.name}</span>
+            <span className="flex min-w-0 items-center gap-1.5 text-xs">
+                <GameLabel game={server.game} />
+                <span className="truncate text-muted-foreground">{server.community_name}</span>
+            </span>
+        </span>
+    </>;
+
+    if (!isClickable) {
+        return <div className="flex min-w-0 max-w-72 items-center gap-2.5 px-2 py-1.5">{content}</div>;
+    }
     return (
-        <div
-            className={`min-w-0 p-2 rounded-lg transition-all duration-200 ${
-                isClickable ? 'cursor-pointer hover:-translate-y-0.5 active:translate-y-0 hover:scale-[1.01]' : ''
-            }`}
-            onClick={() => setDisplayCommunity?.(true)}
+        <button
+            type="button"
+            onClick={() => setDisplayCommunity(true)}
+            className="flex min-w-0 max-w-72 items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-            <div className="flex min-w-0 flex-row gap-2 items-center">
-                <Badge variant="default" className={`max-w-[120px] bg-primary text-primary-foreground ${BADGE}`}>
-                    <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs">
-                        {server.community_shorten_name || server.community_name}
-                    </span>
-                </Badge>
-                <span className="text-muted-foreground text-xs">/</span>
-                <Badge variant="outline" className={`min-w-0 shrink md:max-w-36 max-sm:max-w-30 ${BADGE}`}>
-                    <span className="overflow-hidden text-ellipsis whitespace-nowrap truncate text-xs">
-                        {server.name}
-                    </span>
-                </Badge>
-                {gameMeta && (
-                    <Badge variant="outline" className={`${BADGE} ${gameMeta.className}`}>
-                        <Gamepad2 />
-                        <span className="whitespace-nowrap text-xs">{gameMeta.label}</span>
-                    </Badge>
-                )}
-            </div>
-        </div>
+            {content}
+            <ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground" />
+        </button>
     );
 }

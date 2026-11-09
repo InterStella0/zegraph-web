@@ -103,7 +103,13 @@
     "expand": "Развернуть",
     "noPopulationData": "Данные о населении еще недоступны.",
     "playersOnlineCount": "{count, plural, one {# игрок} few {# игрока} other {# игроков}} в сети",
-    "requestServer": "Запросить сервер"
+    "requestServer": "Запросить сервер",
+    "mapHover": {
+      "playing": "Идёт",
+      "played": "прошло {time}",
+      "usually": "обычно ~{minutes} мин",
+      "left": "осталось ~{minutes} мин"
+    }
   },
   "servers": {
     "currentMatch": {

@@ -486,6 +486,13 @@ CREATE TABLE website.special_thanks (
 );
 
 
+CREATE TABLE website.discord_member_count (
+    guild_id     BIGINT PRIMARY KEY,
+    member_count INTEGER NOT NULL CHECK (member_count >= 0),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
 CREATE TABLE website.ze_community_links (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name        TEXT NOT NULL,

@@ -13,8 +13,8 @@ import DiscordButton from "./DiscordButton";
 
 
 export default function WebAppBar(
-    { userPromise, server, setDisplayCommunity }
-    : { server: Server | null, userPromise: Promise<SteamProfile> | null, setDisplayCommunity: Dispatch<boolean> }
+    { userPromise, discordMembersPromise, server, setDisplayCommunity }
+    : { server: Server | null, userPromise: Promise<SteamProfile> | null, discordMembersPromise: Promise<number | null>, setDisplayCommunity: Dispatch<boolean> }
 ) {
     const user = use(userPromise)
     return (
@@ -27,10 +27,8 @@ export default function WebAppBar(
                     {!server && <Link href="/" className="flex-shrink-0">
                         <Logo />
                     </Link>}
-                    <div className="hidden min-w-0 max-[1200px]:@min-[880px]:block">
-                        <ServerIndicator server={server} setDisplayCommunity={setDisplayCommunity} />
-                    </div>
-                    <div className="hidden min-w-0 min-[1200px]:block">
+                    {/* Desktop has the sidebar, so only the mobile indicator below opens the drawer. */}
+                    <div className="hidden min-w-0 @min-[880px]:block min-[1200px]:block">
                         <ServerIndicator server={server} setDisplayCommunity={null} />
                     </div>
                 </div>
@@ -47,12 +45,12 @@ export default function WebAppBar(
 
                 <div className="flex shrink-0 items-center gap-3">
                     <div className="hidden min-[750px]:flex items-center gap-2">
-                        <DiscordButton />
+                        <DiscordButton membersPromise={discordMembersPromise} />
                         <LanguageToggle />
                         <LoginButton user={user} steamLabelClassName={server ? "hidden @min-[1060px]:block" : "hidden @min-[880px]:block"} />
                     </div>
                     <div className="min-[750px]:hidden">
-                        <DiscordButton />
+                        <DiscordButton membersPromise={discordMembersPromise} />
                     </div>
                 </div>
             </nav>

@@ -9,14 +9,14 @@ import {ServerSlugPromise} from "./util.ts";
 import {useSidebar} from "../ServersShell";
 
 export default function ResponsiveAppSelector(
-    { children, serverPromise, user, announcementsPromise }: {children: ReactNode, serverPromise: ServerSlugPromise, user: Promise<SteamProfile | null>, announcementsPromise: Promise<AnnouncementData[]> }
+    { children, serverPromise, user, discordMembersPromise, announcementsPromise }: {children: ReactNode, serverPromise: ServerSlugPromise, user: Promise<SteamProfile | null>, discordMembersPromise: Promise<number | null>, announcementsPromise: Promise<AnnouncementData[]> }
 ) {
     const server = use(serverPromise)
     const { setDisplayCommunity } = useSidebar()
     return (
-        <div className="grow overflow-auto">
+        <div className="grow min-w-0 overflow-x-clip">
             <div className="min-h-screen">
-                <ResponsiveAppBar server={server} userPromise={user} setDisplayCommunity={setDisplayCommunity} />
+                <ResponsiveAppBar server={server} userPromise={user} discordMembersPromise={discordMembersPromise} setDisplayCommunity={setDisplayCommunity} />
                 <Suspense fallback={null}>
                     <Announcement announcementsPromise={announcementsPromise} />
                 </Suspense>
