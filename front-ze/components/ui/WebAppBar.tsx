@@ -27,10 +27,8 @@ export default function WebAppBar(
                     {!server && <Link href="/" className="flex-shrink-0">
                         <Logo />
                     </Link>}
-                    <div className="hidden min-w-0 max-[1200px]:@min-[880px]:block">
-                        <ServerIndicator server={server} setDisplayCommunity={setDisplayCommunity} />
-                    </div>
-                    <div className="hidden min-w-0 min-[1200px]:block">
+                    {/* Desktop has the sidebar, so only the mobile indicator below opens the drawer. */}
+                    <div className="hidden min-w-0 @min-[880px]:block min-[1200px]:block">
                         <ServerIndicator server={server} setDisplayCommunity={null} />
                     </div>
                 </div>
