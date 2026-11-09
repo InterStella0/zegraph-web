@@ -22,8 +22,8 @@ use tokio::time::{interval, timeout};
 use crate::{or_ise, response, AppData, FastCache};
 use crate::core::utils::*;
 use crate::api_models::common::*;
-use crate::api_models::misc::Announcement;
-use crate::models::admins::DbAnnouncement;
+use crate::api_models::misc::{Announcement, DiscordMembers};
+use crate::models::admins::{DbAnnouncement, DbDiscordMembers};
 use sqlx::types::time::OffsetDateTime;
 use crate::models::admins::AnnouncementTypeState;
 use crate::models::sitemaps::*;
@@ -939,6 +939,22 @@ impl MiscApi {
             .filter(|a| a.published_at <= now && a.expires_at.is_none_or(|expires| expires > now))
             .collect();
         response!(ok live.iter_into())
+    }
+    #[oai(path="/discord/members", method="get")]
+    async fn get_discord_members(&self, Data(app): Data<&AppData>) -> Response<DiscordMembers>{
+        let pool = &*app.pool.clone();
+        let func = || sqlx::query_as!(DbDiscordMembers, "
+            SELECT member_count, updated_at
+            FROM website.discord_member_count
+            ORDER BY updated_at DESC
+            LIMIT 1
+        ").fetch_optional(pool);
+
+        let value = or_ise!(cached_response("discord_members", &app.cache, 5 * 60, func).await);
+        match value.result {
+            Some(members) => response!(ok members.into()),
+            None => response!(err "No Discord member count yet", ErrorCode::NotFound),
+        }
     }
     /// Server-sent event stream of live database changes.
     #[oai(path = "/events/data-updates", method = "get")]

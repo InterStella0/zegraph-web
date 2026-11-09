@@ -13,8 +13,8 @@ import DiscordButton from "./DiscordButton";
 
 
 export default function WebAppBar(
-    { userPromise, server, setDisplayCommunity }
-    : { server: Server | null, userPromise: Promise<SteamProfile> | null, setDisplayCommunity: Dispatch<boolean> }
+    { userPromise, discordMembersPromise, server, setDisplayCommunity }
+    : { server: Server | null, userPromise: Promise<SteamProfile> | null, discordMembersPromise: Promise<number | null>, setDisplayCommunity: Dispatch<boolean> }
 ) {
     const user = use(userPromise)
     return (
@@ -45,12 +45,12 @@ export default function WebAppBar(
 
                 <div className="flex shrink-0 items-center gap-3">
                     <div className="hidden min-[750px]:flex items-center gap-2">
-                        <DiscordButton />
+                        <DiscordButton membersPromise={discordMembersPromise} />
                         <LanguageToggle />
                         <LoginButton user={user} steamLabelClassName={server ? "hidden @min-[1060px]:block" : "hidden @min-[880px]:block"} />
                     </div>
                     <div className="min-[750px]:hidden">
-                        <DiscordButton />
+                        <DiscordButton membersPromise={discordMembersPromise} />
                     </div>
                 </div>
             </nav>

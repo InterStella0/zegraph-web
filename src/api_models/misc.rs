@@ -205,6 +205,12 @@ impl Display for AnnouncementType {
     }
 }
 
+#[derive(Object, Clone, Serialize)]
+pub struct DiscordMembers {
+    pub member_count: i32,
+    pub updated_at: DateTime<Utc>,
+}
+
 /// A site-wide announcement.
 #[derive(Object, Clone, Serialize)]
 pub struct Announcement{
