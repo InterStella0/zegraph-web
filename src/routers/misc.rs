@@ -945,7 +945,7 @@ impl MiscApi {
         let pool = &*app.pool.clone();
         let func = || sqlx::query_as!(DbDiscordMembers, "
             SELECT member_count, updated_at
-            FROM website.discord_member_count
+            FROM website.discord_guild_stats
             ORDER BY updated_at DESC
             LIMIT 1
         ").fetch_optional(pool);
