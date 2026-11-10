@@ -486,9 +486,9 @@ CREATE TABLE website.special_thanks (
 );
 
 
-CREATE TABLE website.discord_member_count (
+CREATE TABLE website.discord_guild_stats (
     guild_id     BIGINT PRIMARY KEY,
-    member_count INTEGER NOT NULL CHECK (member_count >= 0),
+    member_count INT NOT NULL,
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -1209,6 +1209,17 @@ CREATE TABLE external_data.cola_players (
 );
 CREATE INDEX idx_cola_players_name ON external_data.cola_players(name);
 
+-- names seen on rsscs2.kr/bans rows, links the rss server's a2s name-only players to their steam64
+CREATE TABLE external_data.rss_players (
+    steamid64 VARCHAR(19) NOT NULL,
+    name TEXT NOT NULL,
+    first_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (steamid64, name)
+);
+CREATE INDEX idx_rss_players_name ON external_data.rss_players(name);
+
 CREATE TABLE external_data.mapeadores_playtime (
     steamid64 VARCHAR(19) PRIMARY KEY,
     name TEXT NOT NULL,
@@ -1239,6 +1250,15 @@ CREATE TABLE external_data.skial_players (
     PRIMARY KEY (steamid64, name)
 );
 CREATE INDEX idx_skial_players_name ON external_data.skial_players(name);
+
+-- names bans.otaku.tf has shown for a steam64, resolves a2s names on otaku's ze server.
+CREATE TABLE external_data.otaku_players (
+    steamid64 VARCHAR(19) NOT NULL,
+    name TEXT NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY (steamid64, name)
+);
+CREATE INDEX idx_otaku_players_name ON external_data.otaku_players(name);
 
 -- runawaytr.com profile header, points from their non-ze modes. points is the best server, total_points all of them.
 CREATE TABLE external_data.runaway_points (
