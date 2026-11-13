@@ -1339,7 +1339,7 @@ impl AccountsApi {
             FROM player_server_session pss
             JOIN user_players up ON up.player_id = pss.player_id
             JOIN server s ON s.server_id = pss.server_id
-            WHERE NOT (s.community_id = ANY($2))
+            WHERE s.community_id IS NOT NULL AND NOT (s.community_id = ANY($2))
             GROUP BY bucket_time, s.community_id
             ORDER BY bucket_time",
             scope.canonical_id,
@@ -1532,7 +1532,7 @@ impl AccountsApi {
                 FROM website.player_map_time pmt
                 JOIN user_players up ON up.player_id = pmt.player_id
                 JOIN server s ON s.server_id = pmt.server_id
-                WHERE NOT (s.community_id = ANY($2))
+                WHERE s.community_id IS NOT NULL AND NOT (s.community_id = ANY($2))
                 GROUP BY pmt.map, s.community_id
                 HAVING SUM(pmt.total_playtime) > INTERVAL '0'
             )
@@ -1622,7 +1622,7 @@ impl AccountsApi {
                 FROM player_server_session pss
                 JOIN user_players up ON up.player_id = pss.player_id
                 JOIN server s ON s.server_id = pss.server_id
-                WHERE NOT (s.community_id = ANY($2))
+                WHERE s.community_id IS NOT NULL AND NOT (s.community_id = ANY($2))
             ),
             slices AS (
                 SELECT se.community_id,
@@ -1728,7 +1728,7 @@ impl AccountsApi {
                 s.community_id::text AS \"community_id!\"
             FROM found f
             JOIN server s ON s.server_id = f.server_id
-            WHERE NOT (s.community_id = ANY($2))
+            WHERE s.community_id IS NOT NULL AND NOT (s.community_id = ANY($2))
             ORDER BY f.infraction_time DESC NULLS LAST",
             scope.canonical_id,
             &scope.excluded_community_ids,
