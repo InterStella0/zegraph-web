@@ -5,12 +5,11 @@ import {Badge} from "components/ui/badge";
 import {Avatar, AvatarImage} from "components/ui/avatar";
 import {PlayerAvatar} from "./PlayerAvatar.tsx";
 import {HoverPrefetchLink} from "components/ui/HoverPrefetchLink.tsx";
-import {GAME_META} from "components/ui/ServerIndicator";
+import {GAME_META, GameLabel} from "components/ui/ServerIndicator";
 import {GlobalPlayerBrief, PlayerCommunityPlaytime} from "types/players.ts";
 import {secondsToHours} from "utils/generalUtils.ts";
 import {cn} from "components/lib/utils";
 import {useCommunityColors} from "lib/hooks/useCommunityColors";
-import {Gamepad2} from "lucide-react";
 
 const MAX_LEGEND = 4;
 
@@ -77,7 +76,6 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
     const communities = player.communities ?? [];
     const isOnline = !!player.online_since;
     const lastCommunity = communities.find(c => c.community_id === player.last_community_id);
-    const gameMeta = player.game ? GAME_META[player.game] : undefined;
 
     return (
         <div
@@ -109,16 +107,10 @@ export default function GlobalPlayerRow({ player }: { player: GlobalPlayerBrief 
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                         <span>{t('serversCount', {count: player.server_count})}</span>
-                        {gameMeta && (
+                        {player.game && GAME_META[player.game] && (
                             <>
                                 <span>·</span>
-                                <Badge
-                                    variant="outline"
-                                    className={`h-5 px-1.5 gap-1 text-[10px] flex-shrink-0 ${gameMeta.className}`}
-                                >
-                                    <Gamepad2 className="h-3 w-3" />
-                                    <span className="whitespace-nowrap">{gameMeta.label}</span>
-                                </Badge>
+                                <GameLabel game={player.game} />
                             </>
                         )}
                     </div>
