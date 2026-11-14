@@ -29,6 +29,14 @@ pub const PLAYER_DEFAULT_KEY: &str = "first-time";
 pub const NIDE_SERVER_ID: &str = "7ae2ca188ebf8be21d4f42b2827153ac";
 pub const COLA_BANS_SOURCE: &str = "https://bans.cola-team.es";
 pub const SKIAL_PANEL_SOURCE: &str = "https://www.skial.com/panel";
+pub const OTAKU_BANS_SOURCE: &str = "https://bans.otaku.tf";
+pub const RSS_BANS_SOURCE: &str = "https://rsscs2.kr/bans";
+/// Sources without the GFLBans info API; the scraper keeps their rows current itself.
+const NO_INFO_API_SOURCES: [&str; 4] = [COLA_BANS_SOURCE, SKIAL_PANEL_SOURCE, OTAKU_BANS_SOURCE, RSS_BANS_SOURCE];
+
+fn has_infraction_info_api(source: &str) -> bool {
+    !NO_INFO_API_SOURCES.iter().any(|prefix| source.starts_with(prefix))
+}
 #[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct PlayerInfractionUpdateData {
@@ -921,9 +929,7 @@ impl PlayerApi{
         let mut tasks = vec![];
         for infraction in result {
             let task = task::spawn(async move {
-                // Neither has the GFLBans info API; the scraper keeps their rows current itself.
-                let new_infraction = if infraction.source.starts_with(COLA_BANS_SOURCE)
-                    || infraction.source.starts_with(SKIAL_PANEL_SOURCE) {
+                let new_infraction = if !has_infraction_info_api(&infraction.source) {
                     None
                 } else {
                     match fetch_infraction(&infraction.infraction_id, &infraction.source).await {
@@ -1225,3 +1231,21 @@ impl PlayerApi{
     }
 }
 const PFP_BULK_TIMEOUT: Duration = Duration::from_millis(500);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scraped_sources_skip_the_info_api() {
+        for source in [
+            "https://bans.cola-team.es/index.php?p=banlist",
+            "https://www.skial.com/panel/bans",
+            "https://bans.otaku.tf/comms",
+            "https://rsscs2.kr/bans/index.php?p=commslist",
+        ] {
+            assert!(!has_infraction_info_api(source), "{source}");
+        }
+        assert!(has_infraction_info_api("https://bans.gflclan.com"));
+    }
+}

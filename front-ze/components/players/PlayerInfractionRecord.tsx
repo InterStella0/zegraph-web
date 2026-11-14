@@ -70,6 +70,13 @@ const NIDE_SEARCH: Record<string, (playerId: string | null) => string> = {
     "https://ebans.nide.gg/index.php?all": allSearch,
 };
 
+function otakuSteam2(id: string): string | null {
+    const match = /^otaku-[a-z]-(\d{17})-/.exec(id);
+    if (!match) return null;
+    const accountId = BigInt(match[1]) - 76561197960265728n;
+    return `STEAM_0:${accountId & 1n}:${accountId >> 1n}`;
+}
+
 export function openInfraction<T extends { source: string, id: string }>(row: T, playerId: string | null, view: (row: T) => void) {
     const openTab = (url: string) => window.open(url, "_blank", "noopener,noreferrer");
     if (row.source?.startsWith("https://bans.cola-team.es")) {
@@ -78,6 +85,14 @@ export function openInfraction<T extends { source: string, id: string }>(row: T,
         // ids look like skial-b-123 / skial-c-123; the panel's page for one is {source}/123.
         const skialId = row.id.replace(/^skial-[a-z]-/, "");
         if (skialId) openTab(`${row.source}/${skialId}`);
+    } else if (row.source?.startsWith("https://rsscs2.kr/bans")) {
+        // ids look like rss-b-337 / rss-c-12; sourcebans++ opens one at {source}&id=337.
+        const rssId = row.id.replace(/^rss-[a-z]-/, "");
+        if (rssId) openTab(`${row.source}&id=${rssId}`);
+    } else if (row.source?.startsWith("https://bans.otaku.tf")) {
+        // ids look like otaku-b-{steam64}-{time}; the panel only searches by steam2.
+        const steam2 = otakuSteam2(row.id);
+        openTab(steam2 ? `${row.source}?dosearch=1&steamid=${steam2}` : row.source);
     } else if (row.source?.includes("nide.gg")) {
         const search = NIDE_SEARCH[row.source];
         if (search) openTab(`${row.source}${search(playerId)}`);
