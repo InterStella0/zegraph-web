@@ -687,13 +687,13 @@
       "periodNoMatches": "此時間範圍的列表中沒有符合「{query}」的玩家。"
     },
     "mapPull": {
-      "title": "讓你上線的地圖",
+      "title": "加入磁鐵",
       "description": "該玩家在這些地圖開始後 5 分鐘內加入的頻率高於平均地圖。",
       "lift": "平時的 {lift} 倍",
       "joined": "{chances} 次中有 {joins} 次提早加入",
       "usual": "平時：在 {rate}% 的地圖開局時加入",
       "empty": "暫時沒有突出的地圖，沒有哪張地圖明顯比平時更能讓該玩家上線。",
-      "loadError": "取得讓該玩家上線的地圖時出錯！"
+      "loadError": "取得加入磁鐵時出錯！"
     }
   },
   "period": {

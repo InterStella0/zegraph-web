@@ -687,13 +687,13 @@
       "periodNoMatches": "Tidak ada yang cocok dengan \"{query}\" di daftar periode ini."
     },
     "mapPull": {
-      "title": "Map yang membuatmu online",
+      "title": "Magnet masuk",
       "description": "Map yang dimasuki pemain ini dalam 5 menit pertama sejak dimulai, lebih sering daripada map rata-rata.",
       "lift": "{lift}× biasanya",
       "joined": "Masuk awal {joins} dari {chances} kali",
       "usual": "Biasanya: masuk di {rate}% awal map",
       "empty": "Belum ada map yang menonjol. Tidak ada yang membuat pemain ini online jauh lebih sering dari biasanya.",
-      "loadError": "Gagal mengambil map yang membuat pemain ini online!"
+      "loadError": "Gagal mengambil magnet masuk!"
     }
   },
   "period": {

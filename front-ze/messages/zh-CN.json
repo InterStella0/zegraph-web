@@ -687,13 +687,13 @@
       "periodNoMatches": "该时间段的列表中没有匹配“{query}”的玩家。"
     },
     "mapPull": {
-      "title": "让你上线的地图",
+      "title": "加入磁铁",
       "description": "该玩家在这些地图开始后 5 分钟内加入的频率高于平均地图。",
       "lift": "平时的 {lift} 倍",
       "joined": "{chances} 次中有 {joins} 次提早加入",
       "usual": "平时：在 {rate}% 的地图开局时加入",
       "empty": "暂时没有突出的地图，没有哪张地图明显比平时更能让该玩家上线。",
-      "loadError": "获取让该玩家上线的地图时出错！"
+      "loadError": "获取加入磁铁时出错！"
     }
   },
   "period": {

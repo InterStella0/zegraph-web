@@ -687,13 +687,13 @@
       "periodNoMatches": "Tiada sesiapa yang sepadan dengan \"{query}\" dalam senarai tempoh ini."
     },
     "mapPull": {
-      "title": "Peta yang membawa anda online",
+      "title": "Magnet sertai",
       "description": "Peta yang pemain ini sertai dalam 5 minit pertama ia bermula, lebih kerap berbanding peta biasa.",
       "lift": "{lift}× biasa",
       "joined": "Sertai awal {joins} daripada {chances} kali",
       "usual": "Biasa: sertai {rate}% permulaan peta",
       "empty": "Belum ada peta yang menonjol. Tiada peta yang membawa pemain ini online jauh lebih kerap daripada biasa.",
-      "loadError": "Ralat mendapatkan peta yang membawa pemain ini online!"
+      "loadError": "Ralat mendapatkan magnet sertai!"
     }
   },
   "period": {

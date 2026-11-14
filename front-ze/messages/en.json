@@ -689,13 +689,13 @@
       "periodNoMatches": "No one matching \"{query}\" in this period's list."
     },
     "mapPull": {
-      "title": "Maps that bring you online",
+      "title": "Join magnet",
       "description": "Maps this player joins within the first 5 minutes of them starting, more often than they do for an average map.",
       "lift": "{lift}× usual",
       "joined": "Joined early {joins} of {chances} times",
       "usual": "Usual: joins {rate}% of map starts",
       "empty": "No map stands out yet. Nothing gets this player online noticeably more than usual.",
-      "loadError": "Error fetching maps that bring this player online!"
+      "loadError": "Error fetching join magnets!"
     }
   },
   "period": {

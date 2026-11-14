@@ -687,13 +687,13 @@
       "periodNoMatches": "Nadie coincide con \"{query}\" en la lista de este periodo."
     },
     "mapPull": {
-      "title": "Mapas que te hacen conectarte",
+      "title": "Imán de entradas",
       "description": "Mapas en los que este jugador entra durante sus primeros 5 minutos, más a menudo que en un mapa promedio.",
       "lift": "{lift}× lo habitual",
       "joined": "Entró pronto {joins} de {chances} veces",
       "usual": "Habitual: entra en el {rate}% de los inicios de mapa",
       "empty": "Ningún mapa destaca todavía: ninguno hace que este jugador se conecte notablemente más de lo habitual.",
-      "loadError": "¡Error al obtener los mapas que hacen conectarse a este jugador!"
+      "loadError": "¡Error al obtener los imanes de entradas!"
     }
   },
   "period": {
