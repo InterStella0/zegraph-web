@@ -16,12 +16,13 @@ import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { cn } from "components/lib/utils";
-import { formatNumber, range, secondsToHours } from "utils/generalUtils";
+import { countryName, formatNumber, getFlagUrl, range, secondsToHours } from "utils/generalUtils";
 import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import SplitBar, { SplitSegment } from "components/players/SplitBar";
 import { SPLIT_SEGMENTS } from "components/players/PlayerStats";
 import { useGlobalPlaytime } from "./useGlobalPlaytime";
 import { useProfileCommunities } from "./ProfileContext";
+import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 import { ENTER, stagger } from "./profileMotion";
 import { ProfileCard, SURFACE } from "./ProfileCard";
 import ViewCount from "components/ui/ViewCount";
@@ -173,16 +174,18 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
         wasCalculating.current = is_calculating;
     }, [is_calculating, router]);
 
-    const lastCommunity = useMemo(() => {
+    // The server they're on now, else the one they played on last.
+    const lastSeen = useMemo(() => {
         const entries = communities.flatMap(community =>
             community.detail.servers.map(server => ({ community, server })));
         const online = entries.find(entry => entry.server.is_online);
-        if (online) return online.community;
+        if (online) return online;
         const latest = entries
             .filter(entry => entry.server.last_played)
             .sort((a, b) => dayjs(b.server.last_played).diff(dayjs(a.server.last_played)))[0];
-        return latest?.community ?? null;
+        return latest ?? null;
     }, [communities]);
+    const lastCommunity = lastSeen?.community ?? null;
 
     const mapStyle = useMemo(() => {
         const players = communities.flatMap(community => community.detail.servers.map(server => server.player));
@@ -214,16 +217,32 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
         }
     };
 
-    const seenOn = lastCommunity?.name;
+    // The short name keeps the status on one line; the tooltip names the server it links to.
+    const seenOn = lastCommunity?.detail.shorten_name?.trim() || lastCommunity?.name || '';
     const time = summary.last_online && toDayjs(summary.last_online).fromNow();
-    let status = t('neverSeen');
-    if (summary.is_online) status = lastCommunity ? t('onlineOn', { community: seenOn }) : t('online');
-    else if (time) status = lastCommunity ? t('lastSeenOn', { time, community: seenOn }) : t('lastSeen', { time });
+    const highlight = {
+        c: (chunks: ReactNode) => lastSeen
+            ? <Link
+                href={`/servers/${lastSeen.server.server_id}`}
+                title={lastSeen.server.server_name}
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+            >{chunks}</Link>
+            : <span className="font-medium text-foreground">{chunks}</span>,
+    };
+    let status: ReactNode = t('neverSeen');
+    if (summary.is_online) status = lastCommunity ? t.rich('onlineOn', { community: seenOn, ...highlight }) : t('online');
+    else if (time) status = lastCommunity ? t.rich('lastSeenOn', { time, community: seenOn, ...highlight }) : time;
+    const countryCode = summary.country_code;
 
     return (
         <>
             {background && <ProfilePageBackground background={background} />}
-            <ProfileCard className={cn("w-full", ENTER)} contentClassName="p-6 sm:p-8">
+            <ProfileCard className={cn("relative w-full", ENTER)} contentClassName="p-6 sm:p-8">
+                {viewsPromise && <ViewCount
+                    viewsPromise={viewsPromise}
+                    className="absolute right-3 top-2.5 text-[11px] text-muted-foreground/70"
+                    iconClassName="size-3"
+                />}
                 <StaleNotice global={global} />
                 <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
                     <div className="relative shrink-0">
@@ -241,16 +260,10 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                     {/* Over a Steam background the name and the stats hug their content, so the blur a
                         hovered card puts behind them stays on them rather than the space between. */}
                     <div className={`flex min-w-0 flex-1 profile-bg:lg:flex-initial flex-col items-center lg:items-start text-center lg:text-left gap-3 ${SURFACE}`}>
-                        <div className="flex items-center justify-center lg:justify-start gap-3 flex-wrap">
+                        <div className="flex items-center justify-center lg:justify-start gap-x-3 gap-y-1 flex-wrap">
                             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight break-all">
                                 {displayName}
                             </h1>
-                            <span
-                                className={cn("size-3 rounded-full", summary.is_online
-                                    ? "bg-green-500 animate-pulse"
-                                    : "bg-muted-foreground/40")}
-                                aria-label={summary.is_online ? t('online') : t('offline')}
-                            />
                             <Tip tip={t('viewSteamProfile')}>
                                 <Button variant="ghost" size="icon" className="rounded-full" asChild>
                                     <a href={`https://steamcommunity.com/profiles/${steamid}`} target="_blank" rel="noopener noreferrer">
@@ -258,20 +271,32 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                                     </a>
                                 </Button>
                             </Tip>
+                            <span className="flex items-center gap-2 text-sm text-muted-foreground" suppressHydrationWarning>
+                                <span
+                                    className={cn("size-2.5 shrink-0 rounded-full", summary.is_online
+                                        ? "bg-green-500 animate-pulse"
+                                        : "bg-muted-foreground/60")}
+                                    role="img"
+                                    aria-label={summary.is_online ? t('online') : t('offline')}
+                                />
+                                <span>{status}</span>
+                            </span>
                         </div>
 
-                        <div className="flex items-center justify-center lg:justify-start gap-2 flex-wrap">
-                            <Badge variant="secondary" className="text-xs font-mono">
-                                ID: {steamid}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground" suppressHydrationWarning>
-                                {summary.is_online ? null : `${t('offline')} · `}{status}
-                            </span>
-                            {viewsPromise && <ViewCount
-                                viewsPromise={viewsPromise}
-                                className="text-sm text-muted-foreground"
-                                iconClassName="size-4"
-                            />}
+                        <div className="flex items-center justify-center lg:justify-start gap-x-2.5 gap-y-1 flex-wrap text-sm text-muted-foreground">
+                            {countryCode && <>
+                                <span className="inline-flex items-center gap-2">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={getFlagUrl(countryCode)}
+                                        alt=""
+                                        className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover"
+                                    />
+                                    {countryName(countryCode, locale)}
+                                </span>
+                                <span aria-hidden className="text-muted-foreground/50">·</span>
+                            </>}
+                            <span className="font-mono text-xs text-muted-foreground/80">#{steamid}</span>
                         </div>
 
                         <div className="flex flex-wrap justify-center lg:justify-start gap-2">
@@ -298,7 +323,13 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                                         total: formatInt(community.detail.rank.total_players),
                                     })}
                                 >
-                                    <span className="size-2 rounded-sm" style={{ backgroundColor: community.color }} aria-hidden />
+                                    {/* A tag doesn't fit in 16px, so a missing or broken logo falls back to the community's colour. */}
+                                    <Avatar className="size-4 shrink-0 rounded-sm" aria-hidden>
+                                        {community.iconUrl && <AvatarImage src={community.iconUrl} alt="" />}
+                                        <AvatarFallback className="bg-transparent">
+                                            <span className="size-2 rounded-sm" style={{ backgroundColor: community.color }} />
+                                        </AvatarFallback>
+                                    </Avatar>
                                     {community.tag} #{formatInt(community.detail.rank.rank)}
                                 </RankChip>
                             ))}

@@ -27,7 +27,9 @@
     "hidden": "（已隱藏）",
     "hiddenHint": "只有你和社群管理員可以看到此名稱，其他人看到的是「匿名玩家」。",
     "bot": "機器人",
-    "botHint": "此帳號是自動化機器人，不是真實玩家。"
+    "botHint": "此帳號是自動化機器人，不是真實玩家。",
+    "views": "{views} 次瀏覽",
+    "viewsHint": "每位訪客每天計一次。"
   },
   "auth": {
     "login": "登入",
@@ -379,6 +381,7 @@
       "moreAliases": "+{count} 更多",
       "lastOnline": "上次上線 {ago}（{hours}小時）",
       "playingSince": "自 {ago} 起遊玩",
+      "lastSession": "{ago}（{hours}小時）",
       "viewSteamProfile": "檢視 Steam 個人檔案",
       "globalProfile": "全域個人檔案",
       "globalShort": "全域",
@@ -542,9 +545,8 @@
         "notEnoughPlaytime": "尚未計算",
         "shareProfile": "分享個人檔案",
         "avatarAlt": "{name} 的頭像",
-        "onlineOn": "正在 {community} 上線",
-        "lastSeen": "最後上線 {time}",
-        "lastSeenOn": "最後上線 {time}（{community}）",
+        "onlineOn": "正在 <c>{community}</c> 上線",
+        "lastSeenOn": "{time}（<c>{community}</c>）",
         "neverSeen": "從未上線",
         "totalPlaytime": "總遊玩時間",
         "hrs": "小時",
@@ -687,13 +689,13 @@
       "periodNoMatches": "此時間範圍的列表中沒有符合「{query}」的玩家。"
     },
     "mapPull": {
-      "title": "讓你上線的地圖",
+      "title": "加入磁鐵",
       "description": "該玩家在這些地圖開始後 5 分鐘內加入的頻率高於平均地圖。",
       "lift": "平時的 {lift} 倍",
       "joined": "{chances} 次中有 {joins} 次提早加入",
       "usual": "平時：在 {rate}% 的地圖開局時加入",
       "empty": "暫時沒有突出的地圖，沒有哪張地圖明顯比平時更能讓該玩家上線。",
-      "loadError": "取得讓該玩家上線的地圖時出錯！"
+      "loadError": "取得加入磁鐵時出錯！"
     }
   },
   "period": {

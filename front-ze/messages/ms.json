@@ -27,7 +27,9 @@
     "hidden": "(Tersembunyi)",
     "hiddenHint": "Hanya anda dan pentadbir komuniti boleh melihat nama ini. Orang lain melihat “Tanpa nama”.",
     "bot": "Bot",
-    "botHint": "Akaun ini ialah bot automatik, bukan pemain sebenar."
+    "botHint": "Akaun ini ialah bot automatik, bukan pemain sebenar.",
+    "views": "{views} tontonan",
+    "viewsHint": "Setiap pelawat dikira sekali sehari."
   },
   "auth": {
     "login": "Log masuk",
@@ -379,6 +381,7 @@
       "moreAliases": "+{count} lagi",
       "lastOnline": "Dalam talian terakhir {ago} ({hours}j)",
       "playingSince": "Bermain sejak {ago}",
+      "lastSession": "{ago} ({hours}j)",
       "viewSteamProfile": "Lihat Profil Steam",
       "globalProfile": "Profil Global",
       "globalShort": "Global",
@@ -542,10 +545,9 @@
         "notEnoughPlaytime": "Belum dikira",
         "shareProfile": "Kongsi Profil",
         "avatarAlt": "Gambar profil {name}",
-        "onlineOn": "Dalam talian sekarang di {community}",
-        "lastSeen": "kali terakhir dilihat {time}",
-        "lastSeenOn": "kali terakhir dilihat {time} di {community}",
-        "neverSeen": "tidak pernah dilihat dalam talian",
+        "onlineOn": "Dalam talian sekarang di <c>{community}</c>",
+        "lastSeenOn": "{time} di <c>{community}</c>",
+        "neverSeen": "Tidak pernah dilihat dalam talian",
         "totalPlaytime": "Jumlah Masa Bermain",
         "hrs": "jam",
         "communitiesServers": "{communities, plural, one {# komuniti} other {# komuniti}} · {servers, plural, one {# pelayan} other {# pelayan}}",
@@ -687,13 +689,13 @@
       "periodNoMatches": "Tiada sesiapa yang sepadan dengan \"{query}\" dalam senarai tempoh ini."
     },
     "mapPull": {
-      "title": "Peta yang membawa anda online",
+      "title": "Magnet sertai",
       "description": "Peta yang pemain ini sertai dalam 5 minit pertama ia bermula, lebih kerap berbanding peta biasa.",
       "lift": "{lift}× biasa",
       "joined": "Sertai awal {joins} daripada {chances} kali",
       "usual": "Biasa: sertai {rate}% permulaan peta",
       "empty": "Belum ada peta yang menonjol. Tiada peta yang membawa pemain ini online jauh lebih kerap daripada biasa.",
-      "loadError": "Ralat mendapatkan peta yang membawa pemain ini online!"
+      "loadError": "Ralat mendapatkan magnet sertai!"
     }
   },
   "period": {

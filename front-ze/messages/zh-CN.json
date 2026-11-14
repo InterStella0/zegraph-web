@@ -27,7 +27,9 @@
     "hidden": "（已隐藏）",
     "hiddenHint": "只有你和社区管理员可以看到此名称，其他人看到的是“匿名玩家”。",
     "bot": "机器人",
-    "botHint": "此账号是自动化机器人，不是真实玩家。"
+    "botHint": "此账号是自动化机器人，不是真实玩家。",
+    "views": "{views} 次浏览",
+    "viewsHint": "每位访客每天计一次。"
   },
   "auth": {
     "login": "登录",
@@ -379,6 +381,7 @@
       "moreAliases": "+{count} 更多",
       "lastOnline": "上次在线 {ago}（{hours}小时）",
       "playingSince": "从 {ago} 开始游玩",
+      "lastSession": "{ago}（{hours}小时）",
       "viewSteamProfile": "查看 Steam 个人资料",
       "globalProfile": "全局个人资料",
       "globalShort": "全局",
@@ -542,9 +545,8 @@
         "notEnoughPlaytime": "尚未计算",
         "shareProfile": "分享个人资料",
         "avatarAlt": "{name} 的头像",
-        "onlineOn": "正在 {community} 在线",
-        "lastSeen": "最后在线 {time}",
-        "lastSeenOn": "最后在线 {time}（{community}）",
+        "onlineOn": "正在 <c>{community}</c> 在线",
+        "lastSeenOn": "{time}（<c>{community}</c>）",
         "neverSeen": "从未在线",
         "totalPlaytime": "总游戏时长",
         "hrs": "小时",
@@ -687,13 +689,13 @@
       "periodNoMatches": "该时间段的列表中没有匹配“{query}”的玩家。"
     },
     "mapPull": {
-      "title": "让你上线的地图",
+      "title": "加入磁铁",
       "description": "该玩家在这些地图开始后 5 分钟内加入的频率高于平均地图。",
       "lift": "平时的 {lift} 倍",
       "joined": "{chances} 次中有 {joins} 次提早加入",
       "usual": "平时：在 {rate}% 的地图开局时加入",
       "empty": "暂时没有突出的地图，没有哪张地图明显比平时更能让该玩家上线。",
-      "loadError": "获取让该玩家上线的地图时出错！"
+      "loadError": "获取加入磁铁时出错！"
     }
   },
   "period": {

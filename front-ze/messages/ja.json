@@ -27,7 +27,9 @@
     "hidden": "（非公開）",
     "hiddenHint": "この名前を見られるのは、あなたとコミュニティ管理者だけです。他のユーザーには「匿名」と表示されます。",
     "bot": "ボット",
-    "botHint": "このアカウントは自動化されたボットで、実際のプレイヤーではありません。"
+    "botHint": "このアカウントは自動化されたボットで、実際のプレイヤーではありません。",
+    "views": "{views} 回表示",
+    "viewsHint": "訪問者ごとに1日1回カウントされます。"
   },
   "auth": {
     "login": "ログイン",
@@ -379,6 +381,7 @@
       "moreAliases": "+{count}個詳細",
       "lastOnline": "{ago}前にラストオンライン({hours}時間)",
       "playingSince": "{ago}からプレイ中",
+      "lastSession": "{ago}（{hours}時間）",
       "viewSteamProfile": "Steamプロファイルを表示",
       "globalProfile": "グローバルプロフィール",
       "globalShort": "グローバル",
@@ -542,9 +545,8 @@
         "notEnoughPlaytime": "未計算",
         "shareProfile": "プロフィールを共有",
         "avatarAlt": "{name}のプロフィール画像",
-        "onlineOn": "{community}でオンライン中",
-        "lastSeen": "最終オンライン {time}",
-        "lastSeenOn": "最終オンライン {time}（{community}）",
+        "onlineOn": "<c>{community}</c>でオンライン中",
+        "lastSeenOn": "{time}（<c>{community}</c>）",
         "neverSeen": "オンライン記録なし",
         "totalPlaytime": "総プレイ時間",
         "hrs": "時間",
@@ -687,13 +689,13 @@
       "periodNoMatches": "この期間のリストに「{query}」に一致するプレイヤーはいません。"
     },
     "mapPull": {
-      "title": "ログインのきっかけになるマップ",
+      "title": "参加マグネット",
       "description": "このプレイヤーが開始から5分以内に参加することが、平均的なマップより多いマップです。",
       "lift": "普段の{lift}倍",
       "joined": "{chances}回中{joins}回、早めに参加",
       "usual": "普段: マップ開始の{rate}%で参加",
       "empty": "目立つマップはまだありません。普段より明らかに多くこのプレイヤーを呼び込むマップはありません。",
-      "loadError": "このプレイヤーを呼び込むマップの取得に失敗しました！"
+      "loadError": "参加マグネットの取得に失敗しました！"
     }
   },
   "period": {

@@ -216,6 +216,32 @@ struct ServerCountriesStatistics{
     countries: Vec<CountryStatistic>
 }
 
+/// The player's country code, unless they hide their location or anonymize themselves in any
+/// community and the viewer isn't them. The country is one value across every community, so hiding
+/// it in one hides it everywhere.
+async fn visible_country(app: &AppData, player_id: &str, viewer_id: Option<i64>) -> Option<String> {
+    let row = sqlx::query!(
+        // A name-only alias has no location of its own, so it falls back to its Steam account's.
+        r#"SELECT
+            COALESCE(p.location_code->>'country', canonical.location_code->>'country') AS country,
+            COALESCE(p.associated_player_id, p.player_id) AS "canonical_id!",
+            EXISTS (
+                SELECT 1 FROM website.user_anonymization ua
+                WHERE ua.user_id::TEXT = COALESCE(p.associated_player_id, p.player_id)
+                  AND (ua.hide_location OR ua.anonymized)
+            ) AS "hidden!"
+         FROM player p
+         LEFT JOIN player canonical ON canonical.player_id = p.associated_player_id
+         WHERE p.player_id = $1"#,
+        player_id
+    ).fetch_optional(&*app.pool).await.unwrap_or_else(|e| {
+        tracing::error!("Failed to read the country of {player_id}: {e}");
+        None
+    })?;
+    let is_owner = viewer_id.is_some_and(|id| id.to_string() == row.canonical_id);
+    if row.hidden && !is_owner { None } else { row.country }
+}
+
 fn handle_worker_player_result<T>(result: WorkResult<T>) -> Response<T>
     where T: ParseFromJSON + ToJSON + Send + Sync{
     handle_worker_result(result, "Not Found")
@@ -1010,10 +1036,15 @@ impl PlayerApi{
     async fn get_player_detail(
         &self, Data(app): Data<&AppData>, Query(period): Query<Option<PeriodParam>>,
         extract: PlayerExtractor,
-        OptionalAnonymousTokenBearer(_user_token): OptionalAnonymousTokenBearer,
+        OptionalAnonymousTokenBearer(user_token): OptionalAnonymousTokenBearer,
     ) -> Response<DetailedPlayer>{
+        let player_id = extract.player.player_id.clone();
         let ctx = PlayerContext::from(extract);
-        handle_worker_player_result(app.player_worker.get_detail(&ctx, flatten_period(period)).await)
+        let mut result = app.player_worker.get_detail(&ctx, flatten_period(period)).await;
+        if let Ok(detail) = result.as_mut() {
+            detail.country_code = visible_country(app, &player_id, user_token.as_ref().map(|t| t.user_id())).await;
+        }
+        handle_worker_player_result(result)
     }
     /// The UTC years and months in which a player has completed sessions on a server, newest year
     /// first, for choosing a `period` on the other player routes.

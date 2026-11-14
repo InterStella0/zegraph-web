@@ -27,7 +27,9 @@
     "hidden": "(Đã ẩn)",
     "hiddenHint": "Chỉ bạn và quản trị viên cộng đồng mới thấy được tên này. Những người khác thấy “Ẩn danh”.",
     "bot": "Bot",
-    "botHint": "Tài khoản này là bot tự động, không phải người chơi thật."
+    "botHint": "Tài khoản này là bot tự động, không phải người chơi thật.",
+    "views": "{views} lượt xem",
+    "viewsHint": "Mỗi người xem được tính một lần mỗi ngày."
   },
   "auth": {
     "login": "Đăng nhập",
@@ -379,6 +381,7 @@
       "moreAliases": "+{count} cái khác",
       "lastOnline": "Lần cuối trực tuyến {ago} ({hours}h)",
       "playingSince": "Chơi từ {ago}",
+      "lastSession": "{ago} ({hours}h)",
       "viewSteamProfile": "Xem hồ sơ Steam",
       "globalProfile": "Hồ sơ toàn cầu",
       "globalShort": "Toàn cầu",
@@ -542,10 +545,9 @@
         "notEnoughPlaytime": "Chưa tính toán",
         "shareProfile": "Chia sẻ hồ sơ",
         "avatarAlt": "Ảnh đại diện của {name}",
-        "onlineOn": "Đang trực tuyến trên {community}",
-        "lastSeen": "lần cuối trực tuyến {time}",
-        "lastSeenOn": "lần cuối trực tuyến {time} trên {community}",
-        "neverSeen": "chưa từng trực tuyến",
+        "onlineOn": "Đang trực tuyến trên <c>{community}</c>",
+        "lastSeenOn": "{time} trên <c>{community}</c>",
+        "neverSeen": "Chưa từng trực tuyến",
         "totalPlaytime": "Tổng thời gian chơi",
         "hrs": "giờ",
         "communitiesServers": "{communities, plural, other {# cộng đồng}} · {servers, plural, other {# máy chủ}}",
@@ -687,13 +689,13 @@
       "periodNoMatches": "Không có ai khớp với \"{query}\" trong danh sách của khoảng thời gian này."
     },
     "mapPull": {
-      "title": "Map khiến bạn online",
+      "title": "Nam châm tham gia",
       "description": "Những map người chơi này vào trong 5 phút đầu khi map bắt đầu, thường xuyên hơn so với một map trung bình.",
       "lift": "{lift}× bình thường",
       "joined": "Vào sớm {joins}/{chances} lần",
       "usual": "Bình thường: vào ở {rate}% lần map bắt đầu",
       "empty": "Chưa có map nào nổi bật. Không map nào khiến người chơi này online nhiều hơn hẳn bình thường.",
-      "loadError": "Lỗi khi tải các map khiến người chơi này online!"
+      "loadError": "Lỗi khi tải nam châm tham gia!"
     }
   },
   "period": {

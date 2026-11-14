@@ -1241,12 +1241,26 @@ impl AccountsApi {
             .await
             .unwrap_or_default();
 
+        // The country is one value across every community, so hiding the location in any of them hides it.
+        let hides_location = anonymization_settings.iter().any(|s| s.hide_location || s.anonymized);
         let can_manage_anonymization = match requester_id {
             Some(id) => is_owner || check_superuser(app, id).await,
             None => false,
         };
         let anonymization = if can_manage_anonymization {
             Some(anonymization_settings.iter_into())
+        } else {
+            None
+        };
+
+        let country_code = if is_owner || !hides_location {
+            sqlx::query_scalar!(
+                "SELECT location_code->>'country' FROM player WHERE player_id = $1",
+                canonical_id
+            ).fetch_optional(pool).await.unwrap_or_else(|e| {
+                tracing::error!("Failed to read the country of {canonical_id}: {e}");
+                None
+            }).flatten()
         } else {
             None
         };
@@ -1278,6 +1292,7 @@ impl AccountsApi {
                 best_rank,
                 best_map_rank,
                 global,
+                country_code,
             },
             communities,
             is_owner,

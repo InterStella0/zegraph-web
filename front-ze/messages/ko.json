@@ -27,7 +27,9 @@
     "hidden": "(비공개)",
     "hiddenHint": "이 이름은 본인과 커뮤니티 관리자만 볼 수 있습니다. 다른 사람에게는 ‘익명’으로 표시됩니다.",
     "bot": "봇",
-    "botHint": "이 계정은 실제 플레이어가 아닌 자동화된 봇입니다."
+    "botHint": "이 계정은 실제 플레이어가 아닌 자동화된 봇입니다.",
+    "views": "조회수 {views}",
+    "viewsHint": "방문자당 하루에 한 번 집계됩니다."
   },
   "auth": {
     "login": "로그인",
@@ -379,6 +381,7 @@
       "moreAliases": "+{count}개 더",
       "lastOnline": "{ago} 전 마지막 온라인 ({hours}시간)",
       "playingSince": "{ago}부터 플레이 중",
+      "lastSession": "{ago} ({hours}시간)",
       "viewSteamProfile": "Steam 프로필 보기",
       "globalProfile": "글로벌 프로필",
       "globalShort": "글로벌",
@@ -542,9 +545,8 @@
         "notEnoughPlaytime": "계산되지 않음",
         "shareProfile": "프로필 공유",
         "avatarAlt": "{name}의 프로필 사진",
-        "onlineOn": "{community}에서 온라인",
-        "lastSeen": "마지막 접속 {time}",
-        "lastSeenOn": "마지막 접속 {time} ({community})",
+        "onlineOn": "<c>{community}</c>에서 온라인",
+        "lastSeenOn": "{time} (<c>{community}</c>)",
         "neverSeen": "접속 기록 없음",
         "totalPlaytime": "총 플레이 시간",
         "hrs": "시간",
@@ -687,13 +689,13 @@
       "periodNoMatches": "이 기간 목록에 \"{query}\"와 일치하는 플레이어가 없습니다."
     },
     "mapPull": {
-      "title": "접속하게 만드는 맵",
+      "title": "접속 자석",
       "description": "이 플레이어가 시작 후 5분 안에 접속하는 빈도가 평균적인 맵보다 높은 맵입니다.",
       "lift": "평소의 {lift}배",
       "joined": "{chances}번 중 {joins}번 일찍 접속",
       "usual": "평소: 맵 시작의 {rate}%에서 접속",
       "empty": "아직 눈에 띄는 맵이 없습니다. 이 플레이어를 평소보다 확연히 더 접속하게 만드는 맵이 없습니다.",
-      "loadError": "이 플레이어를 접속하게 만드는 맵을 불러오지 못했습니다!"
+      "loadError": "접속 자석을 불러오지 못했습니다!"
     }
   },
   "period": {

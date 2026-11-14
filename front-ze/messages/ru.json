@@ -27,7 +27,9 @@
     "hidden": "(Скрыто)",
     "hiddenHint": "Это имя видите только вы и администраторы сообщества. Остальные видят «Анонимный».",
     "bot": "Бот",
-    "botHint": "Этот аккаунт — автоматический бот, а не настоящий игрок."
+    "botHint": "Этот аккаунт — автоматический бот, а не настоящий игрок.",
+    "views": "{count, plural, one {{views} просмотр} few {{views} просмотра} many {{views} просмотров} other {{views} просмотра}}",
+    "viewsHint": "Каждый посетитель учитывается раз в день."
   },
   "auth": {
     "login": "Вход",
@@ -379,6 +381,7 @@
       "moreAliases": "+еще {count}",
       "lastOnline": "Последний раз в сети {ago} ({hours}ч)",
       "playingSince": "Играет с {ago}",
+      "lastSession": "{ago} ({hours}ч)",
       "viewSteamProfile": "Просмотреть профиль Steam",
       "globalProfile": "Глобальный профиль",
       "globalShort": "Глобально",
@@ -542,10 +545,9 @@
         "notEnoughPlaytime": "Не рассчитано",
         "shareProfile": "Поделиться профилем",
         "avatarAlt": "Изображение профиля {name}",
-        "onlineOn": "Сейчас в сети на {community}",
-        "lastSeen": "был в сети {time}",
-        "lastSeenOn": "был в сети {time} на {community}",
-        "neverSeen": "никогда не был в сети",
+        "onlineOn": "Сейчас в сети на <c>{community}</c>",
+        "lastSeenOn": "{time} на <c>{community}</c>",
+        "neverSeen": "Никогда не был в сети",
         "totalPlaytime": "Общее время игры",
         "hrs": "ч",
         "communitiesServers": "{communities, plural, one {# сообщество} few {# сообщества} many {# сообществ} other {# сообщества}} · {servers, plural, one {# сервер} few {# сервера} many {# серверов} other {# сервера}}",
@@ -687,13 +689,13 @@
       "periodNoMatches": "В списке этого периода нет игроков, совпадающих с «{query}»."
     },
     "mapPull": {
-      "title": "Карты, ради которых заходят",
+      "title": "Магнит входа",
       "description": "Карты, на которые этот игрок заходит в первые 5 минут после их начала чаще, чем на среднюю карту.",
       "lift": "{lift}× от обычного",
       "joined": "Заходил рано {joins} из {chances} раз",
       "usual": "Обычно: заходит на {rate}% стартов карт",
       "empty": "Пока ни одна карта не выделяется: ни одна не приводит этого игрока заметно чаще обычного.",
-      "loadError": "Ошибка при загрузке карт, ради которых заходит этот игрок!"
+      "loadError": "Ошибка при загрузке магнитов входа!"
     }
   },
   "period": {

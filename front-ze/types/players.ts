@@ -122,6 +122,7 @@ export interface DetailedPlayer extends PlayerBase{
     calculated_at: string | null,
     external_playtime?: ExternalPlaytime | null,
     is_bot: boolean,
+    country_code?: string | null,
 }
 export interface ExternalPlaytime {
     source: string,

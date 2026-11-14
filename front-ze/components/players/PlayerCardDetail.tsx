@@ -1,14 +1,14 @@
 'use client'
 import {useTranslations, useLocale} from 'next-intl';
 import {ReactElement, use} from "react";
-import {secondsToHours, StillCalculate} from "utils/generalUtils";
+import {countryName, getFlagUrl, secondsToHours, StillCalculate} from "utils/generalUtils";
 import { Card } from "components/ui/card";
 import { Button } from "components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { Badge } from "components/ui/badge";
 import { PlayerAvatar } from "./PlayerAvatar";
 import CategoryChip from "../ui/CategoryChip";
-import { ArrowUpRight, Bot } from "lucide-react";
+import { Bot } from "lucide-react";
 import { cn } from "components/lib/utils";
 import Link from "next/link";
 import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
@@ -78,7 +78,6 @@ function GlobalProfileButton({ steamId, label, className }: { steamId: string, l
         >
             <Link href={`/players/${steamId}/profile`}>
                 {label}
-                <ArrowUpRight />
             </Link>
         </Button>
     );
@@ -88,22 +87,31 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
     server: Server, player: PlayerInfo, user: SteamProfile | null, viewsPromise?: Promise<number | null>,
 }): ReactElement {
     const t = useTranslations('players.card');
+    const tCommon = useTranslations('common');
     const locale = useLocale();
     const toDayjs = useLocalDayjs();
     const { period } = usePeriod()
     const { data: periodStats } = usePlayerStat<DetailedPlayer>(server.id, player.id, 'detail', !!period)
     const stats = period ? periodStats : player
     const ranks = period ? null : player?.ranks
-    const lastPlayedText = player.online_since
-        ? t('playingSince', {ago: toDayjs(player.online_since).fromNow()})
-        : t('lastOnline', {ago: toDayjs(player.last_played_ended).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
+    const isOnline = !!player.online_since
+    // The dot says online or offline, so the text is just how long they've been on, or when they left.
+    const lastPlayedText = isOnline
+        ? toDayjs(player.online_since).fromNow(true)
+        : t('lastSession', {ago: toDayjs(player.last_played_ended).fromNow(), hours: secondsToHours(player.last_played_duration, locale)});
+    const countryCode = player.country_code
     const steamId = !player.id.includes('-') ? player.id : player.associated_player_id || null
     const mapRank = ranks?.highest_map_rank
     const hasCategory = !!stats?.category && stats.category !== 'unknown'
 
     return (
         <div>
-            <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 p-4 border-b border-border sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-6 sm:p-6">
+            <div className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 p-4 border-b border-border sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-6 sm:p-6">
+                {viewsPromise && <ViewCount
+                    viewsPromise={viewsPromise}
+                    className="absolute right-3 top-2.5 text-[11px] text-muted-foreground/70"
+                    iconClassName="size-3"
+                />}
                 <div className="flex w-16 flex-col gap-3 sm:row-span-2 sm:w-[120px]">
                     <PlayerAvatar
                         uuid={player.id}
@@ -153,9 +161,25 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
                             )}
                         </div>
 
-                        {player.last_played && <p className={`mt-0.5 text-sm ${player.online_since ? 'text-green-600 dark:text-green-500' : 'text-muted-foreground'}`} suppressHydrationWarning>
-                            {lastPlayedText}
-                        </p>}
+                        {(countryCode || player.last_played) && <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted-foreground">
+                            {countryCode && <span className="inline-flex items-center gap-2">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={getFlagUrl(countryCode)} alt="" className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover" />
+                                {countryName(countryCode, locale)}
+                            </span>}
+                            {countryCode && player.last_played && <span aria-hidden className="text-muted-foreground/50">·</span>}
+                            {player.last_played && <span
+                                className={cn("inline-flex items-center gap-1.5", isOnline && "text-green-600 dark:text-green-500")}
+                                suppressHydrationWarning
+                            >
+                                <span
+                                    role="img"
+                                    aria-label={isOnline ? tCommon('online') : tCommon('offline')}
+                                    className={cn("size-2 shrink-0 rounded-full", isOnline ? "bg-green-500 animate-pulse" : "bg-muted-foreground/60")}
+                                />
+                                {lastPlayedText}
+                            </span>}
+                        </div>}
                         {player.is_bot && <p className="mt-1 flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-500">
                             <Bot className="size-4 shrink-0"/>
                             {t('botNotice')}
@@ -181,11 +205,6 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
                             rank={mapRank.rank}
                             title={t('topOnMap', {rank: mapRank.rank, map: mapRank.map, hours: secondsToHours(mapRank.total_playtime, locale)})}/>
                     }
-                    {viewsPromise && <ViewCount
-                        viewsPromise={viewsPromise}
-                        className="rounded-md border bg-muted/40 px-2.5 py-1 text-xs font-medium"
-                        iconClassName="size-3.5"
-                    />}
                 </div>
 
                 <PlaytimeTotal

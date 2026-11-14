@@ -27,7 +27,9 @@
     "hidden": "(Tersembunyi)",
     "hiddenHint": "Hanya kamu dan admin komunitas yang dapat melihat nama ini. Orang lain melihat “Anonim”.",
     "bot": "Bot",
-    "botHint": "Akun ini adalah bot otomatis, bukan pemain sungguhan."
+    "botHint": "Akun ini adalah bot otomatis, bukan pemain sungguhan.",
+    "views": "{views} kali dilihat",
+    "viewsHint": "Setiap pengunjung dihitung sekali sehari."
   },
   "auth": {
     "login": "Masuk",
@@ -379,6 +381,7 @@
       "moreAliases": "+{count} lagi",
       "lastOnline": "Terakhir daring {ago} ({hours}j)",
       "playingSince": "Bermain sejak {ago}",
+      "lastSession": "{ago} ({hours}j)",
       "viewSteamProfile": "Lihat Profil Steam",
       "globalProfile": "Profil Global",
       "globalShort": "Global",
@@ -542,10 +545,9 @@
         "notEnoughPlaytime": "Belum dihitung",
         "shareProfile": "Bagikan Profil",
         "avatarAlt": "Foto profil {name}",
-        "onlineOn": "Sedang online di {community}",
-        "lastSeen": "terakhir terlihat {time}",
-        "lastSeenOn": "terakhir terlihat {time} di {community}",
-        "neverSeen": "belum pernah terlihat online",
+        "onlineOn": "Sedang online di <c>{community}</c>",
+        "lastSeenOn": "{time} di <c>{community}</c>",
+        "neverSeen": "Belum pernah terlihat online",
         "totalPlaytime": "Total Waktu Bermain",
         "hrs": "jam",
         "communitiesServers": "{communities, plural, one {# komunitas} other {# komunitas}} · {servers, plural, one {# server} other {# server}}",
@@ -687,13 +689,13 @@
       "periodNoMatches": "Tidak ada yang cocok dengan \"{query}\" di daftar periode ini."
     },
     "mapPull": {
-      "title": "Map yang membuatmu online",
+      "title": "Magnet masuk",
       "description": "Map yang dimasuki pemain ini dalam 5 menit pertama sejak dimulai, lebih sering daripada map rata-rata.",
       "lift": "{lift}× biasanya",
       "joined": "Masuk awal {joins} dari {chances} kali",
       "usual": "Biasanya: masuk di {rate}% awal map",
       "empty": "Belum ada map yang menonjol. Tidak ada yang membuat pemain ini online jauh lebih sering dari biasanya.",
-      "loadError": "Gagal mengambil map yang membuat pemain ini online!"
+      "loadError": "Gagal mengambil magnet masuk!"
     }
   },
   "period": {
