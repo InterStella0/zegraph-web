@@ -5,7 +5,7 @@ import {ArrowUpRight} from "lucide-react";
 import { Skeleton } from "components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { cn } from "components/lib/utils";
-import {formatNumber, secondsToHours} from "utils/generalUtils";
+import {countryName, formatNumber, secondsToHours} from "utils/generalUtils";
 import {
     DetailedPlayer,
     ExternalPlaytime,
@@ -88,13 +88,7 @@ function formatDay(value: string | null | undefined, locale: string, compact = f
 }
 
 function formatCountry(code: string | null, name: string | null, locale: string): string {
-    if (code) {
-        try {
-            return new Intl.DisplayNames(locale, { type: 'region' }).of(code.toUpperCase()) ?? name ?? code;
-        } catch {
-            return name ?? code;
-        }
-    }
+    if (code) return countryName(code, locale, name ?? code);
     return name ?? EMPTY;
 }
 

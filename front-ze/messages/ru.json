@@ -381,6 +381,7 @@
       "moreAliases": "+еще {count}",
       "lastOnline": "Последний раз в сети {ago} ({hours}ч)",
       "playingSince": "Играет с {ago}",
+      "lastSession": "{ago} ({hours}ч)",
       "viewSteamProfile": "Просмотреть профиль Steam",
       "globalProfile": "Глобальный профиль",
       "globalShort": "Глобально",

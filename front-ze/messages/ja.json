@@ -381,6 +381,7 @@
       "moreAliases": "+{count}個詳細",
       "lastOnline": "{ago}前にラストオンライン({hours}時間)",
       "playingSince": "{ago}からプレイ中",
+      "lastSession": "{ago}（{hours}時間）",
       "viewSteamProfile": "Steamプロファイルを表示",
       "globalProfile": "グローバルプロフィール",
       "globalShort": "グローバル",

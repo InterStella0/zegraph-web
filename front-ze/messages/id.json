@@ -381,6 +381,7 @@
       "moreAliases": "+{count} lagi",
       "lastOnline": "Terakhir daring {ago} ({hours}j)",
       "playingSince": "Bermain sejak {ago}",
+      "lastSession": "{ago} ({hours}j)",
       "viewSteamProfile": "Lihat Profil Steam",
       "globalProfile": "Profil Global",
       "globalShort": "Global",

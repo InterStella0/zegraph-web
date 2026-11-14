@@ -177,6 +177,15 @@ export function getFlagUrl(countryCode: string): string {
     return `https://flagcdn.com/w40/${countryCode.toLowerCase()}.png`;
 }
 
+/** The localized name of a two-letter country code, or `fallback` when the runtime can't name it. */
+export function countryName(countryCode: string, locale: string, fallback: string = countryCode): string {
+    try {
+        return new Intl.DisplayNames(locale, { type: 'region' }).of(countryCode.toUpperCase()) ?? fallback;
+    } catch {
+        return fallback;
+    }
+}
+
 type SelectionIntervals = '10min' | '30min' | '1hour' | '6hours' | '12hours' | '1day' | '1week' | '1month'
 const INTERVALS: Record<SelectionIntervals, [server: string, amount: number, unit: dayjs.ManipulateType]> = {
     '10min': ['min10', 10, 'minute'],

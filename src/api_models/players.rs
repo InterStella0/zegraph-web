@@ -42,6 +42,9 @@ pub struct DetailedPlayer{
     /// Flagged as a bot. Bots are left out of rankings and online lists, so `rank` and `ranks` are
     /// empty for them.
     pub is_bot: bool,
+    /// ISO 3166-1 alpha-2 code of the country the player connects from. Left out for everyone but
+    /// the player when they hide their location or anonymize themselves in any community.
+    pub country_code: Option<String>,
 }
 
 /// Lifetime playtime reported by the game server itself.
@@ -885,6 +888,7 @@ mod tests {
             calculated_at: None,
             external_playtime: None,
             is_bot: false,
+            country_code: None,
         }
     }
 

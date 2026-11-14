@@ -381,6 +381,7 @@
       "moreAliases": "+{count} more",
       "lastOnline": "Last online {ago} ({hours}hr)",
       "playingSince": "Playing since {ago}",
+      "lastSession": "{ago} ({hours}hr)",
       "viewSteamProfile": "View Steam Profile",
       "globalProfile": "Global profile",
       "globalShort": "Global",

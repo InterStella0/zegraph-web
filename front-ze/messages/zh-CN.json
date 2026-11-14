@@ -381,6 +381,7 @@
       "moreAliases": "+{count} 更多",
       "lastOnline": "上次在线 {ago}（{hours}小时）",
       "playingSince": "从 {ago} 开始游玩",
+      "lastSession": "{ago}（{hours}小时）",
       "viewSteamProfile": "查看 Steam 个人资料",
       "globalProfile": "全局个人资料",
       "globalShort": "全局",

@@ -381,6 +381,7 @@
       "moreAliases": "+{count} cái khác",
       "lastOnline": "Lần cuối trực tuyến {ago} ({hours}h)",
       "playingSince": "Chơi từ {ago}",
+      "lastSession": "{ago} ({hours}h)",
       "viewSteamProfile": "Xem hồ sơ Steam",
       "globalProfile": "Hồ sơ toàn cầu",
       "globalShort": "Toàn cầu",

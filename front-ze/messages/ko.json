@@ -381,6 +381,7 @@
       "moreAliases": "+{count}개 더",
       "lastOnline": "{ago} 전 마지막 온라인 ({hours}시간)",
       "playingSince": "{ago}부터 플레이 중",
+      "lastSession": "{ago} ({hours}시간)",
       "viewSteamProfile": "Steam 프로필 보기",
       "globalProfile": "글로벌 프로필",
       "globalShort": "글로벌",

@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { cn } from "components/lib/utils";
-import { formatNumber, getFlagUrl, range, secondsToHours } from "utils/generalUtils";
+import { countryName, formatNumber, getFlagUrl, range, secondsToHours } from "utils/generalUtils";
 import {useLocalDayjs} from "lib/hooks/useLocalDayjs";
 import SplitBar, { SplitSegment } from "components/players/SplitBar";
 import { SPLIT_SEGMENTS } from "components/players/PlayerStats";
@@ -149,16 +149,6 @@ function RankChip({ tooltip, href, index, children }: { tooltip: ReactNode, href
     );
 }
 
-/** The localized name of a two-letter country code, or the code itself when the runtime can't name it. */
-function countryName(code: string | null, locale: string): string | null {
-    if (!code) return null;
-    try {
-        return new Intl.DisplayNames(locale, { type: 'region' }).of(code.toUpperCase()) ?? code;
-    } catch {
-        return code;
-    }
-}
-
 export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }: UserProfileProps) {
     const t = useTranslations('players.profile.header');
     const tStats = useTranslations('players.stats');
@@ -184,16 +174,18 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
         wasCalculating.current = is_calculating;
     }, [is_calculating, router]);
 
-    const lastCommunity = useMemo(() => {
+    // The server they're on now, else the one they played on last.
+    const lastSeen = useMemo(() => {
         const entries = communities.flatMap(community =>
             community.detail.servers.map(server => ({ community, server })));
         const online = entries.find(entry => entry.server.is_online);
-        if (online) return online.community;
+        if (online) return online;
         const latest = entries
             .filter(entry => entry.server.last_played)
             .sort((a, b) => dayjs(b.server.last_played).diff(dayjs(a.server.last_played)))[0];
-        return latest?.community ?? null;
+        return latest ?? null;
     }, [communities]);
+    const lastCommunity = lastSeen?.community ?? null;
 
     const mapStyle = useMemo(() => {
         const players = communities.flatMap(community => community.detail.servers.map(server => server.player));
@@ -225,13 +217,22 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
         }
     };
 
-    const seenOn = lastCommunity?.name ?? '';
+    // The short name keeps the status on one line; the tooltip names the server it links to.
+    const seenOn = lastCommunity?.detail.shorten_name?.trim() || lastCommunity?.name || '';
     const time = summary.last_online && toDayjs(summary.last_online).fromNow();
-    const highlight = { c: (chunks: ReactNode) => <span className="font-medium text-foreground">{chunks}</span> };
+    const highlight = {
+        c: (chunks: ReactNode) => lastSeen
+            ? <Link
+                href={`/servers/${lastSeen.server.server_id}`}
+                title={lastSeen.server.server_name}
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+            >{chunks}</Link>
+            : <span className="font-medium text-foreground">{chunks}</span>,
+    };
     let status: ReactNode = t('neverSeen');
     if (summary.is_online) status = lastCommunity ? t.rich('onlineOn', { community: seenOn, ...highlight }) : t('online');
     else if (time) status = lastCommunity ? t.rich('lastSeenOn', { time, community: seenOn, ...highlight }) : time;
-    const country = countryName(summary.country_code, locale);
+    const countryCode = summary.country_code;
 
     return (
         <>
@@ -283,15 +284,15 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                         </div>
 
                         <div className="flex items-center justify-center lg:justify-start gap-x-2.5 gap-y-1 flex-wrap text-sm text-muted-foreground">
-                            {country && summary.country_code && <>
+                            {countryCode && <>
                                 <span className="inline-flex items-center gap-2">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
-                                        src={getFlagUrl(summary.country_code)}
+                                        src={getFlagUrl(countryCode)}
                                         alt=""
                                         className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover"
                                     />
-                                    {country}
+                                    {countryName(countryCode, locale)}
                                 </span>
                                 <span aria-hidden className="text-muted-foreground/50">·</span>
                             </>}
