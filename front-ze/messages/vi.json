@@ -27,7 +27,9 @@
     "hidden": "(Đã ẩn)",
     "hiddenHint": "Chỉ bạn và quản trị viên cộng đồng mới thấy được tên này. Những người khác thấy “Ẩn danh”.",
     "bot": "Bot",
-    "botHint": "Tài khoản này là bot tự động, không phải người chơi thật."
+    "botHint": "Tài khoản này là bot tự động, không phải người chơi thật.",
+    "views": "{views} lượt xem",
+    "viewsHint": "Mỗi người xem được tính một lần mỗi ngày."
   },
   "auth": {
     "login": "Đăng nhập",
@@ -542,10 +544,9 @@
         "notEnoughPlaytime": "Chưa tính toán",
         "shareProfile": "Chia sẻ hồ sơ",
         "avatarAlt": "Ảnh đại diện của {name}",
-        "onlineOn": "Đang trực tuyến trên {community}",
-        "lastSeen": "lần cuối trực tuyến {time}",
-        "lastSeenOn": "lần cuối trực tuyến {time} trên {community}",
-        "neverSeen": "chưa từng trực tuyến",
+        "onlineOn": "Đang trực tuyến trên <c>{community}</c>",
+        "lastSeenOn": "{time} trên <c>{community}</c>",
+        "neverSeen": "Chưa từng trực tuyến",
         "totalPlaytime": "Tổng thời gian chơi",
         "hrs": "giờ",
         "communitiesServers": "{communities, plural, other {# cộng đồng}} · {servers, plural, other {# máy chủ}}",

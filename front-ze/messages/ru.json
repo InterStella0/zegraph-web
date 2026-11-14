@@ -27,7 +27,9 @@
     "hidden": "(Скрыто)",
     "hiddenHint": "Это имя видите только вы и администраторы сообщества. Остальные видят «Анонимный».",
     "bot": "Бот",
-    "botHint": "Этот аккаунт — автоматический бот, а не настоящий игрок."
+    "botHint": "Этот аккаунт — автоматический бот, а не настоящий игрок.",
+    "views": "{count, plural, one {{views} просмотр} few {{views} просмотра} many {{views} просмотров} other {{views} просмотра}}",
+    "viewsHint": "Каждый посетитель учитывается раз в день."
   },
   "auth": {
     "login": "Вход",
@@ -542,10 +544,9 @@
         "notEnoughPlaytime": "Не рассчитано",
         "shareProfile": "Поделиться профилем",
         "avatarAlt": "Изображение профиля {name}",
-        "onlineOn": "Сейчас в сети на {community}",
-        "lastSeen": "был в сети {time}",
-        "lastSeenOn": "был в сети {time} на {community}",
-        "neverSeen": "никогда не был в сети",
+        "onlineOn": "Сейчас в сети на <c>{community}</c>",
+        "lastSeenOn": "{time} на <c>{community}</c>",
+        "neverSeen": "Никогда не был в сети",
         "totalPlaytime": "Общее время игры",
         "hrs": "ч",
         "communitiesServers": "{communities, plural, one {# сообщество} few {# сообщества} many {# сообществ} other {# сообщества}} · {servers, plural, one {# сервер} few {# сервера} many {# серверов} other {# сервера}}",

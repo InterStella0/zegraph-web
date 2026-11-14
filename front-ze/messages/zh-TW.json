@@ -27,7 +27,9 @@
     "hidden": "（已隱藏）",
     "hiddenHint": "只有你和社群管理員可以看到此名稱，其他人看到的是「匿名玩家」。",
     "bot": "機器人",
-    "botHint": "此帳號是自動化機器人，不是真實玩家。"
+    "botHint": "此帳號是自動化機器人，不是真實玩家。",
+    "views": "{views} 次瀏覽",
+    "viewsHint": "每位訪客每天計一次。"
   },
   "auth": {
     "login": "登入",
@@ -542,9 +544,8 @@
         "notEnoughPlaytime": "尚未計算",
         "shareProfile": "分享個人檔案",
         "avatarAlt": "{name} 的頭像",
-        "onlineOn": "正在 {community} 上線",
-        "lastSeen": "最後上線 {time}",
-        "lastSeenOn": "最後上線 {time}（{community}）",
+        "onlineOn": "正在 <c>{community}</c> 上線",
+        "lastSeenOn": "{time}（<c>{community}</c>）",
         "neverSeen": "從未上線",
         "totalPlaytime": "總遊玩時間",
         "hrs": "小時",

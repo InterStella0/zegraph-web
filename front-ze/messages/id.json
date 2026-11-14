@@ -27,7 +27,9 @@
     "hidden": "(Tersembunyi)",
     "hiddenHint": "Hanya kamu dan admin komunitas yang dapat melihat nama ini. Orang lain melihat “Anonim”.",
     "bot": "Bot",
-    "botHint": "Akun ini adalah bot otomatis, bukan pemain sungguhan."
+    "botHint": "Akun ini adalah bot otomatis, bukan pemain sungguhan.",
+    "views": "{views} kali dilihat",
+    "viewsHint": "Setiap pengunjung dihitung sekali sehari."
   },
   "auth": {
     "login": "Masuk",
@@ -542,10 +544,9 @@
         "notEnoughPlaytime": "Belum dihitung",
         "shareProfile": "Bagikan Profil",
         "avatarAlt": "Foto profil {name}",
-        "onlineOn": "Sedang online di {community}",
-        "lastSeen": "terakhir terlihat {time}",
-        "lastSeenOn": "terakhir terlihat {time} di {community}",
-        "neverSeen": "belum pernah terlihat online",
+        "onlineOn": "Sedang online di <c>{community}</c>",
+        "lastSeenOn": "{time} di <c>{community}</c>",
+        "neverSeen": "Belum pernah terlihat online",
         "totalPlaytime": "Total Waktu Bermain",
         "hrs": "jam",
         "communitiesServers": "{communities, plural, one {# komunitas} other {# komunitas}} · {servers, plural, one {# server} other {# server}}",

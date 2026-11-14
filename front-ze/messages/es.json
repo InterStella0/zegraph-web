@@ -27,7 +27,9 @@
     "hidden": "(Oculto)",
     "hiddenHint": "Solo tú y los administradores de la comunidad pueden ver este nombre. Los demás ven «Anónimo».",
     "bot": "Bot",
-    "botHint": "Esta cuenta es un bot automatizado, no un jugador real."
+    "botHint": "Esta cuenta es un bot automatizado, no un jugador real.",
+    "views": "{count, plural, one {{views} visita} other {{views} visitas}}",
+    "viewsHint": "Cada visitante cuenta una vez al día."
   },
   "auth": {
     "login": "Iniciar sesión",
@@ -542,10 +544,9 @@
         "notEnoughPlaytime": "Sin calcular",
         "shareProfile": "Compartir perfil",
         "avatarAlt": "Foto de perfil de {name}",
-        "onlineOn": "En línea ahora en {community}",
-        "lastSeen": "visto por última vez {time}",
-        "lastSeenOn": "visto por última vez {time} en {community}",
-        "neverSeen": "nunca visto en línea",
+        "onlineOn": "En línea ahora en <c>{community}</c>",
+        "lastSeenOn": "{time} en <c>{community}</c>",
+        "neverSeen": "Nunca visto en línea",
         "totalPlaytime": "Tiempo total de juego",
         "hrs": "hrs",
         "communitiesServers": "{communities, plural, one {# comunidad} other {# comunidades}} · {servers, plural, one {# servidor} other {# servidores}}",

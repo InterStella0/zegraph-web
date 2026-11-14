@@ -120,6 +120,7 @@ export interface ProfileSummary {
     best_rank: GlobalMapRank | null;
     best_map_rank: PlayerMapRank | null;
     global: GlobalPlaytimeSummary;
+    country_code: string | null;
 }
 
 export interface UserAnonymization {

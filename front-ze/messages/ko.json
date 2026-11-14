@@ -27,7 +27,9 @@
     "hidden": "(비공개)",
     "hiddenHint": "이 이름은 본인과 커뮤니티 관리자만 볼 수 있습니다. 다른 사람에게는 ‘익명’으로 표시됩니다.",
     "bot": "봇",
-    "botHint": "이 계정은 실제 플레이어가 아닌 자동화된 봇입니다."
+    "botHint": "이 계정은 실제 플레이어가 아닌 자동화된 봇입니다.",
+    "views": "조회수 {views}",
+    "viewsHint": "방문자당 하루에 한 번 집계됩니다."
   },
   "auth": {
     "login": "로그인",
@@ -542,9 +544,8 @@
         "notEnoughPlaytime": "계산되지 않음",
         "shareProfile": "프로필 공유",
         "avatarAlt": "{name}의 프로필 사진",
-        "onlineOn": "{community}에서 온라인",
-        "lastSeen": "마지막 접속 {time}",
-        "lastSeenOn": "마지막 접속 {time} ({community})",
+        "onlineOn": "<c>{community}</c>에서 온라인",
+        "lastSeenOn": "{time} (<c>{community}</c>)",
         "neverSeen": "접속 기록 없음",
         "totalPlaytime": "총 플레이 시간",
         "hrs": "시간",

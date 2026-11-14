@@ -812,6 +812,9 @@ pub struct ProfileSummary {
     /// fraction of its players, ties going to the most playtime.
     pub best_map_rank: Option<PlayerMapRank>,
     pub global: GlobalPlaytimeSummary,
+    /// ISO 3166-1 alpha-2 code of the country the player connects from. Left out for everyone but
+    /// the player when they hide their location or anonymize themselves in any community.
+    pub country_code: Option<String>,
 }
 
 /// A user's public profile page.

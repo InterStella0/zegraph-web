@@ -27,7 +27,9 @@
     "hidden": "（非公開）",
     "hiddenHint": "この名前を見られるのは、あなたとコミュニティ管理者だけです。他のユーザーには「匿名」と表示されます。",
     "bot": "ボット",
-    "botHint": "このアカウントは自動化されたボットで、実際のプレイヤーではありません。"
+    "botHint": "このアカウントは自動化されたボットで、実際のプレイヤーではありません。",
+    "views": "{views} 回表示",
+    "viewsHint": "訪問者ごとに1日1回カウントされます。"
   },
   "auth": {
     "login": "ログイン",
@@ -542,9 +544,8 @@
         "notEnoughPlaytime": "未計算",
         "shareProfile": "プロフィールを共有",
         "avatarAlt": "{name}のプロフィール画像",
-        "onlineOn": "{community}でオンライン中",
-        "lastSeen": "最終オンライン {time}",
-        "lastSeenOn": "最終オンライン {time}（{community}）",
+        "onlineOn": "<c>{community}</c>でオンライン中",
+        "lastSeenOn": "{time}（<c>{community}</c>）",
         "neverSeen": "オンライン記録なし",
         "totalPlaytime": "総プレイ時間",
         "hrs": "時間",
