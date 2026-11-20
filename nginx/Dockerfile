@@ -1,4 +1,4 @@
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 
 # Copy nginx config as template (will be processed by entrypoint)
 COPY nginx.conf /etc/nginx/conf.d/default.conf.template

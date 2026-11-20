@@ -246,7 +246,11 @@ CREATE TABLE map_music (
     youtube_music TEXT,
     source TEXT NOT NULL,
     tried_searching BOOLEAN NOT NULL DEFAULT false,
-    yt_source BIGINT NOT NULL DEFAULT 0
+    yt_source BIGINT NOT NULL DEFAULT 0,  -- 0 is the bot's pick, else the steam id of whoever set it
+    yt_check TEXT,  -- how the bot's pick got checked (pollings/music.py CHECK_*), NULL is not yet
+    yt_confidence DOUBLE PRECISION,  -- jev's, when jev decided
+    yt_checked_at TIMESTAMP WITH TIME ZONE,
+    yt_previous TEXT  -- the pick the check replaced, to look back at or undo
 );
 
 CREATE TABLE associated_map_music (

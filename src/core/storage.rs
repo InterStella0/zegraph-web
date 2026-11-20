@@ -43,7 +43,7 @@ impl StorageBackend {
 
                 let credentials = Credentials::new(access_key, secret_key, None, None, "r2");
                 let config = aws_sdk_s3::Config::builder()
-                    .behavior_version(BehaviorVersion::v2026_01_12())
+                    .behavior_version(BehaviorVersion::v2026_11_17())
                     .region(Region::new("auto"))
                     .endpoint_url(endpoint)
                     .credentials_provider(credentials)
