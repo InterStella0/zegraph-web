@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 import { ENTER, stagger } from "./profileMotion";
 import { ProfileCard, SURFACE } from "./ProfileCard";
 import ViewCount, { VIEWS_ABOVE } from "components/ui/ViewCount";
+import { useServerMap } from "components/ui/ServerProvider";
 
 interface UserProfileProps {
     profilePromise: Promise<ProfileResponse>;
@@ -154,6 +155,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
     const locale = useLocale();
     const profile = use(profilePromise);
     const { communities } = useProfileCommunities();
+    const servers = useServerMap();
     const toDayjs = useLocalDayjs();
     const router = useRouter();
     const pathname = usePathname();
@@ -222,7 +224,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
     const highlight = {
         c: (chunks: ReactNode) => lastSeen
             ? <Link
-                href={`/servers/${lastSeen.server.server_id}`}
+                href={`/servers/${servers.slugOf(lastSeen.server.server_id)}`}
                 title={lastSeen.server.server_name}
                 className="font-medium text-foreground underline-offset-4 hover:underline"
             >{chunks}</Link>

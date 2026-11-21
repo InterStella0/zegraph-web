@@ -450,6 +450,7 @@ impl DbGlobalMapRankEntry {
 pub struct DbServerNameMaxPlayers {
     pub server_name: Option<String>,
     pub max_players: Option<i16>,
+    pub readable_link: Option<String>,
 }
 
 #[derive(DbInto)]

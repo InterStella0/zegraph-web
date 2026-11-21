@@ -22,6 +22,7 @@ import { ENTER, LIFT, SWAP, stagger } from "./profileMotion";
 import { ProfileCard, ProfileCardHeader, ProfileCardLoading, SURFACE, TAG } from "./ProfileCard";
 import { tint } from "./profileChart";
 import {cleanDisplayName} from "utils/format";
+import { useServerMap } from "components/ui/ServerProvider";
 
 const CARD = "flex h-full flex-col";
 const CONTENT = "flex min-h-0 flex-1 flex-col";
@@ -46,6 +47,7 @@ function SessionRow({ session, index }: { session: GlobalPlayerSession, index: n
     const t = useTranslations('players.sessions');
     const toDayjs = useLocalDayjs();
     const { communityOf, colorOf } = useProfileCommunities();
+    const servers = useServerMap();
     const community = communityOf(session.community_id);
     const where = community?.name || cleanDisplayName(session.community_name) || cleanDisplayName(session.server_name) || t('unknownServer');
     const accent = colorOf(session.community_id);
@@ -55,7 +57,7 @@ function SessionRow({ session, index }: { session: GlobalPlayerSession, index: n
 
     return (
         <Link
-            href={`/servers/${session.server_id}/players/${session.player_id}/sessions/${session.id}`}
+            href={`/servers/${servers.slugOf(session.server_id)}/players/${session.player_id}/sessions/${session.id}`}
             className={`flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-3 hover:border-primary/60 hover:bg-accent/40 ${LIFT} ${SWAP}`}
             style={stagger(index)}
         >

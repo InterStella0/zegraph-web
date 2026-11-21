@@ -14,6 +14,10 @@ export class CommunitiesData{
         for (const server of servers)
             this.serversMapped.set(String(server.id), server);
     }
+
+    slugOf(serverId: string): string {
+        return this.serversMapped.get(serverId)?.gotoLink ?? serverId;
+    }
 }
 
 export async function getCommunity(options: object = { next: { revalidate: 60 } }): Promise<Community[]>{

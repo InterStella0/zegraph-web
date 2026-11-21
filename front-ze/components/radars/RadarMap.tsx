@@ -101,7 +101,7 @@ export default function RadarMap({ dateDisplay, height, fullscreen = false }) {
                                         asChild
                                         className={isDarkMode ? 'bg-black/50' : 'bg-black/25'}
                                     >
-                                        <Link href={`/servers/${server.id}/radar`}>
+                                        <Link href={`/servers/${server.gotoLink}/radar`}>
                                             <ExternalLink className="h-4 w-4" />
                                         </Link>
                                     </Button>
