@@ -25,7 +25,8 @@ import { useProfileCommunities } from "./ProfileContext";
 import { Avatar, AvatarFallback, AvatarImage } from "components/ui/avatar";
 import { ENTER, stagger } from "./profileMotion";
 import { ProfileCard, SURFACE } from "./ProfileCard";
-import ViewCount from "components/ui/ViewCount";
+import ViewCount, { VIEWS_ABOVE } from "components/ui/ViewCount";
+import { useServerMap } from "components/ui/ServerProvider";
 
 interface UserProfileProps {
     profilePromise: Promise<ProfileResponse>;
@@ -34,7 +35,6 @@ interface UserProfileProps {
 }
 
 const SECTION_LABEL = "text-xs font-medium uppercase tracking-wider text-muted-foreground";
-
 // The player's Steam profile background behind the whole page, as on their Steam profile. Fixed
 // below the sakura layer (z-index -1), so the petals and the frosted profile cards sit on top. Its
 // data-profile-background switches the cards to their less blurred `profile-bg:` glass.
@@ -155,6 +155,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
     const locale = useLocale();
     const profile = use(profilePromise);
     const { communities } = useProfileCommunities();
+    const servers = useServerMap();
     const toDayjs = useLocalDayjs();
     const router = useRouter();
     const pathname = usePathname();
@@ -223,7 +224,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
     const highlight = {
         c: (chunks: ReactNode) => lastSeen
             ? <Link
-                href={`/servers/${lastSeen.server.server_id}`}
+                href={`/servers/${servers.slugOf(lastSeen.server.server_id)}`}
                 title={lastSeen.server.server_name}
                 className="font-medium text-foreground underline-offset-4 hover:underline"
             >{chunks}</Link>
@@ -237,12 +238,7 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
     return (
         <>
             {background && <ProfilePageBackground background={background} />}
-            <ProfileCard className={cn("relative w-full", ENTER)} contentClassName="p-6 sm:p-8">
-                {viewsPromise && <ViewCount
-                    viewsPromise={viewsPromise}
-                    className="absolute right-3 top-2.5 text-[11px] text-muted-foreground/70"
-                    iconClassName="size-3"
-                />}
+            <ProfileCard className={cn("w-full", ENTER)} contentClassName="p-6 sm:p-8">
                 <StaleNotice global={global} />
                 <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
                     <div className="relative shrink-0">
@@ -336,7 +332,8 @@ export default function UserProfile({ profilePromise, pfpPromise, viewsPromise }
                         </div>
                     </div>
 
-                    <div className={`flex flex-col items-center lg:items-end gap-4 profile-bg:lg:ml-auto ${SURFACE}`}>
+                    <div className={`relative flex flex-col items-center lg:items-end gap-4 profile-bg:lg:ml-auto ${SURFACE}`}>
+                        {viewsPromise && <ViewCount viewsPromise={viewsPromise} className={VIEWS_ABOVE} iconClassName="size-3" />}
                         <div className="flex flex-wrap justify-center lg:justify-end gap-8 text-center lg:text-right">
                             <div>
                                 <div className="flex items-center justify-center lg:justify-end gap-1.5">

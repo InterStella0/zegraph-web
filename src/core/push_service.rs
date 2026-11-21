@@ -257,7 +257,7 @@ impl PushNotificationService {
                 payload_data["serverId"] = json!(server_id_val);
                 if let Some(map) = map_name {
                     payload_data["mapName"] = json!(map);
-                    payload_data["mapInfoUrl"] = json!(format!("/servers/{}/maps/{}", server_id_val, map));
+                    payload_data["mapInfoUrl"] = payload_data["url"].clone();
                     image_url = Some(format!("/thumbnails/medium/{}.jpg", map));
                 }
             } else {

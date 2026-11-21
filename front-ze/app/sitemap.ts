@@ -31,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const urls: MetadataRoute.Sitemap = [entry('', 'hourly', 1.0), entry('/maps', 'daily', 1.0)]
 
     for (const server of data.servers) {
-        const slug = server.readable_link ?? server.server_id
+        const slug = server.readable_link || server.server_id
         urls.push(
             entry(`/servers/${slug}`, 'hourly', 1.0),
             entry(`/servers/${slug}/maps`, 'daily', 1.0),
@@ -45,7 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         if (map_name == "")
             continue
 
-        const slug = map.server_readable_link ?? map.server_id
+        const slug = map.server_readable_link || map.server_id
         urls.push(entry(`/servers/${slug}/maps/${map_name}`, 'weekly', 0.9, map.last_played))
 
         const latest = globalMaps.get(map_name) ?? null
@@ -55,7 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         urls.push(entry(`/maps/${map_name}`, 'weekly', 0.9, lastPlayed))
 
     for (const player of data.players) {
-        const slug = player.server_readable_link ?? player.server_id
+        const slug = player.server_readable_link || player.server_id
         urls.push(entry(`/servers/${slug}/players/${player.player_id}`, 'weekly', 0.7, player.recent_online))
     }
 

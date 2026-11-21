@@ -23,6 +23,7 @@ import ServerSessionStrip from "./ServerSessionStrip";
 import { CommunityLogo, ProfileCommunity, useProfileCommunities } from "./ProfileContext";
 import { COLLAPSE, SWAP, stagger } from "./profileMotion";
 import {cleanDisplayName} from "utils/format";
+import { useServerMap } from "components/ui/ServerProvider";
 
 export type AnonymizeType = "location" | "anonymous";
 
@@ -136,6 +137,7 @@ export default function CommunityConnectionCard({
     const locale = useLocale();
     const toDayjs = useLocalDayjs();
     const { focused, setFocused } = useProfileCommunities();
+    const servers = useServerMap();
     const [open, setOpen] = useState(defaultOpen);
     const { detail } = community;
     const isOnlineHere = detail.servers.some(s => s.is_online);
@@ -201,7 +203,7 @@ export default function CommunityConnectionCard({
                                     <div className="flex flex-wrap items-center gap-2">
                                         {serverPlayer.player.total_playtime > 0 ? (
                                             <Link
-                                                href={`/servers/${serverPlayer.server_id}/players/${serverPlayer.player.id}`}
+                                                href={`/servers/${servers.slugOf(serverPlayer.server_id)}/players/${serverPlayer.player.id}`}
                                                 className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
                                             >
                                                 {cleanDisplayName(serverPlayer.server_name)}

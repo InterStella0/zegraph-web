@@ -83,9 +83,8 @@ function ServerChip({ serverId, communityColors }: { serverId: string | null, co
 }
 
 function useServerSlug(serverId: string | null): string | null {
-    const {serversMapped} = useServerMap();
-    if (!serverId) return null;
-    return serversMapped.get(serverId)?.gotoLink ?? serverId;
+    const servers = useServerMap();
+    return serverId ? servers.slugOf(serverId) : null;
 }
 
 function MaybeLink({ href, className, children }: { href: string | null, className?: string, children: ReactNode }) {

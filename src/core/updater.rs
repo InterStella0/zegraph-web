@@ -575,14 +575,18 @@ async fn send_map_change_notifications(
 
     let server_info = sqlx::query_as!(
         DbServerNameMaxPlayers,
-        "SELECT server_name, max_players FROM server WHERE server_id = $1",
+        "SELECT server_name, max_players, readable_link FROM server WHERE server_id = $1",
         &server_id
     )
     .fetch_optional(pool.as_ref())
     .await?;
 
-    let (server_name, max_players) = match server_info {
-        Some(info) => (info.server_name.unwrap_or_else(|| server_id.clone()), info.max_players.unwrap_or(64) as i64),
+    let (server_name, max_players, server_slug) = match server_info {
+        Some(info) => (
+            info.server_name.unwrap_or_else(|| server_id.clone()),
+            info.max_players.unwrap_or(64) as i64,
+            info.readable_link.filter(|link| !link.is_empty()).unwrap_or_else(|| server_id.clone()),
+        ),
         None => {
             tracing::warn!("Server {} not found in database, skipping notifications", server_id);
             return Ok(());
@@ -620,7 +624,7 @@ async fn send_map_change_notifications(
             player_count,
             max_players
         );
-        let url = format!("/servers/{}/maps/{}", server_id, new_map_name);
+        let url = format!("/servers/{}/maps/{}", server_slug, new_map_name);
 
         let result = push_service.send_notification_to_subscription(
             sub.subscription_id,
@@ -687,7 +691,7 @@ async fn send_map_change_notifications(
             player_count,
             max_players
         );
-        let url = format!("/servers/{}/maps/{}", server_id, new_map_name);
+        let url = format!("/servers/{}/maps/{}", server_slug, new_map_name);
 
         let result = push_service.send_notification_to_subscription(
             sub.subscription_id,

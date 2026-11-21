@@ -9,12 +9,14 @@ import { ReviewActions, REVIEW_STATUSES } from '../components/ReviewActions';
 import { StatusBadge } from '../components/StatusBadge';
 import { StatusFilter, useStatusList } from '../components/StatusFilter';
 import type { PlayerClaimAdmin } from 'types/admin';
+import { useServerMap } from 'components/ui/ServerProvider';
 
 const HEADERS = ['Claimer', 'Claimed profile', 'Server', 'Note', 'Status', 'Date', 'Actions'];
 
 export default function PlayerClaimsPage() {
     const { data: claims, loading, statusFilter, setStatusFilter, updateStatus } =
         useStatusList<PlayerClaimAdmin>('/admin/player-claims', 'claims', 'player claims');
+    const servers = useServerMap();
 
     const review = (claimId: string, status: 'approved' | 'rejected') => updateStatus(claimId, status, {
         success: status === 'approved' ? 'Claim approved and profile merged' : 'Claim rejected',
@@ -59,7 +61,7 @@ export default function PlayerClaimsPage() {
                         <TableCell className="text-sm">
                             <div className="font-medium">{claim.player_name || 'Unknown'}</div>
                             <Link
-                                href={`/servers/${claim.server_id}/players/${claim.player_id}`}
+                                href={`/servers/${servers.slugOf(claim.server_id)}/players/${claim.player_id}`}
                                 className="text-xs text-muted-foreground font-mono hover:underline"
                             >
                                 {claim.player_id}

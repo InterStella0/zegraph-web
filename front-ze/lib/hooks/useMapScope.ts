@@ -20,20 +20,20 @@ export type MapScope = {
 export function useMapScope(): MapScope {
     const server = useServerData()?.server ?? null
     const { name } = useMapContext<unknown>()
-    const { serversMapped } = useServerMap()
+    const servers = useServerMap()
 
     return useMemo(() => ({
         server,
         fetchMap: (endpoint, options = {}) => fetchMapUrl(server?.id ?? null, name, endpoint, options),
         sessionHref: session => {
-            const slug = server?.gotoLink ?? serversMapped.get(session.server_id)?.gotoLink ?? session.server_id
+            const slug = server?.gotoLink ?? servers.slugOf(session.server_id)
             return `/servers/${slug}/maps/${session.map || name}/sessions/${session.time_id}`
         },
         playerHref: playerId => server
             ? `/servers/${server.gotoLink}/players/${playerId}`
             : `/players/${playerId}/profile`,
         mapHref: map => server ? `/servers/${server.gotoLink}/maps/${map}` : `/maps/${map}`,
-    }), [server, name, serversMapped])
+    }), [server, name, servers])
 }
 
 type MapResourceOptions<T> = Omit<NonNullable<Parameters<typeof useResource<T>>[2]>, 'seed'> & {
