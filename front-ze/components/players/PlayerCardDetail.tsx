@@ -27,7 +27,7 @@ import {usePeriod} from "components/period/Period";
 import PlayerClaimButton from "./PlayerClaimButton";
 import AssociatePlayerDialog from "./AssociatePlayerDialog";
 import {SteamProfile} from "types/steam";
-import ViewCount from "../ui/ViewCount";
+import ViewCount, {VIEWS_ABOVE} from "../ui/ViewCount";
 
 function AliasesDropdown({ aliases }) {
     const t = useTranslations('players.card');
@@ -106,12 +106,7 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
 
     return (
         <div>
-            <div className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 p-4 border-b border-border sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-6 sm:p-6">
-                {viewsPromise && <ViewCount
-                    viewsPromise={viewsPromise}
-                    className="absolute right-3 top-2.5 text-[11px] text-muted-foreground/70"
-                    iconClassName="size-3"
-                />}
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 p-4 border-b border-border sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-6 sm:p-6">
                 <div className="flex w-16 flex-col gap-3 sm:row-span-2 sm:w-[120px]">
                     <PlayerAvatar
                         uuid={player.id}
@@ -207,10 +202,15 @@ function PlayerCardDetailDisplay({ server, player, user, viewsPromise }: {
                     }
                 </div>
 
-                <PlaytimeTotal
-                    player={stats}
-                    className="col-span-full mt-4 border-t pt-4 sm:col-span-1 sm:col-start-3 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:border-0 sm:pt-0"
-                />
+                <div className="relative col-span-full mt-4 border-t pt-4 sm:col-span-1 sm:col-start-3 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:border-0 sm:pt-0">
+                    {/* Stacked under the rank chips on phones, so it shares the label's line there instead. */}
+                    {viewsPromise && <ViewCount
+                        viewsPromise={viewsPromise}
+                        className={cn(VIEWS_ABOVE, "max-sm:static max-sm:float-right max-sm:mb-0")}
+                        iconClassName="size-3"
+                    />}
+                    <PlaytimeTotal player={stats} />
+                </div>
 
                 <PlayerStats player={stats} className="col-span-full mt-4 sm:mt-6"/>
             </div>
