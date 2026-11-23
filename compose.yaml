@@ -211,10 +211,37 @@ services:
           cpus: '0.25'
           memory: 256M
 
+  attack-guard:
+    image: interstella0/ze-graph:attack-guard
+    restart: always
+    build:
+      context: ./attack-guard
+    environment:
+      POSTHOG_API_HOST: ${ATTACK_GUARD_POSTHOG_API_HOST:-https://eu.posthog.com}
+      POSTHOG_LIVE_HOST: ${ATTACK_GUARD_POSTHOG_LIVE_HOST:-https://live.eu.posthog.com}
+      POSTHOG_PROJECT_ID: ${ATTACK_GUARD_POSTHOG_PROJECT_ID}
+      POSTHOG_PERSONAL_API_KEY: ${ATTACK_GUARD_POSTHOG_PERSONAL_API_KEY}
+      CLOUDFLARE_API_TOKEN: ${ATTACK_GUARD_CLOUDFLARE_API_TOKEN}
+      CLOUDFLARE_ZONE_ID: ${ATTACK_GUARD_CLOUDFLARE_ZONE_ID}
+      USERS_THRESHOLD: ${ATTACK_GUARD_THRESHOLD:-10}
+      SUSTAINED_MINUTES: ${ATTACK_GUARD_SUSTAINED_MINUTES:-10}
+      COOLDOWN_MINUTES: ${ATTACK_GUARD_COOLDOWN_MINUTES:-20}
+      POLL_INTERVAL_SECONDS: ${ATTACK_GUARD_POLL_INTERVAL_SECONDS:-60}
+      DRY_RUN: ${ATTACK_GUARD_DRY_RUN:-false}
+    volumes:
+      - attack-guard-state:/data
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
+
 volumes:
   thumbnails:
   tile_cache:
   redis-data:
+  attack-guard-state:
 
 networks:
   default:
