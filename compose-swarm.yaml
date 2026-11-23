@@ -207,10 +207,44 @@ services:
           cpus: '0.25'
           memory: 256M
 
+  attack-guard:
+    image: interstella0/ze-graph:attack-guard
+    environment:
+      POSTHOG_API_HOST: ${ATTACK_GUARD_POSTHOG_API_HOST:-https://eu.posthog.com}
+      POSTHOG_LIVE_HOST: ${ATTACK_GUARD_POSTHOG_LIVE_HOST:-https://live.eu.posthog.com}
+      POSTHOG_PROJECT_ID: ${ATTACK_GUARD_POSTHOG_PROJECT_ID}
+      POSTHOG_PERSONAL_API_KEY: ${ATTACK_GUARD_POSTHOG_PERSONAL_API_KEY}
+      CLOUDFLARE_API_TOKEN: ${ATTACK_GUARD_CLOUDFLARE_API_TOKEN}
+      CLOUDFLARE_ZONE_ID: ${ATTACK_GUARD_CLOUDFLARE_ZONE_ID}
+      USERS_THRESHOLD: ${ATTACK_GUARD_THRESHOLD:-10}
+      SUSTAINED_MINUTES_MIN: ${ATTACK_GUARD_SUSTAINED_MINUTES_MIN:-1}
+      SUSTAINED_MINUTES_MAX: ${ATTACK_GUARD_SUSTAINED_MINUTES_MAX:-20}
+      COOLDOWN_MINUTES_MIN: ${ATTACK_GUARD_COOLDOWN_MINUTES_MIN:-5}
+      COOLDOWN_MINUTES_MAX: ${ATTACK_GUARD_COOLDOWN_MINUTES_MAX:-15}
+      POLL_INTERVAL_SECONDS: ${ATTACK_GUARD_POLL_INTERVAL_SECONDS:-60}
+      DRY_RUN: ${ATTACK_GUARD_DRY_RUN:-false}
+    volumes:
+      # Pinned to the manager below, so this local volume survives redeploys.
+      - attack-guard-state:/data
+    logging: *default-logging
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
+        reservations:
+          cpus: '0.01'
+          memory: 16M
+
 volumes:
   thumbnails:
   tile_cache:
   redis-data:
+  attack-guard-state:
 
 secrets:
   # Created out-of-band on the manager (see deploy notes); not stored in git.
