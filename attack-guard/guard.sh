@@ -9,22 +9,39 @@ POSTHOG_API_HOST=${POSTHOG_API_HOST:-https://eu.posthog.com}
 POSTHOG_LIVE_HOST=${POSTHOG_LIVE_HOST:-https://live.eu.posthog.com}
 CLOUDFLARE_API_BASE=${CLOUDFLARE_API_BASE:-https://api.cloudflare.com/client/v4}
 USERS_THRESHOLD=${USERS_THRESHOLD:-10}
-SUSTAINED_MINUTES=${SUSTAINED_MINUTES:-10}
-COOLDOWN_MINUTES=${COOLDOWN_MINUTES:-20}
+SUSTAINED_MINUTES_MIN=${SUSTAINED_MINUTES_MIN:-1}
+SUSTAINED_MINUTES_MAX=${SUSTAINED_MINUTES_MAX:-20}
+COOLDOWN_MINUTES_MIN=${COOLDOWN_MINUTES_MIN:-5}
+COOLDOWN_MINUTES_MAX=${COOLDOWN_MINUTES_MAX:-15}
 POLL_INTERVAL_SECONDS=${POLL_INTERVAL_SECONDS:-60}
 STATE_PATH=${STATE_PATH:-/data/state.json}
+HISTORY_PATH=${HISTORY_PATH:-/data/triggers.log}
 DRY_RUN=${DRY_RUN:-false}
 
-for var in USERS_THRESHOLD SUSTAINED_MINUTES COOLDOWN_MINUTES POLL_INTERVAL_SECONDS; do
-  [[ ${!var} =~ ^[0-9]+$ ]] || { echo "$var=${!var} is not a whole number" >&2; exit 1; }
+die() { echo "$*" >&2; exit 1; }
+for var in USERS_THRESHOLD SUSTAINED_MINUTES_MIN SUSTAINED_MINUTES_MAX COOLDOWN_MINUTES_MIN COOLDOWN_MINUTES_MAX POLL_INTERVAL_SECONDS; do
+  [[ ${!var} =~ ^[0-9]+$ ]] || die "$var=${!var} is not a whole number"
 done
-(( SUSTAINED_MINUTES > 0 && POLL_INTERVAL_SECONDS > 0 )) || { echo "SUSTAINED_MINUTES and POLL_INTERVAL_SECONDS must be at least 1" >&2; exit 1; }
+(( SUSTAINED_MINUTES_MIN > 0 && POLL_INTERVAL_SECONDS > 0 )) || die "SUSTAINED_MINUTES_MIN and POLL_INTERVAL_SECONDS must be at least 1"
+(( SUSTAINED_MINUTES_MIN <= SUSTAINED_MINUTES_MAX )) || die "SUSTAINED_MINUTES_MIN is above SUSTAINED_MINUTES_MAX"
+(( COOLDOWN_MINUTES_MIN <= COOLDOWN_MINUTES_MAX )) || die "COOLDOWN_MINUTES_MIN is above COOLDOWN_MINUTES_MAX"
 
-needed=$(( (SUSTAINED_MINUTES * 60 + POLL_INTERVAL_SECONDS - 1) / POLL_INTERVAL_SECONDS ))
-streak=0
 LIVE_TOKEN=
 
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*"; }
+
+# Also kept on the volume, since container logs go away when the task is replaced.
+event() { log "$*"; log "$*" >> "$HISTORY_PATH" || log "writing $HISTORY_PATH failed"; }
+
+# random LO HI, inclusive. /dev/urandom rather than $RANDOM, which is guessable from the pid and time.
+random() { echo $(( $1 + $(od -An -N4 -tu4 /dev/urandom) % ($2 - $1 + 1) )); }
+
+new_window() {
+  window=$(random "$SUSTAINED_MINUTES_MIN" "$SUSTAINED_MINUTES_MAX")
+  needed=$(( (window * 60 + POLL_INTERVAL_SECONDS - 1) / POLL_INTERVAL_SECONDS ))
+  streak=0
+  log "watching for $window min ($needed polls)"
+}
 
 # Fed to curl as a header file so tokens never show up in `ps`.
 auth() { printf 'Authorization: Bearer %s\n' "$1"; }
@@ -102,17 +119,17 @@ check() {
     log "traffic is sustained but under attack mode is already on by hand; leaving it alone"
     return
   fi
-  local prev=$LEVEL
+  local prev=$LEVEL cooldown
+  cooldown=$(random "$COOLDOWN_MINUTES_MIN" "$COOLDOWN_MINUTES_MAX")
   # Written before the PATCH, so a crash right after it still ends with the old level restored.
-  jq -nc --arg l "$prev" --argjson u $(( $(date +%s) + COOLDOWN_MINUTES * 60 )) \
+  jq -nc --arg l "$prev" --argjson u $(( $(date +%s) + cooldown * 60 )) \
     '{restore_level: $l, until_unix: $u}' > "$STATE_PATH.tmp" && mv "$STATE_PATH.tmp" "$STATE_PATH" \
     || { log "writing $STATE_PATH failed"; return; }
   if ! set_level under_attack; then
     rm -f "$STATE_PATH"
     return
   fi
-  streak=0
-  log "under attack mode ON (was $prev) for $COOLDOWN_MINUTES minutes"
+  event "TRIGGERED: under attack mode ON for $cooldown min, users online above $USERS_THRESHOLD for $window min (last reading $USERS), was $prev"
 }
 
 tick() {
@@ -130,13 +147,14 @@ tick() {
   fi
   set_level "$restore" || return
   rm -f "$STATE_PATH"
-  streak=0
-  log "under attack mode OFF (restored $restore)"
+  event "RESTORED: under attack mode OFF, security level back to $restore"
+  new_window
 }
 
 trap 'log "shutting down"; exit 0' TERM INT
 
-log "attack guard starting: above $USERS_THRESHOLD users for $needed polls of ${POLL_INTERVAL_SECONDS}s, cooldown $COOLDOWN_MINUTES min, dry run $DRY_RUN"
+log "attack guard starting: above $USERS_THRESHOLD users for $SUSTAINED_MINUTES_MIN-$SUSTAINED_MINUTES_MAX min, cooldown $COOLDOWN_MINUTES_MIN-$COOLDOWN_MINUTES_MAX min, polling every ${POLL_INTERVAL_SECONDS}s, dry run $DRY_RUN"
+new_window
 while true; do
   tick
   sleep "$POLL_INTERVAL_SECONDS" &
